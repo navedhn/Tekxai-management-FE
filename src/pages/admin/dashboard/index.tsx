@@ -289,6 +289,7 @@ const Dashboard: React.FC = () => {
                         <div className="p-2 bg-primary-50 text-primary-500 rounded-xl">
                             <Briefcase size={20} />
                         </div>
+                        <h2 className="text-lg font-black text-gray-900 tracking-tight">Projects Summary</h2>
                     </div>
                     <button className="text-xs font-black text-primary-500 hover:underline flex items-center gap-1 shrink-0">
                         View All <ChevronRight size={14} />
