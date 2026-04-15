@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/utils/cn';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LoaderPinwheel } from 'lucide-react';
 
 export interface Column<T> {
   header: string;
@@ -62,8 +62,22 @@ const Table = <T,>({
               <tr>
                 <td colSpan={columns.length} className="px-6 py-12 text-center">
                   <div className="flex flex-col items-center gap-2">
-                    <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-gray-500 font-medium">Loading data...</span>
+                    <div className={cn('flex items-center justify-center')}>
+                      <LoaderPinwheel
+                        className={cn('animate-spin', className)}
+                        size={30}
+                        stroke="url(#gradient)"
+                      />
+
+                      <svg width="0" height="0">
+                        <defs>
+                          <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor="#005CDA" />
+                            <stop offset="100%" stopColor="#001F4A" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
+                    </div>
                   </div>
                 </td>
               </tr>
@@ -118,7 +132,7 @@ const Table = <T,>({
             >
               <ChevronLeft size={18} />
             </button>
-            
+
             {Array.from({ length: Math.min(pagination.totalPages, 5) }).map((_, i) => {
               // Simplified pagination logic for demo
               const pageNum = i + 1;
