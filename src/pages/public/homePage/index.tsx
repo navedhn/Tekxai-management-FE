@@ -241,17 +241,17 @@ const HomePage: React.FC = () => {
 
         {/* Authentication CTA */}
         {isLoggedIn ? (
-          <Button 
-            variant='outline' 
-            className='rounded-md text-white hover:text-black' 
+          <Button
+            variant='outline'
+            className='rounded-md text-white hover:text-black'
             onClick={() => navigate(role === 'ADMIN' ? '/admin' : '/employee')}
           >
             Go to Dashboard
           </Button>
         ) : (
-          <Button 
-            variant='outline' 
-            className='rounded-md text-white hover:text-black' 
+          <Button
+            variant='outline'
+            className='rounded-md text-white hover:text-black'
             onClick={() => navigate('/login')}
           >
             Sign In
@@ -359,30 +359,7 @@ const HomePage: React.FC = () => {
         </div>
 
         {/* ── Countdown ── */}
-        <div style={{ marginBottom: 64, animation: 'fadeSlideUp 0.8s 0.4s both' }}>
-          <p style={{
-            fontSize: 12, fontWeight: 700, letterSpacing: '0.18em',
-            color: 'rgba(147,197,253,0.6)', textTransform: 'uppercase',
-            marginBottom: 20,
-          }}>
-            Launching in
-          </p>
-          <div style={{ display: 'flex', gap: 'clamp(12px, 2vw, 24px)', flexWrap: 'wrap', justifyContent: 'center' }}>
-            <CountdownUnit value={days} label="Days" />
-            <div style={{ display: 'flex', alignItems: 'center', paddingBottom: 28 }}>
-              <span style={{ fontSize: 36, fontWeight: 900, color: 'rgba(147,197,253,0.4)', lineHeight: 1 }}>:</span>
-            </div>
-            <CountdownUnit value={hours} label="Hours" />
-            <div style={{ display: 'flex', alignItems: 'center', paddingBottom: 28 }}>
-              <span style={{ fontSize: 36, fontWeight: 900, color: 'rgba(147,197,253,0.4)', lineHeight: 1 }}>:</span>
-            </div>
-            <CountdownUnit value={minutes} label="Minutes" />
-            <div style={{ display: 'flex', alignItems: 'center', paddingBottom: 28 }}>
-              <span style={{ fontSize: 36, fontWeight: 900, color: 'rgba(147,197,253,0.4)', lineHeight: 1 }}>:</span>
-            </div>
-            <CountdownUnit value={seconds} label="Seconds" />
-          </div>
-        </div>
+
 
         {/* ── Email notify form ── */}
         <div style={{ width: '100%', maxWidth: 480, animation: 'fadeSlideUp 0.8s 0.5s both' }}>
@@ -443,29 +420,7 @@ const HomePage: React.FC = () => {
 
 
         {/* ── Divider & Social proof ── */}
-        <div style={{
-          marginTop: 72,
-          paddingTop: 32,
-          borderTop: '1px solid rgba(255,255,255,0.07)',
-          width: '100%', maxWidth: 560,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
-          animation: 'fadeSlideUp 0.8s 0.7s both',
-        }}>
-          <p style={{ fontSize: 12, fontWeight: 600, color: 'rgba(147,197,253,0.45)', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>
-            Trusted by teams at
-          </p>
-          <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
-            {['Startups', 'Agencies', 'Enterprises', 'Freelancers'].map(name => (
-              <span key={name} style={{
-                fontSize: 14, fontWeight: 800, letterSpacing: '0.05em',
-                color: 'rgba(180,210,255,0.3)',
-                textTransform: 'uppercase',
-              }}>
-                {name}
-              </span>
-            ))}
-          </div>
-        </div>
+
       </main>
 
       {/* ── Footer ── */}
@@ -476,32 +431,12 @@ const HomePage: React.FC = () => {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexWrap: 'wrap', gap: 12,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{
-            width: 26, height: 26, borderRadius: 7,
-            background: 'linear-gradient(135deg, #1f7bff, #005CDA)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(31,123,255,0.4)',
-          }}>
-            <span style={{ color: '#fff', fontSize: 10, fontWeight: 900 }}>TX</span>
-          </div>
+        <div className='flex items-center justify-center w-full'>
+
           <span style={{ color: 'rgba(180,210,255,0.4)', fontSize: 13, fontWeight: 600 }}>TEKXAI</span>
           <span style={{ color: 'rgba(180,210,255,0.2)', fontSize: 13 }}>· © 2026 All rights reserved</span>
         </div>
-        <div style={{ display: 'flex', gap: 24 }}>
-          {['Privacy', 'Terms', 'Contact'].map(link => (
-            <span key={link} style={{
-              fontSize: 13, color: 'rgba(180,210,255,0.35)',
-              cursor: 'pointer', fontWeight: 500,
-              transition: 'color 0.2s',
-            }}
-              onMouseEnter={e => (e.currentTarget.style.color = 'rgba(180,210,255,0.75)')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(180,210,255,0.35)')}
-            >
-              {link}
-            </span>
-          ))}
-        </div>
+
       </footer>
 
       {/* ── Keyframe animations ── */}
