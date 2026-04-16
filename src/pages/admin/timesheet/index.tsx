@@ -111,15 +111,15 @@ const TimesheetManagement: React.FC = () => {
         { header: 'Date', key: 'day_date' },
         {
             header: 'Check In',
-            key: 'check_in',
-            render: (item) => <span className={!item.has_entry ? "text-gray-400" : ""}>{item.check_in || item.no_entry_text}</span>
+            key: 'check_in ',
+            render: (item) => <span className={!item.has_entry ? "text-gray-400 " : ""}>{item.check_in || item.no_entry_text}</span>
         },
         {
             header: 'Check Out',
             key: 'check_out',
             render: (item) => <span className={!item.has_entry ? "text-gray-400" : ""}>{item.check_out || item.no_entry_text}</span>
         },
-        { header: 'Duration', key: 'duration_label', render: (item) => <span>{item.duration_label}</span> },
+        { header: 'Duration', key: 'duration_label ', render: (item) => <span>{item.duration_label}</span> },
         // {
         //     header: 'Status',
         //     key: 'status',
