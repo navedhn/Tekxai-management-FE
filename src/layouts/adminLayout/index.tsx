@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import PageWrapper from '@/components/layout/PageWrapper';
 import { useLocation } from 'react-router-dom';
 import { useResponsive } from '@/hooks/useResponsive';
+import ChatFloatingButton from '@/components/ui/ChatFloatingButton';
 
 const AdminLayout: React.FC = memo(() => {
   const [open, setOpen] = useState(false);
@@ -52,6 +53,7 @@ const AdminLayout: React.FC = memo(() => {
           </AnimatePresence>
         </div>
       </main>
+      <ChatFloatingButton />
     </div>
   );
 });

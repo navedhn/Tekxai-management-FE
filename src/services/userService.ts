@@ -3,6 +3,24 @@ import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from './api/endpoints';
 import { QUERY_KEYS } from './api/tanstackKeys';
 
+export interface User {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  avatar?: string;
+  role_id?: string;
+  role_name?: string;
+  role?: { id: string; name: string } | string;
+  roles?: { name: string };
+  department?: string;
+  designation?: string;
+  position?: string;
+  phone?: string;
+  status?: string;
+  team_memberships?: any[];
+}
+
 const fetchUsersApi = async (params?: Record<string, any>) => {
   // Filter out undefined, null, and empty strings
   const filteredParams = params 
@@ -11,19 +29,33 @@ const fetchUsersApi = async (params?: Record<string, any>) => {
     
   const queryString = new URLSearchParams(filteredParams).toString();
   const url = queryString ? `${API_ENDPOINTS.USER.LIST}?${queryString}` : API_ENDPOINTS.USER.LIST;
-  return apiRequest(url);
+  const res = await apiRequest<any>(url);
+  const data = res?.payload?.records || res?.payload || res;
+  return Array.isArray(data) ? data : [];
 };
 
 export const useFetchUsersQuery = (params?: Record<string, any>, enabled: boolean = true) => {
-  return useQuery({
+  return useQuery<User[]>({
     queryKey: [...QUERY_KEYS.USER.LIST, params],
     queryFn: () => fetchUsersApi(params),
     enabled,
   });
 };
 
+export const useGetUserDetailQuery = (id: string | undefined, enabled: boolean = true) => {
+  return useQuery<User>({
+    queryKey: [...QUERY_KEYS.USER.LIST, 'detail', id],
+    queryFn: async () => {
+      if (!id) throw new Error('User ID is required');
+      const res = await apiRequest<any>(API_ENDPOINTS.USER.DETAIL(id));
+      return res?.payload || res;
+    },
+    enabled: enabled && !!id,
+  });
+};
+
 export const useLazyFetchUsersQuery = (params?: Record<string, any>) => {
-  const query = useQuery({
+  const query = useQuery<User[]>({
     queryKey: [...QUERY_KEYS.USER.LIST, params],
     queryFn: () => fetchUsersApi(params),
     enabled: false,

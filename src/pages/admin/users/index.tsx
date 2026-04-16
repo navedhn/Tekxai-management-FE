@@ -26,7 +26,7 @@ const UserManagement: React.FC = () => {
     const deleteUser = useDeleteUserMutation();
 
     const filteredUsers = React.useMemo(() => {
-        const payload = (usersData as any)?.payload?.records || (usersData as any)?.payload || [];
+        const payload = usersData || [];
         if (!payload) return [];
         if (!debouncedSearch) return payload;
 
@@ -39,7 +39,7 @@ const UserManagement: React.FC = () => {
         );
     }, [usersData, debouncedSearch]);
 
-    const users = (usersData as any)?.payload?.records || (usersData as any)?.payload || [];
+    const users = usersData || [];
 
     const handleAddUser = () => {
         setSelectedUser(null);
@@ -165,9 +165,7 @@ const UserManagement: React.FC = () => {
                             containerClassName="w-full lg:min-w-[400px]"
                             className="h-12 rounded-xl"
                         />
-                        <button className="p-3 bg-gray-50 text-gray-400 rounded-xl hover:bg-gray-100 transition-all border border-gray-100">
-                            <Filter size={20} />
-                        </button>                    </div>
+                    </div>
 
                     <Button
                         variant="primary"

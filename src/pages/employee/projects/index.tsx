@@ -69,7 +69,7 @@ const EmployeeProjects: React.FC = () => {
       key: 'title',
       render: (item) => (
         <button
-          onClick={() => setSelectedProject(item.title)}
+          onClick={() => setSelectedProject(item.id)}
           className="text-left font-black text-gray-900 transition-colors hover:text-primary-500 hover:underline underline-offset-4"
         >
           {item.title}
@@ -151,7 +151,7 @@ const EmployeeProjects: React.FC = () => {
       <ProjectDetailsSlideOver
         isOpen={!!selectedProject}
         onClose={() => setSelectedProject(null)}
-        projectTitle={selectedProject || ''}
+        projectId={selectedProject}
         routePrefix="/employee"
       />
 

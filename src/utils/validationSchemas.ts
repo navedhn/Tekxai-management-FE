@@ -76,7 +76,7 @@ export const validateLoginForm = (values: { email: string; password: string }) =
 
 export const validateOTP = (value: string | undefined): ValidationError => {
   if (!value) return 'OTP is required';
-  if (!/^\d{6,8}$/.test(value)) return 'OTP must be 6-8 digits';
+  if (!/^\d{4}$/.test(value)) return 'OTP must be 4 digits';
   return undefined;
 };
 

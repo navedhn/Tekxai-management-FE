@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
+import Textarea from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import Select from '@/components/ui/Select';
 import { useCreateTeamMutation, useUpdateTeamMutation } from '@/services/adminService';
@@ -27,6 +28,8 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, team }) 
     type: 'DEVELOPMENT',
     description: ''
   });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const { showToast } = useToast();
   const createTeam = useCreateTeamMutation();
@@ -60,8 +63,14 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, team }) 
   };
 
   const handleSubmit = () => {
-    if (!formData.name) {
-      showToast('Team name is required', 'error');
+    // Inline validation
+    const newErrors: Record<string, string> = {};
+    if (!formData.name.trim()) newErrors.name = 'Team name is required';
+    if (!formData.type) newErrors.type = 'Team type is required';
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
       return;
     }
 
@@ -101,6 +110,7 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, team }) 
           name="name"
           value={formData.name}
           onChange={handleInputChange}
+          error={errors.name}
           placeholder="e.g. Frontend Avengers"
           className="h-12 rounded-xl"
         />
@@ -110,21 +120,18 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, team }) 
           options={teamTypes}
           value={formData.type}
           onChange={handleSelectChange}
+          error={errors.type}
           className="h-12 !rounded-xl text-xs font-bold"
         />
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase ml-1">
-            Description
-          </label>
-          <textarea
-            name="description"
-            value={formData.description}
-            onChange={handleInputChange}
-            placeholder="What does this team focus on?"
-            className="w-full p-4 rounded-xl border border-gray-200 focus:outline-none focus:border-primary-500 min-h-[100px] text-gray-700 font-medium resize-none transition-all"
-          />
-        </div>
+        <Textarea
+          label="Description"
+          name="description"
+          value={formData.description}
+          onChange={handleInputChange}
+          placeholder="What does this team focus on?"
+          className="min-h-[120px]"
+        />
 
         <div className="flex gap-3 mt-4">
           <Button

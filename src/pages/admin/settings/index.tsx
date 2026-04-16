@@ -8,6 +8,7 @@ import Table, { Column } from '@/components/ui/Table';
 import { Search, Filter, Mail, Calendar, Info, Clock, Plus, Trash2, Edit2 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useGetInvitesQuery, useDeleteInviteMutation } from '@/services/inviteService';
+import { useGetMySettingsQuery, useUpdatePreferencesMutation, useChangePasswordMutation } from '@/services/settingsService';
 import InviteMemberModal from '@/components/ui/InviteMemberModal';
 import ActionModal from '@/components/ui/ActionModal';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -16,6 +17,9 @@ const Setting: React.FC = () => {
     const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState('security');
     const [notifications, setNotifications] = useState(true);
+    const [oldPassword, setOldPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmNewPassword, setConfirmNewPassword] = useState('');
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
     const [selectedInvite, setSelectedInvite] = useState<any>(null);
 
@@ -27,6 +31,16 @@ const Setting: React.FC = () => {
     const debouncedSearch = useDebounce(search, 500);
 
     const { data: invitesData, isLoading: isLoadingInvites } = useGetInvitesQuery({}, activeTab === 'invites');
+    
+    const { data: settingsData } = useGetMySettingsQuery();
+    const updatePreferences = useUpdatePreferencesMutation();
+    const changePassword = useChangePasswordMutation();
+
+    React.useEffect(() => {
+        if ((settingsData as any)?.payload) {
+            setNotifications((settingsData as any).payload.show_notifications ?? true);
+        }
+    }, [settingsData]);
 
     const filteredInvites = React.useMemo(() => {
         const payload = (invitesData as any)?.payload?.records || (invitesData as any)?.payload || [];
@@ -46,8 +60,43 @@ const Setting: React.FC = () => {
 
     const deleteInvite = useDeleteInviteMutation();
 
+    const handleNotificationsToggle = () => {
+        const newValue = !notifications;
+        setNotifications(newValue);
+        updatePreferences.mutate({
+            show_notifications: newValue,
+            language: (settingsData as any)?.payload?.language || 'en'
+        }, {
+            onSuccess: () => showToast('Preferences updated', 'success'),
+            onError: (err: any) => {
+                setNotifications(!newValue);
+                showToast(err.message || 'Failed to update preferences', 'error');
+            }
+        });
+    };
+
     const handleSave = () => {
-        showToast('Settings updated successfully!', 'success');
+        if (!oldPassword || !newPassword || !confirmNewPassword) {
+            return showToast('Please fill all password fields', 'error');
+        }
+        if (newPassword !== confirmNewPassword) {
+            return showToast('New passwords do not match', 'error');
+        }
+        changePassword.mutate({
+            old_password: oldPassword,
+            new_password: newPassword,
+            confirm_new_password: confirmNewPassword
+        }, {
+            onSuccess: () => {
+                showToast('Password updated successfully!', 'success');
+                setOldPassword('');
+                setNewPassword('');
+                setConfirmNewPassword('');
+            },
+            onError: (err: any) => {
+                showToast(err.message || 'Failed to update password', 'error');
+            }
+        });
     };
 
     const handleDeleteInvite = (invite: any) => {
@@ -169,8 +218,9 @@ const Setting: React.FC = () => {
                                 <p className="text-[13px] text-gray-500 font-medium tracking-tight">Allow to receive push notifications for user activities and logs count</p>
                             </div>
                             <button
-                                onClick={() => setNotifications(!notifications)}
-                                className={`w-[52px] h-[28px] rounded-full transition-all duration-300 relative shrink-0 ${notifications ? 'bg-[#00A043]' : 'bg-gray-200'}`}
+                                onClick={handleNotificationsToggle}
+                                className={`w-[52px] h-[28px] rounded-full transition-all duration-300 relative shrink-0 ${notifications ? 'bg-[#00A043]' : 'bg-gray-200'} ${updatePreferences.isPending ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                disabled={updatePreferences.isPending}
                             >
                                 <div className={`absolute top-1 w-[20px] h-[20px] rounded-full bg-white transition-all duration-300 shadow-sm ${notifications ? 'left-[28px]' : 'left-1'}`} />
                             </button>
@@ -187,6 +237,8 @@ const Setting: React.FC = () => {
                                         type="password"
                                         placeholder="Enter your old password"
                                         className="h-14 rounded-xl"
+                                        value={oldPassword}
+                                        onChange={(e) => setOldPassword(e.target.value)}
                                     />
                                 </div>
 
@@ -197,6 +249,8 @@ const Setting: React.FC = () => {
                                             type="password"
                                             placeholder="Enter new password"
                                             className="h-14 rounded-xl"
+                                            value={newPassword}
+                                            onChange={(e) => setNewPassword(e.target.value)}
                                         />
                                         <div className="flex items-center gap-1.5 mt-1 ml-1 text-gray-500">
                                             <Info size={12} />
@@ -209,6 +263,8 @@ const Setting: React.FC = () => {
                                             type="password"
                                             placeholder="Confirm new password"
                                             className="h-14 rounded-xl"
+                                            value={confirmNewPassword}
+                                            onChange={(e) => setConfirmNewPassword(e.target.value)}
                                         />
                                     </div>
                                 </div>
@@ -219,8 +275,9 @@ const Setting: React.FC = () => {
                                         size="lg"
                                         className="rounded-xl px-10 h-14 font-black shadow-xl shadow-primary-100"
                                         onClick={handleSave}
+                                        disabled={changePassword.isPending}
                                     >
-                                        Update Password
+                                        {changePassword.isPending ? 'Updating...' : 'Update Password'}
                                     </Button>
                                 </div>
                             </Card>

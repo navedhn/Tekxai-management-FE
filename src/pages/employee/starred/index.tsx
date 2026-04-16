@@ -6,6 +6,8 @@ import { ChevronRight, Star, MessageSquare, GripVertical, MoreVertical } from '@
 import { cn } from '@/utils/cn';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Folder, Trash2 } from 'lucide-react';
+import Loader from '@/components/ui/Loader';
+import { useGetStarredQueries, useUnstarItemMutation, type StarredItem } from '@/services/starredService';
 
 interface CommentEntry {
     type: 'comment';
@@ -141,6 +143,21 @@ const MOCK_TASKS: TaskEntry[] = [
 
 const StarredQueries: React.FC = () => {
     const [activeTab, setActiveTab] = useState('Comments');
+    const { data: rawStarredData, isLoading } = useGetStarredQueries({ tab: activeTab.toLowerCase() });
+
+    const unstarMutation = useUnstarItemMutation();
+    const handleUnstar = async (type: string, id: string) => {
+        try {
+            await unstarMutation.mutateAsync({ item_type: type, id });
+        } catch (e) {
+            console.error('Failed to unstar', e);
+        }
+    };
+
+    // Support either direct array return or object mapped arrays
+    const listData = Array.isArray(rawStarredData)
+        ? rawStarredData
+        : (rawStarredData?.[activeTab.toLowerCase()] || []);
 
     const tabs = [
         { label: 'Comments', value: 'Comments', count: 16 },
@@ -150,51 +167,57 @@ const StarredQueries: React.FC = () => {
 
     const renderComments = () => (
         <div className="flex flex-col gap-6">
-            {MOCK_COMMENTS.map((query) => (
-                <div key={query.id} className="group flex items-center gap-6">
-                    <Card className="flex-1 p-6 flex flex-col gap-4 shadow-sm border-gray-100/50 hover:shadow-md transition-shadow relative overflow-hidden rounded-[2rem]">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <img src={query.avatar} alt={query.author} className="h-10 w-10 rounded-full object-cover border-2 border-primary-50" />
-                                <div className="flex items-center gap-2">
-                                    <span className="text-sm font-black text-gray-900 leading-none">{query.author}</span>
-                                    <span className="text-[11px] text-gray-400 font-bold leading-none mt-0.5">{query.date}</span>
-                                    <Star size={16} className="text-yellow-400 fill-yellow-400 ml-1" />
+            {isLoading ? <Loader /> : listData.length === 0 ?
+                <div className="text-gray-400 font-bold text-sm flex bg-white rounded-xl items-center justify-center min-h-[300px]">No starred comments found.</div>
+                : listData.map((query: any) => (
+                    <div key={query.id} className="group flex items-center gap-6">
+                        <Card className="flex-1 p-6 flex flex-col gap-4 shadow-sm border-gray-100/50 hover:shadow-md transition-shadow relative overflow-hidden rounded-[2rem]">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <img src={query.avatar} alt={query.author} className="h-10 w-10 rounded-full object-cover border-2 border-primary-50" />
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-black text-gray-900 leading-none">{query.author}</span>
+                                        <span className="text-[11px] text-gray-400 font-bold leading-none mt-0.5">{query.date}</span>
+                                        <button onClick={() => handleUnstar('comments', query.id)} className="ml-1 hover:scale-110 active:scale-95 transition-all">
+                                            <Star size={16} className="text-yellow-400 fill-yellow-400" />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="flex flex-col gap-3 pl-14">
-                            <Badge variant="info" className="w-fit bg-primary-50 text-primary-600 border-none px-3 py-1 font-black text-[11px]">
-                                {query.mention}
-                            </Badge>
-                            <p className="text-sm text-gray-600 leading-relaxed font-medium">
-                                {query.content}
-                            </p>
-                        </div>
-                    </Card>
+                            <div className="flex flex-col gap-3 pl-14">
+                                <Badge variant="info" className="w-fit bg-primary-50 text-primary-600 border-none px-3 py-1 font-black text-[11px]">
+                                    {query.mention}
+                                </Badge>
+                                <p className="text-sm text-gray-600 leading-relaxed font-medium">
+                                    {query.content}
+                                </p>
+                            </div>
+                        </Card>
 
-                    <button className="h-14 w-14 shrink-0 rounded-[1.2rem] bg-white border border-gray-100 shadow-sm flex items-center justify-center text-gray-400 hover:text-primary-500 hover:border-primary-200 hover:shadow-md transition-all active:scale-95 group-hover:bg-primary-50/30">
-                        <ChevronRight size={24} />
-                    </button>
-                </div>
-            ))}
+                        <button className="h-14 w-14 shrink-0 rounded-[1.2rem] bg-white border border-gray-100 shadow-sm flex items-center justify-center text-gray-400 hover:text-primary-500 hover:border-primary-200 hover:shadow-md transition-all active:scale-95 group-hover:bg-primary-50/30">
+                            <ChevronRight size={24} />
+                        </button>
+                    </div>
+                ))}
         </div>
     );
 
     const renderProjects = () => (
         <div className="flex flex-col gap-6">
-            {MOCK_PROJECTS.map((entry) => (
+            {isLoading ? <Loader /> : listData.length === 0 ? <div className="text-gray-400 font-bold text-sm flex bg-white rounded-xl items-center justify-center min-h-[300px]">No starred projects found.</div> : listData.map((entry: any) => (
                 <div key={entry.id} className="flex flex-col gap-4">
                     <div className="flex items-center gap-3">
                         <img src={entry.avatar} alt={entry.author} className="h-6 w-6 rounded-full border border-gray-100" />
                         <span className="text-xs font-black text-gray-900">{entry.author}</span>
                         <span className="text-[10px] text-gray-400 font-bold">{entry.date}</span>
-                        <Star size={14} className="text-yellow-400 fill-yellow-400" />
+                        <button onClick={() => handleUnstar('projects', entry.id)} className="hover:scale-110 active:scale-95 transition-all">
+                            <Star size={14} className="text-yellow-400 fill-yellow-400" />
+                        </button>
                     </div>
 
                     <div className="flex flex-col  border-l-2 border-primary-50 bg-white">
-                        {entry.projects.map((proj, index) => (
+                        {entry.projects.map((proj: StarredItem, index: number) => (
                             <motion.div
                                 key={proj.id}
                                 className={`flex items-center justify-between py-2 group overflow-hidden 
@@ -269,11 +292,11 @@ const StarredQueries: React.FC = () => {
                                     transition={{ duration: 0.3 }}
                                     className="flex items-center gap-2 justify-end"
                                 >
-                                    <button className="p-1 rounded-full hover:bg-gray-100 transition">
-                                        <Trash2 size={14} className="text-red-500" />
+                                    <button className="p-1 rounded-full hover:bg-red-50 hover:text-red-600 transition text-red-500">
+                                        <Trash2 size={14} />
                                     </button>
-                                    <button className="p-1 rounded-full hover:bg-gray-100 transition">
-                                        <Star size={14} className="text-yellow-400" />
+                                    <button onClick={() => handleUnstar('projects', proj.id)} className="p-1 rounded-full hover:bg-gray-100 transition">
+                                        <Star size={14} className="text-yellow-400 fill-yellow-400" />
                                     </button>
                                 </motion.div>
                             </motion.div>
@@ -286,17 +309,19 @@ const StarredQueries: React.FC = () => {
 
     const renderTasks = () => (
         <div className="flex flex-col gap-8">
-            {MOCK_TASKS.map((entry) => (
+            {isLoading ? <Loader /> : listData.length === 0 ? <div className="text-gray-400 font-bold text-sm flex bg-white rounded-xl items-center justify-center min-h-[300px]">No starred tasks found.</div> : listData.map((entry: any) => (
                 <div key={entry.id} className="flex flex-col gap-4 ">
                     <div className="flex items-center gap-3">
                         <img src={entry.avatar} alt={entry.author} className="h-6 w-6 rounded-full border border-gray-100" />
                         <span className="text-xs font-black text-gray-900">{entry.author}</span>
                         <span className="text-[10px] text-gray-400 font-bold">{entry.date}</span>
-                        <Star size={14} className="text-yellow-400 fill-yellow-400" />
+                        <button onClick={() => handleUnstar('tasks', entry.id)} className="hover:scale-110 active:scale-95 transition-all">
+                            <Star size={14} className="text-yellow-400 fill-yellow-400" />
+                        </button>
                     </div>
 
                     <div className="flex flex-col gap-3 border-l-2 border-primary-50">
-                        {entry.tasks.map((task) => (
+                        {entry.tasks.map((task: StarredItem) => (
                             <div key={task.id} className="flex bg-white items-center justify-between pl-3 border-l-4 border-gray-200 py-3  rounded-r-xl transition-colors group">
                                 <div className="flex items-center gap-3">
                                     <GripVertical size={16} className="text-gray-300 " />

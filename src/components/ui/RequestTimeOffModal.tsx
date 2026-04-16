@@ -1,23 +1,19 @@
 import React, { useState } from 'react';
 import Modal from './Modal';
 import Input from './Input';
+import DatePicker from './DatePicker';
 import Select, { SelectOption } from './Select';
+import Textarea from './Textarea';
 import Button from './Button';
 import { Calendar, X, Paperclip } from 'lucide-react';
 import { cn } from '@/utils/cn';
+
+import { useGetTimeOffPolicies, useCreateTimeOffRequestMutation } from '@/services/timesheetService';
 
 interface RequestTimeOffModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
-
-const leavePolicies: SelectOption[] = [
-  { label: 'Select Policy', value: '' },
-  { label: 'Paid Leave', value: 'paid' },
-  { label: 'Casual Leave', value: 'casual' },
-  { label: 'Sick Leave', value: 'sick' },
-  { label: 'Unpaid Leave', value: 'unpaid' },
-];
 
 const RequestTimeOffModal: React.FC<RequestTimeOffModalProps> = ({ isOpen, onClose }) => {
   const [policy, setPolicy] = useState<string | number>('');
@@ -27,28 +23,57 @@ const RequestTimeOffModal: React.FC<RequestTimeOffModalProps> = ({ isOpen, onClo
   const [excludeWeekends, setExcludeWeekends] = useState(false);
   const [excludeHolidays, setExcludeHolidays] = useState(false);
   const [reason, setReason] = useState('');
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const { data: policiesData } = useGetTimeOffPolicies(isOpen);
+  const { mutate: createRequest, isPending } = useCreateTimeOffRequestMutation();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFileName(e.target.files[0].name);
+      setFile(e.target.files[0]);
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Submitting leave request:', {
-      policy,
-      startDate,
-      endDate,
-      isAllDay,
-      excludeWeekends,
-      excludeHolidays,
-      reason,
-      fileName
+    
+    // Inline validation
+    const newErrors: Record<string, string> = {};
+    if (!policy) newErrors.policy = 'Leave policy is required';
+    if (!startDate) newErrors.startDate = 'Start date is required';
+    if (!endDate) newErrors.endDate = 'End date is required';
+    if (!reason.trim()) newErrors.reason = 'Reason for time off is required';
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('policy_id', String(policy));
+    formData.append('start_date', startDate);
+    formData.append('end_date', endDate);
+    formData.append('all_day', String(isAllDay));
+    formData.append('exclude_weekends', String(excludeWeekends));
+    formData.append('exclude_holidays', String(excludeHolidays));
+    formData.append('reason', reason);
+    if (file) {
+      formData.append('supporting_document', file);
+    }
+
+    createRequest(formData, {
+      onSuccess: () => {
+        setPolicy('');
+        setStartDate('');
+        setEndDate('');
+        setReason('');
+        setFile(null);
+        onClose();
+      }
     });
-    // Add logic here to call API or dispatch action
-    onClose();
   };
 
   return (
@@ -65,28 +90,30 @@ const RequestTimeOffModal: React.FC<RequestTimeOffModalProps> = ({ isOpen, onClo
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <Select
             label="Leave Policy *"
-            options={leavePolicies}
+            options={[
+              { label: 'Select Policy', value: '' },
+              ...(policiesData ? policiesData.map(p => ({ label: p.name, value: p.id })) : [])
+            ]}
             value={policy}
             onChange={setPolicy}
+            error={errors.policy}
             placeholder="Select Policy"
           />
 
           <div className="grid grid-cols-2 gap-4">
-            <Input
+            <DatePicker
               label="Start Date *"
-              type="date"
               placeholder="Pick date"
-              // rightIcon={Calendar}
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={(date) => setStartDate(date)}
+              error={errors.startDate}
             />
-            <Input
+            <DatePicker
               label="End Date *"
-              type="date"
               placeholder="Pick date"
-              // rightIcon={Calendar}
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              onChange={(date) => setEndDate(date)}
+              error={errors.endDate}
             />
           </div>
 
@@ -162,23 +189,21 @@ const RequestTimeOffModal: React.FC<RequestTimeOffModalProps> = ({ isOpen, onClo
                   Choose File
                 </div>
                 <div className="px-4 text-sm font-bold text-gray-400 truncate flex-1">
-                  {fileName || 'No File Chosen'}
+                  {file?.name || 'No File Chosen'}
                 </div>
               </label>
               <p className="text-[10px] text-gray-400 font-bold mt-1">PDF, PNG, Or JPEG. Max 5MB.</p>
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-black text-gray-900">Reason *</label>
-            <textarea
-              className="min-h-[140px] w-full rounded-xl border border-gray-200 p-4 text-sm font-bold text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary-500 focus:shadow-[0_0_0_4px_rgba(31,123,255,0.1)] transition-all resize-none"
-              placeholder="Explain the reason for your time off request...."
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              required
-            />
-          </div>
+          <Textarea
+            label="Reason *"
+            placeholder="Explain the reason for your time off request...."
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            error={errors.reason}
+            className="min-h-[140px]"
+          />
 
           <div className="flex items-center gap-3 pt-4">
             <Button

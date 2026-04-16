@@ -57,6 +57,8 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
     status: 'ACTIVE'
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const { showToast } = useToast();
   const { data: teamsData } = useGetTeamsQuery(undefined, isOpen);
   const createUser = useCreateUserMutation();
@@ -111,19 +113,34 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
   };
 
   const handleSubmit = () => {
-    const { first_name, last_name, email, department, team_id, designation, role, status, password } = formData;
+    const { first_name, last_name, email, department, role, password } = formData;
     
-    if (!first_name || !last_name || !email || !department || !role) {
-      showToast('Please fill in all required fields', 'error');
+    // Inline validation
+    const newErrors: Record<string, string> = {};
+    if (!first_name) newErrors.first_name = 'First name is required';
+    if (!last_name) newErrors.last_name = 'Last name is required';
+    if (!email) newErrors.email = 'Email address is required';
+    if (!department) newErrors.department = 'Department selection is required';
+    if (!role) newErrors.role = 'System role is required';
+    
+    if (!isEdit && !password) {
+      newErrors.password = 'Password is required for new accounts';
+    }
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
       return;
     }
 
+    const payload: any = { ...formData, role_id: role };
+    delete payload.role;
+
     if (isEdit) {
       // For update, exclude password if empty
-      const updateData: any = { ...formData };
-      if (!password) delete updateData.password;
+      if (!password) delete payload.password;
       
-      updateUser.mutate({ id: user.id, data: updateData }, {
+      updateUser.mutate({ id: user.id, data: payload }, {
         onSuccess: () => {
           showToast('User updated successfully', 'success');
           onClose();
@@ -133,12 +150,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
         }
       });
     } else {
-      if (!password) {
-        showToast('Password is required for new users', 'error');
-        return;
-      }
-      
-      createUser.mutate(formData, {
+      createUser.mutate(payload, {
         onSuccess: () => {
           showToast('User created successfully', 'success');
           onClose();
@@ -164,6 +176,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
             name="first_name"
             value={formData.first_name}
             onChange={handleInputChange}
+            error={errors.first_name}
             placeholder="John"
             className="h-12 rounded-xl"
           />
@@ -172,6 +185,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
             name="last_name"
             value={formData.last_name}
             onChange={handleInputChange}
+            error={errors.last_name}
             placeholder="Doe"
             className="h-12 rounded-xl"
           />
@@ -182,6 +196,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
           name="email"
           value={formData.email}
           onChange={handleInputChange}
+          error={errors.email}
           placeholder="user@example.com"
           type="email"
           className="h-12 rounded-xl"
@@ -192,6 +207,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
           name="password"
           value={formData.password}
           onChange={handleInputChange}
+          error={errors.password}
           placeholder="••••••••"
           type="password"
           className="h-12 rounded-xl"
@@ -203,6 +219,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
             options={roles}
             value={formData.role}
             onChange={handleSelectChange('role')}
+            error={errors.role}
             className="h-12 !rounded-xl"
           />
           <Select
@@ -220,6 +237,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
             options={departments}
             value={formData.department}
             onChange={handleSelectChange('department')}
+            error={errors.department}
             placeholder="Select Department"
             className="h-12 !rounded-xl"
           />

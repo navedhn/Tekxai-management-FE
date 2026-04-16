@@ -1,8 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Calendar, Clock, X, Plus } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, X, Plus, Search, User as UserIcon, Loader2, ArrowRight } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import Button from './Button';
+import Input from './Input';
+import Textarea from './Textarea';
+import DatePicker from './DatePicker';
+import { ProjectDetail, ProjectDto, useCreateProjectMutation, useUpdateProjectMutation } from '@/services/projectService';
+import { useFetchUsersQuery } from '@/services/userService';
+import { useToastContext } from '@/components/toast/ToastProvider';
 
 interface TeamMember {
   id: string;
@@ -10,16 +16,10 @@ interface TeamMember {
   avatar: string;
 }
 
-const mockMembers: TeamMember[] = [
-  { id: '1', name: 'Rafiqur Rehman', avatar: 'https://i.pravatar.cc/150?u=55' },
-  { id: '2', name: 'Sufyan Ilyas', avatar: 'https://i.pravatar.cc/150?u=99' },
-  { id: '3', name: 'Mohammad Naved', avatar: 'https://i.pravatar.cc/150?u=88' },
-  { id: '4', name: 'Abdul Rehman', avatar: 'https://i.pravatar.cc/150?u=77' },
-];
-
 interface CreateProjectSlideOverProps {
   isOpen: boolean;
   onClose: () => void;
+  project?: ProjectDetail | null; // Pass project for edit mode
 }
 
 const AvatarChip: React.FC<{ member: TeamMember; onRemove: () => void }> = ({ member, onRemove }) => (
@@ -30,7 +30,11 @@ const AvatarChip: React.FC<{ member: TeamMember; onRemove: () => void }> = ({ me
     exit={{ opacity: 0, scale: 0.85 }}
     className="flex items-center gap-2 bg-white border border-gray-100 rounded-full pl-1 pr-3 py-1 shadow-sm"
   >
-    <img src={member.avatar} className="w-7 h-7 rounded-full object-cover" />
+    <img
+      src={member.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=random`}
+      className="w-7 h-7 rounded-full object-cover"
+      alt={member.name}
+    />
     <span className="text-[13px] font-bold text-gray-700">{member.name}</span>
     <button onClick={onRemove} className="ml-1 text-gray-400 hover:text-red-400 transition-colors">
       <X size={13} strokeWidth={2.5} />
@@ -38,31 +42,178 @@ const AvatarChip: React.FC<{ member: TeamMember; onRemove: () => void }> = ({ me
   </motion.div>
 );
 
-const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen, onClose }) => {
+const UserSelectDropdown: React.FC<{
+  onSelect: (user: TeamMember) => void;
+  excludeIds: string[];
+  placeholder?: string;
+}> = ({ onSelect, excludeIds, placeholder = "Add member..." }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+  const toast = useToastContext();
+
+  const { data: users, isLoading } = useFetchUsersQuery({ search: searchTerm }, showDropdown);
+
+  const filteredUsers = useMemo(() => {
+    if (!users) return [];
+    return users.filter((u: any) => !excludeIds.includes(u.id));
+  }, [users, excludeIds]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <motion.button
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setShowDropdown(!showDropdown)}
+        className="h-9 w-9 rounded-full bg-[#005CDA1A] text-[#005CDA] flex items-center justify-center transition-colors shadow-sm"
+        title={placeholder}
+      >
+        <Plus size={16} strokeWidth={2.5} />
+      </motion.button>
+
+      <AnimatePresence>
+        {showDropdown && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            className="absolute left-0 mt-2 w-64 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 overflow-hidden p-2"
+          >
+            <div className="relative mb-2">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+              <input
+                autoFocus
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search..."
+                className="w-full bg-gray-50 border-none rounded-xl pl-9 pr-4 py-2 text-xs font-medium focus:ring-1 focus:ring-primary-100"
+              />
+            </div>
+            <div className="max-h-48 overflow-y-auto no-scrollbar flex flex-col gap-1">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="animate-spin text-primary-500" size={16} />
+                </div>
+              ) : filteredUsers.length > 0 ? (
+                filteredUsers.map((u: any) => (
+                  <button
+                    key={u.id}
+                    onClick={() => {
+                      onSelect({ id: u.id, name: `${u.first_name} ${u.last_name}`, avatar: u.avatar });
+                      setSearchTerm('');
+                      setShowDropdown(false);
+                    }}
+                    className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg transition-colors text-left"
+                  >
+                    <img
+                      src={u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name)}&background=random`}
+                      className="w-7 h-7 rounded-full"
+                      alt=""
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-gray-700">{u.first_name} {u.last_name}</span>
+                      <span className="text-[10px] text-gray-400">{u.email}</span>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="text-center py-4 text-xs text-gray-400 font-medium">No users found</div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen, onClose, project }) => {
+  const toast = useToastContext();
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');
-  const [startDate, setStartDate] = useState('20/03/2023');
-  const [endDate, setEndDate] = useState('20/03/2023');
-  const [totalHours] = useState('80 Hours');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [totalHours, setTotalHours] = useState('0');
 
-  const [projectOwners, setProjectOwners] = useState<TeamMember[]>([mockMembers[0]]);
-  const [teamLeaders, setTeamLeaders] = useState<TeamMember[]>([mockMembers[0]]);
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([mockMembers[0], mockMembers[1], mockMembers[2]]);
+  const [projectOwners, setProjectOwners] = useState<TeamMember[]>([]);
+  const [teamLeaders, setTeamLeaders] = useState<TeamMember[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
 
-  const addNextAvailable = (
-    list: TeamMember[],
-    setList: React.Dispatch<React.SetStateAction<TeamMember[]>>
-  ) => {
-    const used = list.map((m) => m.id);
-    const next = mockMembers.find((m) => !used.includes(m.id));
-    if (next) setList([...list, next]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const createMutation = useCreateProjectMutation();
+  const updateMutation = useUpdateProjectMutation();
+
+  const isEdit = !!project;
+
+  useEffect(() => {
+    if (project) {
+      setProjectName(project.title);
+      setDescription(project.description || '');
+      setStartDate(project.start_date);
+      setEndDate(project.end_date);
+      setTotalHours(String(project.total_hours));
+      // In a real app we'd fetch full user objects for these IDs
+      // For now we rely on the state being populated or handle it if we have access to user data
+    } else {
+      setProjectName('');
+      setDescription('');
+      setStartDate('');
+      setEndDate('');
+      setTotalHours('0');
+      setProjectOwners([]);
+      setTeamLeaders([]);
+      setTeamMembers([]);
+    }
+  }, [project, isOpen]);
+
+  const handleSubmit = async () => {
+    // Inline validation
+    const newErrors: Record<string, string> = {};
+    if (!projectName.trim()) newErrors.projectName = 'Project name is required';
+    if (!startDate) newErrors.startDate = 'Start date is required';
+    if (!endDate) newErrors.endDate = 'End date is required';
+    if (projectOwners.length === 0) newErrors.owner = 'At least one project owner is required';
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      return;
+    }
+
+    const payload: ProjectDto = {
+      title: projectName,
+      description,
+      start_date: startDate,
+      end_date: endDate,
+      total_hours: Number(totalHours),
+      owner_id: projectOwners[0]?.id || '',
+      leader_id: teamLeaders[0]?.id || '',
+      member_ids: teamMembers.map(m => m.id),
+    };
+
+    try {
+      if (isEdit && project) {
+        await updateMutation.mutateAsync({ id: project.id, data: payload });
+        toast.success('Project updated successfully');
+      } else {
+        await createMutation.mutateAsync(payload);
+        toast.success('Project created successfully');
+      }
+      onClose();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save project');
+    }
   };
-
-  const removeMember = (
-    id: string,
-    list: TeamMember[],
-    setList: React.Dispatch<React.SetStateAction<TeamMember[]>>
-  ) => setList(list.filter((m) => m.id !== id));
 
   const inputClass = 'w-full border border-gray-200 rounded-xl px-4 py-3 text-[14px] font-medium text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition-all bg-white';
 
@@ -70,180 +221,156 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[140]"
             onClick={onClose}
           />
 
-          {/* Slide Over */}
           <motion.div
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-            className="fixed inset-y-0 right-0 w-full md:w-[540px] bg-[#F7F8FC] shadow-2xl z-[141] flex flex-col overflow-hidden md:rounded-l-[2rem]"
+            className="fixed inset-y-0 right-0 w-full md:w-[540px] bg-[#F7F8FC] shadow-2xl z-[141] flex flex-col overflow-hidden md:rounded-l-[3rem]"
           >
-            {/* Close Arrow Header */}
-            <div className="px-8 pt-8 pb-2 shrink-0">
+            <div className="px-8 pt-8 pb-2 shrink-0 flex items-center justify-between">
               <button
                 onClick={onClose}
-                className="h-7 w-10 rounded-full bg-[#D5D5D54D] border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm active:scale-95"
+                className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm active:scale-95"
               >
-                <ArrowRight size={16} strokeWidth={2.5} className="text-gray-700" />
+                <ArrowRight size={18} strokeWidth={2.5} className="text-gray-700" />
               </button>
+              <h2 className="text-xl font-black text-gray-900 tracking-tight">
+                {isEdit ? 'Edit Project' : 'New Project'}
+              </h2>
+              <div className="w-10 h-10" /> {/* Spacer */}
             </div>
 
-            {/* Scrollable Body */}
             <div className="flex-1 overflow-y-auto px-8 py-6 flex flex-col gap-8 no-scrollbar">
-              {/* About Project */}
               <div className="flex flex-col gap-6">
-                <h2 className="text-2xl font-black text-gray-900 tracking-tight">About Project</h2>
+                <Input
+                  label="Project Name"
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  error={errors.projectName}
+                  placeholder="Enter project name"
+                  className="h-12 rounded-xl"
+                />
 
-                {/* Project Name */}
-                <div className="flex flex-col gap-2">
-                  <label className="text-[13px] font-black text-gray-700">Project Name</label>
-                  <input
-                    value={projectName}
-                    onChange={(e) => setProjectName(e.target.value)}
-                    placeholder="Enter project name"
-                    className={inputClass}
-                  />
-                </div>
-
-                {/* Project Description */}
-                <div className="flex flex-col gap-2">
-                  <label className="text-[13px] font-black text-gray-700">Project Description</label>
-                  <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Enter project description"
-                    rows={5}
-                    className={cn(inputClass, 'resize-none')}
-                  />
-                  <p className="text-xs text-gray-400 font-medium">Add project description for the team members</p>
-                </div>
+                <Textarea
+                  label="Project Description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Enter project description"
+                  rows={4}
+                  className="min-h-[140px]"
+                />
               </div>
 
-              {/* Project Parameters */}
               <div className="flex flex-col gap-4">
-                <h3 className="text-base font-black text-gray-900">Project Parameters</h3>
-                <div className="grid grid-cols-[1fr_auto_1fr_1fr] items-end gap-3">
-                  {/* Start Date */}
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[12px] font-black text-gray-600">Start Date</label>
-                    <div className="relative">
-                      <Calendar size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
-                        type="text"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className={cn(inputClass, 'pl-9 text-[13px]')}
-                      />
-                    </div>
-                  </div>
-                  <span className="text-gray-400 font-bold text-sm pb-3">to</span>
-                  {/* End Date */}
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[12px] font-black text-gray-600">End Dates</label>
-                    <div className="relative">
-                      <Calendar size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
-                        type="text"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className={cn(inputClass, 'pl-9 text-[13px]')}
-                      />
-                    </div>
-                  </div>
-                  {/* Total Hours */}
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[12px] font-black text-gray-600">Total Hours</label>
-                    <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-3 bg-white shadow-sm">
-                      <Clock size={15} className="text-gray-400 shrink-0" />
-                      <span className="text-[13px] font-bold text-gray-700">{totalHours}</span>
-                    </div>
+                <h3 className="text-base font-black text-gray-900 tracking-tight">Project Parameters</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <DatePicker
+                    label="Start Date"
+                    value={startDate}
+                    onChange={setStartDate}
+                    error={errors.startDate}
+                  />
+                  <DatePicker
+                    label="End Date"
+                    value={endDate}
+                    onChange={setEndDate}
+                    error={errors.endDate}
+                  />
+                </div>
+                <div className="flex flex-col gap-2 mt-2">
+                  <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Estimated Hours</label>
+                  <div className="relative">
+                    <Clock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="number"
+                      value={totalHours}
+                      onChange={(e) => setTotalHours(e.target.value)}
+                      className={cn(inputClass, 'pl-11')}
+                    />
                   </div>
                 </div>
               </div>
 
-              {/* Team Members */}
-              <div className="flex flex-col gap-6">
-                <h3 className="text-base font-black text-gray-900">Team members</h3>
+              <div className="flex flex-col gap-8">
+                <h3 className="text-base font-black text-gray-900 tracking-tight">Team Assignment</h3>
 
                 {/* Project Owner */}
                 <div className="flex flex-col gap-3">
-                  <label className="text-[13px] font-bold text-gray-600">Project Owner</label>
-                  <div className="flex flex-wrap gap-2 items-center">
+                  <label className="text-[13px] font-bold text-gray-600 ml-1">
+                    Project Owners *
+                    {errors.owner && <span className="text-red-500 ml-2 font-medium text-xs">({errors.owner})</span>}
+                  </label>
+                  <div className={cn(
+                    "flex flex-wrap gap-2 items-center min-h-[44px] p-3 rounded-2xl border border-dashed transition-all bg-gray-50/50",
+                    errors.owner ? "border-red-500 bg-red-50/10" : "border-gray-200"
+                  )}>
                     <AnimatePresence>
                       {projectOwners.map((m) => (
-                        <AvatarChip key={m.id} member={m} onRemove={() => removeMember(m.id, projectOwners, setProjectOwners)} />
+                        <AvatarChip key={m.id} member={m} onRemove={() => setProjectOwners(prev => prev.filter(p => p.id !== m.id))} />
                       ))}
                     </AnimatePresence>
-                    <motion.button
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => addNextAvailable(projectOwners, setProjectOwners)}
-                      className="h-9 w-9 rounded-full bg-[#005CDA1A] text-[#292D32] flex items-center justify-center transition-colors shadow-md shadow-primary-200"
-                    >
-                      <Plus size={16} strokeWidth={2.5} />
-                    </motion.button>
+                    <UserSelectDropdown
+                      onSelect={(u) => setProjectOwners(prev => [...prev, u])}
+                      excludeIds={projectOwners.map(p => p.id)}
+                      placeholder="Add owner"
+                    />
                   </div>
                 </div>
 
                 {/* Team Leader */}
                 <div className="flex flex-col gap-3">
-                  <label className="text-[13px] font-bold text-gray-600">Team Leader</label>
-                  <div className="flex flex-wrap gap-2 items-center">
+                  <label className="text-[13px] font-bold text-gray-600 ml-1">Team Leaders</label>
+                  <div className="flex flex-wrap gap-2 items-center min-h-[44px] p-3 rounded-2xl border border-dashed border-gray-200 bg-gray-50/50">
                     <AnimatePresence>
                       {teamLeaders.map((m) => (
-                        <AvatarChip key={m.id} member={m} onRemove={() => removeMember(m.id, teamLeaders, setTeamLeaders)} />
+                        <AvatarChip key={m.id} member={m} onRemove={() => setTeamLeaders(prev => prev.filter(p => p.id !== m.id))} />
                       ))}
                     </AnimatePresence>
-                    <motion.button
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => addNextAvailable(teamLeaders, setTeamLeaders)}
-                      className="h-9 w-9 rounded-full bg-[#005CDA1A] text-[#292D32] flex items-center justify-center  transition-colors shadow-md shadow-primary-200"
-                    >
-                      <Plus size={16} strokeWidth={2.5} />
-                    </motion.button>
+                    <UserSelectDropdown
+                      onSelect={(u) => setTeamLeaders(prev => [...prev, u])}
+                      excludeIds={teamLeaders.map(p => p.id)}
+                      placeholder="Add leader"
+                    />
                   </div>
                 </div>
 
                 {/* Team Members */}
                 <div className="flex flex-col gap-3">
-                  <label className="text-[13px] font-bold text-gray-600">Team Members</label>
-                  <div className="flex flex-wrap gap-2 items-center">
+                  <label className="text-[13px] font-bold text-gray-600 ml-1">Team Members</label>
+                  <div className="flex flex-wrap gap-2 items-center min-h-[44px] p-3 rounded-2xl border border-dashed border-gray-200 bg-gray-50/50">
                     <AnimatePresence>
                       {teamMembers.map((m) => (
-                        <AvatarChip key={m.id} member={m} onRemove={() => removeMember(m.id, teamMembers, setTeamMembers)} />
+                        <AvatarChip key={m.id} member={m} onRemove={() => setTeamMembers(prev => prev.filter(p => p.id !== m.id))} />
                       ))}
                     </AnimatePresence>
-                    <motion.button
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => addNextAvailable(teamMembers, setTeamMembers)}
-                      className="h-9 w-9 rounded-full bg-[#005CDA1A] text-[#292D32] flex items-center justify-center  transition-colors shadow-md shadow-primary-200"
-                    >
-                      <Plus size={16} strokeWidth={2.5} />
-                    </motion.button>
+                    <UserSelectDropdown
+                      onSelect={(u) => setTeamMembers(prev => [...prev, u])}
+                      excludeIds={teamMembers.map(p => p.id)}
+                      placeholder="Add member"
+                    />
                   </div>
                 </div>
               </div>
 
-              {/* Extra bottom padding so last input isn't cut off */}
               <div className="h-4" />
             </div>
 
-            {/* Footer Action */}
             <div className="px-8 py-6 bg-white border-t border-gray-100 shrink-0">
               <Button
-                className="w-full bg-[#005CDA] hover:bg-[#0048B8] active:scale-[0.98] text-white font-black text-[15px] py-4 rounded-2xl transition-all shadow-[0_4px_20px_rgba(0,92,218,0.35)]"
-                onClick={onClose}
+                className="w-full bg-[#005CDA] hover:bg-[#0048B8] active:scale-[0.98] text-white font-black text-[15px] py-4 rounded-2xl transition-all shadow-lg shadow-primary-200 h-14"
+                onClick={handleSubmit}
+                loading={createMutation.isPending || updateMutation.isPending}
               >
-                Create Project
+                {isEdit ? 'Save Changes' : 'Create Project'}
               </Button>
             </div>
           </motion.div>
@@ -254,3 +381,4 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
 };
 
 export default CreateProjectSlideOver;
+

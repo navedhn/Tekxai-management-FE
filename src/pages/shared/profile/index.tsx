@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send } from 'lucide-react';
 import Tabs from '@/components/ui/Tabs';
 import Badge from '@/components/ui/Badge';
 import { cn } from '@/utils/cn';
-import { useGetProjects, useGetMemberProfile } from '@/services/employeeService';
+import { useGetProjects } from '@/services/employeeService';
+import { useGetUserDetailQuery } from '@/services/userService';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import Loader from '@/components/ui/Loader';
@@ -20,8 +21,8 @@ const workingHours = [
   { day: 'Sun', hours: '0Hr 00m', percent: 0 },
 ];
 
-const appreciationIcons = ['👍','🎁','🏆','💰','👑','🍸','🎂','⑦','🚩','⭐','🍺',
-  '🗑️','🏆','⚖️','👑','🎁','🍸','👍','⑦','🚩','⭐'];
+const appreciationIcons = ['👍', '🎁', '🏆', '💰', '👑', '🍸', '🎂', '⑦', '🚩', '⭐', '🍺',
+  '🗑️', '🏆', '⚖️', '👑', '🎁', '🍸', '👍', '⑦', '🚩', '⭐'];
 
 const statusStyles: Record<string, string> = {
   'In Progress': 'bg-[#EFF8FF] text-[#175CD3] border-[#B2DDFF]',
@@ -36,29 +37,32 @@ const ProfilePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('General');
   const { user } = useAuth();
   const isSelf = !memberId;
-  const { data: remoteMember, isLoading } = useGetMemberProfile(memberId);
+  const { data: remoteMember, isLoading } = useGetUserDetailQuery(memberId, !isSelf);
   const { data: projects } = useGetProjects();
 
   const member = useMemo(() => {
-    if (isSelf && user) {
-      return {
-        id: user.id,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        name: `${user.first_name} ${user.last_name}`,
-        email: user.email,
-        phone: user.phone || 'Not provided',
-        department: user.department || 'General',
-        position: user.position || 'Staff',
-        role: user.rolesId === '7170d59d-1f19-4bda-b302-245c48dd18f8' ? 'Admin' : 'Employee',
-        avatar: user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.first_name + '+' + user.last_name)}&background=005CDA&color=fff&size=128`,
-        status: 'Online' as const,
-        lastSeen: 'Active now',
-        workingHours: workingHours, // Use the local workingHours constant defined in this file
-        totalProjects: 0
-      };
-    }
-    return remoteMember;
+    const targetUser = isSelf ? user : remoteMember;
+    if (!targetUser) return null;
+
+    const firstName = targetUser.first_name || '';
+    const lastName = targetUser.last_name || '';
+
+    return {
+      id: targetUser.id,
+      firstName: firstName,
+      lastName: lastName,
+      name: `${firstName} ${lastName}`.trim() || 'Anonymous',
+      email: targetUser.email,
+      phone: targetUser.phone || 'Not provided',
+      department: targetUser.department || 'General',
+      position: targetUser.designation || (targetUser as any).position || 'Staff',
+      role: typeof targetUser.role === 'object' ? targetUser.role.name : (targetUser.roles?.name || targetUser.role || targetUser.role_name || 'Employee'),
+      avatar: targetUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(firstName + '+' + lastName)}&background=005CDA&color=fff&size=128`,
+      status: (targetUser.status === 'ACTIVE' || targetUser.status === 'Online') ? 'Online' : 'Offline' as const,
+      lastSeen: (targetUser as any).lastSeen || 'Recently active',
+      workingHours: (targetUser as any).workingHours || workingHours,
+      totalProjects: (targetUser as any).totalProjects || 0
+    };
   }, [isSelf, user, remoteMember]);
 
   if (isLoading && !isSelf) return <Loader fullPage size={48} />;
@@ -68,7 +72,7 @@ const ProfilePage: React.FC = () => {
     <div className="flex flex-col gap-8 pb-10">
       <div className="flex items-center gap-4">
         {!isSelf && (
-          <button 
+          <button
             onClick={() => navigate(-1)}
             className="p-2 hover:bg-gray-100 rounded-full text-gray-400 transition-colors"
           >
@@ -117,8 +121,8 @@ const ProfilePage: React.FC = () => {
                 </div>
               </div>
               <div className="flex flex-col items-end gap-1">
-                <Badge 
-                  variant="info" 
+                <Badge
+                  variant="info"
                   className={cn(
                     "border font-bold px-4 py-1.5 rounded-full flex items-center gap-1.5",
                     member.status === 'Online' ? "bg-green-50 text-green-500 border-green-100" : "bg-red-50 text-red-500 border-red-100"
@@ -171,7 +175,7 @@ const ProfilePage: React.FC = () => {
                   <span className="font-black text-gray-900 text-base">40 Hours</span>
                 </div>
                 <div className="flex flex-col gap-3">
-                  {member.workingHours.map((item) => (
+                  {member.workingHours.map((item: any) => (
                     <div key={item.day} className="flex items-center gap-4">
                       <span className="text-sm font-bold text-gray-500 w-8">{item.day}</span>
                       <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -190,48 +194,7 @@ const ProfilePage: React.FC = () => {
             </div>
 
             {/* Bottom Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Appreciations */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col gap-5">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-black text-gray-900 text-base">Appreciations</h3>
-                  <button className="flex items-center gap-2 text-primary-500 font-black text-sm border border-primary-200 px-4 py-2 rounded-xl hover:bg-primary-50 transition-colors">
-                    Send Appreciations <Send size={14} />
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  {appreciationIcons.map((icon, i) => (
-                    <button
-                      key={i}
-                      className="text-xl p-2.5 rounded-xl hover:bg-gray-50 transition-colors border border-gray-100 hover:border-gray-200 hover:scale-110 active:scale-95"
-                    >
-                      {icon}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
-              {/* Additional Information */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col gap-5">
-                <h3 className="font-black text-gray-900 text-base">Additional information</h3>
-                <div className="flex flex-col gap-5">
-                  <div>
-                    <p className="text-xs text-gray-400 font-bold mb-3">Supervisor</p>
-                    <div className="flex flex-col gap-3">
-                      {['Rafiqur Rehman', 'Rafiqur Rehman'].map((name, i) => (
-                        <div key={i} className="flex items-center gap-3">
-                          <img src={`https://i.pravatar.cc/150?u=${i + 100}`} className="w-10 h-10 rounded-full border-2 border-white shadow-sm" />
-                          <div>
-                            <p className="font-bold text-gray-900 text-sm">{name}</p>
-                            <p className="text-gray-400 text-xs">Product Designer</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </motion.div>
         )}
         {activeTab === 'Task' && (
@@ -248,49 +211,49 @@ const ProfilePage: React.FC = () => {
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full">
-              <tbody>
-                {(projects || []).slice(0, 8).map((project, i) => (
-                  <tr key={project.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60 transition-colors">
-                    <td className="py-5 px-6 text-sm font-black text-gray-400 w-16">
-                      0{i + 1}
-                    </td>
-                    <td className="py-5 px-4 text-sm font-black text-gray-900">
-                      {project.title}
-                    </td>
-                    <td className="py-5 px-4">
-                      <div className="flex -space-x-2">
-                        {project.members.slice(0, 4).map((_, j) => (
-                          <img key={j} src={`https://i.pravatar.cc/150?u=${i * 4 + j}`} className="w-7 h-7 rounded-full border-2 border-white shadow-sm" />
-                        ))}
-                      </div>
-                    </td>
-                    <td className="py-5 px-4 text-sm font-medium text-gray-600">{project.hours} Hours</td>
-                    <td className="py-5 px-4">
-                      <div className="flex items-center gap-3 w-36">
-                        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-[#005CDA] rounded-full" style={{ width: `${project.progress}%` }} />
+                <tbody>
+                  {(projects || []).slice(0, 8).map((project, i) => (
+                    <tr key={project.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60 transition-colors">
+                      <td className="py-5 px-6 text-sm font-black text-gray-400 w-16">
+                        0{i + 1}
+                      </td>
+                      <td className="py-5 px-4 text-sm font-black text-gray-900">
+                        {project.title}
+                      </td>
+                      <td className="py-5 px-4">
+                        <div className="flex -space-x-2">
+                          {project.members.slice(0, 4).map((_, j) => (
+                            <img key={j} src={`https://i.pravatar.cc/150?u=${i * 4 + j}`} className="w-7 h-7 rounded-full border-2 border-white shadow-sm" />
+                          ))}
                         </div>
-                        <span className="text-xs font-black text-gray-500">{project.progress}%</span>
-                      </div>
-                    </td>
-                    <td className="py-5 px-4">
-                      <span className={cn('text-[11px] font-black px-3 py-1.5 rounded-lg border', statusStyles[project.status] || '')}>
-                        {project.status}
-                      </span>
-                    </td>
-                    <td className="py-5 px-4 text-sm font-medium text-gray-500">{project.dueDate}</td>
-                    <td className="py-5 px-4">
-                      <button className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </motion.div>
-      )}
+                      </td>
+                      <td className="py-5 px-4 text-sm font-medium text-gray-600">{project.hours} Hours</td>
+                      <td className="py-5 px-4">
+                        <div className="flex items-center gap-3 w-36">
+                          <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-[#005CDA] rounded-full" style={{ width: `${project.progress}%` }} />
+                          </div>
+                          <span className="text-xs font-black text-gray-500">{project.progress}%</span>
+                        </div>
+                      </td>
+                      <td className="py-5 px-4">
+                        <span className={cn('text-[11px] font-black px-3 py-1.5 rounded-lg border', statusStyles[project.status] || '')}>
+                          {project.status}
+                        </span>
+                      </td>
+                      <td className="py-5 px-4 text-sm font-medium text-gray-500">{project.dueDate}</td>
+                      <td className="py-5 px-4">
+                        <button className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="12" cy="19" r="2" /></svg>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );

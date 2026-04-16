@@ -15,12 +15,15 @@ export type User = {
     phone: string | null;
     department: string | null;
     position: string | null;
+    designation: string | null;
     last_login?: string;
     created_at?: string;
     updated_at?: string;
     deleted?: boolean;
     role_name?: string;
+    role?: { id: string; name: string } | string;
     roles?: { name: string };
+    team_memberships?: any[];
 } | null;
 
 export type AuthState = {

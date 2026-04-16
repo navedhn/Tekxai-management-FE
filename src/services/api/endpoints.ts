@@ -42,5 +42,36 @@ export const API_ENDPOINTS = {
         UPDATE: (id: string | number) => `api/v1/user/${id}`,
         DELETE: (id: string | number) => `api/v1/user/${id}`,
     },
-    // Add other modules here as needed
+    PROJECT: {
+        LIST: 'api/v1/project',
+        CREATE: 'api/v1/project',
+        SAVED: 'api/v1/project/saved',
+        DETAIL: (id: string | number) => `api/v1/project/${id}`,
+        UPDATE: (id: string | number) => `api/v1/project/${id}`,
+        DELETE: (id: string | number) => `api/v1/project/${id}`,
+        SAVE: (id: string | number) => `api/v1/project/${id}/save`,
+        UNSAVE: (id: string | number) => `api/v1/project/${id}/save`,
+    },
+    TIMESHEET: {
+        WEEKLY: 'api/v1/timesheet/weekly',
+        REQUESTS: 'api/v1/timesheet/requests',
+        MY_REQUESTS: 'api/v1/timesheet/my-requests',
+        POLICIES: 'api/v1/timesheet/time-off/policies',
+        REQUEST_TIME_OFF: 'api/v1/timesheet/time-off/request',
+        CREATE_ENTRY: 'api/v1/timesheet/entry',
+        DETAIL: (id: string | number) => `api/v1/timesheet/entry/${id}`,
+        UPDATE: (id: string | number) => `api/v1/timesheet/entry/${id}`,
+        DELETE: (id: string | number) => `api/v1/timesheet/entry/${id}`,
+        REQUEST_EDIT: (id: string | number) => `api/v1/timesheet/entry/${id}/request`,
+    },
+    SETTINGS: {
+        ME: 'api/v1/settings/me',
+        PREFERENCES: 'api/v1/settings/preferences',
+        PASSWORD: 'api/v1/settings/password',
+    },
+    STARRED: {
+        QUERIES: 'api/v1/starred/queries',
+        STAR_ITEM: (item_type: string, id: string | number) => `api/v1/starred/${item_type}/${id}`,
+        UNSTAR_ITEM: (item_type: string, id: string | number) => `api/v1/starred/${item_type}/${id}`,
+    },
 } as const;

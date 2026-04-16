@@ -68,6 +68,7 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
   const [team, setTeam] = useState('');
   const [invitedUserId, setInvitedUserId] = useState<string | null>(null);
   const [isUserListOpen, setIsUserListOpen] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const { user } = useAuthStore();
   const { showToast } = useToast();
@@ -126,8 +127,16 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
   };
 
   const handleSendInvite = () => {
-    if (!email || !department || !team || !designation) {
-      showToast('Please fill in all required fields', 'error');
+    // Inline validation
+    const newErrors: Record<string, string> = {};
+    if (!email.trim()) newErrors.email = 'Email address is required';
+    if (!department) newErrors.department = 'Department is required';
+    if (!team) newErrors.team = 'Team is required';
+    if (!designation) newErrors.designation = 'Designation is required';
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
       return;
     }
 
@@ -206,6 +215,7 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
               placeholder="Enter email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              error={errors.email}
               className="h-12 rounded-xl"
             />
           </div>
@@ -218,6 +228,7 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
               options={departments}
               value={department}
               onChange={handleDepartmentChange}
+              error={errors.department}
               placeholder="Select Department"
               className="h-12 !rounded-xl"
               containerClassName="w-full"
@@ -229,6 +240,7 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
               options={teamsOptions}
               value={team}
               onChange={handleTeamChange}
+              error={errors.team}
               placeholder={department ? "Select Team" : "Select Department First"}
               disabled={!department}
               className="h-12 !rounded-xl"
@@ -241,6 +253,7 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
               options={designationsMap[department] || []}
               value={designation}
               onChange={(val) => setDesignation(val as string)}
+              error={errors.designation}
               placeholder={team ? "Select Designation" : "Select Team First"}
               disabled={!team}
               className="h-12 !rounded-xl"

@@ -33,4 +33,21 @@ export const QUERY_KEYS = {
         UPDATE: ['user', 'update'],
         DELETE: ['user', 'delete'],
     },
+    PROJECT: {
+        LIST: ['project', 'list'],
+        DETAIL: (id: string | number) => ['project', 'detail', id],
+        SAVED: ['project', 'saved'],
+    },
+    STARRED: {
+        QUERIES: ['starred', 'queries'],
+    },
+    TIMESHEET: {
+        WEEKLY: ['timesheet', 'weekly'],
+        REQUESTS: ['timesheet', 'requests'],
+        MY_REQUESTS: ['timesheet', 'my-requests'],
+        POLICIES: ['timesheet', 'policies'],
+    },
+    SETTINGS: {
+        ME: ['settings', 'me'],
+    },
 } as const;

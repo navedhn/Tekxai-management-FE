@@ -61,7 +61,7 @@ const Sidebar: React.FC<SidebarProps> = memo(({ isOpen, onClose }) => {
             { to: '/admin/users', label: 'Users Management', icon: <Users2 size={20} /> },
             { to: '/admin/projects', label: 'Project Management', icon: <FolderCheck size={20} />, inactive: projectIconBlack, active: projectIconWhite },
             { to: '/admin/timesheet', label: 'Timesheet', icon: <Users size={20} />, inactive: timesheetBlack, active: timesheetWhite },
-            { to: '/admin/saved', label: 'Saved Project', icon: <Star size={20} />, inactive: savedBlack, active: savedWhite },
+            { to: '/admin/starred', label: 'Starred Project', icon: <Star size={20} />, inactive: savedBlack, active: savedWhite },
             { to: '/admin/team', label: 'Team Management', icon: <Clock size={20} />, inactive: teamManagementBlack, active: teamManagementWhite },
         ];
 

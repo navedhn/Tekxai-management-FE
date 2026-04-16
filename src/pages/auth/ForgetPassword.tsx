@@ -43,7 +43,7 @@ const ForgetPassword: React.FC = () => {
                 <div className="flex flex-col gap-3">
                     <h1 className="text-4xl font-black text-gray-900 tracking-tight">Check Your Email</h1>
                     <p className="text-gray-500 font-medium">
-                        We've sent a 6-digit OTP to <strong className="text-primary-500">{userEmail}</strong>.
+                        We've sent a 4-digit OTP to <strong className="text-primary-500">{userEmail}</strong>.
                         Please check your inbox.
                     </p>
                 </div>
@@ -55,7 +55,7 @@ const ForgetPassword: React.FC = () => {
                         size="lg"
                         className="h-14 rounded-xl shadow-[0_10px_30px_rgba(31,123,255,0.2)] text-lg font-bold"
                     >
-                        Verify OTP
+                        Click the Button to Verify OTP
                     </Button>
                 </div>
 

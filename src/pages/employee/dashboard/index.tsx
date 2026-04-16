@@ -124,7 +124,7 @@ const EmployeeDashboard: React.FC = () => {
             key: 'title',
             render: (item) => (
                 <button
-                    onClick={() => setSelectedProject(item.title)}
+                    onClick={() => setSelectedProject(item.id)}
                     className="text-left font-black text-gray-900 transition-colors hover:text-primary-500 hover:underline underline-offset-4"
                 >
                     {item.title}
@@ -193,7 +193,7 @@ const EmployeeDashboard: React.FC = () => {
             <ProjectDetailsSlideOver
                 isOpen={!!selectedProject}
                 onClose={() => setSelectedProject(null)}
-                projectTitle={selectedProject || ''}
+                projectId={selectedProject}
                 routePrefix="/employee"
             />
 
@@ -318,9 +318,7 @@ const EmployeeDashboard: React.FC = () => {
                 <Card className="lg:col-span-5 flex flex-col gap-6 bg-white border-none shadow-sm">
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg font-extrabold text-gray-900 tracking-tight">Recent Activity</h2>
-                        <button className="text-xs font-black text-primary-500 hover:underline flex items-center gap-1 group">
-                            View All <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-                        </button>
+
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         {activity?.map((act) => (

@@ -3,10 +3,9 @@ import {
     useGetDashboardStats,
     useGetRecentActivity,
     useGetTimesheet,
-    useGetProjects,
-    ProjectSummary,
     TimesheetEntry
 } from '@/services/employeeService';
+import { useGetProjects, ProjectDetail } from '@/services/projectService';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
@@ -28,16 +27,14 @@ const Dashboard: React.FC = () => {
     const [selectedProject, setSelectedProject] = useState<string | null>(null);
     const itemsPerPage = 8;
 
-    // 🔍 Filter projects
     const filteredProjects = useMemo(() => {
         if (!projects) return [];
         return projects.filter(project =>
-            project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            project.status.toLowerCase().includes(searchTerm.toLowerCase())
+            (project.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (project.status || '').toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [projects, searchTerm]);
 
-    // 📄 Paginate projects
     const paginatedProjects = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
         return filteredProjects.slice(startIndex, startIndex + itemsPerPage);
@@ -73,14 +70,14 @@ const Dashboard: React.FC = () => {
         },
     ];
 
-    const projectColumns: Column<ProjectSummary>[] = [
-        { header: 'S.No', key: 'id' },
+    const projectColumns: Column<ProjectDetail>[] = [
+
         {
             header: 'Project Title',
             key: 'title',
             render: (item) => (
                 <button
-                    onClick={() => setSelectedProject(item.title)}
+                    onClick={() => setSelectedProject(item.id)}
                     className="text-left font-black text-gray-900 transition-colors hover:text-primary-500 hover:underline underline-offset-4"
                 >
                     {item.title}
@@ -92,15 +89,15 @@ const Dashboard: React.FC = () => {
             key: 'members',
             render: (item) => (
                 <div className="flex -space-x-2">
-                    {item.members.map((m, i) => (
+                    {item.members?.map((m: any, i) => (
                         <div key={i} className="h-7 w-7 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 border-2 border-white flex items-center justify-center text-[10px] font-bold text-gray-600">
-                            {m}
+                            {typeof m === 'string' ? m : (m?.first_name ? m.first_name[0] : 'U')}
                         </div>
                     ))}
                 </div>
             )
         },
-        { header: 'Projects Hours', key: 'hours', render: (item) => `${item.hours} Hours` },
+        { header: 'Projects Hours', key: 'total_hours', render: (item) => `${item.total_hours || 0} Hours` },
         {
             header: 'Progress',
             key: 'progress',
@@ -109,10 +106,10 @@ const Dashboard: React.FC = () => {
                     <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
                         <div
                             className="h-full bg-gradient-to-r from-[#005CDA] to-[#0148FF] rounded-full transition-all duration-1000"
-                            style={{ width: `${item.progress}%` }}
+                            style={{ width: `${item.progress || 0}%` }}
                         />
                     </div>
-                    <span className="text-[10px] font-bold text-gray-400">{item.progress}%</span>
+                    <span className="text-[10px] font-bold text-gray-400">{item.progress || 0}%</span>
                 </div>
             )
         },
@@ -121,23 +118,24 @@ const Dashboard: React.FC = () => {
             key: 'status',
             render: (item) => {
                 const statusStyles: Record<string, string> = {
-                    'In Progress': 'bg-[#EFF8FF] text-[#175CD3] border-[#B2DDFF]',
-                    'Overdue': 'bg-[#FFF1F3] text-[#C01048] border-[#FEB3B3]',
-                    'Pending': 'bg-[#FFF6ED] text-[#C4320A] border-[#FFD6AE]',
-                    'Completed': 'bg-[#ECFDF3] text-[#027A48] border-[#ABEFC6]'
+                    'IN_PROGRESS': 'bg-[#EFF8FF] text-[#175CD3] border-[#B2DDFF]',
+                    'OVERDUE': 'bg-[#FFF1F3] text-[#C01048] border-[#FEB3B3]',
+                    'PENDING': 'bg-[#FFF6ED] text-[#C4320A] border-[#FFD6AE]',
+                    'COMPLETED': 'bg-[#ECFDF3] text-[#027A48] border-[#ABEFC6]'
                 };
-                const style = statusStyles[item.status] || '';
+                const statusKey = (item.status || 'PENDING').toUpperCase();
+                const style = statusStyles[statusKey] || 'bg-[#FFF6ED] text-[#C4320A] border-[#FFD6AE]';
                 return (
                     <Badge
                         variant="info"
                         className={cn("rounded-lg px-3 py-1 text-[10px] font-bold border", style)}
                     >
-                        {item.status}
+                        {statusKey.replace('_', ' ')}
                     </Badge>
                 );
             }
         },
-        { header: 'Due Date', key: 'dueDate' },
+        { header: 'Due Date', key: 'due_date', render: (item) => item.due_date ? new Date(item.due_date).toLocaleDateString() : 'N/A' },
     ];
 
     if (statsLoading || activityLoading || timesheetLoading || projectsLoading) {
@@ -149,7 +147,7 @@ const Dashboard: React.FC = () => {
             <ProjectDetailsSlideOver
                 isOpen={!!selectedProject}
                 onClose={() => setSelectedProject(null)}
-                projectTitle={selectedProject || ''}
+                projectId={selectedProject}
                 routePrefix="/admin"
             />
             {/* Stats Section */}
@@ -220,9 +218,7 @@ const Dashboard: React.FC = () => {
                 <Card className="lg:col-span-2 flex flex-col gap-6  border-none">
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg font-black text-gray-900 tracking-tight">Recent Activity</h2>
-                        <button className="text-xs font-bold text-primary-500 hover:underline flex items-center gap-1 shrink-0">
-                            View All <ChevronRight size={14} />
-                        </button>
+
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {activity?.map((act) => (
@@ -291,9 +287,7 @@ const Dashboard: React.FC = () => {
                         </div>
                         <h2 className="text-lg font-black text-gray-900 tracking-tight">Projects Summary</h2>
                     </div>
-                    <button className="text-xs font-black text-primary-500 hover:underline flex items-center gap-1 shrink-0">
-                        View All <ChevronRight size={14} />
-                    </button>
+
                 </div>
                 <div className="flex flex-col md:flex-row items-center gap-4 w-full">
                     <Input

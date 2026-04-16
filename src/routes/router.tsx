@@ -30,6 +30,7 @@ const SharedNotifications = lazy(() => import('@/pages/shared/notifications'));
 const ProjectDetailPage = lazy(() => import('@/pages/shared/projectDetail'));
 const ProfilePage = lazy(() => import('@/pages/shared/profile'));
 const StarredQueries = lazy(() => import('@/pages/employee/starred'));
+const ChatPage = lazy(() => import('@/pages/chat'));
 const NotFound = lazy(() => import('@/pages/404'));
 
 const routes: RouteObject[] = [
@@ -66,13 +67,13 @@ const routes: RouteObject[] = [
           { path: '/admin', element: <AdminDashboard /> },
           { path: '/admin/projects', element: <AdminProjects /> },
           { path: '/admin/timesheet', element: <AdminTimesheet /> },
-          { path: '/admin/saved', element: <AdminSaved /> },
+          { path: '/admin/starred', element: <AdminSaved /> },
           { path: '/admin/team', element: <AdminTeam /> },
           { path: '/admin/settings', element: <AdminSettings /> },
           { path: '/admin/users', element: <AdminUsers /> },
           { path: '/admin/notifications', element: <SharedNotifications /> },
           { path: '/admin/project-detail', element: <ProjectDetailPage /> },
-          { path: '/admin/profile/:memberId?', element: <ProfilePage /> }
+          { path: '/admin/profile/:memberId?', element: <ProfilePage /> },
         ]
       },
       { path: '/admin/*', element: <NotFound /> }
@@ -92,12 +93,19 @@ const routes: RouteObject[] = [
           { path: '/employee/settings', element: <EmployeeSettings /> },
           { path: '/employee/notifications', element: <SharedNotifications /> },
           { path: '/employee/project-detail', element: <ProjectDetailPage /> },
-          { path: '/employee/profile/:memberId?', element: <ProfilePage /> }
+          { path: '/employee/profile/:memberId?', element: <ProfilePage /> },
         ]
       },
       { path: '/employee/*', element: <NotFound /> }
     ]
-  }
+  },
+  // ── Standalone Chat (no layout, auth-protected for both roles) ─────────
+  {
+    element: <ProtectedRoute roles={['ADMIN', 'EMPLLOYEE']} />,
+    children: [
+      { path: '/chat', element: <ChatPage /> },
+    ]
+  },
 ];
 
 export const router = createBrowserRouter(routes);

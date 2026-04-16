@@ -5,13 +5,62 @@ import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import { Lock, Globe, User } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
+import { useGetMySettingsQuery, useUpdatePreferencesMutation, useChangePasswordMutation } from '@/services/settingsService';
 
 const EmployeeSetting: React.FC = () => {
     const { showToast } = useToast();
     const [notifications, setNotifications] = useState(true);
+    const [oldPassword, setOldPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmNewPassword, setConfirmNewPassword] = useState('');
+
+    const { data: settingsData } = useGetMySettingsQuery();
+    const updatePreferences = useUpdatePreferencesMutation();
+    const changePassword = useChangePasswordMutation();
+
+    React.useEffect(() => {
+        if ((settingsData as any)?.payload) {
+            setNotifications((settingsData as any).payload.show_notifications ?? true);
+        }
+    }, [settingsData]);
+
+    const handleNotificationsToggle = () => {
+        const newValue = !notifications;
+        setNotifications(newValue);
+        updatePreferences.mutate({
+            show_notifications: newValue,
+            language: (settingsData as any)?.payload?.language || 'en'
+        }, {
+            onSuccess: () => showToast('Preferences updated', 'success'),
+            onError: (err: any) => {
+                setNotifications(!newValue);
+                showToast(err.message || 'Failed to update preferences', 'error');
+            }
+        });
+    };
 
     const handleSave = () => {
-        showToast('Profile settings updated successfully!', 'success');
+        if (!oldPassword || !newPassword || !confirmNewPassword) {
+            return showToast('Please fill all password fields', 'error');
+        }
+        if (newPassword !== confirmNewPassword) {
+            return showToast('New passwords do not match', 'error');
+        }
+        changePassword.mutate({
+            old_password: oldPassword,
+            new_password: newPassword,
+            confirm_new_password: confirmNewPassword
+        }, {
+            onSuccess: () => {
+                showToast('Password updated successfully!', 'success');
+                setOldPassword('');
+                setNewPassword('');
+                setConfirmNewPassword('');
+            },
+            onError: (err: any) => {
+                showToast(err.message || 'Failed to update password', 'error');
+            }
+        });
     };
 
     return (
@@ -25,9 +74,10 @@ const EmployeeSetting: React.FC = () => {
                         <p className="text-[13px] text-gray-500 font-medium tracking-tight">Allow to receive push notifications for user activities and logs count</p>
                     </div>
                     <button
-                        onClick={() => setNotifications(!notifications)}
-                        className={`w-[46px] h-[24px] rounded-full transition-all duration-300 relative shrink-0 ${notifications ? 'bg-[#06b6d4] shadow-[0_0_10px_rgba(6,182,212,0.4)]' : 'bg-gray-200'}`}
+                        onClick={handleNotificationsToggle}
+                        className={`w-[46px] h-[24px] rounded-full transition-all duration-300 relative shrink-0 ${notifications ? 'bg-[#06b6d4] shadow-[0_0_10px_rgba(6,182,212,0.4)]' : 'bg-gray-200'} ${updatePreferences.isPending ? 'opacity-50 cursor-not-allowed' : ''}`}
                         style={{ backgroundColor: notifications ? '#00bfa5' : '#e5e7eb', boxShadow: notifications ? 'none' : 'none' }}
+                        disabled={updatePreferences.isPending}
                     >
                         <div className={`absolute top-0.5 w-[20px] h-[20px] rounded-full bg-white transition-all duration-300 shadow-sm ${notifications ? 'left-[24px]' : 'left-0.5'}`} />
                     </button>
@@ -43,6 +93,8 @@ const EmployeeSetting: React.FC = () => {
                             <Input
                                 type="password"
                                 placeholder="Enter your old password"
+                                value={oldPassword}
+                                onChange={(e) => setOldPassword(e.target.value)}
                             />
                         </div>
 
@@ -52,6 +104,8 @@ const EmployeeSetting: React.FC = () => {
                                 <Input
                                     type="password"
                                     placeholder="Enter new password"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
                                 />
                                 <span className="text-xs text-gray-500 font-medium mt-1">Min 8 characters, 1 Digit & 1 special character</span>
                             </div>
@@ -60,13 +114,15 @@ const EmployeeSetting: React.FC = () => {
                                 <Input
                                     type="password"
                                     placeholder="Confirm new password"
+                                    value={confirmNewPassword}
+                                    onChange={(e) => setConfirmNewPassword(e.target.value)}
                                 />
                             </div>
                         </div>
 
                         <div className="flex justify-end mt-2">
-                            <Button variant="primary" size="md" className="rounded-xl px-8 font-black shadow-lg shadow-primary-100" onClick={handleSave}>
-                                Update Password
+                            <Button variant="primary" size="md" className="rounded-xl px-8 font-black shadow-lg shadow-primary-100" onClick={handleSave} disabled={changePassword.isPending}>
+                                {changePassword.isPending ? 'Updating...' : 'Update Password'}
                             </Button>
                         </div>
                     </Card>
