@@ -1,6 +1,7 @@
 import React from 'react';
 import { Hash, ChevronDown } from 'lucide-react';
 import { Channel, Server, getAvatarColor } from '../chatTypes';
+import { texailogo } from '@/assets/icons';
 
 interface ChannelSidebarProps {
   activeServer: Server;
@@ -11,11 +12,13 @@ interface ChannelSidebarProps {
 
 const ChannelSidebar: React.FC<ChannelSidebarProps> = ({ activeServer, channels, activeChannelId, onChannelSelect }) => {
   return (
-    <div className="w-60 bg-[#F2F3F5] flex flex-col flex-shrink-0 border-r border-gray-200 h-full">
+    <div className="w-60 bg-white flex flex-col flex-shrink-0 border-r border-gray-200 h-full">
       {/* Server Header */}
-      <div className="h-14 px-4 flex items-center justify-between border-b border-gray-200 bg-[#F2F3F5] shadow-sm">
+      <div className="flex items-center justify-center border-b border-gray-200  ">
+        <img src={texailogo} className="h-20 w-20 " />
+      </div>
+      <div className="h-14 px-4 flex items-center justify-between border-b border-gray-200 ">
         <h2 className="font-black text-gray-800 text-sm truncate">{activeServer.name}</h2>
-        <ChevronDown size={16} className="text-gray-500 flex-shrink-0" />
       </div>
 
       {/* Channels */}

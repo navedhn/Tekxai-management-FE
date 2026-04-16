@@ -19,7 +19,7 @@ const MemberSidebar: React.FC<MemberSidebarProps> = ({ isVisible, users }) => {
           animate={{ width: 240, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
           transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-          className="bg-[#F2F3F5] border-l border-gray-200 flex flex-col overflow-hidden flex-shrink-0 h-full"
+          className="bg-white border-l border-gray-200 flex flex-col overflow-hidden flex-shrink-0 h-full"
         >
           <div className="flex-1 overflow-y-auto py-4 px-3 no-scrollbar">
             {/* Online Users */}

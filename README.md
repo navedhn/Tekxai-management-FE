@@ -88,4 +88,4 @@ src/
 
 ## 📝 License
 
-This project is maintained by the **Yodo Design** team.
+This project is maintained by the **TEKXAI** team.

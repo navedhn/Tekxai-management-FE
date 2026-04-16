@@ -31,7 +31,7 @@ const ChatContent: React.FC<ChatContentProps> = ({ activeChannel, messages, onSe
       <div className="h-14 px-4 flex items-center justify-between border-b border-gray-100 shadow-sm flex-shrink-0 bg-white z-10">
         <div className="flex items-center gap-2">
           {/* Mobile Menu Trigger */}
-          <button 
+          <button
             onClick={toggleSidebar}
             className="md:hidden p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 mr-1"
           >
@@ -44,39 +44,14 @@ const ChatContent: React.FC<ChatContentProps> = ({ activeChannel, messages, onSe
             <Volume2 size={20} className="text-gray-400" />
           )}
           <h3 className="font-black text-gray-800 text-sm">{activeChannel.name}</h3>
-          
+
           <div className="hidden sm:block w-px h-5 bg-gray-200 mx-2" />
           <p className="hidden md:block text-xs text-gray-400 font-medium truncate">
             {activeChannel.type === 'text' ? `Welcome to #${activeChannel.name}!` : 'Voice connection ready'}
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors">
-            <Phone size={18} />
-          </button>
-          <button className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors">
-            <Video size={18} />
-          </button>
-          <button className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors">
-            <Pin size={18} className="rotate-45" />
-          </button>
-          <button 
-            onClick={toggleMembers}
-            className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors hidden sm:flex"
-          >
-            <UsersIcon size={18} />
-          </button>
-          
-          <div className="relative hidden lg:block">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input 
-              type="text" 
-              placeholder="Search" 
-              className="bg-gray-100 border-none rounded-lg py-1 pl-8 pr-3 text-xs font-medium w-36 focus:ring-1 focus:ring-primary-100 transition-all outline-none"
-            />
-          </div>
-        </div>
+
       </div>
 
       {/* Messages */}
@@ -138,7 +113,7 @@ const ChatContent: React.FC<ChatContentProps> = ({ activeChannel, messages, onSe
           <button className="p-1 hover:bg-gray-200 rounded-lg transition-colors flex-shrink-0 grayscale hover:grayscale-0">
             <Paperclip size={18} className="text-gray-400" />
           </button>
-          
+
           <input
             value={inputValue}
             onChange={e => setInputValue(e.target.value)}
