@@ -190,8 +190,8 @@ web_modules/
 
 # dotenv environment variable files
 # .env - REMOVED: Now tracked in git (WARNING: Contains sensitive data)
-!.env.example
-!.env
+# !.env.example
+# !.env
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
