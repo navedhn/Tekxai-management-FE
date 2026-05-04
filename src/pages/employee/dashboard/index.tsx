@@ -196,7 +196,7 @@ const EmployeeDashboard: React.FC = () => {
 
             {/* Top Stats Section */}
             <div className="flex flex-col lg:flex-row gap-6 items-start p-3 rounded-[8px] bg-white">
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 p-3 flex-1 w-full bg-[#F8F8F8] lg:w-auto">
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 p-3 flex-1 w-full bg-[#F8F8F8] lg:w-auto">
                     {statsLoading ? (
                         Array.from({ length: 3 }).map((_, i) => <StatSkeleton key={i} />)
                     ) : (
