@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import Badge from '@/components/ui/Badge';
 import NotificationDropdown from './NotificationDropdown';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 
 import ActionModal from '@/components/ui/ActionModal';
 
@@ -13,6 +13,7 @@ export type AdminTopbarProps = { onMenu: () => void; routePrefix?: string };
 const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/admin' }) => {
     const { user, userLogout } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const [isNotifOpen, setIsNotifOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
@@ -141,16 +142,14 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
 
                                 {/* Menu Items */}
                                 <div className="py-2">
-                                    <button
-                                        onClick={() => {
-                                            setIsProfileOpen(false);
-                                            navigate(`${routePrefix}/profile`);
-                                        }}
+                                    <Link
+                                        to={`${routePrefix}/profile`}
+                                        onClick={() => setIsProfileOpen(false)}
                                         className="w-full flex items-center gap-3 px-4 py-3 text-[13px] font-bold text-gray-700 hover:bg-gray-50 hover:text-primary-500 transition-colors text-left"
                                     >
                                         <User size={16} className="text-gray-400" />
                                         My Profile
-                                    </button>
+                                    </Link>
                                     <button
                                         onClick={() => {
                                             setIsProfileOpen(false);
