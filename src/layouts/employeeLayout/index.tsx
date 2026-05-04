@@ -7,6 +7,7 @@ import PageWrapper from '@/components/layout/PageWrapper';
 import { useLocation } from 'react-router-dom';
 import { useResponsive } from '@/hooks/useResponsive';
 import ChatFloatingButton from '@/components/ui/ChatFloatingButton';
+import { TableSkeleton } from '@/components/skeletons';
 
 const EmployeeLayout: React.FC = memo(() => {
   const [open, setOpen] = useState(false);
@@ -16,7 +17,6 @@ const EmployeeLayout: React.FC = memo(() => {
 
   const location = useLocation();
 
-  // Handle body scroll lock on mobile
   React.useEffect(() => {
     if (isMobile) {
       document.body.style.overflow = open ? 'hidden' : 'unset';
@@ -30,7 +30,6 @@ const EmployeeLayout: React.FC = memo(() => {
 
   return (
     <div className="min-h-screen bg-[#FDFDFF]">
-      {/* Mobile Backdrop Overlay */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -49,7 +48,9 @@ const EmployeeLayout: React.FC = memo(() => {
         <div className="p-6 lg:px-4 py-8 max-w-[1800px] mx-auto bg-[#F5F5FA]">
           <AnimatePresence mode="wait">
             <PageWrapper key={location.pathname}>
+              {/* <React.Suspense fallback={<TableSkeleton rows={8} columns={5} />}> */}
               <Outlet />
+              {/* </React.Suspense> */}
             </PageWrapper>
           </AnimatePresence>
         </div>

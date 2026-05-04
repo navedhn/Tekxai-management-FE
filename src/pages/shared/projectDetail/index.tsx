@@ -113,7 +113,7 @@ const ProjectDetailPage: React.FC = () => {
             <div className="flex items-center gap-3 text-sm text-gray-500 font-medium">
               <span className="font-bold text-gray-700">Shareable Link:</span>
               <div className='border border-[#2525251A] rounded-[8px] p-2 flex items-center lg:min-w-[319px] justify-between'>
-                <span className="text-gray-400 ">https://yododesigns.com/</span>
+                <span className="text-gray-400 ">https://tekxai.services</span>
                 <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-[#005CDA]">
                   <Copy size={16} strokeWidth={2.5} />
                 </button>

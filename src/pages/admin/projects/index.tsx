@@ -120,7 +120,7 @@ const ProjectManagement: React.FC = () => {
           {item.members?.slice(0, 3).map((m, i) => (
             <div key={i} className="h-8 w-8 rounded-full border-2 border-white flex items-center justify-center text-[11px] font-bold text-white shadow-sm ring-1 ring-blue-100 overflow-hidden bg-gray-100">
               {m.avatar ? (
-                <img src={m.avatar} alt={m.first_name} className="w-full h-full object-cover" />
+                <img src={m.avatar} alt={m.first_name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-600 uppercase">
                   {m.first_name.charAt(0)}
@@ -205,8 +205,6 @@ const ProjectManagement: React.FC = () => {
     }
   ];
 
-  if (isLoading) return <Loader fullPage size={48} />;
-
   return (
     <div className="flex flex-col gap-8">
       <ProjectDetailsSlideOver
@@ -253,10 +251,8 @@ const ProjectManagement: React.FC = () => {
         <p className="text-sm text-gray-500 font-medium">Manage and track all your ongoing projects in one place.</p>
       </div>
 
-      <Card className="flex flex-col gap-8 shadow-2xl border-none">
+      <Card isLoading={isLoading} className="flex flex-col gap-8 shadow-2xl border-none">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-
-
           <div className="flex flex-col sm:flex-row  w-full sm:items-center gap-4">
             <Input
               placeholder="Search projects..."
@@ -310,6 +306,7 @@ const ProjectManagement: React.FC = () => {
         <Table
           columns={columns}
           data={paginatedData}
+          isLoading={isLoading}
           pagination={{
             currentPage,
             totalPages,

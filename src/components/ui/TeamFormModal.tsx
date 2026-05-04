@@ -5,12 +5,12 @@ import Textarea from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import Select from '@/components/ui/Select';
 import { useCreateTeamMutation, useUpdateTeamMutation } from '@/services/adminService';
-import { useToast } from '@/components/ui/Toast';
+import { useToastContext } from '@/components/toast/ToastProvider';
 
 interface TeamFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  team?: any; // If provided, we are in Edit mode
+  team?: any;
 }
 
 const teamTypes = [
@@ -31,7 +31,7 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, team }) 
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const { showToast } = useToast();
+  const toast = useToastContext();
   const createTeam = useCreateTeamMutation();
   const updateTeam = useUpdateTeamMutation();
 
@@ -77,21 +77,21 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, team }) 
     if (isEdit) {
       updateTeam.mutate({ id: team.id, data: formData }, {
         onSuccess: () => {
-          showToast('Team updated successfully', 'success');
+          toast.success('Team updated successfully');
           onClose();
         },
         onError: (err: any) => {
-          showToast(err.message || 'Failed to update team', 'error');
+          toast.error(err.message || 'Failed to update team');
         }
       });
     } else {
       createTeam.mutate(formData, {
         onSuccess: () => {
-          showToast('Team created successfully', 'success');
+          toast.success('Team created successfully');
           onClose();
         },
         onError: (err: any) => {
-          showToast(err.message || 'Failed to create team', 'error');
+          toast.error(err.message || 'Failed to create team');
         }
       });
     }

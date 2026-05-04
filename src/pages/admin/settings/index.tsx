@@ -2,11 +2,10 @@ import React, { useState } from 'react';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
 import Tabs from '@/components/ui/Tabs';
 import Table, { Column } from '@/components/ui/Table';
 import { Search, Filter, Mail, Calendar, Info, Clock, Plus, Trash2, Edit2 } from 'lucide-react';
-import { useToast } from '@/components/ui/Toast';
+import { useToastContext } from '@/components/toast/ToastProvider';
 import { useGetInvitesQuery, useDeleteInviteMutation } from '@/services/inviteService';
 import { useGetMySettingsQuery, useUpdatePreferencesMutation, useChangePasswordMutation } from '@/services/settingsService';
 import InviteMemberModal from '@/components/ui/InviteMemberModal';
@@ -14,7 +13,7 @@ import ActionModal from '@/components/ui/ActionModal';
 import { useDebounce } from '@/hooks/useDebounce';
 
 const Setting: React.FC = () => {
-    const { showToast } = useToast();
+    const toast = useToastContext();
     const [activeTab, setActiveTab] = useState('security');
     const [notifications, setNotifications] = useState(true);
     const [oldPassword, setOldPassword] = useState('');
@@ -67,20 +66,20 @@ const Setting: React.FC = () => {
             show_notifications: newValue,
             language: (settingsData as any)?.payload?.language || 'en'
         }, {
-            onSuccess: () => showToast('Preferences updated', 'success'),
+            onSuccess: () => toast.success('Preferences updated'),
             onError: (err: any) => {
                 setNotifications(!newValue);
-                showToast(err.message || 'Failed to update preferences', 'error');
+                toast.error(err.message || 'Failed to update preferences');
             }
         });
     };
 
     const handleSave = () => {
         if (!oldPassword || !newPassword || !confirmNewPassword) {
-            return showToast('Please fill all password fields', 'error');
+            return toast.error('Please fill all password fields');
         }
         if (newPassword !== confirmNewPassword) {
-            return showToast('New passwords do not match', 'error');
+            return toast.error('New passwords do not match');
         }
         changePassword.mutate({
             old_password: oldPassword,
@@ -88,13 +87,13 @@ const Setting: React.FC = () => {
             confirm_new_password: confirmNewPassword
         }, {
             onSuccess: () => {
-                showToast('Password updated successfully!', 'success');
+                toast.success('Password updated successfully!');
                 setOldPassword('');
                 setNewPassword('');
                 setConfirmNewPassword('');
             },
             onError: (err: any) => {
-                showToast(err.message || 'Failed to update password', 'error');
+                toast.error(err.message || 'Failed to update password');
             }
         });
     };
@@ -109,12 +108,12 @@ const Setting: React.FC = () => {
 
         deleteInvite.mutate(inviteToDelete.id, {
             onSuccess: () => {
-                showToast('Invitation deleted successfully', 'success');
+                toast.success('Invitation deleted successfully');
                 setIsDeleteModalOpen(false);
                 setInviteToDelete(null);
             },
             onError: (err: any) => {
-                showToast(err.message || 'Failed to delete invitation', 'error');
+                toast.error(err.message || 'Failed to delete invitation');
             }
         });
     };

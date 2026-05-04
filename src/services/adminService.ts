@@ -21,7 +21,7 @@ export const useLazyGetDashboardStatsQuery = () => {
     queryFn: getDashboardStatsApi,
     enabled: false,
   });
-  
+
   return {
     ...query,
     fetchStats: () => query.refetch(),
@@ -32,11 +32,10 @@ export const useGetTeamsQuery = (params?: Record<string, any>, enabled: boolean 
   return useQuery({
     queryKey: [QUERY_KEYS.TEAM.LIST, params],
     queryFn: () => {
-      // Filter out undefined, null, and empty strings
-      const filteredParams = params 
+      const filteredParams = params
         ? Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined && v !== null && v !== ''))
         : {};
-      
+
       const queryString = new URLSearchParams(filteredParams).toString();
       const url = queryString ? `${API_ENDPOINTS.TEAM.LIST}?${queryString}` : API_ENDPOINTS.TEAM.LIST;
       return apiRequest(url);
@@ -58,7 +57,7 @@ export const useCreateTeamMutation = () => {
 export const useUpdateTeamMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string | number; data: any }) => 
+    mutationFn: ({ id, data }: { id: string | number; data: any }) =>
       apiRequest(API_ENDPOINTS.TEAM.UPDATE(id), { method: 'PUT', body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TEAM.LIST });

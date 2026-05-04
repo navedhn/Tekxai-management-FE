@@ -4,9 +4,9 @@ import Table, { Column } from '@/components/ui/Table';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
-import { Search, Plus, Edit2, Trash2, Filter, Users } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, Users } from 'lucide-react';
 import { useGetTeamsQuery, useDeleteTeamMutation } from '@/services/adminService';
-import { useToast } from '@/components/ui/Toast';
+import { useToastContext } from '@/components/toast/ToastProvider';
 import TeamFormModal from '@/components/ui/TeamFormModal';
 import Badge from '@/components/ui/Badge';
 import ActionModal from '@/components/ui/ActionModal';
@@ -21,7 +21,7 @@ const teamTypes = [
 ];
 
 const TeamManagement: React.FC = () => {
-    const { showToast } = useToast();
+    const toast = useToastContext();
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState('ALL');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -68,12 +68,12 @@ const TeamManagement: React.FC = () => {
         if (!teamToDelete) return;
         deleteTeam.mutate(teamToDelete.id, {
             onSuccess: () => {
-                showToast('Team deleted successfully', 'success');
+                toast.success('Team deleted successfully');
                 setIsDeleteModalOpen(false);
                 setTeamToDelete(null);
             },
             onError: (err: any) => {
-                showToast(err.message || 'Failed to delete team', 'error');
+                toast.error(err.message || 'Failed to delete team');
             }
         });
     };

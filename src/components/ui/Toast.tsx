@@ -110,7 +110,7 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({
       {/* Body Row */}
       <div className="flex items-center gap-3">
         {icons[toast.type]}
-        <p className="flex-1 text-[14.5px] font-medium text-gray-600 tracking-tight leading-snug">{toast.message}</p>
+        <p className="flex-1 text-[14.5px] font-medium text-gray-700 tracking-tight leading-snug">{toast.message}</p>
       </div>
     </div>
   );

@@ -23,7 +23,7 @@ const mockNotifications: NotificationItem[] = [
   },
   {
     id: 'n2',
-    title: 'Welcome to the Yodo',
+    title: 'Welcome to the Tekxai',
     time: '4 hours ago',
     description: 'You\'re all set. Start tracking your time by checking in from your dashboard.',
     iconType: 'briefcase',
@@ -55,7 +55,7 @@ const mockNotifications: NotificationItem[] = [
   },
   {
     id: 'n6',
-    title: 'Welcome to the Yodo',
+    title: 'Welcome to the Tekxai',
     time: '4 hours ago',
     description: 'You\'re all set. Start tracking your time by checking in from your dashboard.',
     iconType: 'briefcase',
@@ -94,41 +94,41 @@ const NotificationsPage: React.FC = () => {
           {mockNotifications.map((notif, index) => {
             const Icon = notif.iconType === 'briefcase' ? Briefcase : Megaphone;
             return (
-              <div 
-                  key={notif.id} 
-                  className={cn(
-                      "flex justify-between items-start p-6 hover:bg-gray-50 transition-colors",
-                      index !== mockNotifications.length - 1 && "border-b border-gray-100"
-                  )}
+              <div
+                key={notif.id}
+                className={cn(
+                  "flex justify-between items-start p-6 hover:bg-gray-50 transition-colors",
+                  index !== mockNotifications.length - 1 && "border-b border-gray-100"
+                )}
               >
-                  <div className="flex items-start gap-4 flex-1">
-                      {/* Icon Container */}
-                      <div className="shrink-0 h-11 w-11 rounded-full bg-[#F5F8FF] text-primary-500 flex items-center justify-center mt-1">
-                          <Icon size={20} strokeWidth={2.5} />
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex flex-col gap-1.5 flex-1 pr-6">
-                          <div className="flex items-center gap-3">
-                              <h4 className="text-[15px] font-black text-gray-900 tracking-tight">{notif.title}</h4>
-                              <span className="text-[13px] text-gray-500 font-bold">{notif.time}</span>
-                          </div>
-                          <p className="text-[14px] leading-relaxed text-gray-600 font-medium tracking-tight">
-                              {notif.description}
-                          </p>
-                      </div>
+                <div className="flex items-start gap-4 flex-1">
+                  {/* Icon Container */}
+                  <div className="shrink-0 h-11 w-11 rounded-full bg-[#F5F8FF] text-primary-500 flex items-center justify-center mt-1">
+                    <Icon size={20} strokeWidth={2.5} />
                   </div>
 
-                  {/* Right Status Region */}
-                  <div className="flex flex-col items-end gap-2 shrink-0 h-full pt-1">
-                      {notif.isUnread ? (
-                          <span className="w-2.5 h-2.5 rounded-full bg-primary-500 shadow-[0_0_8px_rgba(0,92,218,0.4)] block mb-1" />
-                      ) : (
-                          <div className="w-2.5 h-2.5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                              <CheckCircle2 size={16} className="text-gray-300" />
-                          </div>
-                      )}
+                  {/* Content */}
+                  <div className="flex flex-col gap-1.5 flex-1 pr-6">
+                    <div className="flex items-center gap-3">
+                      <h4 className="text-[15px] font-black text-gray-900 tracking-tight">{notif.title}</h4>
+                      <span className="text-[13px] text-gray-500 font-bold">{notif.time}</span>
+                    </div>
+                    <p className="text-[14px] leading-relaxed text-gray-600 font-medium tracking-tight">
+                      {notif.description}
+                    </p>
                   </div>
+                </div>
+
+                {/* Right Status Region */}
+                <div className="flex flex-col items-end gap-2 shrink-0 h-full pt-1">
+                  {notif.isUnread ? (
+                    <span className="w-2.5 h-2.5 rounded-full bg-primary-500 shadow-[0_0_8px_rgba(0,92,218,0.4)] block mb-1" />
+                  ) : (
+                    <div className="w-2.5 h-2.5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <CheckCircle2 size={16} className="text-gray-300" />
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}

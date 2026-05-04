@@ -65,6 +65,7 @@ const Login: React.FC = () => {
               onBlur={handleBlur}
               labelClassName="text-[10px] font-black text-gray-400 tracking-widest uppercase mb-1"
               error={touched.email && errors.email ? errors.email : undefined}
+              autoComplete="username"
             />
 
             <div className="flex flex-col gap-2">
@@ -78,6 +79,7 @@ const Login: React.FC = () => {
                 onBlur={handleBlur}
                 labelClassName="text-[10px] font-black text-gray-400 tracking-widest uppercase mb-1"
                 error={touched.password && errors.password ? errors.password : undefined}
+                autoComplete="current-password"
               />
               <div className="flex justify-end">
                 <Link

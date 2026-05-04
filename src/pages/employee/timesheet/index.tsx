@@ -10,6 +10,7 @@ import { ChevronDown, MoreVertical, Calendar } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import RequestTimeOffModal from '@/components/ui/RequestTimeOffModal';
 import { useGetTimeOffRequests, useGetWeeklyTimesheet, TimesheetEntry } from '@/services/timesheetService';
+import { CardSkeleton } from '@/components/skeletons';
 
 interface LeaveRequest {
     id: string;
@@ -122,8 +123,6 @@ const EmployeeTimesheet: React.FC = () => {
         }
     ];
 
-    if (isLoading || isLoadingRequests) return <Loader fullPage size={48} />;
-
     return (
         <div className="flex flex-col gap-8 pb-10">
             <RequestTimeOffModal isOpen={isRequestModalOpen} onClose={() => setIsRequestModalOpen(false)} />
@@ -155,6 +154,7 @@ const EmployeeTimesheet: React.FC = () => {
                         <Table
                             columns={columns}
                             data={timesheet?.rows || []}
+                            isLoading={isLoading}
                             className="border-none shadow-none"
                             headerClassName="bg-[#F0F5FF]/50 border-none rounded-xl"
                         />
@@ -179,7 +179,9 @@ const EmployeeTimesheet: React.FC = () => {
                     <div className="flex flex-col gap-6">
                         <h3 className="text-lg font-black text-gray-900 tracking-tight">Time Off Requests</h3>
 
-                        {timeOffRequests?.time_off_requests?.length ? timeOffRequests.time_off_requests.map((req: any) => (
+                        {isLoadingRequests ? (
+                            Array.from({ length: 2 }).map((_, i) => <CardSkeleton key={i} />)
+                        ) : timeOffRequests?.time_off_requests?.length ? timeOffRequests.time_off_requests.map((req: any) => (
                             <Card key={req.id} className="p-6 flex flex-col gap-4 bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
                                 <div className="flex items-start justify-between">
                                     <div className="flex flex-col gap-1">
@@ -215,11 +217,13 @@ const EmployeeTimesheet: React.FC = () => {
                                 </div>
                                 <span className="text-[10px] tracking-tight font-bold text-gray-400 pb-1">{req.submitted_at_label || req.submittedAt}</span>
                             </Card>
-                        )) : <p className="text-xs text-gray-400 font-bold mt-2">No time off requests found.</p>}
+                        ) ) : <p className="text-xs text-gray-400 font-bold mt-2">No time off requests found.</p>}
 
                         <div className="mt-4">
                             <h3 className="text-lg font-black text-gray-900 tracking-tight">Timesheet Edit Requests</h3>
-                            {timeOffRequests?.timesheet_edit_requests?.length ? timeOffRequests.timesheet_edit_requests.map((req: any) => (
+                            {isLoadingRequests ? (
+                                <CardSkeleton />
+                            ) : timeOffRequests?.timesheet_edit_requests?.length ? timeOffRequests.timesheet_edit_requests.map((req: any) => (
                                 <Card key={req.id} className="p-6 flex flex-col gap-4 mt-4 bg-white border border-gray-100 shadow-sm">
                                     <h3 className="font-bold text-gray-900">{req.name || 'Edit Request'}</h3>
                                     <p className="text-[14px] font-bold text-gray-400">{req.reason}</p>
@@ -233,7 +237,7 @@ const EmployeeTimesheet: React.FC = () => {
                                         {req.status}
                                     </Badge>
                                 </Card>
-                            )) : <p className="text-xs text-gray-400 font-bold mt-2">No edit requests found.</p>}
+                            )) : <p className="text-xs text-gray-400 italic mt-2">No edit requests found.</p>}
                         </div>
                     </div>
                 </div>

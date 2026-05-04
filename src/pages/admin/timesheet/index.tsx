@@ -3,20 +3,16 @@ import {
     useGetWeeklyTimesheet,
     useGetTimesheetRequests,
     useUpdateTimesheetMutation,
-    useDeleteTimesheetMutation,
     useApproveTimeOffMutation,
     useRejectTimeOffMutation,
     TimesheetEntry,
     EditRequest,
-    TimeOffRequest
 } from '@/services/timesheetService';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
 import Tabs from '@/components/ui/Tabs';
-import Loader from '@/components/ui/Loader';
-import { ExternalLink, ChevronDown, Check, X, User, Calendar, Clock, SquarePen, Search, Loader2 } from 'lucide-react';
-import { cn } from '@/utils/cn';
+import { Check, X,  Calendar, Clock, SquarePen, Search, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
@@ -25,6 +21,7 @@ import ReviewEditRequestModal from '@/components/modals/ReviewEditRequestModal';
 import { useDebounce } from '@/hooks/useDebounce';
 import Select from '@/components/ui/Select';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { CardSkeleton } from '@/components/skeletons';
 
 const TimesheetManagement: React.FC = () => {
     const toast = useToastContext();
@@ -96,18 +93,6 @@ const TimesheetManagement: React.FC = () => {
     };
 
     const columns: Column<TimesheetEntry>[] = [
-        // {
-        //     header: 'Employee',
-        //     key: 'employee',
-        //     render: (item) => (
-        //         <div className="flex items-center gap-3">
-        //             <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs ring-2 ring-white shadow-sm uppercase">
-        //                 {item.employee ? item.employee.split(' ').map(n => n[0]).join('') : '?'}
-        //             </div>
-        //             <span className="font-bold text-gray-900">{item.employee}</span>
-        //         </div>
-        //     )
-        // },
         { header: 'Date', key: 'day_date' },
         {
             header: 'Check In',
@@ -120,28 +105,6 @@ const TimesheetManagement: React.FC = () => {
             render: (item) => <span className={!item.has_entry ? "text-gray-400" : ""}>{item.check_out || item.no_entry_text}</span>
         },
         { header: 'Duration', key: 'duration_label ', render: (item) => <span>{item.duration_label}</span> },
-        // {
-        //     header: 'Status',
-        //     key: 'status',
-        //     render: (item) => {
-        //         if (!item.has_entry && !item.status) return null;
-        //         const statusStyles: Record<string, string> = {
-        //             'In Progress': 'bg-[#EFF8FF] text-[#175CD3] border-[#B2DDFF]',
-        //             'Overdue': 'bg-[#FFF1F3] text-[#C01048] border-[#FEB3B3]',
-        //             'Pending': 'bg-[#FFF6ED] text-[#C4320A] border-[#FFD6AE]',
-        //             'Completed': 'bg-[#ECFDF3] text-[#027A48] border-[#ABEFC6]'
-        //         };
-        //         const style = item.status_label ? statusStyles[item.status_label] : 'bg-gray-50 text-gray-500 border-gray-100';
-        //         return (
-        //             <Badge
-        //                 variant="info"
-        //                 className={cn("rounded-lg px-3 py-1 text-[10px] font-black border", style)}
-        //             >
-        //                 {item.status_label || item.status}
-        //             </Badge>
-        //         );
-        //     }
-        // },
         {
             header: 'Action',
             key: 'actions',
@@ -164,9 +127,8 @@ const TimesheetManagement: React.FC = () => {
         }
     ];
 
-    const isLoading = isTimesheetLoading || ((activeTab === 'Edit Requests' || activeTab === 'Time Off Requests') && isRequestsLoading);
-
-    if (isLoading && !timesheet && !requestData) return <Loader fullPage size={48} />;
+    const isTabLoading = (activeTab === 'All Entries' && isTimesheetLoading) || 
+                       ((activeTab === 'Edit Requests' || activeTab === 'Time Off Requests') && isRequestsLoading);
 
     return (
         <div className="flex flex-col gap-8">
@@ -228,6 +190,7 @@ const TimesheetManagement: React.FC = () => {
                                 <Table
                                     columns={columns}
                                     data={paginatedData}
+                                    isLoading={isTimesheetLoading}
                                     className="border-none shadow-none bg-white overflow-hidden"
                                     pagination={{
                                         currentPage: currentPage,
@@ -250,7 +213,9 @@ const TimesheetManagement: React.FC = () => {
                                 transition={{ duration: 0.2 }}
                                 className="flex flex-col gap-4 py-4"
                             >
-                                {editRequests && editRequests.length > 0 ? editRequests.map((req) => (
+                                {isRequestsLoading ? (
+                                    Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
+                                ) : editRequests && editRequests.length > 0 ? editRequests.map((req) => (
                                     <div key={req.id} className="bg-white p-6 rounded-3xl border border-gray-100 flex flex-col gap-4 shadow-sm group hover:shadow-md transition-all">
                                         <div className="flex items-center justify-between">
                                             <div className="flex flex-col gap-1">
@@ -271,7 +236,7 @@ const TimesheetManagement: React.FC = () => {
                                         </div>
                                     </div>
                                 )) : (
-                                    <div className="text-center py-12 text-gray-400 font-bold">No edit requests found.</div>
+                                    <div className="text-center py-12 italic ">No edit requests found.</div>
                                 )}
                             </motion.div>
                         )}
@@ -285,7 +250,9 @@ const TimesheetManagement: React.FC = () => {
                                 transition={{ duration: 0.2 }}
                                 className="grid grid-cols-1 lg:grid-cols-2 gap-6 py-4"
                             >
-                                {timeOffRequests.length ? timeOffRequests.map((req) => (
+                                {isRequestsLoading ? (
+                                    Array.from({ length: 4 }).map((_, i) => <CardSkeleton key={i} />)
+                                ) : timeOffRequests.length ? timeOffRequests.map((req) => (
                                     <div key={req.id} className="bg-white p-6 rounded-[2rem] border border-gray-100 flex flex-col gap-6 shadow-sm hover:shadow-md transition-all">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
@@ -335,7 +302,7 @@ const TimesheetManagement: React.FC = () => {
                                         </div>
                                     </div>
                                 )) : (
-                                    <div className="col-span-full text-center py-12 text-gray-400 font-bold">No time-off requests found.</div>
+                                    <div className="col-span-full text-center py-12 italic">No time-off requests found.</div>
                                 )}
                             </motion.div>
                         )}

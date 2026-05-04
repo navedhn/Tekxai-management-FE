@@ -144,7 +144,6 @@ const EmployeeProjects: React.FC = () => {
     }
   ];
 
-  if (isLoading) return <Loader fullPage size={48} />;
 
   return (
     <div className="flex flex-col gap-8 pb-10">
@@ -202,6 +201,7 @@ const EmployeeProjects: React.FC = () => {
         <Table
           columns={columns}
           data={paginatedData}
+          isLoading={isLoading}
           className="bg-white rounded-3xl"
           pagination={{
             currentPage,

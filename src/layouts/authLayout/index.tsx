@@ -25,7 +25,13 @@ const AuthLayout: React.FC = () => {
                 <div className="relative z-10">
                     <Link to="/" className="inline-block p-1">
                         <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20">
-                            <img src={texailogo} alt="TekXAI Logo" className="h-8 w-auto brightness-0 invert" />
+                            <img 
+                                src={texailogo} 
+                                alt="TekXAI Logo" 
+                                className="h-8 w-auto brightness-0 invert" 
+                                loading="eager"
+                                decoding="async"
+                            />
                         </div>
                     </Link>
                 </div>
@@ -77,7 +83,13 @@ const AuthLayout: React.FC = () => {
             <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-6 sm:p-12 lg:p-16 bg-white relative min-h-screen">
                 {/* Mobile Logo - Improved positioning to avoid overlap */}
                 <div className="lg:hidden w-full flex justify-center mb-8 pt-4">
-                    <img src={texailogo} alt="TekXAI Logo" className="h-16 w-auto" />
+                    <img 
+                        src={texailogo} 
+                        alt="TekXAI Logo" 
+                        className="h-16 w-auto" 
+                        loading="eager"
+                        decoding="async"
+                    />
                 </div>
 
                 <motion.div

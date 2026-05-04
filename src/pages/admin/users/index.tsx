@@ -3,9 +3,9 @@ import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import { Search, Plus, Edit2, Trash2, Filter } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2 } from 'lucide-react';
 import { useFetchUsersQuery, useDeleteUserMutation } from '@/services/userService';
-import { useToast } from '@/components/ui/Toast';
+import { useToastContext } from '@/components/toast/ToastProvider';
 import UserFormModal from '@/components/ui/UserFormModal';
 import Badge from '@/components/ui/Badge';
 import { useNavigate } from 'react-router-dom';
@@ -14,7 +14,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 
 const UserManagement: React.FC = () => {
     const navigate = useNavigate();
-    const { showToast } = useToast();
+    const toast = useToastContext();
     const [searchQuery, setSearchQuery] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -60,12 +60,12 @@ const UserManagement: React.FC = () => {
         if (!userToDelete) return;
         deleteUser.mutate(userToDelete.id, {
             onSuccess: () => {
-                showToast('User deleted successfully', 'success');
+                toast.success('User deleted successfully');
                 setIsDeleteModalOpen(false);
                 setUserToDelete(null);
             },
             onError: (err: any) => {
-                showToast(err.message || 'Failed to delete user', 'error');
+                toast.error(err.message || 'Failed to delete user');
             }
         });
     };
@@ -182,6 +182,7 @@ const UserManagement: React.FC = () => {
                     <Table
                         columns={columns}
                         data={filteredUsers}
+                        isLoading={isLoading}
                         emptyMessage="No users found."
                     />
                 </div>

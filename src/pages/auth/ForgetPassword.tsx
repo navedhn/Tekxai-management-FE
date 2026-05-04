@@ -22,7 +22,6 @@ const ForgetPassword: React.FC = () => {
             setUserEmail(values.email);
             setEmailSent(true);
             toast.success('OTP has been sent to your email address.');
-            // We'll store the ID in a way that navigate can pass it
             setUserId(userId);
         } catch (error: any) {
             const errorMessage =

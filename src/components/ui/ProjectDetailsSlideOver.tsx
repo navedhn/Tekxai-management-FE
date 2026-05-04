@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { X, ArrowRight, Expand, ChevronDown, CheckCircle2, Circle, MessageSquare, Plus, Trash2, ArrowRight as ArrowRightIcon, ArrowLeft, Loader2, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { ArrowRight, ChevronDown, CheckCircle2, Circle, MessageSquare, Plus, Trash2, ArrowRight as ArrowRightIcon, ArrowLeft, Calendar as CalendarIcon, Clock } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import Badge from './Badge';
 import Button from './Button';
 import RequestTimeOffModal from './RequestTimeOffModal';
+import CreateMilestoneModal from '../modals/CreateMilestoneModal';
+import AddTaskModal from '../modals/AddTaskModal';
 import { useGetProjectDetails } from '@/services/projectService';
 import Loader from './Loader';
 
@@ -49,6 +51,9 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
   const { data: project, isLoading } = useGetProjectDetails(projectId);
   const [lists, setLists] = useState(mockChecklists);
   const [showRequestModel, setShowRequestModael] = useState(false);
+  const [showCreateMilestone, setShowCreateMilestone] = useState(false);
+  const [showAddTask, setShowAddTask] = useState(false);
+  const [activeMilestoneId, setActiveMilestoneId] = useState<string | number | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({ 'c1': true, 'c2': true });
 
   const deleteItem = (listId: string, itemId: string) => {
@@ -90,7 +95,7 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
               <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-700 bg-gray-50 active:scale-95">
                 <ArrowLeft className="rotate-180" size={20} strokeWidth={2.5} />
               </button>
-              <button
+              {/* <button
                 onClick={() => {
                   if (project) {
                     onClose();
@@ -108,8 +113,8 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                 title="Open Full Page"
               >
                 <Expand size={18} strokeWidth={2.5} />
-              </button>
-              {isLoading && <Loader2 className="animate-spin text-primary-500 ml-2" size={20} />}
+              </button> */}
+              {/* {isLoading && <Loader2 className="animate-spin text-primary-500 ml-2" size={20} />} */}
             </div>
 
             {isLoading ? (
@@ -194,11 +199,31 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                     </div>
                   </div>
 
+                  {/* Modals placed at root level for visibility */}
+                  <RequestTimeOffModal isOpen={showRequestModel} onClose={() => setShowRequestModael(false)} />
+                  <CreateMilestoneModal
+                    isOpen={showCreateMilestone}
+                    onClose={() => setShowCreateMilestone(false)}
+                    projectId={projectId}
+                  />
+                  <AddTaskModal
+                    isOpen={showAddTask}
+                    onClose={() => setShowAddTask(false)}
+                    milestoneId={activeMilestoneId}
+                    members={project?.all_members || project?.members || []}
+                  />
+
                   {/* Dynamic Checklist Accordions */}
                   <div className="flex flex-col gap-6 w-full">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-black text-gray-900 tracking-tight">Project Milestones</h3>
-                      <Button leftIcon={Plus} className="bg-[#005CDA11] hover:bg-[#005CDA22] border-none font-black text-[11px] h-9 rounded-xl py-0 px-4">Create Milestone</Button>
+                      <Button
+                        leftIcon={Plus}
+                        onClick={() => setShowCreateMilestone(true)}
+                        className="bg-[#005CDA11] hover:bg-[#005CDA22] border-none font-black text-[11px] h-9 rounded-xl py-0 px-4"
+                      >
+                        Create Milestone
+                      </Button>
                     </div>
                     {lists.map((list) => (
                       <div key={list.id} className="flex flex-col bg-white border border-gray-100 rounded-[2rem] shadow-sm overflow-hidden">
@@ -262,7 +287,16 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                               </AnimatePresence>
 
                               <div className="flex items-center justify-between p-4 border-t border-gray-50 mt-4">
-                                <Button leftIcon={Plus} className="bg-primary-50 border-none  font-black h-10 px-6 rounded-xl text-xs gap-2">Add task</Button>
+                                <Button
+                                  leftIcon={Plus}
+                                  onClick={() => {
+                                    setActiveMilestoneId(list.id);
+                                    setShowAddTask(true);
+                                  }}
+                                  className="bg-primary-50 border-none font-black h-10 px-6 rounded-xl text-xs gap-2"
+                                >
+                                  Add task
+                                </Button>
                                 <button className="flex items-center gap-2 text-red-500 font-black hover:bg-red-50 px-4 py-2 rounded-xl transition-all text-xs uppercase tracking-widest">Delete milestone</button>
                               </div>
                             </motion.div>
@@ -293,7 +327,6 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                       </div>
                     </div>
                   </div>
-                  <RequestTimeOffModal isOpen={showRequestModel} onClose={() => setShowRequestModael(false)} />
 
                   <div className="flex flex-col gap-6 text-[13px] font-bold text-gray-500">
                     <div className="flex items-center justify-between pb-4 border-b border-gray-50">

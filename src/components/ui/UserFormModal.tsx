@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import Select from '@/components/ui/Select';
 import { useGetTeamsQuery } from '@/services/adminService';
 import { useCreateUserMutation, useUpdateUserMutation } from '@/services/userService';
-import { useToast } from '@/components/ui/Toast';
+import { useToastContext } from '@/components/toast/ToastProvider';
 
 interface UserFormModalProps {
   isOpen: boolean;
@@ -59,7 +59,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const { showToast } = useToast();
+  const toast = useToastContext();
   const { data: teamsData } = useGetTeamsQuery(undefined, isOpen);
   const createUser = useCreateUserMutation();
   const updateUser = useUpdateUserMutation();
@@ -142,21 +142,21 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
       
       updateUser.mutate({ id: user.id, data: payload }, {
         onSuccess: () => {
-          showToast('User updated successfully', 'success');
+          toast.success('User updated successfully');
           onClose();
         },
         onError: (err: any) => {
-          showToast(err.message || 'Failed to update user', 'error');
+          toast.error(err.message || 'Failed to update user');
         }
       });
     } else {
       createUser.mutate(payload, {
         onSuccess: () => {
-          showToast('User created successfully', 'success');
+          toast.success('User created successfully');
           onClose();
         },
         onError: (err: any) => {
-          showToast(err.message || 'Failed to create user', 'error');
+          toast.error(err.message || 'Failed to create user');
         }
       });
     }

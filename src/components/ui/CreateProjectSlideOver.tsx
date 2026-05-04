@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Calendar, Clock, X, Plus, Search, User as UserIcon, Loader2, ArrowRight } from 'lucide-react';
+import {Clock, X, Plus, Search, User ,Loader2, ArrowRight } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import Button from './Button';
 import Input from './Input';

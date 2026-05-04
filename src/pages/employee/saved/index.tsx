@@ -12,8 +12,8 @@ const EmployeeSaved: React.FC = () => {
 
     const columns: Column<ProjectSummary>[] = [
         { header: 'Project Title', key: 'title' },
-        { 
-            header: 'Member', 
+        {
+            header: 'Member',
             key: 'members',
             render: (item) => (
                 <div className="flex -space-x-2">
@@ -26,8 +26,8 @@ const EmployeeSaved: React.FC = () => {
             )
         },
         { header: 'Projects Hours', key: 'hours', render: (item) => `${item.hours} Hours` },
-        { 
-            header: 'Status', 
+        {
+            header: 'Status',
             key: 'status',
             render: (item) => (
                 <Badge variant="info" className="rounded-lg px-3 py-1 text-[10px] font-black uppercase tracking-tight">
@@ -52,7 +52,7 @@ const EmployeeSaved: React.FC = () => {
         }
     ];
 
-    if (isLoading) return <Loader fullPage size={48} />;
+    // if (isLoading) return <Loader fullPage size={48} />;
 
     return (
         <div className="flex flex-col gap-8">
@@ -62,9 +62,9 @@ const EmployeeSaved: React.FC = () => {
             </div>
 
             <Card className="flex flex-col gap-6 shadow-2xl border-none">
-                <Table 
-                    columns={columns} 
-                    data={projects?.slice(0, 3) || []} 
+                <Table
+                    columns={columns}
+                    data={projects?.slice(0, 3) || []}
                     className="border-none shadow-none"
                 />
             </Card>

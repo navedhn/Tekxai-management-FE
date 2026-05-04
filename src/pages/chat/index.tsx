@@ -11,8 +11,8 @@ import MemberSidebar from './components/MemberSidebar';
 import CreateServerModal from './components/CreateServerModal';
 
 // Types & Data
-import { 
-  Server, Channel, Message, SERVERS, CHANNELS, MESSAGES, CHAT_USERS 
+import {
+  Server, Channel, Message, SERVERS, CHANNELS, MESSAGES, CHAT_USERS
 } from './chatTypes';
 
 const ChatPage: React.FC = () => {
@@ -24,7 +24,7 @@ const ChatPage: React.FC = () => {
   const [activeServer, setActiveServer] = useState<Server>(SERVERS[0]);
   const [activeChannel, setActiveChannel] = useState<Channel>(CHANNELS[0]);
   const [messages, setMessages] = useState<Message[]>(MESSAGES);
-  
+
   // UI State
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showUsersList, setShowUsersList] = useState(true);
@@ -50,7 +50,7 @@ const ChatPage: React.FC = () => {
 
   return (
     <div className="fixed inset-0 flex bg-white overflow-hidden font-sans selection:bg-primary-100 selection:text-primary-900">
-      
+
       {/* --- Desktop: Server Rail & Channel Sidebar --- */}
       {!isMobile && (
         <>
@@ -113,7 +113,6 @@ const ChatPage: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* --- Main Chat Content --- */}
       <ChatContent
         activeChannel={activeChannel}
         messages={messages}

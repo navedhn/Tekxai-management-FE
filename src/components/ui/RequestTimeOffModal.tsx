@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import Modal from './Modal';
-import Input from './Input';
 import DatePicker from './DatePicker';
-import Select, { SelectOption } from './Select';
+import Select from './Select';
 import Textarea from './Textarea';
 import Button from './Button';
-import { Calendar, X, Paperclip } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
 import { useGetTimeOffPolicies, useCreateTimeOffRequestMutation } from '@/services/timesheetService';

@@ -27,7 +27,11 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
         return 'Good evening';
     }, []);
 
-    // Close dropdown on outside click
+    useEffect(() => {
+        setIsProfileOpen(false);
+        setIsNotifOpen(false);
+    }, [location.pathname]);
+
     useEffect(() => {
         const handler = (e: MouseEvent) => {
             if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
@@ -41,7 +45,6 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
     const handleLogout = async () => {
         setIsLoggingOut(true);
         try {
-            // Wait for logout API or internal cleanup
             await userLogout();
             navigate('/login');
         } catch (error) {
@@ -54,9 +57,6 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
 
     return (
         <div className="fixed top-0 left-0 lg:left-sidebar gap-3 right-0 h-[5.5rem] bg-white backdrop-blur-md border-b border-gray-100 flex items-center justify-between px-6 md:px-5 z-[100] transition-all duration-300">
-            {/* ... Rest of the topbar content ... */}
-
-            {/* I'll wrap the existing return content but I need to make sure I don't break the layout. Actually I should just put the Modal at the end of the return JSX. */}
 
             <div className="flex items-center gap-4">
                 <button className="lg:hidden p-2 hover:bg-gray-100 rounded-xl transition-colors" onClick={onMenu}>

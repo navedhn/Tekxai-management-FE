@@ -1,11 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useGetSavedProjects, ProjectDetail, useUnsaveProjectMutation } from '@/services/projectService';
 import { useDebounce } from '@/hooks/useDebounce';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
 import Loader from '@/components/ui/Loader';
-import { Star, MoreVertical, Search, Stars } from 'lucide-react';
+import { Star, Search } from 'lucide-react';
 import Input from '@/components/ui/Input';
 import { cn } from '@/utils/cn';
 import ActionModal from '@/components/ui/ActionModal';
@@ -132,7 +132,7 @@ const SavedProject: React.FC = () => {
     ];
 
 
-    if (isLoading) return <Loader fullPage size={48} />;
+    // if (isLoading) return <Loader fullPage size={48} />;
 
     return (
         <div className="flex flex-col gap-8">

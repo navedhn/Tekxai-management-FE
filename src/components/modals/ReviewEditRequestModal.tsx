@@ -1,6 +1,5 @@
 import React from 'react';
-import { Calendar, User, Clock, AlertCircle } from 'lucide-react';
-import { cn } from '@/utils/cn';
+import {  Clock, AlertCircle } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { EditRequest, useApproveEditRequestMutation, useRejectEditRequestMutation } from '@/services/timesheetService';

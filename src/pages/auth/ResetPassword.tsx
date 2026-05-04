@@ -23,8 +23,8 @@ const ResetPassword: React.FC = () => {
         }
 
         try {
-            await resetPasswordMutation.mutateAsync({ 
-                id, 
+            await resetPasswordMutation.mutateAsync({
+                id,
                 password: values.password,
             });
             toast.success('Password reset successfully! Please login with your new password.');

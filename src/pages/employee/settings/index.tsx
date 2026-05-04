@@ -4,11 +4,11 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import { Lock, Globe, User } from 'lucide-react';
-import { useToast } from '@/components/ui/Toast';
+import { useToastContext } from '@/components/toast/ToastProvider';
 import { useGetMySettingsQuery, useUpdatePreferencesMutation, useChangePasswordMutation } from '@/services/settingsService';
 
 const EmployeeSetting: React.FC = () => {
-    const { showToast } = useToast();
+    const toast = useToastContext();
     const [notifications, setNotifications] = useState(true);
     const [oldPassword, setOldPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -31,20 +31,20 @@ const EmployeeSetting: React.FC = () => {
             show_notifications: newValue,
             language: (settingsData as any)?.payload?.language || 'en'
         }, {
-            onSuccess: () => showToast('Preferences updated', 'success'),
+            onSuccess: () => toast.success('Preferences updated'),
             onError: (err: any) => {
                 setNotifications(!newValue);
-                showToast(err.message || 'Failed to update preferences', 'error');
+                toast.error(err.message || 'Failed to update preferences');
             }
         });
     };
 
     const handleSave = () => {
         if (!oldPassword || !newPassword || !confirmNewPassword) {
-            return showToast('Please fill all password fields', 'error');
+            return toast.error('Please fill all password fields');
         }
         if (newPassword !== confirmNewPassword) {
-            return showToast('New passwords do not match', 'error');
+            return toast.error('New passwords do not match');
         }
         changePassword.mutate({
             old_password: oldPassword,
@@ -52,13 +52,13 @@ const EmployeeSetting: React.FC = () => {
             confirm_new_password: confirmNewPassword
         }, {
             onSuccess: () => {
-                showToast('Password updated successfully!', 'success');
+                toast.success('Password updated successfully!');
                 setOldPassword('');
                 setNewPassword('');
                 setConfirmNewPassword('');
             },
             onError: (err: any) => {
-                showToast(err.message || 'Failed to update password', 'error');
+                toast.error(err.message || 'Failed to update password');
             }
         });
     };

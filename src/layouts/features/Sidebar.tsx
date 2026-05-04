@@ -36,7 +36,7 @@ const Sidebar: React.FC<SidebarProps> = memo(({ isOpen, onClose }) => {
     }, [isInvitePopOpen]);
 
     const handleCopy = useCallback(() => {
-        navigator.clipboard.writeText('https://yododesigns.com/');
+        navigator.clipboard.writeText('https://tekxai.services/');
         setIsCopied(true);
         setTimeout(() => setIsCopied(false), 2000);
     }, []);

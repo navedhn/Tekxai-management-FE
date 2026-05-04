@@ -16,15 +16,16 @@ import { Search, ChevronRight, Play, Clock, CheckCircle, Briefcase, FileText, Se
 import Input from '@/components/ui/Input';
 import Tabs from '@/components/ui/Tabs';
 import { cn } from '@/utils/cn';
-import { useToast } from '@/components/ui/Toast';
+import { useToastContext } from '@/components/toast/ToastProvider';
 import ProjectDetailsSlideOver from '@/components/ui/ProjectDetailsSlideOver';
+import { CardSkeleton, StatSkeleton } from '@/components';
 
 const EmployeeDashboard: React.FC = () => {
     const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
     const { data: activity, isLoading: activityLoading } = useGetRecentActivity();
     const { data: timesheet, isLoading: timesheetLoading } = useGetTimesheet();
     const { data: projects, isLoading: projectsLoading } = useGetProjects();
-    const { showToast } = useToast();
+    const toast = useToastContext();
 
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -53,23 +54,23 @@ const EmployeeDashboard: React.FC = () => {
 
     const handleCheckIn = () => {
         setTrackerState('tracking');
-        showToast('Tracker Started For Today\'s Task..', 'success');
+        toast.success('Tracker Started For Today\'s Task..');
     };
 
     const handleBreak = () => {
         setTrackerState('paused');
-        showToast('Tracker Paused For Break..', 'warning');
+        toast.warning('Tracker Paused For Break..');
     };
 
     const handleResume = () => {
         setTrackerState('tracking');
-        showToast('Tracker Started For Today\'s Task..', 'success');
+        toast.success('Tracker Started For Today\'s Task..');
     };
 
     const handleCheckOut = () => {
         setTrackerState('idle');
         setSeconds(0);
-        showToast('Successfully Checked Out', 'info');
+        toast.info('Successfully Checked Out');
     };
 
     // 🔍 Filter projects
@@ -184,10 +185,6 @@ const EmployeeDashboard: React.FC = () => {
         { header: 'Due Date', key: 'dueDate' },
     ];
 
-    if (statsLoading || activityLoading || timesheetLoading || projectsLoading) {
-        return <Loader fullPage size={48} />;
-    }
-
     return (
         <div className="flex flex-col gap-8 pb-10">
             <ProjectDetailsSlideOver
@@ -199,38 +196,44 @@ const EmployeeDashboard: React.FC = () => {
 
             {/* Top Stats Section */}
             <div className="flex flex-col lg:flex-row gap-6 items-start p-3 rounded-[8px] bg-white">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-3 flex-1 w-full bg-[#F8F8F8] lg:w-auto">
-                    {/* Projects Card */}
-                    <div className="flex items-center px-2 gap-3 overflow-hidden border-r-[1px] border-[#00000014]">
-                        <div className="h-20 w-20 rounded-md bg-[#005CDA1A] flex items-center justify-center text-[#005CDA]">
-                            <CheckCircle size={28} />
-                        </div>
-                        <div className="flex flex-col">
-                            <h2 className="text-[30px] font-[#181D27] text-gray-900 leading-none">{stats?.completedProjects}</h2>
-                            <h4 className="text-[14px] font-medium text-[#252525] mt-1  tracking-tight">Completed Projects</h4>
-                            <span className="text-[14px] font-inter text-[#252525]">Total Hours: <span className="text-[#005CDA] font-bold">{stats?.totalHours}hr</span></span>
-                        </div>
-                    </div>
-                    <div className="flex items-center px-2 gap-4 border-r-[1px] border-[#00000014]">
-                        <div className="h-20 w-20 rounded-md bg-[#FF58551A] flex items-center justify-center text-[#F04438] ">
-                            <Play size={24} className="fill-[#F04438]" />
-                        </div>
-                        <div className="flex flex-col ">
-                            <h2 className="text-3xl font-black text-gray-900 leading-none">{stats?.latestCheckIn}</h2>
-                            <h4 className="text-[14px] font-medium font-inter text-[#252525] mt-1 tracking-tight">2 hours ago</h4>
-                            <span className="text-[14px]  font-inter text-gray-400">Latest Check-in <span className="text-[#005CDA] font-bold">{stats?.totalHours}hr</span></span>
-                        </div>
-                    </div>
-                    <div className="flex items-center px-2 gap-4 ">
-                        <div className="h-20 w-20 rounded-md bg-[#F0F9FF] flex items-center justify-center text-[#0086C9] ">
-                            <Badge variant="info" className="bg-transparent border-none p-0"><FileText size={28} /></Badge>
-                        </div>
-                        <div className="flex flex-col">
-                            <h2 className="text-3xl font-black text-gray-900 leading-none">0{stats?.pendingTimesheets}</h2>
-                            <h4 className="text-[14px] font-bold font-inter text-[#252525] mt-1 tracking-tight">Pending Timesheet</h4>
-                            <span className="text-[14px]  font-inter text-gray-400">Edit requests awaiting</span>
-                        </div>
-                    </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 p-3 flex-1 w-full bg-[#F8F8F8] lg:w-auto">
+                    {statsLoading ? (
+                        Array.from({ length: 3 }).map((_, i) => <StatSkeleton key={i} />)
+                    ) : (
+                        <>
+                            {/* Projects Card */}
+                            <div className="flex items-center px-2 gap-3 overflow-hidden border-r-[1px] border-[#00000014]">
+                                <div className="h-20 w-20 rounded-md bg-[#005CDA1A] flex items-center justify-center text-[#005CDA]">
+                                    <CheckCircle size={28} />
+                                </div>
+                                <div className="flex flex-col">
+                                    <h2 className="text-[30px] font-[#181D27] text-gray-900 leading-none">{stats?.completedProjects}</h2>
+                                    <h4 className="text-[14px] font-medium text-[#252525] mt-1  tracking-tight">Completed Projects</h4>
+                                    <span className="text-[14px] font-inter text-[#252525]">Total Hours: <span className="text-[#005CDA] font-bold">{stats?.totalHours}hr</span></span>
+                                </div>
+                            </div>
+                            <div className="flex items-center px-2 gap-4 border-r-[1px] border-[#00000014]">
+                                <div className="h-20 w-20 rounded-md bg-[#FF58551A] flex items-center justify-center text-[#F04438] ">
+                                    <Play size={24} className="fill-[#F04438]" />
+                                </div>
+                                <div className="flex flex-col ">
+                                    <h2 className="text-3xl font-black text-gray-900 leading-none">{stats?.latestCheckIn}</h2>
+                                    <h4 className="text-[14px] font-medium font-inter text-[#252525] mt-1 tracking-tight">2 hours ago</h4>
+                                    <span className="text-[14px]  font-inter text-gray-400">Latest Check-in <span className="text-[#005CDA] font-bold">{stats?.totalHours}hr</span></span>
+                                </div>
+                            </div>
+                            <div className="flex items-center px-2 gap-4 ">
+                                <div className="h-20 w-20 rounded-md bg-[#F0F9FF] flex items-center justify-center text-[#0086C9] ">
+                                    <Badge variant="info" className="bg-transparent border-none p-0"><FileText size={28} /></Badge>
+                                </div>
+                                <div className="flex flex-col">
+                                    <h2 className="text-3xl font-black text-gray-900 leading-none">0{stats?.pendingTimesheets}</h2>
+                                    <h4 className="text-[14px] font-bold font-inter text-[#252525] mt-1 tracking-tight">Pending Timesheet</h4>
+                                    <span className="text-[14px]  font-inter text-gray-400">Edit requests awaiting</span>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
 
 
@@ -321,7 +324,9 @@ const EmployeeDashboard: React.FC = () => {
 
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        {activity?.map((act) => (
+                        {activityLoading ? (
+                            Array.from({ length: 4 }).map((_, i) => <CardSkeleton key={i} />)
+                        ) : activity?.map((act) => (
                             <div
                                 key={act.id}
                                 className="group cursor-pointer relative rounded-[1.25rem] border border-gray-100 overflow-hidden"
@@ -386,6 +391,7 @@ const EmployeeDashboard: React.FC = () => {
                         <Table
                             columns={timesheetColumns}
                             data={timesheet || []}
+                            isLoading={timesheetLoading}
                             className="border-none shadow-none"
                         />
                     </div>
@@ -420,6 +426,7 @@ const EmployeeDashboard: React.FC = () => {
                     <Table
                         columns={projectColumns}
                         data={paginatedProjects}
+                        isLoading={projectsLoading}
                         pagination={{
                             currentPage: currentPage,
                             totalPages: totalPages,

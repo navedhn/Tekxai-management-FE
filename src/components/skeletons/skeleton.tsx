@@ -1,12 +1,12 @@
 import React from 'react';
-import { classNames } from '@/utils/helpers';
+import { cn } from '@/utils/cn';
 
 type Props = {
   className?: string;
   variant?: 'text' | 'circular' | 'rectangular';
   width?: string | number;
   height?: string | number;
-  animation?: 'pulse' | 'wave' | 'none';
+  animation?: 'pulse' | 'shimmer' | 'none';
 };
 
 const Skeleton: React.FC<Props> = ({
@@ -14,19 +14,19 @@ const Skeleton: React.FC<Props> = ({
   variant = 'text',
   width,
   height,
-  animation = 'pulse'
+  animation = 'shimmer'
 }) => {
-  const baseClasses = 'bg-gray-200 dark:bg-gray-700';
-  
+  const baseClasses = 'bg-gray-200  relative overflow-hidden';
+
   const variantClasses = {
     text: 'h-4 rounded',
     circular: 'rounded-full aspect-square',
-    rectangular: 'rounded'
+    rectangular: 'rounded-xl'
   };
 
   const animationClasses = {
     pulse: 'animate-pulse',
-    wave: 'animate-shimmer',
+    shimmer: 'animate-shimmer',
     none: ''
   };
 
@@ -36,7 +36,7 @@ const Skeleton: React.FC<Props> = ({
 
   return (
     <div
-      className={classNames(
+      className={cn(
         baseClasses,
         variantClasses[variant],
         animationClasses[animation],
@@ -48,4 +48,3 @@ const Skeleton: React.FC<Props> = ({
 };
 
 export default Skeleton;
-

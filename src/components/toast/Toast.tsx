@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { X, CheckCircle2, AlertCircle, Info, AlertTriangle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/utils/cn';
+import { classNames } from '@/utils/helpers';
 import { ToastVariant, ToastPosition } from '@/types';
 
 type ToastProps = {
@@ -11,47 +10,29 @@ type ToastProps = {
   duration?: number;
   onClose: (id: string) => void;
   position?: ToastPosition;
+  darkMode?: boolean;
 };
 
-const variantConfig: Record<ToastVariant, { 
-    bg: string; 
-    icon: React.ReactNode; 
-    accent: string; 
-    textColor: string;
-    iconColor: string;
-    progressBg: string;
-}> = {
+const variantStyles: Record<ToastVariant, { bg: string; icon: React.ReactNode; border: string }> = {
   success: {
-    bg: 'bg-white/80 backdrop-blur-md',
-    accent: 'bg-emerald-500',
-    icon: <CheckCircle2 size={18} />,
-    iconColor: 'text-emerald-500',
-    textColor: 'text-gray-900',
-    progressBg: 'bg-emerald-500/30'
+    bg: 'bg-green-100 ',
+    icon: <CheckCircle2 className="text-green-600 dark:text-green-400" size={20} />,
+    border: 'border-green-200 ',
   },
   error: {
-    bg: 'bg-white/80 backdrop-blur-md',
-    accent: 'bg-red-500',
-    icon: <AlertCircle size={18} />,
-    iconColor: 'text-red-500',
-    textColor: 'text-gray-900',
-    progressBg: 'bg-red-500/30'
+    bg: 'bg-red-100 ',
+    icon: <AlertCircle className="text-red-600 dark:text-red-400" size={20} />,
+    border: 'border-red-200 ',
   },
   info: {
-    bg: 'bg-white/80 backdrop-blur-md',
-    accent: 'bg-[#005CDA]',
-    icon: <Info size={18} />,
-    iconColor: 'text-[#005CDA]',
-    textColor: 'text-gray-900',
-    progressBg: 'bg-[#005CDA]/30'
+    bg: 'bg-blue-50 ',
+    icon: <Info className="text-blue-600 dark:text-blue-400" size={20} />,
+    border: 'border-blue-200 ',
   },
   warning: {
-    bg: 'bg-white/80 backdrop-blur-md',
-    accent: 'bg-amber-500',
-    icon: <AlertTriangle size={18} />,
-    iconColor: 'text-amber-500',
-    textColor: 'text-gray-900',
-    progressBg: 'bg-amber-500/30'
+    bg: 'bg-yellow-50 ',
+    icon: <AlertTriangle className="text-yellow-600 dark:text-yellow-400" size={20} />,
+    border: 'border-yellow-200 ',
   }
 };
 
@@ -59,8 +40,10 @@ const Toast: React.FC<ToastProps> = ({
   id,
   message,
   variant = 'info',
-  duration = 4000,
+  duration = 3000,
   onClose,
+  position = 'top-right',
+  darkMode = false
 }) => {
   useEffect(() => {
     if (duration > 0) {
@@ -69,58 +52,30 @@ const Toast: React.FC<ToastProps> = ({
     }
   }, [duration, id, onClose]);
 
-  const config = variantConfig[variant];
+  const styles = variantStyles[variant];
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 20, scale: 0.9, filter: 'blur(10px)' }}
-      animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-      exit={{ opacity: 0, scale: 0.85, transition: { duration: 0.2 } }}
-      className={cn(
-        "group relative flex items-center gap-4 p-4 pr-10 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-white/40 overflow-hidden min-w-[320px] max-w-md",
-        config.bg
+    <div
+      className={classNames(
+        'flex items-start gap-3 p-4 rounded-lg shadow-lg border max-w-sm animate-slide-in',
+        styles.bg,
+        styles.border,
+        darkMode && 'dark'
       )}
+      role="alert"
     >
-      {/* Left Accent Bar */}
-      <div className={cn("absolute left-0 top-0 bottom-0 w-1.5", config.accent)} />
-
-      {/* Icon Wrapper */}
-      <div className={cn("flex items-center justify-center w-10 h-10 rounded-xl bg-gray-50/50 shrink-0", config.iconColor)}>
-        {config.icon}
-      </div>
-
-      {/* Content */}
-      <div className="flex flex-col gap-0.5">
-        <p className={cn("text-[14px] font-bold tracking-tight leading-tight", config.textColor)}>
-          {variant.charAt(0).toUpperCase() + variant.slice(1)}
-        </p>
-        <p className="text-[13px] font-medium text-gray-500 leading-normal">
-          {message}
-        </p>
-      </div>
-
-      {/* Close Button */}
+      <div className="shrink-0">{styles.icon}</div>
+      <p className="flex-1 text-sm font-medium text-gray-700">{message}</p>
       <button
         onClick={() => onClose(id)}
-        className="absolute top-4 right-4 p-1 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+        className="shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+        aria-label="Close"
       >
-        <X size={16} strokeWidth={2.5} />
+        <X size={18} />
       </button>
-
-      {/* Progress Bar Container */}
-      {duration > 0 && (
-        <div className="absolute bottom-0 left-0 right-0 h-1 overflow-hidden bg-gray-50/30">
-          <motion.div
-            initial={{ width: "100%" }}
-            animate={{ width: "0%" }}
-            transition={{ duration: duration / 1000, ease: "linear" }}
-            className={cn("h-full", config.accent)}
-          />
-        </div>
-      )}
-    </motion.div>
+    </div>
   );
 };
 
 export default Toast;
+

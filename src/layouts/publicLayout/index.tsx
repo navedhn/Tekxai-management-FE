@@ -1,7 +1,5 @@
 import React, { memo } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
-
-import { motion } from 'framer-motion';
+import { Outlet } from 'react-router-dom';
 
 const PublicLayout: React.FC = memo(() => {
   return (

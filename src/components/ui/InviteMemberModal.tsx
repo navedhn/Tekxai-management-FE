@@ -6,7 +6,7 @@ import Select from '@/components/ui/Select';
 import { useGetTeamsQuery } from '@/services/adminService';
 import { useCreateInviteMutation, useUpdateInviteMutation } from '@/services/inviteService';
 import { useAuthStore } from '@/stores/authStore';
-import { useToast } from '@/components/ui/Toast';
+import { useToastContext } from '@/components/toast/ToastProvider';
 import UserListModal from './UserListModal';
 import { Users } from 'lucide-react';
 
@@ -71,7 +71,7 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const { user } = useAuthStore();
-  const { showToast } = useToast();
+  const toast = useToastContext();
   const { data: teamsData } = useGetTeamsQuery(undefined, isOpen);
 
   const { mutate: createInvite, isPending: isCreating } = useCreateInviteMutation();
@@ -152,11 +152,11 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
 
       updateInvite({ id: invite.id, data: payload }, {
         onSuccess: () => {
-          showToast('Invite updated successfully!', 'success');
+          toast.success('Invite updated successfully!');
           onClose();
         },
         onError: (err: any) => {
-          showToast(err.message || 'Failed to update invite', 'error');
+          toast.error(err.message || 'Failed to update invite');
         }
       });
     } else {
@@ -175,11 +175,11 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
 
       createInvite(payload, {
         onSuccess: () => {
-          showToast('Invite sent successfully!', 'success');
+          toast.success('Invite sent successfully!');
           onClose();
         },
         onError: (err: any) => {
-          showToast(err.message || 'Failed to send invite', 'error');
+          toast.error(err.message || 'Failed to send invite');
         }
       });
     }
