@@ -10,17 +10,12 @@ import { useToastContext } from '@/components/toast/ToastProvider';
 interface UserFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  user?: any; // If provided, we are in Edit mode
+  user?: any;
 }
 
 const departments = [
   { value: 'TekXAI', label: 'TekXAI' },
   { value: 'CE', label: 'CE' }
-];
-
-const roles = [
-  { value: 'ADMIN', label: 'Admin' },
-  { value: 'EMPLLOYEE', label: 'Employee' }
 ];
 
 const statuses = [
@@ -53,7 +48,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
     department: '',
     designation: '',
     team_id: '',
-    role: 'EMPLLOYEE',
+    role: 'EMPLLOYEE', // default fixed
     status: 'ACTIVE'
   });
 
@@ -72,11 +67,11 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
         first_name: user.first_name || '',
         last_name: user.last_name || '',
         email: user.email || '',
-        password: '', // Don't populate password
+        password: '',
         department: user.department || '',
         designation: user.designation || '',
         team_id: user.team_memberships?.[0]?.team?.id || user.team_id || '',
-        role: user.role?.name || user.role || 'EMPLLOYEE',
+        role: 'EMPLLOYEE', // always fixed
         status: user.status || 'ACTIVE'
       });
     } else if (!user && isOpen) {
@@ -105,41 +100,38 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
 
   const handleSelectChange = (name: string) => (val: string | number) => {
     setFormData(prev => ({ ...prev, [name]: val }));
-    
-    // Reset dependent fields if department changes
+
     if (name === 'department') {
       setFormData(prev => ({ ...prev, designation: '', team_id: '' }));
     }
   };
 
   const handleSubmit = () => {
-    const { first_name, last_name, email, department, role, password } = formData;
-    
-    // Inline validation
+    const { first_name, last_name, email, department, password } = formData;
+
     const newErrors: Record<string, string> = {};
     if (!first_name) newErrors.first_name = 'First name is required';
     if (!last_name) newErrors.last_name = 'Last name is required';
     if (!email) newErrors.email = 'Email address is required';
     if (!department) newErrors.department = 'Department selection is required';
-    if (!role) newErrors.role = 'System role is required';
-    
+
     if (!isEdit && !password) {
       newErrors.password = 'Password is required for new accounts';
     }
 
     setErrors(newErrors);
 
-    if (Object.keys(newErrors).length > 0) {
-      return;
-    }
+    if (Object.keys(newErrors).length > 0) return;
 
-    const payload: any = { ...formData, role_id: role };
-    delete payload.role;
+    const payload: any = {
+      ...formData,
+      role: 'EMPLLOYEE',
+      role_id: "60e032cc-3305-4de9-a34e-f5a3d9725fbc" // fixed role id
+    };
 
     if (isEdit) {
-      // For update, exclude password if empty
       if (!password) delete payload.password;
-      
+
       updateUser.mutate({ id: user.id, data: payload }, {
         onSuccess: () => {
           toast.success('User updated successfully');
@@ -213,15 +205,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
           className="h-12 rounded-xl"
         />
 
-        <div className="grid grid-cols-2 gap-4">
-          <Select
-            label="ROLE *"
-            options={roles}
-            value={formData.role}
-            onChange={handleSelectChange('role')}
-            error={errors.role}
-            className="h-12 !rounded-xl"
-          />
+        <div className="grid grid-cols-1 gap-4">
           <Select
             label="STATUS *"
             options={statuses}
@@ -232,7 +216,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
         </div>
 
         <div className="grid grid-cols-1 gap-4">
-         <Select
+          <Select
             label="DEPARTMENT *"
             options={departments}
             value={formData.department}

@@ -85,26 +85,26 @@ const ActionModal: React.FC<ActionModalProps> = ({
           {description}
         </p>
 
-        <div className="flex flex-col w-full gap-3">
+        <div className="flex justify-center items-center w-full gap-3">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={loading}
+            className="h-12 w-full rounded-xl font-bold text-gray-500 border-gray-200 hover:bg-gray-50 transition-all"
+          >
+            {cancelText}
+          </Button>
           <Button
             onClick={onConfirm}
             loading={loading}
             className={cn(
-              "h-12 rounded-xl font-bold text-white shadow-lg transition-all active:scale-95",
+              "h-12 w-full rounded-xl font-bold text-white shadow-lg transition-all active:scale-95",
               getConfirmBtnClass()
             )}
           >
             {confirmText}
           </Button>
 
-          <Button
-            variant="outline"
-            onClick={onClose}
-            disabled={loading}
-            className="h-12 rounded-xl font-bold text-gray-500 border-gray-200 hover:bg-gray-50 transition-all"
-          >
-            {cancelText}
-          </Button>
         </div>
       </div>
     </Modal>

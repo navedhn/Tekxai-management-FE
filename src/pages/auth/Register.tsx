@@ -73,7 +73,7 @@ const Register: React.FC = () => {
           phone: '',
           email: '',
           password: '',
-          role_id: 'EMPLLOYEE',
+          role_id: '60e032cc-3305-4de9-a34e-f5a3d9725fbc',
           department: '',
           position: ''
         }}
@@ -184,7 +184,7 @@ const Register: React.FC = () => {
                 labelClassName="text-[10px] font-black text-gray-400 tracking-widest uppercase"
                 error={touched.password && errors.password ? errors.password : undefined}
               />
-              
+
               {/* Complex Password Validation UI */}
               <PasswordValidator password={values.password} />
             </div>
