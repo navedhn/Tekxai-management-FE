@@ -1,5 +1,3 @@
-import React from 'react';
-
 export interface Server {
   id: string;
   name: string;
@@ -7,13 +5,40 @@ export interface Server {
   color: string;
   unread?: number;
   hasNotification?: boolean;
+  isDmHome?: boolean;
 }
+
+export type ConversationType = 'text' | 'voice' | 'dm';
 
 export interface Channel {
   id: string;
   name: string;
-  type: 'text' | 'voice';
+  type: ConversationType;
   unread?: number;
+  recipientId?: string;
+  recipientName?: string;
+  recipientStatus?: ChatUser['status'];
+  lastMessage?: string;
+  isTyping?: boolean;
+}
+
+export interface MessageReaction {
+  emoji: string;
+  count: number;
+  reactedByMe?: boolean;
+}
+
+export interface MessageReplyRef {
+  id: string;
+  username: string;
+  content: string;
+}
+
+export interface MessageAttachment {
+  type: 'image' | 'file';
+  name: string;
+  url: string;
+  size?: number;
 }
 
 export interface Message {
@@ -24,6 +49,9 @@ export interface Message {
   content: string;
   timestamp: string;
   isBot?: boolean;
+  attachments?: MessageAttachment[];
+  reactions?: MessageReaction[];
+  replyTo?: MessageReplyRef;
 }
 
 export interface ChatUser {
@@ -34,7 +62,13 @@ export interface ChatUser {
   avatar?: string;
 }
 
-// --- Static Data ---
+export const DM_HOME_SERVER: Server = {
+  id: 'dm-home',
+  name: 'Direct Messages',
+  abbreviation: 'DM',
+  color: 'from-[#005CDA] to-[#001F4A]',
+  isDmHome: true,
+};
 
 export const SERVERS: Server[] = [
   { id: 's1', name: 'Tekxai HQ', abbreviation: 'TX', color: 'from-[#005CDA] to-[#001F4A]' },
@@ -53,6 +87,23 @@ export const CHANNELS: Channel[] = [
   { id: 'c6', name: 'random', type: 'text' },
 ];
 
+export const DIRECT_MESSAGES: Channel[] = [
+  {
+    id: 'dm-u2', name: 'Sarah Chen', type: 'dm', recipientId: 'u2', recipientName: 'Sarah Chen',
+    recipientStatus: 'online', unread: 2, lastMessage: 'No rush! Just let me know if you have any questions.',
+  },
+  {
+    id: 'dm-u4', name: 'Emma Davis', type: 'dm', recipientId: 'u4', recipientName: 'Emma Davis',
+    recipientStatus: 'online', lastMessage: 'Sure, 10 AM works for me.',
+  },
+  {
+    id: 'dm-u8', name: 'Anna Martinez', type: 'dm', recipientId: 'u8', recipientName: 'Anna Martinez',
+    recipientStatus: 'online', lastMessage: 'Loved the new dashboard designs! 🔥',
+  },
+];
+
+export const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
+
 export const CHAT_USERS: ChatUser[] = [
   { id: 'u1', name: 'Alex Johnson', role: 'Admin', status: 'online' },
   { id: 'u2', name: 'Sarah Chen', role: 'Developer', status: 'online' },
@@ -64,20 +115,45 @@ export const CHAT_USERS: ChatUser[] = [
   { id: 'u8', name: 'Anna Martinez', role: 'Designer', status: 'online' },
 ];
 
-export const MESSAGES: Message[] = [
-  { id: 'm1', userId: 'u1', username: 'Alex Johnson', content: 'Good morning team! Hope everyone had a great weekend 😊', timestamp: 'Today at 9:00 AM' },
+export const CHANNEL_MESSAGES: Message[] = [
+  { id: 'm1', userId: 'u1', username: 'Alex Johnson', content: 'Good morning team! Hope everyone had a great weekend 😊', timestamp: 'Today at 9:00 AM', reactions: [{ emoji: '👍', count: 3 }, { emoji: '😊', count: 1 }] },
   { id: 'm2', userId: 'u2', username: 'Sarah Chen', content: 'Morning! Ready to crush it this week. We have the sprint review coming up.', timestamp: 'Today at 9:02 AM' },
-  { id: 'm3', userId: 'u4', username: 'Emma Davis', content: 'The new feature designs are ready for review. I\'ll share the link in #design-feedback', timestamp: 'Today at 9:15 AM' },
-  { id: 'm4', userId: 'u1', username: 'Alex Johnson', content: 'Sounds great Emma! I\'ll check them out this afternoon.', timestamp: 'Today at 9:17 AM' },
+  { id: 'm3', userId: 'u4', username: 'Emma Davis', content: "The new feature designs are ready for review. I'll share the link in #design-feedback", timestamp: 'Today at 9:15 AM' },
+  { id: 'm4', userId: 'u1', username: 'Alex Johnson', content: "Sounds great Emma! I'll check them out this afternoon.", timestamp: 'Today at 9:17 AM' },
   { id: 'm5', userId: 'u3', username: 'Mike Williams', content: 'Can we schedule a quick sync today to go over the design system updates?', timestamp: 'Today at 9:45 AM' },
   { id: 'm6', userId: 'u2', username: 'Sarah Chen', content: 'Sure! How about 2 PM?', timestamp: 'Today at 9:47 AM' },
   { id: 'm7', userId: 'u3', username: 'Mike Williams', content: '2 PM works for me 👍', timestamp: 'Today at 9:48 AM' },
   { id: 'm8', userId: 'u5', username: 'Tom Brown', content: 'Just pushed the latest bug fixes. PR is up for review!', timestamp: 'Today at 10:30 AM' },
-  { id: 'm9', userId: 'u1', username: 'Alex Johnson', content: 'Thanks Tom! I\'ll review it after the standup.', timestamp: 'Today at 10:32 AM' },
+  { id: 'm9', userId: 'u1', username: 'Alex Johnson', content: "Thanks Tom! I'll review it after the standup.", timestamp: 'Today at 10:32 AM' },
   { id: 'm10', userId: 'u8', username: 'Anna Martinez', content: 'The new component library looks amazing! Great work everyone 🎉', timestamp: 'Today at 11:00 AM' },
 ];
 
-// --- Utilities ---
+export const DM_MESSAGES: Record<string, Message[]> = {
+  'dm-u2': [
+    { id: 'dm-m1', userId: 'u2', username: 'Sarah Chen', content: 'Hey! Did you get a chance to review the PR?', timestamp: 'Today at 8:30 AM' },
+    { id: 'dm-m2', userId: 'me', username: 'You', content: "Not yet, I'll look at it after standup.", timestamp: 'Today at 8:45 AM' },
+    { id: 'dm-m3', userId: 'u2', username: 'Sarah Chen', content: 'No rush! Just let me know if you have any questions.', timestamp: 'Today at 8:46 AM' },
+  ],
+  'dm-u4': [
+    { id: 'dm-m4', userId: 'u4', username: 'Emma Davis', content: 'Can we sync on the roadmap tomorrow?', timestamp: 'Yesterday at 4:00 PM' },
+    { id: 'dm-m5', userId: 'me', username: 'You', content: 'Sure, 10 AM works for me.', timestamp: 'Yesterday at 4:15 PM' },
+  ],
+  'dm-u8': [
+    { id: 'dm-m6', userId: 'u8', username: 'Anna Martinez', content: 'Loved the new dashboard designs! 🔥', timestamp: 'Today at 11:30 AM' },
+  ],
+};
+
+export const INITIAL_MESSAGES_BY_CONVERSATION: Record<string, Message[]> = {
+  c1: CHANNEL_MESSAGES,
+  ...DM_MESSAGES,
+};
+
+export const EMOJI_LIST = [
+  '😀', '😂', '😊', '😍', '🤔', '😢', '😎', '🙌',
+  '👍', '👎', '👋', '🤝', '💪', '🎉', '🔥', '❤️',
+  '✅', '❌', '⭐', '💯', '🚀', '📎', '💡', '🙏',
+  '☕', '🎯', '📌', '✨', '😅', '🤣', '😇', '🥳',
+];
 
 export const getAvatarColor = (name: string) => {
   const colors = [
@@ -94,3 +170,18 @@ export const getAvatarColor = (name: string) => {
 
 export const getInitials = (name: string) =>
   name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+export const getStatusColor = (status: ChatUser['status']) => {
+  switch (status) {
+    case 'online': return 'bg-green-500';
+    case 'idle': return 'bg-yellow-400';
+    case 'dnd': return 'bg-red-500';
+    default: return 'bg-gray-400';
+  }
+};
+
+export const formatFileSize = (bytes: number) => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};

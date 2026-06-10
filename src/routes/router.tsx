@@ -6,6 +6,7 @@ import EmployeeLayout from '@/layouts/employeeLayout';
 import ProtectedRoute from '@/pages/layout/ProtectedRoute';
 import PublicRoute from '@/pages/layout/PublicRoute';
 import AuthLayout from '@/layouts/authLayout';
+import MarketingLayout from '@/layouts/marketingLayout';
 
 const HomePage = lazy(() => import('@/pages/public/homePage'));
 const Login = lazy(() => import('@/pages/auth/Login'));
@@ -31,6 +32,10 @@ const ProjectDetailPage = lazy(() => import('@/pages/shared/projectDetail'));
 const ProfilePage = lazy(() => import('@/pages/shared/profile'));
 const StarredQueries = lazy(() => import('@/pages/employee/starred'));
 const ChatPage = lazy(() => import('@/pages/chat'));
+const MarketingDashboard = lazy(() => import('@/pages/marketing/dashboard'));
+const MarketingWonDeals = lazy(() => import('@/pages/marketing/won-deals'));
+const MarketingSalaryBuilder = lazy(() => import('@/pages/marketing/salary-builder'));
+const MarketingSalaryHistory = lazy(() => import('@/pages/marketing/salary-history'));
 const NotFound = lazy(() => import('@/pages/404'));
 
 const routes: RouteObject[] = [
@@ -98,6 +103,22 @@ const routes: RouteObject[] = [
       },
       { path: '/employee/*', element: <NotFound /> }
     ]
+  },
+  // ── Marketing Portal (mock data — any logged-in user until MARKETING role exists) ──
+  {
+    element: <MarketingLayout />,
+    children: [
+      {
+        element: <ProtectedRoute roles={['ADMIN', 'EMPLLOYEE']} />,
+        children: [
+          { path: '/marketing', element: <MarketingDashboard /> },
+          { path: '/marketing/won-deals', element: <MarketingWonDeals /> },
+          { path: '/marketing/salary-builder/:memberId', element: <MarketingSalaryBuilder /> },
+          { path: '/marketing/salary-history', element: <MarketingSalaryHistory /> },
+        ],
+      },
+      { path: '/marketing/*', element: <NotFound /> },
+    ],
   },
   // ── Standalone Chat (no layout, auth-protected for both roles) ─────────
   {

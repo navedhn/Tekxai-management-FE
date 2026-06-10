@@ -14,6 +14,8 @@ import { Search, Play, CheckCircle, Briefcase, FileText } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import ProjectDetailsSlideOver from '@/components/ui/ProjectDetailsSlideOver';
 import { StatSkeleton, CardSkeleton } from '@/components/skeletons';
+import DashboardStatCard from '@/components/ui/DashboardStatCard';
+import RecentActivityCard from '@/components/dashboard/RecentActivityCard';
 
 const Dashboard: React.FC = () => {
     const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
@@ -151,49 +153,37 @@ const Dashboard: React.FC = () => {
                         Array.from({ length: 4 }).map((_, i) => <StatSkeleton key={i} />)
                     ) : (
                         <>
-                            <div className="flex items-center px-4 md:px-6 py-4 gap-4 overflow-hidden border-b lg:border-b-0 lg:border-r border-gray-100 last:border-b-0 lg:last:border-r-0">
-                                <div className="h-16 w-16 md:h-20 md:w-20 rounded-xl bg-blue-50 flex items-center justify-center text-primary-600 shrink-0">
-                                    <CheckCircle size={28} />
-                                </div>
-                                <div className="flex flex-col min-w-0">
-                                    <h2 className="text-2xl md:text-[30px] font-black text-gray-900 leading-tight">{stats?.completedProjects}</h2>
-                                    <h4 className="text-sm font-bold text-gray-500 tracking-tight truncate">Completed Projects</h4>
-                                    <span className="text-xs md:text-sm font-medium text-gray-400">Total Hours: <span className="text-primary-600 font-bold">{stats?.totalHours}hr</span></span>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center px-4 md:px-6 py-4 gap-4 overflow-hidden border-b lg:border-b-0 lg:border-r border-gray-100 last:border-b-0 lg:last:border-r-0">
-                                <div className="h-16 w-16 md:h-20 md:w-20 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500 shrink-0">
-                                    <FileText size={28} />
-                                </div>
-                                <div className="flex flex-col min-w-0">
-                                    <h2 className="text-2xl md:text-3xl font-black text-gray-900 leading-tight">0{stats?.overdueProjects}</h2>
-                                    <h4 className="text-sm font-bold text-gray-500 tracking-tight truncate">Overdue Projects</h4>
-                                    <span className="text-xs md:text-sm font-medium text-gray-400">Total Hours: <span className="text-primary-600 font-bold">{stats?.totalHours}hr</span></span>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center px-4 md:px-6 py-4 gap-4 overflow-hidden border-b lg:border-b-0 lg:border-r border-gray-100 last:border-b-0 lg:last:border-r-0">
-                                <div className="h-16 w-16 md:h-20 md:w-20 rounded-xl bg-red-50 flex items-center justify-center text-red-500 shrink-0">
-                                    <Play size={24} className="fill-red-500" />
-                                </div>
-                                <div className="flex flex-col min-w-0">
-                                    <h2 className="text-2xl md:text-3xl font-black text-gray-900 leading-tight">{stats?.latestCheckIn}</h2>
-                                    <h4 className="text-sm font-bold text-gray-500 tracking-tight truncate">Latest Check-in</h4>
-                                    <span className="text-xs md:text-sm font-medium text-gray-400">Active <span className="text-primary-600 font-bold">2 hours ago</span></span>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center px-4 md:px-6 py-4 gap-4 overflow-hidden last:border-b-0">
-                                <div className="h-16 w-16 md:h-20 md:w-20 rounded-xl bg-sky-50 flex items-center justify-center text-sky-600 shrink-0">
-                                    <FileText size={28} />
-                                </div>
-                                <div className="flex flex-col min-w-0">
-                                    <h2 className="text-2xl md:text-3xl font-black text-gray-900 leading-tight">0{stats?.pendingTimesheets}</h2>
-                                    <h4 className="text-sm font-bold text-gray-500 tracking-tight truncate">Timesheet Updates</h4>
-                                    <span className="text-xs md:text-sm font-medium text-gray-400">Awaiting review</span>
-                                </div>
-                            </div>
+                            <DashboardStatCard
+                                showDivider
+                                icon={<CheckCircle size={20} />}
+                                iconClassName="bg-blue-50 text-primary-600"
+                                value={stats?.completedProjects}
+                                label="Completed Projects"
+                                subtext={<>Total Hours: <span className="text-primary-600 font-semibold">{stats?.totalHours}hr</span></>}
+                            />
+                            <DashboardStatCard
+                                showDivider
+                                icon={<FileText size={20} />}
+                                iconClassName="bg-orange-50 text-orange-500"
+                                value={`0${stats?.overdueProjects}`}
+                                label="Overdue Projects"
+                                subtext={<>Total Hours: <span className="text-primary-600 font-semibold">{stats?.totalHours}hr</span></>}
+                            />
+                            <DashboardStatCard
+                                showDivider
+                                icon={<Play size={18} className="fill-red-500" />}
+                                iconClassName="bg-red-50 text-red-500"
+                                value={stats?.latestCheckIn}
+                                label="Latest Check-in"
+                                subtext={<>Active <span className="text-primary-600 font-semibold">2 hours ago</span></>}
+                            />
+                            <DashboardStatCard
+                                icon={<FileText size={20} />}
+                                iconClassName="bg-sky-50 text-sky-600"
+                                value={`0${stats?.pendingTimesheets}`}
+                                label="Timesheet Updates"
+                                subtext="Awaiting review"
+                            />
                         </>
                     )}
                 </div>
@@ -226,48 +216,7 @@ const Dashboard: React.FC = () => {
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {activity?.map((act) => (
-                                <div
-                                    key={act.id}
-                                    className="group cursor-pointer relative rounded-[1.25rem] border border-gray-100 overflow-hidden"
-                                >
-                                    <img
-                                        src={act.image}
-                                        alt={act.title}
-                                        className="w-full aspect-[4/3] object-cover transition-transform duration-500 group-hover:scale-110"
-                                        loading="lazy"
-                                        decoding="async"
-                                    />
-                                    <div className="absolute top-3 right-3 z-20">
-                                        <Badge
-                                            variant="info"
-                                            className={cn(
-                                                "text-[10px] font-black px-2 py-0.5 rounded-lg border-none",
-                                                act.progress >= 90
-                                                    ? "bg-[#005CDA] text-white"
-                                                    : act.progress >= 50
-                                                        ? "bg-[#12B76A] text-white"
-                                                        : "bg-[#F04438] text-white"
-                                            )}
-                                        >
-                                            {act.progress}%
-                                        </Badge>
-                                    </div>
-                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col items-center justify-center">
-                                        <div className="transform -translate-y-10 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
-                                            <button className="px-4 py-1.5 text-xs bg-white text-black rounded-full font-semibold shadow">
-                                                View
-                                            </button>
-                                        </div>
-                                        <span className="text-white font-bold text-sm mt-3 text-center px-2">
-                                            {act.title}
-                                        </span>
-                                        <div className="mt-2 transform translate-y-10 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 delay-100">
-                                            <span className="text-xs text-gray-200">
-                                                {"12 Apr 2026"} • {"10:30 AM"}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
+                                <RecentActivityCard key={act.id} activity={act} />
                             ))}
                         </div>
                     )}

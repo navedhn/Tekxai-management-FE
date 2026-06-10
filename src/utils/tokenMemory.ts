@@ -1,38 +1,57 @@
-/**
- * Persistent Token Management
- * 
- * Stores the access token in localStorage for persistence across reloads.
- * This ensures that refreshing the page does not log the user out.
- * 
- * The refresh token is managed by the server via HttpOnly cookies.
- */
+const ACCESS_TOKEN_KEY = 'tekxai_access_token';
+const REFRESH_TOKEN_KEY = 'tekxai_refresh_token';
 
-const TOKEN_KEY = 'tekxai_access_token';
+export const getAccessToken = (): string | null => localStorage.getItem(ACCESS_TOKEN_KEY);
 
-/**
- * Get the current access token from memory
- * @returns The access token or null if not set
- */
-export const getAccessToken = (): string | null => {
-  return localStorage.getItem(TOKEN_KEY);
+export const getRefreshToken = (): string | null => localStorage.getItem(REFRESH_TOKEN_KEY);
+
+export const setAccessToken = (token: string | null): void => {
+  if (token) localStorage.setItem(ACCESS_TOKEN_KEY, token);
+  else localStorage.removeItem(ACCESS_TOKEN_KEY);
 };
 
-/**
- * Set the access token in memory
- * @param token - The access token to store, or null to clear
- */
-export const setAccessToken = (token: string | null): void => {
-  if (token) {
-    localStorage.setItem(TOKEN_KEY, token);
-  } else {
-    localStorage.removeItem(TOKEN_KEY);
+export const setRefreshToken = (token: string | null): void => {
+  if (token) localStorage.setItem(REFRESH_TOKEN_KEY, token);
+  else localStorage.removeItem(REFRESH_TOKEN_KEY);
+};
+
+export const setAuthTokens = (accessToken: string, refreshToken?: string | null): void => {
+  setAccessToken(accessToken);
+  if (refreshToken) setRefreshToken(refreshToken);
+};
+
+export const clearAccessToken = (): void => {
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+};
+
+export const clearRefreshToken = (): void => {
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+};
+
+export const clearAuthTokens = (): void => {
+  clearAccessToken();
+  clearRefreshToken();
+};
+
+export const parseJwtExpiryMs = (token: string): number | null => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
+  } catch {
+    return null;
   }
 };
 
-/**
- * Clear the access token from memory
- */
-export const clearAccessToken = (): void => {
-  localStorage.removeItem(TOKEN_KEY);
+export const extractTokensFromAuthResponse = (res: unknown): {
+  accessToken?: string;
+  refreshToken?: string;
+  user?: unknown;
+} => {
+  const data = res as Record<string, unknown>;
+  const payload = (data?.payload ?? data) as Record<string, unknown>;
+  return {
+    accessToken: (payload?.accessToken ?? data?.accessToken ?? data?.token) as string | undefined,
+    refreshToken: (payload?.refreshToken ?? data?.refreshToken) as string | undefined,
+    user: (payload?.user ?? data?.user) as unknown,
+  };
 };
-

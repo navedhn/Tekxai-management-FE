@@ -1,12 +1,10 @@
-import React, { memo, useMemo, useCallback, useState, useRef, useEffect } from 'react';
+import React, { memo, useMemo, useCallback } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/authStore';
-import { Home, Users, Settings, FolderCheck, Clock, Star, LogOut, User as UserIcon, texailogo, UserPlus, Copy, Check, X, dashboardIconWhite, dashboardIconBlack, projectIconBlack, projectIconWhite, timesheetBlack, timesheetEmployeeWhite, settingsBlack, settingsWhite, teamManagementBlack, teamManagementWhite, savedBlack, savedWhite, timesheetWhite, timesheetEmployeeBlack, } from '@/assets/icons';
+import { Home, Users, Settings, FolderCheck, Clock, Star, LogOut, texailogo, X, dashboardIconWhite, dashboardIconBlack, projectIconBlack, projectIconWhite, timesheetBlack, timesheetEmployeeWhite, settingsBlack, settingsWhite, teamManagementBlack, teamManagementWhite, savedBlack, savedWhite, timesheetWhite, timesheetEmployeeBlack, } from '@/assets/icons';
 import { useLogoutMutation } from '@/services/authService';
-import { clearAccessToken } from '@/utils/tokenMemory';
-import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/utils/cn';
+import { clearAuthTokens } from '@/utils/tokenMemory';
 import { Users2 } from 'lucide-react';
 
 
@@ -18,28 +16,6 @@ const Sidebar: React.FC<SidebarProps> = memo(({ isOpen, onClose }) => {
     const location = useLocation();
     const { userLogout } = useAuthStore();
     const logoutMutation = useLogoutMutation();
-    const [isInvitePopOpen, setIsInvitePopOpen] = useState(false);
-    const [isCopied, setIsCopied] = useState(false);
-    const popoverRef = useRef<HTMLDivElement>(null);
-
-    // Handle outside click
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
-                setIsInvitePopOpen(false);
-            }
-        };
-        if (isInvitePopOpen) {
-            document.addEventListener('mousedown', handleClickOutside);
-        }
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isInvitePopOpen]);
-
-    const handleCopy = useCallback(() => {
-        navigator.clipboard.writeText('https://tekxai.services/');
-        setIsCopied(true);
-        setTimeout(() => setIsCopied(false), 2000);
-    }, []);
 
     // Determine the base path based on the current location
     const isEmployeeView = location.pathname.startsWith('/employee');
@@ -78,7 +54,7 @@ const Sidebar: React.FC<SidebarProps> = memo(({ isOpen, onClose }) => {
         } catch (error) {
             console.error('Logout API error:', error);
         } finally {
-            clearAccessToken();
+            clearAuthTokens();
             userLogout();
             navigate('/login');
         }
@@ -137,67 +113,18 @@ const Sidebar: React.FC<SidebarProps> = memo(({ isOpen, onClose }) => {
                 ))}
             </nav>
 
-            {/* Premium Widget: Share Your Board */}
-
-            <div className="px-6 mb-10 relative">
-                <AnimatePresence>
-                    {isInvitePopOpen && !isEmployeeView && (
-                        <motion.div
-                            ref={popoverRef}
-                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                            transition={{ duration: 0.2, ease: "easeOut" }}
-                            className="absolute bottom-full left-6 right-6 mb-4 bg-[#F2F7FF] rounded-[1.5rem] border border-blue-100 p-5 shadow-2xl z-50 flex flex-col gap-3"
-                        >
-                            <h4 className="text-[13px] font-black text-gray-900 leading-tight">
-                                Send a Portal invite link to a new Member
-                            </h4>
-
-                            <div className="flex items-center gap-2 bg-white rounded-xl p-1.5 border border-blue-50">
-                                <span className="flex-1 px-2 text-[11px] text-gray-400 font-medium truncate">
-                                    https://yododesigns.com/
-                                </span>
-                                <button
-                                    onClick={handleCopy}
-                                    className={cn(
-                                        "flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-black transition-all",
-                                        isCopied
-                                            ? "bg-green-500 text-white"
-                                            : "bg-[#005CDA] text-white hover:bg-[#0048B8]"
-                                    )}
-                                >
-                                    {isCopied ? <Check size={12} /> : <Copy size={12} />}
-                                    {isCopied ? 'Copied' : 'Copy'}
-                                </button>
-                            </div>
-
-                            <p className="text-[10px] text-gray-500 font-bold px-1">
-                                Your invite link expires in 7 days.
-                            </p>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
-                <div className="bg-gradient-to-b from-[#005CDA] to-[#001F4A] rounded-[2rem] p-6 flex flex-col items-center text-center gap-4 shadow-xl relative overflow-hidden group">
-                    <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all duration-700" />
-                    <h1 className="text-[18px] font-bold text-white tracking-wide">
-                        {isEmployeeView ? 'Employee Hub' : 'Share Your Board'}
-                    </h1>
-                    <button
-                        onClick={() => !isEmployeeView && setIsInvitePopOpen(!isInvitePopOpen)}
-                        className="w-full bg-white text-[#0047AB] py-3 px-4 rounded-2xl text-[16px] font-bold flex items-center justify-center gap-2 hover:bg-gray-50 transition-all shadow-md active:scale-95"
-                    >
-                        <div className="h-5 w-5 rounded-full  flex items-center justify-center">
-                            {isEmployeeView ? (
-                                <Users size={16} className="text-[#0047AB] fill-[#0047AB]" />
-                            ) : (
-                                <UserPlus size={16} className="text-[#0047AB] fill-[#0047AB]" />
-                            )}
-                        </div>
-                        {isEmployeeView ? 'Get Support' : 'Invite People'}
-                    </button>
-                </div>
+            <div className="px-4 pb-6 pt-4 mt-auto border-t border-gray-100">
+                <button
+                    type="button"
+                    onClick={logout}
+                    disabled={logoutMutation.isPending}
+                    className="flex w-full items-center gap-3 px-4 py-3 rounded-xl font-bold text-[#252525] hover:bg-red-50 hover:text-red-600 transition-all duration-300 group disabled:opacity-60"
+                >
+                    <LogOut size={20} className="shrink-0 group-hover:text-red-600" />
+                    <span className="text-sm tracking-tight">
+                        {logoutMutation.isPending ? 'Logging out...' : 'Logout'}
+                    </span>
+                </button>
             </div>
 
         </aside>

@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
+import { refreshAccessToken } from '@/lib/authSession';
+import { getRefreshToken } from '@/utils/tokenMemory';
 import { API_ENDPOINTS } from './api/endpoints';
 import { QUERY_KEYS } from './api/tanstackKeys';
 
@@ -54,15 +56,17 @@ const registerApi = async (data: RegisterDto) => {
 };
 
 const refreshApi = async () => {
-  return apiRequest(API_ENDPOINTS.AUTH.REFRESH, {
-    method: 'POST',
-    credentials: 'include',
-  });
+  const accessToken = await refreshAccessToken();
+  if (!accessToken) throw new Error('Token refresh failed');
+  return { payload: { accessToken } };
 };
 
 const logoutApi = async () => {
+  const refreshToken = getRefreshToken();
   return apiRequest(API_ENDPOINTS.AUTH.LOGOUT, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(refreshToken ? { refreshToken } : {}),
     credentials: 'include',
   });
 };

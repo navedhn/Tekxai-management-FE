@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import type { ActivityPreviewVariant } from '@/components/dashboard/ActivityPreview';
 
 // --- Types ---
 
@@ -14,7 +15,11 @@ export interface Activity {
   id: string;
   title: string;
   progress: number;
-  image: string;
+  /** Real screenshot URL/path — takes priority over preview */
+  image?: string;
+  /** Built-in mini dashboard UI until screenshots are provided */
+  preview?: ActivityPreviewVariant;
+  updatedAt?: string;
 }
 
 export interface TimesheetEntry {
@@ -65,11 +70,42 @@ const MOCK_STATS: DashboardStats = {
 };
 
 const MOCK_ACTIVITIES: Activity[] = [
-  { id: '1', title: 'Project Alpha', progress: 90, image: 'https://placehold.co/400x250/005CDA/FFF?text=Alpha' },
-  { id: '2', title: 'Project Beta', progress: 60, image: 'https://placehold.co/400x250/001F4A/FFF?text=Beta' },
-  { id: '3', title: 'Gamma Design', progress: 10, image: 'https://placehold.co/400x250/005CDA/FFF?text=Gamma' },
-  { id: '4', title: 'Delta Web', progress: 60, image: 'https://placehold.co/400x250/001F4A/FFF?text=Delta' },
+  {
+    id: '1',
+    title: 'Home Page',
+    progress: 90,
+    preview: 'stats',
+    updatedAt: '12 Apr 2026 • 10:30 AM',
+  },
+  {
+    id: '2',
+    title: 'Web Design',
+    progress: 60,
+    preview: 'projects',
+    updatedAt: '10 Apr 2026 • 3:15 PM',
+  },
+  {
+    id: '3',
+    title: 'Dashboard Design',
+    progress: 25,
+    preview: 'tracker',
+    updatedAt: '8 Apr 2026 • 9:00 AM',
+  },
+  {
+    id: '4',
+    title: 'Mobile App',
+    progress: 60,
+    preview: 'timesheet',
+    updatedAt: '5 Apr 2026 • 11:45 AM',
+  },
 ];
+
+/**
+ * To use real screenshots later, add PNGs under src/assets/dashboard-activity/
+ * and set `image` on each activity, e.g.:
+ *   import homePreview from '@/assets/dashboard-activity/home-page.png';
+ *   { ..., image: homePreview }
+ */
 
 const MOCK_TIMESHEET: TimesheetEntry[] = [
   { id: '1', employee: 'Arslan Dar', date: 'Jan 2, 2026', checkIn: '12:32 PM', checkOut: '12:33 PM', duration: '0h 1m', status: 'Completed' },

@@ -3,7 +3,8 @@ import { Formik, Form } from 'formik';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLoginMutation } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
-import { setAccessToken } from '@/utils/tokenMemory';
+import { User } from '@/types';
+import { setAuthTokens, extractTokensFromAuthResponse } from '@/utils/tokenMemory';
 import { validateLoginForm } from '@/utils/validationSchemas';
 import { Button, FormInput } from '@/components';
 import { useToastContext } from '@/components/toast/ToastProvider';
@@ -16,18 +17,17 @@ const Login: React.FC = () => {
 
   const handleSubmit = async (values: { email: string; password: string }) => {
     try {
-      const res: any = await loginMutation.mutateAsync(values);
-      const accessToken = res?.payload?.accessToken || res?.accessToken || res?.token;
-      const user = res?.payload?.user || res?.user;
+      const res = await loginMutation.mutateAsync(values);
+      const { accessToken, refreshToken, user } = extractTokensFromAuthResponse(res);
 
       if (accessToken) {
-        setAccessToken(accessToken);
+        setAuthTokens(accessToken, refreshToken);
       }
 
-      loggedIn({ user });
+      loggedIn({ user: user as User });
       toast.success('Login successful!');
 
-      if (user?.role_name === 'ADMIN') {
+      if ((user as User)?.role_name === 'ADMIN') {
         navigate('/admin');
       } else {
         navigate('/employee');
@@ -42,10 +42,14 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-10">
-      <div className="flex flex-col gap-3">
-        <h1 className="text-4xl font-black text-gray-900 tracking-tight">Sign in to TEKXAI</h1>
-        <p className="text-gray-500 font-medium">Please enter your credentials to access your account.</p>
+    <div className="flex flex-col gap-6 sm:gap-8 lg:gap-10">
+      <div className="flex flex-col gap-2 sm:gap-3">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-gray-900 tracking-tight">
+          Sign in to TEKXAI
+        </h1>
+        <p className="text-sm sm:text-base text-gray-500 font-medium">
+          Please enter your credentials to access your account.
+        </p>
       </div>
 
       <Formik

@@ -3,6 +3,7 @@ export { default as Card } from './ui/Card';
 export { default as Modal } from './ui/Modal';
 export { default as Badge } from './ui/Badge';
 export { default as Alert } from './ui/Alert';
+export { default as DashboardStatCard } from './ui/DashboardStatCard';
 export { default as FormInput } from './form/FormInput';
 export { default as FormSelect } from './form/FormSelect';
 export { default as FormDatePicker } from './form/FormDatePicker';
