@@ -7,6 +7,10 @@ export interface MarketingTeam {
 
 export type SalaryStatus = 'published' | 'draft' | 'pending';
 
+export type HrDocumentStatus = 'not_sent' | 'sent' | 'signed';
+
+export type HrDocumentType = 'offer_letter' | 'contract';
+
 export interface TeamMember {
   id: string;
   name: string;
@@ -16,6 +20,8 @@ export interface TeamMember {
   month: string;
   status?: SalaryStatus | null;
   totalPkr?: number | null;
+  offerLetterStatus?: HrDocumentStatus;
+  contractStatus?: HrDocumentStatus;
 }
 
 export interface PayrollSummary {

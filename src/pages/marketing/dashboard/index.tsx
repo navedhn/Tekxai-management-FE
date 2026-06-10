@@ -1,17 +1,19 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus } from 'lucide-react';
+import { Search } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Badge from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
 import {
   MarketingPageHeader,
   PayrollMetricCard,
   PayrollMetricValue,
   PayrollStatusList,
+  SendHrDocumentModal,
+  MemberDocumentStatus,
+  MemberActionsMenu,
 } from '@/components/marketing';
 import { useMarketingTeam } from '@/contexts/MarketingTeamContext';
 import {
@@ -21,23 +23,52 @@ import {
   getTeamMembers,
   PERIOD_OPTIONS,
 } from '@/services/marketingService';
-import { TeamMember } from '@/types/marketing';
+import { HrDocumentType, TeamMember } from '@/types/marketing';
 import { cn } from '@/utils/cn';
 
 const MarketingDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { teamId, teamLabel, period, setPeriod } = useMarketingTeam();
   const [search, setSearch] = useState('');
+  const [docUpdates, setDocUpdates] = useState<
+    Record<string, Partial<Pick<TeamMember, 'offerLetterStatus' | 'contractStatus'>>>
+  >({});
+  const [docModal, setDocModal] = useState<{
+    member: TeamMember;
+    type: HrDocumentType;
+  } | null>(null);
 
-  const members = useMemo(() => getTeamMembers(teamId), [teamId]);
+  const baseMembers = useMemo(() => getTeamMembers(teamId), [teamId]);
+
+  const displayMembers = useMemo(
+    () => baseMembers.map(m => ({ ...m, ...docUpdates[m.id] })),
+    [baseMembers, docUpdates]
+  );
+
   const payroll = useMemo(() => getPayrollSummary(teamId, period), [teamId, period]);
 
   const filteredMembers = useMemo(() => {
     const q = search.toLowerCase();
-    return members.filter(
+    return displayMembers.filter(
       m => m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q)
     );
-  }, [members, search]);
+  }, [displayMembers, search]);
+
+  const handleDocumentSent = (memberId: string, type: HrDocumentType) => {
+    setDocUpdates(prev => ({
+      ...prev,
+      [memberId]: {
+        ...prev[memberId],
+        ...(type === 'offer_letter'
+          ? { offerLetterStatus: 'sent' as const }
+          : { contractStatus: 'sent' as const }),
+      },
+    }));
+  };
+
+  const openDocumentModal = (member: TeamMember, type: HrDocumentType) => {
+    setDocModal({ member, type });
+  };
 
   const columns: Column<TeamMember>[] = [
     {
@@ -75,19 +106,23 @@ const MarketingDashboard: React.FC = () => {
         ),
     },
     {
+      header: 'HR Documents',
+      key: 'documents',
+      render: item => (
+        <MemberDocumentStatus
+          offerLetterStatus={item.offerLetterStatus}
+          contractStatus={item.contractStatus}
+        />
+      ),
+    },
+    {
       header: 'Actions',
       key: 'actions',
       render: item => (
-        <Button
-          size="sm"
-          animation="none"
-          rounded={false}
-          className="rounded-lg text-xs font-bold h-9 px-3 bg-[#005CDA] text-white border-0 hover:bg-[#0047AB] shadow-none hover:shadow-md hover:-translate-y-0"
-          onClick={() => navigate(`/marketing/salary-builder/${item.id}`)}
-        >
-          <Plus size={14} />
-          Create Salary
-        </Button>
+        <MemberActionsMenu
+          onCreateSalary={() => navigate(`/marketing/salary-builder/${item.id}`)}
+          onSendDocument={type => openDocumentModal(item, type)}
+        />
       ),
     },
   ];
@@ -143,7 +178,12 @@ const MarketingDashboard: React.FC = () => {
 
       <Card className="!p-0 overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 border-b border-gray-100">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">Team Members</h2>
+          <div>
+            <h2 className="text-lg font-black text-gray-900 tracking-tight">Team Members</h2>
+            <p className="text-xs text-gray-500 font-medium mt-0.5">
+              Send offer letters &amp; contracts via the HR Docs menu
+            </p>
+          </div>
           <div className="w-full sm:max-w-xs">
             <Input
               placeholder="Search by name or email"
@@ -162,6 +202,14 @@ const MarketingDashboard: React.FC = () => {
           />
         </div>
       </Card>
+
+      <SendHrDocumentModal
+        isOpen={!!docModal}
+        onClose={() => setDocModal(null)}
+        member={docModal?.member ?? null}
+        documentType={docModal?.type ?? 'offer_letter'}
+        onSent={handleDocumentSent}
+      />
     </div>
   );
 };

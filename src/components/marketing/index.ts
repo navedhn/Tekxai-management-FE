@@ -5,3 +5,6 @@ export { default as WonDealsStatPills } from './WonDealsStatPills';
 export { default as ExchangeRateWidget } from './ExchangeRateWidget';
 export { default as SalarySummaryBox } from './SalarySummaryBox';
 export { default as SalaryActionBar } from './SalaryActionBar';
+export { default as SendHrDocumentModal } from './SendHrDocumentModal';
+export { default as MemberDocumentStatus } from './MemberDocumentStatus';
+export { default as MemberActionsMenu } from './MemberActionsMenu';

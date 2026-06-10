@@ -23,18 +23,31 @@ export const formatUsd = (amount: number) =>
 
 export const pkrToUsd = (pkr: number) => pkr / EXCHANGE_RATE_USD_TO_PKR;
 
+export const HR_DOCUMENT_TEMPLATES = {
+  offer_letter: [
+    { label: 'Standard Offer Letter', value: 'standard' },
+    { label: 'Sales Team Offer', value: 'sales' },
+    { label: 'Intern Offer', value: 'intern' },
+  ],
+  contract: [
+    { label: 'Employment Contract', value: 'employment' },
+    { label: 'Commission-Based Contract', value: 'commission' },
+    { label: 'Internship Agreement', value: 'internship' },
+  ],
+};
+
 const SALES_MEMBERS: TeamMember[] = [
-  { id: 'm1', name: 'Mohib Ur Rehman', email: 'mohib@tekxai.com', role: 'Sales Person', teamId: 'sales', month: 'June 2026', status: null, totalPkr: null },
-  { id: 'm2', name: 'Ayan Rasheed', email: 'ayan@tekxai.com', role: 'Sales Person', teamId: 'sales', month: 'June 2026', status: null, totalPkr: null },
-  { id: 'm3', name: 'Mahnoor Abdul Razzaq', email: 'mahnoor@tekxai.com', role: 'Sales Person', teamId: 'sales', month: 'June 2026', status: 'published', totalPkr: 60868 },
-  { id: 'm4', name: 'Hassan Ali', email: 'hassan@tekxai.com', role: 'Sales Person', teamId: 'sales', month: 'June 2026', status: 'draft', totalPkr: null },
-  { id: 'm5', name: 'Sara Khan', email: 'sara@tekxai.com', role: 'Sales Person', teamId: 'sales', month: 'June 2026', status: null, totalPkr: null },
+  { id: 'm1', name: 'Mohib Ur Rehman', email: 'mohib@tekxai.com', role: 'Sales Person', teamId: 'sales', month: 'June 2026', status: null, totalPkr: null, offerLetterStatus: 'signed', contractStatus: 'signed' },
+  { id: 'm2', name: 'Ayan Rasheed', email: 'ayan@tekxai.com', role: 'Sales Person', teamId: 'sales', month: 'June 2026', status: null, totalPkr: null, offerLetterStatus: 'sent', contractStatus: 'not_sent' },
+  { id: 'm3', name: 'Mahnoor Abdul Razzaq', email: 'mahnoor@tekxai.com', role: 'Sales Person', teamId: 'sales', month: 'June 2026', status: 'published', totalPkr: 60868, offerLetterStatus: 'signed', contractStatus: 'signed' },
+  { id: 'm4', name: 'Hassan Ali', email: 'hassan@tekxai.com', role: 'Sales Person', teamId: 'sales', month: 'June 2026', status: 'draft', totalPkr: null, offerLetterStatus: 'not_sent', contractStatus: 'not_sent' },
+  { id: 'm5', name: 'Sara Khan', email: 'sara@tekxai.com', role: 'Sales Person', teamId: 'sales', month: 'June 2026', status: null, totalPkr: null, offerLetterStatus: 'sent', contractStatus: 'sent' },
 ];
 
 const INTERN_MEMBERS: TeamMember[] = [
-  { id: 'i1', name: 'Ali Raza', email: 'ali.raza@tekxai.com', role: 'Intern BD', teamId: 'intern', month: 'June 2026', status: null, totalPkr: null },
-  { id: 'i2', name: 'Fatima Noor', email: 'fatima@tekxai.com', role: 'Intern BD', teamId: 'intern', month: 'June 2026', status: 'pending', totalPkr: null },
-  { id: 'i3', name: 'Usman Tariq', email: 'usman@tekxai.com', role: 'Intern BD', teamId: 'intern', month: 'June 2026', status: null, totalPkr: null },
+  { id: 'i1', name: 'Ali Raza', email: 'ali.raza@tekxai.com', role: 'Intern BD', teamId: 'intern', month: 'June 2026', status: null, totalPkr: null, offerLetterStatus: 'signed', contractStatus: 'not_sent' },
+  { id: 'i2', name: 'Fatima Noor', email: 'fatima@tekxai.com', role: 'Intern BD', teamId: 'intern', month: 'June 2026', status: 'pending', totalPkr: null, offerLetterStatus: 'not_sent', contractStatus: 'not_sent' },
+  { id: 'i3', name: 'Usman Tariq', email: 'usman@tekxai.com', role: 'Intern BD', teamId: 'intern', month: 'June 2026', status: null, totalPkr: null, offerLetterStatus: 'sent', contractStatus: 'sent' },
 ];
 
 const WON_DEALS: WonDeal[] = [
