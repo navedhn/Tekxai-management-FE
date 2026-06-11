@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { Home, Users, Settings, FolderCheck, Clock, Star, LogOut, texailogo, X, dashboardIconWhite, dashboardIconBlack, projectIconBlack, projectIconWhite, timesheetBlack, timesheetEmployeeWhite, settingsBlack, settingsWhite, teamManagementBlack, teamManagementWhite, savedBlack, savedWhite, timesheetWhite, timesheetEmployeeBlack, } from '@/assets/icons';
 import { useLogoutMutation } from '@/services/authService';
 import { clearAuthTokens } from '@/utils/tokenMemory';
-import { Users2 } from 'lucide-react';
+import { Users2, Ticket } from 'lucide-react';
 
 
 export type SidebarProps = { isOpen: boolean; onClose: () => void };
@@ -28,6 +28,7 @@ const Sidebar: React.FC<SidebarProps> = memo(({ isOpen, onClose }) => {
                 { to: '/employee/projects', label: 'Projects', icon: <FolderCheck size={20} />, inactive: projectIconBlack, active: projectIconWhite },
                 { to: '/employee/starred', label: 'Starred Queries', icon: <Star size={20} className="" /> },
                 { to: '/employee/timesheet', label: 'Timesheet', icon: <Clock size={20} />, inactive: timesheetEmployeeBlack, active: timesheetEmployeeWhite },
+                { to: '/employee/tickets', label: 'Support Tickets', icon: <Ticket size={20} /> },
                 { to: '/employee/settings', label: 'Setting', icon: <Settings size={20} />, inactive: settingsBlack, active: settingsWhite },
             ];
         }

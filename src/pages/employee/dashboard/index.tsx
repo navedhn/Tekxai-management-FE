@@ -20,6 +20,7 @@ import { useToastContext } from '@/components/toast/ToastProvider';
 import ProjectDetailsSlideOver from '@/components/ui/ProjectDetailsSlideOver';
 import { CardSkeleton, StatSkeleton, DashboardStatCard } from '@/components';
 import RecentActivityCard from '@/components/dashboard/RecentActivityCard';
+import { TicketsSummaryCard } from '@/components/tickets';
 
 const EmployeeDashboard: React.FC = () => {
     const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
@@ -307,6 +308,8 @@ const EmployeeDashboard: React.FC = () => {
                     </div>
                 )}
             </Card>
+
+            <TicketsSummaryCard />
 
             {/* Middle Section: Activity & Timesheet */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

@@ -27,6 +27,7 @@ const EmployeeProjects = lazy(() => import('@/pages/employee/projects'));
 const EmployeeTimesheet = lazy(() => import('@/pages/employee/timesheet'));
 const EmployeeSaved = lazy(() => import('@/pages/employee/saved'));
 const EmployeeSettings = lazy(() => import('@/pages/employee/settings'));
+const EmployeeTickets = lazy(() => import('@/pages/employee/tickets'));
 const SharedNotifications = lazy(() => import('@/pages/shared/notifications'));
 const ProjectDetailPage = lazy(() => import('@/pages/shared/projectDetail'));
 const ProfilePage = lazy(() => import('@/pages/shared/profile'));
@@ -94,6 +95,7 @@ const routes: RouteObject[] = [
           { path: '/employee/projects', element: <EmployeeProjects /> },
           { path: '/employee/starred', element: <StarredQueries /> },
           { path: '/employee/timesheet', element: <EmployeeTimesheet /> },
+          { path: '/employee/tickets', element: <EmployeeTickets /> },
           { path: '/employee/saved', element: <EmployeeSaved /> },
           { path: '/employee/settings', element: <EmployeeSettings /> },
           { path: '/employee/notifications', element: <SharedNotifications /> },

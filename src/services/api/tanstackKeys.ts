@@ -50,4 +50,7 @@ export const QUERY_KEYS = {
     SETTINGS: {
         ME: ['settings', 'me'],
     },
+    TICKETS: {
+        LIST: ['tickets', 'list'],
+    },
 } as const;
