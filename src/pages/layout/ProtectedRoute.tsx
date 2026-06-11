@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import type { UserRole } from '@/constants/roles';
 
 /**
  * Silently logs the user out and redirects to /login.
@@ -21,12 +22,12 @@ const LogoutAndRedirect: React.FC = () => {
  * - Wrong role     → logout + /login  (no unauthorized page)
  * - Authorized     → renders children via <Outlet />
  */
-const ProtectedRoute: React.FC<{ roles?: string[] }> = ({ roles }) => {
+const ProtectedRoute: React.FC<{ roles?: UserRole[] }> = ({ roles }) => {
   const { isLoggedIn, role } = useAuth();
 
   if (!isLoggedIn) return <Navigate to="/login" replace />;
 
-  const hasRequiredRole = !roles?.length || roles.includes(role as string);
+  const hasRequiredRole = !roles?.length || (role != null && roles.includes(role as UserRole));
   if (!hasRequiredRole) return <LogoutAndRedirect />;
 
   return <Outlet />;

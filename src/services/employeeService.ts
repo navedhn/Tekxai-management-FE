@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ActivityPreviewVariant } from '@/components/dashboard/ActivityPreview';
+import { QUERY_KEYS } from '@/services/api/tanstackKeys';
 
 // --- Types ---
 
@@ -162,7 +163,7 @@ const MOCK_PROFILES: Record<string, MemberProfile> = {
 
 export const useGetDashboardStats = () => {
   return useQuery({
-    queryKey: ['dashboard-stats'],
+    queryKey: QUERY_KEYS.EMPLOYEE.DASHBOARD_STATS,
     queryFn: async () => {
       // Simulate API delay
       await new Promise(r => setTimeout(r, 800));
@@ -174,7 +175,7 @@ export const useGetDashboardStats = () => {
 
 export const useGetRecentActivity = () => {
   return useQuery({
-    queryKey: ['recent-activity'],
+    queryKey: QUERY_KEYS.EMPLOYEE.RECENT_ACTIVITY,
     queryFn: async () => {
       await new Promise(r => setTimeout(r, 600));
       return MOCK_ACTIVITIES;
@@ -185,7 +186,7 @@ export const useGetRecentActivity = () => {
 
 export const useGetTimesheet = () => {
   return useQuery({
-    queryKey: ['timesheet'],
+    queryKey: QUERY_KEYS.EMPLOYEE.TIMESHEET,
     queryFn: async () => {
       await new Promise(r => setTimeout(r, 1000));
       return MOCK_TIMESHEET;
@@ -196,7 +197,7 @@ export const useGetTimesheet = () => {
 
 export const useGetProjects = () => {
   return useQuery({
-    queryKey: ['projects'],
+    queryKey: QUERY_KEYS.EMPLOYEE.PROJECTS,
     queryFn: async () => {
       await new Promise(r => setTimeout(r, 1200));
       return MOCK_PROJECTS;
@@ -207,7 +208,7 @@ export const useGetProjects = () => {
 
 export const useGetMemberProfile = (id: string | undefined) => {
   return useQuery({
-    queryKey: ['member-profile', id],
+    queryKey: QUERY_KEYS.EMPLOYEE.MEMBER_PROFILE(id ?? ''),
     queryFn: async () => {
       await new Promise(r => setTimeout(r, 600));
       if (!id) return MOCK_PROFILES['rafiqur'];

@@ -3,6 +3,7 @@ import { Formik, Form } from 'formik';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLoginMutation } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
+import { USER_ROLES } from '@/constants/roles';
 import { User } from '@/types';
 import { setAuthTokens, extractTokensFromAuthResponse } from '@/utils/tokenMemory';
 import { validateLoginForm } from '@/utils/validationSchemas';
@@ -27,7 +28,7 @@ const Login: React.FC = () => {
       loggedIn({ user: user as User });
       toast.success('Login successful!');
 
-      if ((user as User)?.role_name === 'ADMIN') {
+      if ((user as User)?.role_name === USER_ROLES.ADMIN) {
         navigate('/admin');
       } else {
         navigate('/employee');

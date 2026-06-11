@@ -17,9 +17,12 @@ export const QUERY_KEYS = {
         UPDATE: ['team', 'update'],
         DELETE: ['team', 'delete'],
     },
-    EMPLLOYEE: {
+    EMPLOYEE: {
+        DASHBOARD_STATS: ['employee', 'dashboard-stats'],
+        RECENT_ACTIVITY: ['employee', 'recent-activity'],
         PROJECTS: ['employee', 'projects'],
         TIMESHEET: ['employee', 'timesheet'],
+        MEMBER_PROFILE: (id: string) => ['employee', 'member-profile', id] as const,
     },
     INVITE: {
         LIST: ['invite', 'list'],

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
+import { unwrapApiData, unwrapApiList } from '@/utils/apiResponse';
 import { API_ENDPOINTS } from './api/endpoints';
 import { QUERY_KEYS } from './api/tanstackKeys';
 
@@ -61,30 +62,29 @@ const getProjectsApi = async (params?: Record<string, any>) => {
   
   const queryString = new URLSearchParams(filteredParams).toString();
   const url = queryString ? `${API_ENDPOINTS.PROJECT.LIST}?${queryString}` : API_ENDPOINTS.PROJECT.LIST;
-  const res = await apiRequest<any>(url);
-  const data = res?.payload?.records || res?.payload || res;
-  return (Array.isArray(data) ? data : []) as ProjectDetail[];
+  const res = await apiRequest<unknown>(url);
+  return unwrapApiList<ProjectDetail>(res);
 };
 
 const getProjectByIdApi = async (id: string | number) => {
-  const res = await apiRequest<any>(API_ENDPOINTS.PROJECT.DETAIL(id));
-  return (res?.payload || res) as ProjectDetail;
+  const res = await apiRequest<unknown>(API_ENDPOINTS.PROJECT.DETAIL(id));
+  return unwrapApiData<ProjectDetail>(res);
 };
 
 const createProjectApi = async (data: ProjectDto) => {
-  const res = await apiRequest<any>(API_ENDPOINTS.PROJECT.CREATE, {
+  const res = await apiRequest<unknown>(API_ENDPOINTS.PROJECT.CREATE, {
     method: 'POST',
     body: JSON.stringify(data),
   });
-  return (res?.payload || res) as ProjectDetail;
+  return unwrapApiData<ProjectDetail>(res);
 };
 
 const updateProjectApi = async ({ id, data }: { id: string | number; data: Partial<ProjectDto> }) => {
-  const res = await apiRequest<any>(API_ENDPOINTS.PROJECT.UPDATE(id), {
+  const res = await apiRequest<unknown>(API_ENDPOINTS.PROJECT.UPDATE(id), {
     method: 'PUT',
     body: JSON.stringify(data),
   });
-  return (res?.payload || res) as ProjectDetail;
+  return unwrapApiData<ProjectDetail>(res);
 };
 
 const deleteProjectApi = async (id: string | number) => {
@@ -106,9 +106,8 @@ const unsaveProjectApi = async (id: string | number) => {
 };
 
 const getSavedProjectsApi = async () => {
-  const res = await apiRequest<any>(API_ENDPOINTS.PROJECT.SAVED);
-  const data = res?.payload?.records || res?.payload || res;
-  return (Array.isArray(data) ? data : []) as ProjectDetail[];
+  const res = await apiRequest<unknown>(API_ENDPOINTS.PROJECT.SAVED);
+  return unwrapApiList<ProjectDetail>(res);
 };
 
 // --- Hooks ---

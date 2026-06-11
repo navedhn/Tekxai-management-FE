@@ -7,6 +7,7 @@ import ProtectedRoute from '@/pages/layout/ProtectedRoute';
 import PublicRoute from '@/pages/layout/PublicRoute';
 import AuthLayout from '@/layouts/authLayout';
 import MarketingLayout from '@/layouts/marketingLayout';
+import { USER_ROLES } from '@/constants/roles';
 
 const HomePage = lazy(() => import('@/pages/public/homePage'));
 const Login = lazy(() => import('@/pages/auth/Login'));
@@ -68,7 +69,7 @@ const routes: RouteObject[] = [
     element: <AdminLayout />,
     children: [
       {
-        element: <ProtectedRoute roles={['ADMIN']} />,
+        element: <ProtectedRoute roles={[USER_ROLES.ADMIN]} />,
         children: [
           { path: '/admin', element: <AdminDashboard /> },
           { path: '/admin/projects', element: <AdminProjects /> },
@@ -89,7 +90,7 @@ const routes: RouteObject[] = [
     element: <EmployeeLayout />,
     children: [
       {
-        element: <ProtectedRoute roles={['EMPLLOYEE']} />,
+        element: <ProtectedRoute roles={[USER_ROLES.EMPLLOYEE]} />,
         children: [
           { path: '/employee', element: <EmployeeDashboard /> },
           { path: '/employee/projects', element: <EmployeeProjects /> },
@@ -111,7 +112,7 @@ const routes: RouteObject[] = [
     element: <MarketingLayout />,
     children: [
       {
-        element: <ProtectedRoute roles={['ADMIN', 'EMPLLOYEE']} />,
+        element: <ProtectedRoute roles={[USER_ROLES.ADMIN, USER_ROLES.EMPLLOYEE]} />,
         children: [
           { path: '/marketing', element: <MarketingDashboard /> },
           { path: '/marketing/won-deals', element: <MarketingWonDeals /> },
@@ -124,7 +125,7 @@ const routes: RouteObject[] = [
   },
   // ── Standalone Chat (no layout, auth-protected for both roles) ─────────
   {
-    element: <ProtectedRoute roles={['ADMIN', 'EMPLLOYEE']} />,
+    element: <ProtectedRoute roles={[USER_ROLES.ADMIN, USER_ROLES.EMPLLOYEE]} />,
     children: [
       { path: '/chat', element: <ChatPage /> },
     ]

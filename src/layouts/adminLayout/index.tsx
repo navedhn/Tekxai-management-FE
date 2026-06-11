@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useState, useCallback } from 'react';
+import React, { memo, Suspense, useState, useCallback } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '@/layouts/features/Sidebar';
 import AdminTopbar from '@/layouts/features/AdminTopbar';
@@ -48,9 +48,9 @@ const AdminLayout: React.FC = memo(() => {
         <div className="p-6 lg:px-4 py-8 max-w-[1800px] mx-auto bg-[#F5F5FA]">
           <AnimatePresence mode="wait">
             <PageWrapper key={location.pathname}>
-              {/* <React.Suspense fallback={<TableSkeleton rows={8} columns={5} />}> */}
-              <Outlet />
-              {/* </React.Suspense> */}
+              <Suspense fallback={<TableSkeleton rows={8} columns={5} />}>
+                <Outlet />
+              </Suspense>
             </PageWrapper>
           </AnimatePresence>
         </div>

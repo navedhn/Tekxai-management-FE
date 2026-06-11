@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useState } from 'react';
+import React, { memo, Suspense, useCallback, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import MarketingSidebar from '@/layouts/features/MarketingSidebar';
@@ -6,6 +6,7 @@ import AdminTopbar from '@/layouts/features/AdminTopbar';
 import PageWrapper from '@/components/layout/PageWrapper';
 import { useResponsive } from '@/hooks/useResponsive';
 import { MarketingTeamProvider } from '@/contexts/MarketingTeamContext';
+import { TableSkeleton } from '@/components/skeletons';
 
 const MarketingLayout: React.FC = memo(() => {
   const [open, setOpen] = useState(false);
@@ -46,7 +47,9 @@ const MarketingLayout: React.FC = memo(() => {
           <div className="p-6 lg:px-4 py-8 max-w-[1800px] mx-auto bg-[#F5F5FA]">
             <AnimatePresence mode="wait">
               <PageWrapper key={location.pathname}>
-                <Outlet />
+                <Suspense fallback={<TableSkeleton rows={8} columns={5} />}>
+                  <Outlet />
+                </Suspense>
               </PageWrapper>
             </AnimatePresence>
           </div>
