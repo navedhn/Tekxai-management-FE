@@ -39,6 +39,7 @@ const MarketingWonDeals = lazy(() => import('@/pages/marketing/won-deals'));
 const MarketingSalaryBuilder = lazy(() => import('@/pages/marketing/salary-builder'));
 const MarketingSalaryHistory = lazy(() => import('@/pages/marketing/salary-history'));
 const NotFound = lazy(() => import('@/pages/404'));
+const Forbidden = lazy(() => import('@/pages/403'));
 
 const routes: RouteObject[] = [
   {
@@ -122,6 +123,11 @@ const routes: RouteObject[] = [
       },
       { path: '/marketing/*', element: <NotFound /> },
     ],
+  },
+  // ── Access denied (any logged-in user) ─────────────────────────────────
+  {
+    element: <ProtectedRoute />,
+    children: [{ path: '/403', element: <Forbidden /> }],
   },
   // ── Standalone Chat (no layout, auth-protected for both roles) ─────────
   {

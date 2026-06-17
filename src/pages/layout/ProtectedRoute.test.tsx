@@ -12,6 +12,8 @@ const renderProtectedRoute = (roles?: Array<(typeof USER_ROLES)[keyof typeof USE
     <MemoryRouter initialEntries={['/private']}>
       <Routes>
         <Route path="/login" element={<div>Login Page</div>} />
+        <Route path="/employee" element={<div>Employee Dashboard</div>} />
+        <Route path="/admin" element={<div>Admin Dashboard</div>} />
         <Route element={<ProtectedRoute roles={roles} />}>
           <Route path="/private" element={<ProtectedContent />} />
         </Route>
@@ -40,14 +42,26 @@ describe('ProtectedRoute', () => {
     expect(screen.getByText('Protected Content')).toBeInTheDocument();
   });
 
-  it('redirects users with the wrong role', () => {
+  it('redirects users with the wrong role to the 403 page without logging out', () => {
     useAuthStore.setState({
       isLoggedIn: true,
       role: USER_ROLES.EMPLLOYEE,
       user: { id: '2', role_name: USER_ROLES.EMPLLOYEE } as never,
     });
 
-    renderProtectedRoute([USER_ROLES.ADMIN]);
-    expect(screen.getByText('Login Page')).toBeInTheDocument();
+    render(
+      <MemoryRouter initialEntries={['/private']}>
+        <Routes>
+          <Route path="/login" element={<div>Login Page</div>} />
+          <Route path="/403" element={<div>Access Denied Page</div>} />
+          <Route element={<ProtectedRoute roles={[USER_ROLES.ADMIN]} />}>
+            <Route path="/private" element={<ProtectedContent />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Access Denied Page')).toBeInTheDocument();
+    expect(useAuthStore.getState().isLoggedIn).toBe(true);
   });
 });

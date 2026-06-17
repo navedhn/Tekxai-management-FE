@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { USER_ROLES, isUserRole } from './roles';
+import { USER_ROLES, isUserRole, getRoleHomePath } from './roles';
 
 describe('roles', () => {
   it('exposes backend role names', () => {
@@ -12,5 +12,11 @@ describe('roles', () => {
     expect(isUserRole('EMPLLOYEE')).toBe(true);
     expect(isUserRole('EMPLOYEE')).toBe(false);
     expect(isUserRole(null)).toBe(false);
+  });
+
+  it('maps roles to home paths', () => {
+    expect(getRoleHomePath(USER_ROLES.ADMIN)).toBe('/admin');
+    expect(getRoleHomePath(USER_ROLES.EMPLLOYEE)).toBe('/employee');
+    expect(getRoleHomePath(null)).toBe('/login');
   });
 });
