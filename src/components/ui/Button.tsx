@@ -70,6 +70,14 @@ const animationClasses: Record<ButtonAnimation, string> = {
   none: ''
 };
 
+/** Compact primary action for page headers (Add, Create, Score, etc.) */
+export const pageActionButtonClass =
+  'rounded-xl h-9 min-h-9 text-sm font-bold px-5 shadow-md shadow-primary-100 w-full sm:w-auto whitespace-nowrap shrink-0';
+
+/** Compact outline action for page headers (Filters, configuration, etc.) */
+export const pageOutlineButtonClass =
+  'rounded-xl h-9 min-h-9 text-sm font-bold px-5 border-gray-200 w-full sm:w-auto whitespace-nowrap shrink-0';
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {

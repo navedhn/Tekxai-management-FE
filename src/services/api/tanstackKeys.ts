@@ -56,4 +56,9 @@ export const QUERY_KEYS = {
     TICKETS: {
         LIST: ['tickets', 'list'],
     },
+    PERFORMANCE: {
+        LIST: ['performance', 'list'],
+        EMPLOYEES: ['performance', 'employees'],
+        CONFIG: ['performance', 'config'],
+    },
 } as const;

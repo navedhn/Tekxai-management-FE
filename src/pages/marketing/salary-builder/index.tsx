@@ -6,7 +6,7 @@ import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Badge from '@/components/ui/Badge';
 import Textarea from '@/components/ui/Textarea';
-import { Button } from '@/components/ui/Button';
+import { Button, pageOutlineButtonClass } from '@/components/ui/Button';
 import {
   MarketingPageHeader,
   ExchangeRateWidget,
@@ -179,8 +179,14 @@ const SalaryBuilderPage: React.FC = () => {
             <h2 className="text-base font-black text-gray-900">Allowances &amp; Bonuses</h2>
             <p className="text-xs text-gray-500 font-medium">Added to the grand total</p>
           </div>
-          <Button variant="outline" animation="none" rounded={false} className="rounded-lg text-xs h-9" onClick={addAllowance}>
-            <Plus size={14} />
+          <Button
+            variant="outline"
+            size="sm"
+            rounded={false}
+            leftIcon={Plus}
+            className={pageOutlineButtonClass}
+            onClick={addAllowance}
+          >
             Add New
           </Button>
         </div>

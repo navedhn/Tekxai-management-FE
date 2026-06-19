@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
-import Button from '@/components/ui/Button';
+import Button, { pageActionButtonClass } from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { Search, Plus, Edit2, Trash2 } from 'lucide-react';
 import { useFetchUsersQuery, useDeleteUserMutation } from '@/services/userService';
@@ -169,11 +169,12 @@ const UserManagement: React.FC = () => {
 
                     <Button
                         variant="primary"
-                        size="md"
+                        size="sm"
+                        rounded={false}
+                        leftIcon={Plus}
                         onClick={handleAddUser}
-                        className="gap-2 rounded-xl w-full lg:w-auto h-12 font-black px-8 shadow-lg shadow-primary-100"
+                        className={pageActionButtonClass}
                     >
-                        <Plus size={20} />
                         Add New Member
                     </Button>
                 </div>

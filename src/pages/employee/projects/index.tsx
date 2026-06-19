@@ -3,7 +3,7 @@ import { useGetProjects, ProjectSummary } from '@/services/employeeService';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
+import Button, { pageOutlineButtonClass } from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Loader from '@/components/ui/Loader';
 import { Search, Filter, MoreVertical } from 'lucide-react';
@@ -171,14 +171,16 @@ const EmployeeProjects: React.FC = () => {
             <Button
               ref={filterBtnRef}
               variant="outline"
-              size="md"
+              size="sm"
+              rounded={false}
+              leftIcon={Filter}
               onClick={() => setIsFilterOpen(prev => !prev)}
               className={cn(
-                "gap-2 border-gray-100 font-black rounded-md min-w-[110px] h-12 transition-all shadow-sm",
+                pageOutlineButtonClass,
+                "transition-colors shadow-sm",
                 isFilterOpen ? "bg-primary-50 text-primary-600 border-primary-200" : "bg-white text-gray-600"
               )}
             >
-              <Filter size={18} />
               Filters
               {activeFilterCount > 0 && (
                 <span className="ml-1 h-5 w-5 rounded-full bg-[#005CDA] text-white text-[10px] font-black flex items-center justify-center">

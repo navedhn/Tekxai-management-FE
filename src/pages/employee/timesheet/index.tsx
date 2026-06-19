@@ -3,7 +3,7 @@ import { useGetTimesheet } from '@/services/employeeService';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
+import Button, { pageActionButtonClass } from '@/components/ui/Button';
 import Tabs from '@/components/ui/Tabs';
 import Loader from '@/components/ui/Loader';
 import { ChevronDown, MoreVertical, Calendar } from 'lucide-react';
@@ -168,11 +168,13 @@ const EmployeeTimesheet: React.FC = () => {
                         <h2 className="text-2xl font-black text-gray-900 tracking-tight">My Requests</h2>
                         <Button
                             variant="primary"
-                            className="rounded-xl px-6 flex items-center gap-2"
+                            size="sm"
+                            rounded={false}
+                            leftIcon={Calendar}
                             onClick={() => setIsRequestModalOpen(true)}
+                            className={pageActionButtonClass}
                         >
-                            <Calendar size={18} />
-                            <span>Request Time Off</span>
+                            Request Time Off
                         </Button>
                     </div>
 

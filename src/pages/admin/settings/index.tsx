@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
+import Button, { pageActionButtonClass } from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Tabs from '@/components/ui/Tabs';
 import Table, { Column } from '@/components/ui/Table';
@@ -300,11 +300,12 @@ const Setting: React.FC = () => {
                                 <div className="flex items-center gap-1.5 text-xs text-gray-400 font-bold uppercase tracking-wider">
                                     <Button
                                         variant="primary"
-                                        size="md"
+                                        size="sm"
+                                        rounded={false}
+                                        leftIcon={Plus}
                                         onClick={() => setIsInviteModalOpen(true)}
-                                        className="gap-2 rounded-xl w-full lg:min-w-[200px] h-12 font-black px-6 "
+                                        className={pageActionButtonClass}
                                     >
-                                        <Plus size={18} />
                                         Invite Team Member
                                     </Button>
                                 </div>

@@ -10,25 +10,33 @@ import { validateLoginForm } from '@/utils/validationSchemas';
 import { Button, FormInput } from '@/components';
 import { useToastContext } from '@/components/toast/ToastProvider';
 
+const getLoginHomePath = (res: unknown, user: User | undefined): string => {
+  const payload = (res as { payload?: { homePath?: string } })?.payload;
+  return payload?.homePath ?? getRoleHomePath(user?.role_name);
+};
+
 const Login: React.FC = () => {
   const loginMutation = useLoginMutation();
   const { loggedIn } = useAuthStore();
   const navigate = useNavigate();
   const toast = useToastContext();
 
+  const performLogin = async (email: string, password: string) => {
+    const res = await loginMutation.mutateAsync({ email, password });
+    const { accessToken, refreshToken, user } = extractTokensFromAuthResponse(res);
+
+    if (accessToken) {
+      setAuthTokens(accessToken, refreshToken);
+    }
+
+    loggedIn({ user: user as User });
+    toast.success('Login successful!');
+    navigate(getLoginHomePath(res, user as User));
+  };
+
   const handleSubmit = async (values: { email: string; password: string }) => {
     try {
-      const res = await loginMutation.mutateAsync(values);
-      const { accessToken, refreshToken, user } = extractTokensFromAuthResponse(res);
-
-      if (accessToken) {
-        setAuthTokens(accessToken, refreshToken);
-      }
-
-      loggedIn({ user: user as User });
-      toast.success('Login successful!');
-
-      navigate(getRoleHomePath((user as User)?.role_name));
+      await performLogin(values.email, values.password);
     } catch (error: any) {
       const errorMessage =
         error?.data?.message ||
@@ -105,15 +113,6 @@ const Login: React.FC = () => {
               </Button>
             </div>
 
-
-
-
-            {/* <div className="text-center text-sm font-medium text-gray-500">
-              Don't have an account?{' '}
-              <Link to="/register" className="text-primary-500 hover:text-primary-600 font-black transition-colors underline decoration-2 underline-offset-4 decoration-primary-100 hover:decoration-primary-500">
-                Get started
-              </Link>
-            </div> */}
             <div className="h-px bg-gray-100 w-full my-4" />
           </Form>
         )}

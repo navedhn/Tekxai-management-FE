@@ -23,6 +23,7 @@ const AdminTimesheet = lazy(() => import('@/pages/admin/timesheet'));
 const AdminSaved = lazy(() => import('@/pages/admin/saved'));
 const AdminTeam = lazy(() => import('@/pages/admin/team'));
 const AdminSettings = lazy(() => import('@/pages/admin/settings'));
+const AdminPerformanceScoring = lazy(() => import('@/pages/admin/performance-scoring'));
 const AdminUsers = lazy(() => import('@/pages/admin/users'));
 const EmployeeProjects = lazy(() => import('@/pages/employee/projects'));
 const EmployeeTimesheet = lazy(() => import('@/pages/employee/timesheet'));
@@ -79,6 +80,7 @@ const routes: RouteObject[] = [
           { path: '/admin/team', element: <AdminTeam /> },
           { path: '/admin/settings', element: <AdminSettings /> },
           { path: '/admin/users', element: <AdminUsers /> },
+          { path: '/admin/performance-scoring', element: <AdminPerformanceScoring /> },
           { path: '/admin/notifications', element: <SharedNotifications /> },
           { path: '/admin/project-detail', element: <ProjectDetailPage /> },
           { path: '/admin/profile/:memberId?', element: <ProfilePage /> },

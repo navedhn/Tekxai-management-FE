@@ -62,7 +62,7 @@ const MarketingSidebar: React.FC<MarketingSidebarProps> = memo(({ isOpen, onClos
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1.5 mt-2">
+      <nav className="flex-1 overflow-y-auto no-scrollbar px-4 py-2 space-y-1.5 mt-2">
         {links.map(link => {
           const isWonDealsLink = 'team' in link && link.team;
           const isActive = isWonDealsLink

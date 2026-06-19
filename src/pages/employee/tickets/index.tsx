@@ -4,7 +4,7 @@ import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Input from '@/components/ui/Input';
 import Tabs from '@/components/ui/Tabs';
-import { Button } from '@/components/ui/Button';
+import { Button, pageActionButtonClass } from '@/components/ui/Button';
 import DashboardStatCard from '@/components/ui/DashboardStatCard';
 import {
   CreateTicketModal,
@@ -141,12 +141,13 @@ const EmployeeTicketsPage: React.FC = () => {
           </p>
         </div>
         <Button
-          animation="none"
+          variant="primary"
+          size="sm"
           rounded={false}
-          className="rounded-lg bg-[#005CDA] text-white border-0 hover:bg-[#0047AB] h-11 px-5"
+          leftIcon={Plus}
           onClick={() => setCreateOpen(true)}
+          className={pageActionButtonClass}
         >
-          <Plus size={18} />
           Create Ticket
         </Button>
       </div>

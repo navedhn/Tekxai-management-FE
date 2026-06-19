@@ -14,9 +14,19 @@ type Props = {
   footer?: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   customClass?: string;
+  bodyClassName?: string;
 };
 
-const Modal: React.FC<Props> = ({ title, isOpen, onClose, children, footer, size = 'md', customClass }) => {
+const Modal: React.FC<Props> = ({
+  title,
+  isOpen,
+  onClose,
+  children,
+  footer,
+  size = 'md',
+  customClass,
+  bodyClassName,
+}) => {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -36,7 +46,7 @@ const Modal: React.FC<Props> = ({ title, isOpen, onClose, children, footer, size
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -50,16 +60,39 @@ const Modal: React.FC<Props> = ({ title, isOpen, onClose, children, footer, size
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-            className={classNames('relative bg-white w-full max-h-[90vh] overflow-y-auto rounded-[1.5rem] shadow-2xl z-10', sizes[size], customClass)}
+            className={classNames(
+              'relative bg-white w-full max-h-[min(90vh,900px)] flex flex-col overflow-hidden rounded-[1.5rem] shadow-2xl z-10',
+              sizes[size],
+              customClass
+            )}
+            onClick={(e) => e.stopPropagation()}
           >
             {title ? (
-              <div className="p-5 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="text-xl font-black text-gray-900 tracking-tight">{title}</h3>
-                <X onClick={onClose} className='w-8 h-8 border cursor-pointer border-gray-200 rounded-md p-1 hover:bg-gray-50' />
+              <div className="shrink-0 p-5 border-b border-gray-100 flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">{title}</div>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="shrink-0 w-8 h-8 flex items-center justify-center border cursor-pointer border-gray-200 rounded-md hover:bg-gray-50 text-gray-500"
+                  aria-label="Close"
+                >
+                  <X size={18} />
+                </button>
               </div>
             ) : null}
-            <div className="p-6">{children}</div>
-            {footer ? <div className="p-5 border-t border-gray-100 bg-gray-50 rounded-b-[1.5rem]">{footer}</div> : null}
+            <div
+              className={classNames(
+                'flex-1 min-h-0 overflow-y-auto overscroll-contain p-6',
+                bodyClassName
+              )}
+            >
+              {children}
+            </div>
+            {footer ? (
+              <div className="shrink-0 p-5 border-t border-gray-100 bg-gray-50 rounded-b-[1.5rem]">
+                {footer}
+              </div>
+            ) : null}
           </motion.div>
         </div>
       )}
@@ -69,5 +102,3 @@ const Modal: React.FC<Props> = ({ title, isOpen, onClose, children, footer, size
 };
 
 export default Modal;
-
-

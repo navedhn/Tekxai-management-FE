@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { unwrapApiData, unwrapApiList } from '@/utils/apiResponse';
+import { isMockSession } from '@/mocks/mockAuth';
 import { API_ENDPOINTS } from './api/endpoints';
 import { QUERY_KEYS } from './api/tanstackKeys';
 
@@ -55,8 +56,61 @@ export interface ProjectDetail {
 
 // --- API Functions ---
 
+const MOCK_PROJECTS: ProjectDetail[] = [
+  {
+    id: '01',
+    title: 'Home Page',
+    status: 'IN_PROGRESS',
+    progress: 25,
+    total_hours: 20,
+    due_date: '2025-01-10',
+    start_date: '2024-12-01',
+    end_date: '2025-01-10',
+    member_count: 3,
+    members: [],
+    created_at: '2024-12-01T00:00:00.000Z',
+    updated_at: '2024-12-15T00:00:00.000Z',
+    is_saved: false,
+  },
+  {
+    id: '02',
+    title: 'Web Design',
+    status: 'IN_PROGRESS',
+    progress: 50,
+    total_hours: 20,
+    due_date: '2024-02-24',
+    start_date: '2024-01-01',
+    end_date: '2024-02-24',
+    member_count: 2,
+    members: [],
+    created_at: '2024-01-01T00:00:00.000Z',
+    updated_at: '2024-02-01T00:00:00.000Z',
+    is_saved: true,
+  },
+  {
+    id: '03',
+    title: 'Dashboard Design',
+    status: 'PENDING',
+    progress: 70,
+    total_hours: 20,
+    due_date: '2025-03-10',
+    start_date: '2025-01-01',
+    end_date: '2025-03-10',
+    member_count: 2,
+    members: [],
+    created_at: '2025-01-01T00:00:00.000Z',
+    updated_at: '2025-01-20T00:00:00.000Z',
+    is_saved: false,
+  },
+];
+
 const getProjectsApi = async (params?: Record<string, any>) => {
-  const filteredParams = params 
+  if (isMockSession()) {
+    await new Promise((r) => setTimeout(r, 400));
+    return MOCK_PROJECTS;
+  }
+
+  const filteredParams = params
     ? Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined && v !== null && v !== ''))
     : {};
   
@@ -67,6 +121,11 @@ const getProjectsApi = async (params?: Record<string, any>) => {
 };
 
 const getProjectByIdApi = async (id: string | number) => {
+  if (isMockSession()) {
+    await new Promise((r) => setTimeout(r, 300));
+    return MOCK_PROJECTS.find((p) => String(p.id) === String(id)) ?? MOCK_PROJECTS[0];
+  }
+
   const res = await apiRequest<unknown>(API_ENDPOINTS.PROJECT.DETAIL(id));
   return unwrapApiData<ProjectDetail>(res);
 };
@@ -106,6 +165,11 @@ const unsaveProjectApi = async (id: string | number) => {
 };
 
 const getSavedProjectsApi = async () => {
+  if (isMockSession()) {
+    await new Promise((r) => setTimeout(r, 300));
+    return MOCK_PROJECTS.filter((p) => p.is_saved);
+  }
+
   const res = await apiRequest<unknown>(API_ENDPOINTS.PROJECT.SAVED);
   return unwrapApiList<ProjectDetail>(res);
 };

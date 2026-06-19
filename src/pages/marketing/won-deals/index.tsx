@@ -5,7 +5,7 @@ import Table, { Column } from '@/components/ui/Table';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Badge from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
+import { Button, pageOutlineButtonClass } from '@/components/ui/Button';
 import { MarketingPageHeader, WonDealsStatPills } from '@/components/marketing';
 import { useMarketingTeam } from '@/contexts/MarketingTeamContext';
 import {
@@ -130,8 +130,13 @@ const WonDealsPage: React.FC = () => {
           </div>
 
           <div className="flex justify-end">
-            <Button variant="outline" animation="none" rounded={false} className="rounded-lg text-sm">
-              <Download size={16} />
+            <Button
+              variant="outline"
+              size="sm"
+              rounded={false}
+              leftIcon={Download}
+              className={pageOutlineButtonClass}
+            >
               Download
             </Button>
           </div>

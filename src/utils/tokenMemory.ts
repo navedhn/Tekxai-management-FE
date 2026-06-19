@@ -1,3 +1,5 @@
+import { setMockSession } from '@/mocks/mockAuth';
+
 const ACCESS_TOKEN_KEY = 'tekxai_access_token';
 const REFRESH_TOKEN_KEY = 'tekxai_refresh_token';
 
@@ -31,6 +33,7 @@ export const clearRefreshToken = (): void => {
 export const clearAuthTokens = (): void => {
   clearAccessToken();
   clearRefreshToken();
+  setMockSession(false);
 };
 
 export const parseJwtExpiryMs = (token: string): number | null => {

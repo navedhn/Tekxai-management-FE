@@ -3,7 +3,7 @@ import { useGetProjects, ProjectDetail, useDeleteProjectMutation, useSaveProject
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
+import Button, { pageActionButtonClass, pageOutlineButtonClass } from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Tabs from '@/components/ui/Tabs';
 import Loader from '@/components/ui/Loader';
@@ -253,7 +253,7 @@ const ProjectManagement: React.FC = () => {
 
       <Card isLoading={isLoading} className="flex flex-col gap-8 shadow-2xl border-none">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="flex flex-col sm:flex-row  w-full sm:items-center gap-4">
+          <div className="flex flex-col sm:flex-row w-full sm:items-center gap-4 lg:flex-1 lg:min-w-0">
             <Input
               placeholder="Search projects..."
               leftIcon={Search}
@@ -263,18 +263,20 @@ const ProjectManagement: React.FC = () => {
               className="h-11 rounded-xl"
             />
 
-            <div className="relative sm:max-w-max w-full">
+            <div className="relative sm:max-w-max w-full sm:w-auto">
               <Button
                 ref={filterBtnRef}
                 variant="outline"
-                size="md"
+                size="sm"
+                rounded={false}
+                leftIcon={Filter}
                 onClick={() => setIsFilterOpen(prev => !prev)}
                 className={cn(
-                  "gap-2 border-gray-200 font-bold rounded-xl h-11 transition-colors w-full",
+                  pageOutlineButtonClass,
+                  "transition-colors",
                   isFilterOpen ? "bg-primary-50 text-primary-600 border-primary-200" : "text-gray-600"
                 )}
               >
-                <Filter size={18} />
                 Filters
                 {activeFilterCount > 0 && (
                   <span className="ml-1 h-5 w-5 rounded-full bg-[#005CDA] text-white text-[10px] font-black flex items-center justify-center">
@@ -290,17 +292,18 @@ const ProjectManagement: React.FC = () => {
                 triggerRef={filterBtnRef}
               />
             </div>
-
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => { setEditingProject(null); setIsFormOpen(true); }}
-              className="gap-2 rounded-xl h-11 sm:min-w-[175px] sm:max-w-[175px] w-full text-[14px] font-black px-6 shadow-lg shadow-primary-100"
-            >
-              <Plus size={18} />
-              Create Project
-            </Button>
           </div>
+
+          <Button
+            variant="primary"
+            size="sm"
+            rounded={false}
+            leftIcon={Plus}
+            onClick={() => { setEditingProject(null); setIsFormOpen(true); }}
+            className={pageActionButtonClass}
+          >
+            Create Project
+          </Button>
         </div>
 
         <Table

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
-import Button from '@/components/ui/Button';
+import Button, { pageActionButtonClass } from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import { Search, Plus, Edit2, Trash2, Users } from 'lucide-react';
@@ -168,11 +168,12 @@ const TeamManagement: React.FC = () => {
 
                     <Button
                         variant="primary"
-                        size="md"
+                        size="sm"
+                        rounded={false}
+                        leftIcon={Plus}
                         onClick={handleAddTeam}
-                        className="gap-2 rounded-xl w-full lg:w-auto h-12 font-black px-8 shadow-lg shadow-primary-100"
+                        className={pageActionButtonClass}
                     >
-                        <Plus size={20} />
                         Add New Team
                     </Button>
                 </div>

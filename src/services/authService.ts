@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { refreshAccessToken } from '@/lib/authSession';
 import { getRefreshToken } from '@/utils/tokenMemory';
+import { isMockAuthEnabled, isMockSession, mockLogin } from '@/mocks/mockAuth';
 import { API_ENDPOINTS } from './api/endpoints';
 import { QUERY_KEYS } from './api/tanstackKeys';
 
@@ -40,6 +41,10 @@ export type ResetPasswordDto = {
 // --- API Functions ---
 
 const loginApi = async (credentials: LoginCredentials) => {
+  if (isMockAuthEnabled()) {
+    return mockLogin(credentials.email, credentials.password);
+  }
+
   return apiRequest(API_ENDPOINTS.AUTH.LOGIN, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -62,6 +67,10 @@ const refreshApi = async () => {
 };
 
 const logoutApi = async () => {
+  if (isMockSession()) {
+    return { success: true };
+  }
+
   const refreshToken = getRefreshToken();
   return apiRequest(API_ENDPOINTS.AUTH.LOGOUT, {
     method: 'POST',
@@ -72,6 +81,10 @@ const logoutApi = async () => {
 };
 
 const getProfileApi = async () => {
+  if (isMockSession()) {
+    return { payload: null };
+  }
+
   return apiRequest(API_ENDPOINTS.AUTH.ME);
 };
 

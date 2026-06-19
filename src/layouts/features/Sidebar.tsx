@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { Home, Users, Settings, FolderCheck, Clock, Star, LogOut, texailogo, X, dashboardIconWhite, dashboardIconBlack, projectIconBlack, projectIconWhite, timesheetBlack, timesheetEmployeeWhite, settingsBlack, settingsWhite, teamManagementBlack, teamManagementWhite, savedBlack, savedWhite, timesheetWhite, timesheetEmployeeBlack, } from '@/assets/icons';
 import { useLogoutMutation } from '@/services/authService';
 import { clearAuthTokens } from '@/utils/tokenMemory';
-import { Users2, Ticket } from 'lucide-react';
+import { Users2, Ticket, Award } from 'lucide-react';
 
 
 export type SidebarProps = { isOpen: boolean; onClose: () => void };
@@ -36,6 +36,7 @@ const Sidebar: React.FC<SidebarProps> = memo(({ isOpen, onClose }) => {
         const adminLinks = [
             { to: '/admin', label: 'Home', icon: <Home size={20} />, end: true, inactive: dashboardIconBlack, active: dashboardIconWhite },
             { to: '/admin/users', label: 'Users Management', icon: <Users2 size={20} /> },
+            { to: '/admin/performance-scoring', label: 'Performance Scoring', icon: <Award size={20} /> },
             { to: '/admin/projects', label: 'Project Management', icon: <FolderCheck size={20} />, inactive: projectIconBlack, active: projectIconWhite },
             { to: '/admin/timesheet', label: 'Timesheet', icon: <Users size={20} />, inactive: timesheetBlack, active: timesheetWhite },
             { to: '/admin/starred', label: 'Starred Project', icon: <Star size={20} />, inactive: savedBlack, active: savedWhite },
@@ -80,7 +81,7 @@ const Sidebar: React.FC<SidebarProps> = memo(({ isOpen, onClose }) => {
             </div>
 
             {/* Navigation Links */}
-            <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1.5 mt-2">
+            <nav className="flex-1 overflow-y-auto no-scrollbar px-4 py-2 space-y-1.5 mt-2">
                 {links.map((l) => (
                     <NavLink
                         key={l.to}
