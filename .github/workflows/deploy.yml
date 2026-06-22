@@ -45,7 +45,7 @@ jobs:
           sudo mkdir -p "$RELEASE_DIR"
 
           echo "Copying distribution files to release directory..."
-          sudo cp -r /home/ubuntu/tekxai-manage-FE/dist/* "$RELEASE_DIR/"
+          sudo cp -r /home/ubuntu/tekxai-management-FE/dist/* "$RELEASE_DIR/"
 
           echo "Fixing permissions..."
           sudo chown -R www-data:www-data "$RELEASE_DIR"
