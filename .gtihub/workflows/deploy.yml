@@ -1,0 +1,62 @@
+name: Tekxai Management FE - Frontend Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Deploy to AWS via SSH
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }} 
+        script: |
+          set -e
+          
+          # Navigate to the project directory
+          cd /home/ubuntu/tekxai-management-FE
+
+          echo "Pulling latest code from git..."
+          sudo git fetch origin
+          sudo git reset --hard origin/main
+
+          echo "Installing dependencies..."
+          sudo npm install
+
+          echo "Building..."
+          sudo npm run build
+
+          echo "✅ Build created successfully!"
+
+          # 1. Define unique release name based on epoch timestamp
+          RELEASE_NAME="build-$(date +%s)"
+          RELEASE_DIR="/var/www/tekxai-manage-FE/releases/$RELEASE_NAME"
+
+          echo "Creating new release directory: $RELEASE_DIR"
+          sudo mkdir -p "$RELEASE_DIR"
+
+          echo "Copying distribution files to release directory..."
+          sudo cp -r /home/ubuntu/tekxai-manage-FE/dist/* "$RELEASE_DIR/"
+
+          echo "Fixing permissions..."
+          sudo chown -R www-data:www-data "$RELEASE_DIR"
+          sudo find "$RELEASE_DIR" -type d -exec chmod 755 {} \;
+          sudo find "$RELEASE_DIR" -type f -exec chmod 644 {} \;
+
+          echo "🔄 Swapping symlink atomically to zero-downtime path..."
+          # -s (symlink), -f (force/overwrite existing link), -n (treat link as a normal file if it's a directory link)
+          sudo ln -sfn "$RELEASE_DIR" /var/www/html
+
+          echo "🧹 Cleaning up older releases (keeping the last 5 builds)..."
+          cd /var/www/ask-charles/releases && ls -1t | tail -n +6 | xargs -I {} sudo rm -rf {}
+
+          echo "✅ Zero-Downtime Deployment completed successfully $(date)"
