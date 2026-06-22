@@ -104,7 +104,7 @@ storybook-static
 tmp/
 
 # Package manager lock files (optional - uncomment if you want to ignore)
-# package-lock.json
+package-lock.json
 # yarn.lock
 # pnpm-lock.yaml
 
@@ -261,4 +261,5 @@ config.bat
 temp_auto_push.bat
 temp_interactive_push.bat
 .gitignore
+.github
 branch_structure.json
