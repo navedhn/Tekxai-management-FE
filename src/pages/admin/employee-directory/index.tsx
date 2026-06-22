@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useGetEmployeeDirectory } from '@/services/employeeService';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/cn';
 
 const STATUS_STYLE: Record<string, string> = {
   ACTIVE:    'bg-green-100 text-green-700',

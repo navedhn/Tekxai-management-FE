@@ -7,7 +7,7 @@ import {
   useGetOvertimeList, useGetOvertimeStats,
   useSubmitOvertime, useApproveOvertime, useRejectOvertime, useCancelOvertime,
 } from '@/services/employeeService';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/cn';
 import { useAuth } from '@/hooks/useAuth';
 
 const STATUS_STYLE: Record<string, string> = {

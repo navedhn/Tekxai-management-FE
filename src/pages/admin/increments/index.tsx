@@ -9,7 +9,7 @@ import {
   useCreateIncrement,
   useUpdateIncrement,
 } from '@/services/employeeService';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/cn';
 
 const THIS_YEAR = new Date().getFullYear();
 

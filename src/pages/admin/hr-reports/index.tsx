@@ -4,7 +4,7 @@ import { BarChart3, Users, AlertTriangle, Clock, Calendar, TrendingUp } from 'lu
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useGetAnnualReport, useGetMonthlyReport, useGetAggregateReport } from '@/services/employeeService';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/cn';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const THIS_YEAR = new Date().getFullYear();
