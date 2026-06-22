@@ -4,7 +4,7 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { ChevronRight, ChevronLeft, Check, User, Briefcase, MapPin, FileText, ClipboardList, Save, X } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/cn';
 
 // ── Step indicators ─────────────────────────────────────────────────────────
 const STEPS = [

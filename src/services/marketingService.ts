@@ -175,3 +175,32 @@ export const PERIOD_OPTIONS = [
   { label: 'May 2026', value: 'May 2026' },
   { label: 'Apr 2026', value: 'April 2026' },
 ];
+
+// ── Salary Builder API hooks ──────────────────────────────────────────────────
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+
+const v1 = 'api/v1';
+
+export const useGetSalaryBuilder = (memberId: string | undefined, period: string) =>
+  useQuery({
+    queryKey: ['salary-builder', memberId, period],
+    queryFn: async () => {
+      const r = await apiRequest<any>(`${v1}/salary-builder/${memberId}?period=${encodeURIComponent(period)}`);
+      return r?.payload;
+    },
+    enabled: !!memberId && !!period,
+  });
+
+export const useUpsertSalaryBuilderMutation = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ memberId, period, data }: { memberId: string; period: string; data: any }) =>
+      apiRequest<any>(`${v1}/salary-builder/${memberId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ period, ...data }),
+      }),
+    onSuccess: (_r, { memberId, period }) =>
+      qc.invalidateQueries({ queryKey: ['salary-builder', memberId, period] }),
+  });
+};
