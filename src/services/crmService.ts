@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/services/api/apiRequest';
+import { apiRequest } from '@/lib/queryClient';
 
 export interface CRMDashboard {
   upwork: { total: number; won: number; active: number; won_value: number };
@@ -17,14 +17,14 @@ export interface CRMDashboard {
 export function useGetCRMDashboard() {
   return useQuery<CRMDashboard>({
     queryKey: ['crm-dashboard'],
-    queryFn: () => apiRequest({ url: 'api/v1/crm/dashboard', method: 'GET' }),
+    queryFn: () => apiRequest<CRMDashboard>('api/v1/crm/dashboard'),
   });
 }
 
 export function useGetTeamHierarchy() {
   return useQuery<any[]>({
     queryKey: ['crm-hierarchy'],
-    queryFn: () => apiRequest({ url: 'api/v1/crm/hierarchy', method: 'GET' }),
+    queryFn: () => apiRequest<any[]>('api/v1/crm/hierarchy'),
   });
 }
 
@@ -32,7 +32,10 @@ export function useAssignSupervisor() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ userId, supervisor_id }: { userId: string; supervisor_id: string | null }) =>
-      apiRequest({ url: `api/v1/crm/users/${userId}/supervisor`, method: 'PATCH', data: { supervisor_id } }),
+      apiRequest<any>(`api/v1/crm/users/${userId}/supervisor`, {
+        method: 'PATCH',
+        body: JSON.stringify({ supervisor_id }),
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-hierarchy'] }),
   });
 }

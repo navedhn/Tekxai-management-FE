@@ -4,7 +4,7 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import { Plus, ArrowRight, CheckCircle, Clock } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/services/api/apiRequest';
+import { apiRequest } from '@/lib/queryClient';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
@@ -20,14 +20,14 @@ const STATUS_COLORS: Record<string, 'success' | 'warning' | 'error' | 'default'>
 function useHandoffs(filters: any) {
   return useQuery({
     queryKey: ['crm-handoffs', filters],
-    queryFn: () => apiRequest({ url: 'api/v1/crm/handoffs', method: 'GET', params: filters }),
+    queryFn: () => apiRequest<any>('api/v1/crm/handoffs'),
   });
 }
 
 function useCreateHandoff() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: any) => apiRequest({ url: 'api/v1/crm/handoffs', method: 'POST', data }),
+    mutationFn: (data: any) => apiRequest<any>('api/v1/crm/handoffs', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-handoffs'] }),
   });
 }
@@ -35,7 +35,7 @@ function useCreateHandoff() {
 function useUpdateHandoff() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: any) => apiRequest({ url: `api/v1/crm/handoffs/${id}`, method: 'PUT', data }),
+    mutationFn: ({ id, ...data }: any) => apiRequest<any>(`api/v1/crm/handoffs/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-handoffs'] }),
   });
 }

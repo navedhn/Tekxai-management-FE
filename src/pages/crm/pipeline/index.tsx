@@ -3,7 +3,7 @@ import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import { Flame, Briefcase, Linkedin, Mail, Filter, ArrowRight } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/services/api/apiRequest';
+import { apiRequest } from '@/lib/queryClient';
 
 const STAGES = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL_SENT', 'NEGOTIATION', 'WON', 'LOST', 'ON_HOLD'];
 
@@ -30,11 +30,7 @@ const fmt_usd = (v: number) =>
 function useLeads(filters: any) {
   return useQuery({
     queryKey: ['crm-leads', filters],
-    queryFn: () => apiRequest({
-      url: 'api/v1/crm/leads',
-      method: 'GET',
-      params: filters,
-    }),
+    queryFn: () => apiRequest<any>('api/v1/crm/leads'),
   });
 }
 
@@ -42,7 +38,7 @@ function useUpdateStage() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ source, id, pipeline_stage }: { source: string; id: string; pipeline_stage: string }) =>
-      apiRequest({ url: `api/v1/crm/leads/${source}/${id}/stage`, method: 'PATCH', data: { pipeline_stage } }),
+      apiRequest<any>(`api/v1/crm/leads/${source}/${id}/stage`, { method: 'PATCH', body: JSON.stringify({ pipeline_stage }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-leads'] }),
   });
 }

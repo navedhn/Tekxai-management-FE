@@ -5,7 +5,7 @@ import Badge from '@/components/ui/Badge';
 import Table, { Column } from '@/components/ui/Table';
 import { Plus, FileText } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/services/api/apiRequest';
+import { apiRequest } from '@/lib/queryClient';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
@@ -20,14 +20,14 @@ const fmt_usd  = (v: number) => new Intl.NumberFormat('en-US', { style: 'currenc
 function useInvoices() {
   return useQuery({
     queryKey: ['crm-invoices'],
-    queryFn: () => apiRequest({ url: 'api/v1/crm/invoices', method: 'GET' }),
+    queryFn: () => apiRequest<any>('api/v1/crm/invoices'),
   });
 }
 
 function useCreateInvoice() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: any) => apiRequest({ url: 'api/v1/crm/invoices', method: 'POST', data }),
+    mutationFn: (data: any) => apiRequest<any>('api/v1/crm/invoices', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-invoices'] }),
   });
 }
@@ -35,7 +35,7 @@ function useCreateInvoice() {
 function useUpdateInvoice() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: any) => apiRequest({ url: `api/v1/crm/invoices/${id}`, method: 'PUT', data }),
+    mutationFn: ({ id, ...data }: any) => apiRequest<any>(`api/v1/crm/invoices/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-invoices'] }),
   });
 }
