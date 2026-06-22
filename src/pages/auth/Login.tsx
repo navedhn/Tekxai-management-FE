@@ -3,17 +3,12 @@ import { Formik, Form } from 'formik';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLoginMutation } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
-import { getRoleHomePath } from '@/constants/roles';
+import { ADMIN_ROLES, USER_ROLES } from '@/constants/roles';
 import { User } from '@/types';
 import { setAuthTokens, extractTokensFromAuthResponse } from '@/utils/tokenMemory';
 import { validateLoginForm } from '@/utils/validationSchemas';
 import { Button, FormInput } from '@/components';
 import { useToastContext } from '@/components/toast/ToastProvider';
-
-const getLoginHomePath = (res: unknown, user: User | undefined): string => {
-  const payload = (res as { payload?: { homePath?: string } })?.payload;
-  return payload?.homePath ?? getRoleHomePath(user?.role_name);
-};
 
 const Login: React.FC = () => {
   const loginMutation = useLoginMutation();
@@ -21,27 +16,34 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const toast = useToastContext();
 
-  const performLogin = async (email: string, password: string) => {
-    const res = await loginMutation.mutateAsync({ email, password });
-    const { accessToken, refreshToken, user } = extractTokensFromAuthResponse(res);
-
-    if (accessToken) {
-      setAuthTokens(accessToken, refreshToken);
-    }
-
-    loggedIn({ user: user as User });
-    toast.success('Login successful!');
-    navigate(getLoginHomePath(res, user as User));
-  };
-
   const handleSubmit = async (values: { email: string; password: string }) => {
     try {
-      await performLogin(values.email, values.password);
+      const res = await loginMutation.mutateAsync(values);
+      const { accessToken, refreshToken, user } = extractTokensFromAuthResponse(res);
+
+      if (accessToken) {
+        setAuthTokens(accessToken, refreshToken);
+      }
+
+      loggedIn({ user: user as User });
+      toast.success('Login successful!');
+
+      // Workspace-aware redirect based on role
+      const typedUser = user as User;
+      const role_name = typedUser?.role_name ?? (typedUser as any)?.roles?.[0] ?? null;
+
+      if (role_name === USER_ROLES.MARKETING) {
+        navigate('/crm');
+      } else if (role_name === USER_ROLES.HR) {
+        navigate('/hr');
+      } else if (ADMIN_ROLES.includes(role_name as any)) {
+        navigate('/admin');
+      } else {
+        navigate('/employee');
+      }
     } catch (error: any) {
       const errorMessage =
-        error?.data?.message ||
-        error?.message ||
-        'Login failed. Please check your credentials and try again.';
+        error?.data?.message || error?.message || 'Login failed. Please check your credentials.';
       toast.error(errorMessage);
     }
   };
@@ -57,11 +59,7 @@ const Login: React.FC = () => {
         </p>
       </div>
 
-      <Formik
-        initialValues={{ email: '', password: '' }}
-        validate={validateLoginForm}
-        onSubmit={handleSubmit}
-      >
+      <Formik initialValues={{ email: '', password: '' }} validate={validateLoginForm} onSubmit={handleSubmit}>
         {({ values, handleChange, handleBlur, errors, touched }) => (
           <Form className="flex flex-col gap-6">
             <FormInput
@@ -76,7 +74,6 @@ const Login: React.FC = () => {
               error={touched.email && errors.email ? errors.email : undefined}
               autoComplete="username"
             />
-
             <div className="flex flex-col gap-2">
               <FormInput
                 label="PASSWORD *"
@@ -91,15 +88,11 @@ const Login: React.FC = () => {
                 autoComplete="current-password"
               />
               <div className="flex justify-end">
-                <Link
-                  to="/forget-password"
-                  className="text-xs text-primary-500 hover:text-primary-600 font-bold transition-colors"
-                >
+                <Link to="/forget-password" className="text-xs text-primary-500 hover:text-primary-600 font-bold transition-colors">
                   Forgot your password?
                 </Link>
               </div>
             </div>
-
             <div className="pt-2">
               <Button
                 type="submit"
@@ -112,7 +105,6 @@ const Login: React.FC = () => {
                 {loginMutation.isPending ? 'Signing in...' : 'Sign in'}
               </Button>
             </div>
-
             <div className="h-px bg-gray-100 w-full my-4" />
           </Form>
         )}

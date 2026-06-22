@@ -1,10 +1,11 @@
 import React, { memo, useCallback } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Trophy, Archive, LogOut, X } from 'lucide-react';
+import { LayoutDashboard, Trophy, Archive, LogOut, X, Briefcase, Linkedin, Mail, Wallet, Target, FileBarChart, DollarSign, BarChart2 } from 'lucide-react';
 import { texailogo } from '@/assets/icons';
 import { useLogoutMutation } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
 import { clearAuthTokens } from '@/utils/tokenMemory';
+import { forceCheckoutApi } from '@/utils/attendanceAutoCheckout';
 import { useMarketingTeam } from '@/contexts/MarketingTeamContext';
 
 export type MarketingSidebarProps = { isOpen: boolean; onClose: () => void };
@@ -18,22 +19,21 @@ const MarketingSidebar: React.FC<MarketingSidebarProps> = memo(({ isOpen, onClos
 
   const links = [
     { to: '/marketing', label: 'Dashboard', icon: LayoutDashboard, end: true },
-    {
-      to: '/marketing/won-deals',
-      label: 'Won Deals - Intern BDs',
-      icon: Trophy,
-      team: 'intern' as const,
-    },
-    {
-      to: '/marketing/won-deals',
-      label: 'Won Deals - Sales Team',
-      icon: Trophy,
-      team: 'sales' as const,
-    },
+    { to: '/marketing/won-deals', label: 'Won Deals - Intern BDs', icon: Trophy, team: 'intern' as const },
+    { to: '/marketing/won-deals', label: 'Won Deals - Sales Team', icon: Trophy, team: 'sales' as const },
+    { to: '/marketing/upwork',      label: 'Upwork Bids',     icon: Briefcase },
+    { to: '/marketing/linkedin',    label: 'LinkedIn Leads',  icon: Linkedin },
+    { to: '/marketing/email-leads', label: 'Email Leads',     icon: Mail },
+    { to: '/marketing/deposits',    label: 'Deposits',        icon: Wallet },
+    { to: '/marketing/targets',     label: 'Targets',         icon: Target },
+    { to: '/marketing/my-report',   label: 'My Report',       icon: FileBarChart },
+    { to: '/marketing/my-salaries',   label: 'My Salaries',    icon: DollarSign },
+    { to: '/marketing/hr-dashboard',  label: 'HR Dashboard',   icon: BarChart2 },
     { to: '/marketing/salary-history', label: 'Salary History', icon: Archive },
   ];
 
   const logout = useCallback(async () => {
+    await forceCheckoutApi('LOGOUT');
     try {
       await logoutMutation.mutateAsync();
     } catch (error) {
@@ -62,7 +62,7 @@ const MarketingSidebar: React.FC<MarketingSidebarProps> = memo(({ isOpen, onClos
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto no-scrollbar px-4 py-2 space-y-1.5 mt-2">
+      <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1.5 mt-2">
         {links.map(link => {
           const isWonDealsLink = 'team' in link && link.team;
           const isActive = isWonDealsLink

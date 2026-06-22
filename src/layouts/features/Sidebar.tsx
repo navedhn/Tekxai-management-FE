@@ -1,139 +1,216 @@
-import React, { memo, useMemo, useCallback } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import React, { useMemo, memo } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import {
+  Home,
+  Users,
+  Settings,
+  FolderCheck,
+  Clock,
+  Star,
+  Monitor,
+  LogOut,
+  X,
+  BarChart3,
+  UserPlus,
+  ShieldCheck,
+  Shield,
+  ClipboardCheck,
+  Ticket,
+  Package,
+  TrendingUp,
+  FileText,
+  Building2,
+  Heart,
+  Wrench,
+  Calculator,
+  Users2,
+} from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { useAuthStore } from '@/stores/authStore';
-import { Home, Users, Settings, FolderCheck, Clock, Star, LogOut, texailogo, X, dashboardIconWhite, dashboardIconBlack, projectIconBlack, projectIconWhite, timesheetBlack, timesheetEmployeeWhite, settingsBlack, settingsWhite, teamManagementBlack, teamManagementWhite, savedBlack, savedWhite, timesheetWhite, timesheetEmployeeBlack, } from '@/assets/icons';
-import { useLogoutMutation } from '@/services/authService';
 import { clearAuthTokens } from '@/utils/tokenMemory';
-import { Users2, Ticket, Award } from 'lucide-react';
+import { forceCheckoutApi } from '@/utils/attendanceAutoCheckout';
+import { useNavigate as useNav } from 'react-router-dom';
+import { USER_ROLES, ADMIN_ROLES } from '@/constants/roles';
+import { cn } from '@/utils/cn';
+import tekxaiLogo from '@/assets/icons/tekxai-logo.svg';
 
+import dashboardIconBlack from '@/assets/icons/dashboard-black-icon.svg';
+import dashboardIconWhite from '@/assets/icons/dashboard-icon-white.svg';
+import projectIconBlack   from '@/assets/icons/project-icon-black.svg';
+import projectIconWhite   from '@/assets/icons/project-icon-white.svg';
+import timesheetBlack     from '@/assets/icons/timesheet-black.svg';
+import timesheetWhite     from '@/assets/icons/timesheet-white.svg';
+import timesheetEmployeeBlack from '@/assets/icons/timesheet-emplooye-black.svg';
+import timesheetEmployeeWhite from '@/assets/icons/timesheet-emplooye-white.svg';
+import settingsBlack      from '@/assets/icons/settings-black.svg';
+import settingsWhite      from '@/assets/icons/settings-white.svg';
+import teamManagementBlack from '@/assets/icons/teammanagment-black.svg';
+import teamManagementWhite from '@/assets/icons/teammanagement-white.svg';
+import savedBlack         from '@/assets/icons/saved-black.svg';
+import savedWhite         from '@/assets/icons/saved-white.svg';
 
-export type SidebarProps = { isOpen: boolean; onClose: () => void };
+interface SidebarLink {
+  to: string;
+  label: string;
+  icon: React.ReactNode;
+  inactive?: string;
+  active?: string;
+  end?: boolean;
+  section?: string;
+}
 
-const Sidebar: React.FC<SidebarProps> = memo(({ isOpen, onClose }) => {
-    const { role } = useAuth();
-    const navigate = useNavigate();
-    const location = useLocation();
-    const { userLogout } = useAuthStore();
-    const logoutMutation = useLogoutMutation();
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
 
-    // Determine the base path based on the current location
-    const isEmployeeView = location.pathname.startsWith('/employee');
-    const basePath = isEmployeeView ? '/employee' : '/admin';
+const SvgIcon: React.FC<{ src: string; alt: string }> = ({ src, alt }) => (
+  <img src={src} alt={alt} className="w-5 h-5 object-contain" />
+);
 
-    const links = useMemo(() => {
-        if (isEmployeeView) {
-            return [
-                { to: '/employee', label: 'Home', icon: <Home size={20} />, inactive: dashboardIconBlack, active: dashboardIconWhite, end: true },
-                { to: '/employee/projects', label: 'Projects', icon: <FolderCheck size={20} />, inactive: projectIconBlack, active: projectIconWhite },
-                { to: '/employee/starred', label: 'Starred Queries', icon: <Star size={20} className="" /> },
-                { to: '/employee/timesheet', label: 'Timesheet', icon: <Clock size={20} />, inactive: timesheetEmployeeBlack, active: timesheetEmployeeWhite },
-                { to: '/employee/tickets', label: 'Support Tickets', icon: <Ticket size={20} /> },
-                { to: '/employee/settings', label: 'Setting', icon: <Settings size={20} />, inactive: settingsBlack, active: settingsWhite },
-            ];
-        }
+const NavItem: React.FC<{ link: SidebarLink }> = ({ link }) => (
+  <NavLink
+    to={link.to}
+    end={link.end}
+    className={({ isActive }) =>
+      cn(
+        'flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-150 group text-[13px] font-bold',
+        isActive
+          ? 'bg-[#005CDA] text-white shadow-lg shadow-blue-200'
+          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+      )
+    }
+  >
+    {({ isActive }) => (
+      <>
+        <span className="shrink-0 w-5 h-5 flex items-center justify-center">
+          {link.inactive && link.active ? (
+            <SvgIcon src={isActive ? link.active : link.inactive} alt={link.label} />
+          ) : (
+            <span className={cn('transition-colors', isActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-700')}>
+              {link.icon}
+            </span>
+          )}
+        </span>
+        <span className="truncate">{link.label}</span>
+      </>
+    )}
+  </NavLink>
+);
 
-        const adminLinks = [
-            { to: '/admin', label: 'Home', icon: <Home size={20} />, end: true, inactive: dashboardIconBlack, active: dashboardIconWhite },
-            { to: '/admin/users', label: 'Users Management', icon: <Users2 size={20} /> },
-            { to: '/admin/performance-scoring', label: 'Performance Scoring', icon: <Award size={20} /> },
-            { to: '/admin/projects', label: 'Project Management', icon: <FolderCheck size={20} />, inactive: projectIconBlack, active: projectIconWhite },
-            { to: '/admin/timesheet', label: 'Timesheet', icon: <Users size={20} />, inactive: timesheetBlack, active: timesheetWhite },
-            { to: '/admin/starred', label: 'Starred Project', icon: <Star size={20} />, inactive: savedBlack, active: savedWhite },
-            { to: '/admin/team', label: 'Team Management', icon: <Clock size={20} />, inactive: teamManagementBlack, active: teamManagementWhite },
-        ];
+const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
+  const { role, userLogout } = useAuth();
+  const navigate = useNavigate();
 
+  const links: SidebarLink[] = useMemo(() => {
+    const isAdmin = ADMIN_ROLES.includes(role as any);
 
+    if (!isAdmin) {
+      return [
+        { to: '/employee',              label: 'Home',             icon: <Home size={20} />,      inactive: dashboardIconBlack, active: dashboardIconWhite, end: true },
+        { to: '/employee/projects',     label: 'Projects',         icon: <FolderCheck size={20} />,inactive: projectIconBlack, active: projectIconWhite },
+        { to: '/employee/starred',      label: 'Starred Queries',  icon: <Star size={20} /> },
+        { to: '/employee/timesheet',    label: 'Timesheet',        icon: <Clock size={20} />,     inactive: timesheetEmployeeBlack, active: timesheetEmployeeWhite },
+        { to: '/employee/tickets',      label: 'Support Tickets',  icon: <Ticket size={20} /> },
+        { to: '/employee/documents',    label: 'My Documents',     icon: <FileText size={20} /> },
+        { to: '/employee/daily-report', label: 'Daily Report',     icon: <FileText size={20} /> },
+        { to: '/employee/settings',     label: 'Settings',         icon: <Settings size={20} />,  inactive: settingsBlack, active: settingsWhite },
+      ];
+    }
 
-        adminLinks.push({ to: '/admin/settings', label: 'Setting', icon: <Settings size={20} />, inactive: settingsBlack, active: settingsWhite });
+    const isSuperAdmin = role === 'SUPER_ADMIN';
 
-        return adminLinks;
-    }, [role, isEmployeeView]);
+    // ERP workspace sidebar (Admin/HR/DivManager)
+    return [
+      { section: 'Overview',    to: '/admin',             label: 'ERP Dashboard',     icon: <Home size={20} />,      inactive: dashboardIconBlack, active: dashboardIconWhite, end: true },
+      { section: 'Delivery',    to: '/admin/projects',    label: 'Projects',          icon: <FolderCheck size={20} />,inactive: projectIconBlack, active: projectIconWhite },
+      { to: '/admin/team',      label: 'Teams',           icon: <Users2 size={20} />, inactive: teamManagementBlack, active: teamManagementWhite },
+      { to: '/admin/timesheet', label: 'Timesheet',       icon: <Clock size={20} />,  inactive: timesheetBlack, active: timesheetWhite },
+      { to: '/admin/operations',label: 'Operations',      icon: <Wrench size={20} /> },
+      { to: '/admin/monitoring',label: 'Monitoring',      icon: <Monitor size={20} /> },
+      { to: '/admin/reports',   label: 'Reports',         icon: <BarChart3 size={20} /> },
+      { section: 'Shared', to: '/admin/starred',  label: 'Starred',           icon: <Star size={20} />,   inactive: savedBlack, active: savedWhite },
+      { to: '/admin/settings',  label: 'Settings',        icon: <Settings size={20} />,inactive: settingsBlack, active: settingsWhite },
+      // Admin/HR — approvals
+      { section: 'Admin', to: '/admin/approvals', label: 'Approvals', icon: <ClipboardCheck size={20} /> },
+      // Super Admin only — permissions management
+      ...(isSuperAdmin ? [{ to: '/admin/permissions', label: 'Access Control', icon: <Shield size={20} /> }] : []),
+    ];
+  }, [role]);
 
-    const logout = useCallback(async () => {
-        try {
-            await logoutMutation.mutateAsync();
-        } catch (error) {
-            console.error('Logout API error:', error);
-        } finally {
-            clearAuthTokens();
-            userLogout();
-            navigate('/login');
-        }
-    }, [navigate, logoutMutation, userLogout]);
+  const isAdmin = ADMIN_ROLES.includes(role as any);
 
-    return (
-        <aside
-            className={
-                `fixed inset-y-0 left-0 w-sidebar bg-white flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] lg:translate-x-0 z-110  border-r border-gray-100 ` +
-                (isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0')
-            }
+  const handleLogout = async () => {
+    // Auto-checkout any open attendance session before logging out
+    await forceCheckoutApi('LOGOUT');
+    clearAuthTokens();
+    userLogout();
+    navigate('/login');
+  };
+
+  let lastSection = '';
+
+  return (
+    <div className={cn(
+      'fixed left-0 top-0 z-40 w-[280px] h-screen flex flex-col bg-white border-r border-gray-100',
+      isOpen !== undefined && !isOpen ? '-translate-x-full lg:translate-x-0' : '',
+      'transition-transform duration-300'
+    )}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <div className="flex items-center gap-3">
+          <img src={tekxaiLogo} alt="Tekxai" className="h-8" />
+          {isAdmin && (
+            <span className="text-xs font-black uppercase tracking-widest text-[#005CDA] bg-blue-50 px-2 py-1 rounded-lg">
+              ERP
+            </span>
+          )}
+        </div>
+        {onClose && (
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-all lg:hidden">
+            <X size={18} />
+          </button>
+        )}
+      </div>
+
+      {/* Workspace Switcher for admins */}
+      {isAdmin && (
+        <div className="px-3 pt-3 flex gap-2">
+          <button className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-[#005CDA] text-white">ERP</button>
+          <button onClick={() => navigate('/crm')} className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">CRM</button>
+          <button onClick={() => navigate('/hr')} className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">HR</button>
+        </div>
+      )}
+
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-0.5">
+        {links.map((link) => {
+          const showSection = link.section && link.section !== lastSection;
+          if (link.section) lastSection = link.section;
+          return (
+            <React.Fragment key={link.to + link.label}>
+              {showSection && (
+                <div className="pt-3 pb-1 px-3">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{link.section}</span>
+                </div>
+              )}
+              <NavItem link={link} />
+            </React.Fragment>
+          );
+        })}
+      </nav>
+
+      {/* Logout */}
+      <div className="px-3 py-4 border-t border-gray-100">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-bold text-gray-500 hover:bg-red-50 hover:text-red-500 transition-all"
         >
-            {/* Logo Section */}
-            <div className="p-[18.5px] flex items-center justify-center relative border-b border-gray-100">
-                <img src={texailogo} className='w-[100px] h-[50px] object-contain' />
-                <button
-                    onClick={onClose}
-                    className="lg:hidden absolute right-4 p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-500"
-                >
-                    <X size={20} />
-                </button>
-            </div>
+          <LogOut size={18} />
+          Sign Out
+        </button>
+      </div>
+    </div>
+  );
+};
 
-            {/* Navigation Links */}
-            <nav className="flex-1 overflow-y-auto no-scrollbar px-4 py-2 space-y-1.5 mt-2">
-                {links.map((l) => (
-                    <NavLink
-                        key={l.to}
-                        to={l.to}
-                        end={l.end}
-                        onClick={onClose}
-                        className={({ isActive }) =>
-                            `flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all duration-300 group ` +
-                            (isActive
-                                ? 'bg-gradient-to-b from-[#005CDA] to-[#001F4A] text-white shadow-lg shadow-primary-100'
-                                : 'text-[#252525] hover:bg-blue-50 ')
-                        }
-                    >
-                        {({ isActive }) => (
-                            <>
-                                <div className="transition-transform duration-300 group-hover:scale-105 shrink-0">
-                                    {(l.active && l.inactive) ? (
-                                        <img
-                                            src={isActive ? l.active : l.inactive}
-                                            alt={l.label}
-                                            className="w-5 h-5 object-contain"
-                                        />
-                                    ) : (
-                                        l.icon
-                                    )}
-                                </div>
-                                <h4 className="text-sm tracking-tight">{l.label}</h4>
-                            </>
-                        )}
-                    </NavLink>
-                ))}
-            </nav>
-
-            <div className="px-4 pb-6 pt-4 mt-auto border-t border-gray-100">
-                <button
-                    type="button"
-                    onClick={logout}
-                    disabled={logoutMutation.isPending}
-                    className="flex w-full items-center gap-3 px-4 py-3 rounded-xl font-bold text-[#252525] hover:bg-red-50 hover:text-red-600 transition-all duration-300 group disabled:opacity-60"
-                >
-                    <LogOut size={20} className="shrink-0 group-hover:text-red-600" />
-                    <span className="text-sm tracking-tight">
-                        {logoutMutation.isPending ? 'Logging out...' : 'Logout'}
-                    </span>
-                </button>
-            </div>
-
-        </aside>
-    );
-});
-
-export default Sidebar;
-
-
-
+export default memo(Sidebar);
