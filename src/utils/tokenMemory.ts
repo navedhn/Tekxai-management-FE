@@ -51,10 +51,11 @@ export const extractTokensFromAuthResponse = (res: unknown): {
   user?: unknown;
 } => {
   const data = res as Record<string, unknown>;
-  const payload = (data?.payload ?? data) as Record<string, unknown>;
+  // API shape: { success, data: { user, accessToken, ... } } — also handle legacy { payload: ... }
+  const inner = (data?.data ?? data?.payload ?? data) as Record<string, unknown>;
   return {
-    accessToken: (payload?.accessToken ?? data?.accessToken ?? data?.token) as string | undefined,
-    refreshToken: (payload?.refreshToken ?? data?.refreshToken) as string | undefined,
-    user: (payload?.user ?? data?.user) as unknown,
+    accessToken: (inner?.accessToken ?? inner?.access_token ?? data?.accessToken ?? data?.token) as string | undefined,
+    refreshToken: (inner?.refreshToken ?? inner?.refresh_token ?? data?.refreshToken) as string | undefined,
+    user: (inner?.user ?? data?.user) as unknown,
   };
 };
