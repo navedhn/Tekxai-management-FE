@@ -98,7 +98,7 @@ const ProfilePage            = lazy(() => import('@/pages/shared/profile'));
 const ChatAppV2              = lazy(() => import('@/pages/chat-v2'));
 const ChatPage               = lazy(() => import('@/pages/chat'));
 
-const adminRoles = [...ADMIN_ROLES] as any[];
+const adminRoles = [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN] as any[];
 const crmRoles   = [USER_ROLES.MARKETING, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN] as any[];
 const hrRoles    = [USER_ROLES.HR, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN] as any[];
 const allRoles   = Object.values(USER_ROLES) as any[];
