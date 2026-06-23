@@ -1,11 +1,8 @@
 import React, { useState } from 'react';
 import Modal from './Modal';
 import DatePicker from './DatePicker';
-import Select from './Select';
 import Textarea from './Textarea';
 import Button from './Button';
-import { cn } from '@/utils/cn';
-
 import { useGetTimeOffPolicies, useCreateTimeOffRequestMutation } from '@/services/timesheetService';
 
 interface RequestTimeOffModalProps {
@@ -14,57 +11,43 @@ interface RequestTimeOffModalProps {
 }
 
 const RequestTimeOffModal: React.FC<RequestTimeOffModalProps> = ({ isOpen, onClose }) => {
-  const [policy, setPolicy] = useState<string | number>('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [isAllDay, setIsAllDay] = useState(false);
-  const [excludeWeekends, setExcludeWeekends] = useState(false);
-  const [excludeHolidays, setExcludeHolidays] = useState(false);
   const [reason, setReason] = useState('');
   const [file, setFile] = useState<File | null>(null);
-
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Fetch policies to get the Annual Leave policy ID
   const { data: policiesData } = useGetTimeOffPolicies(isOpen);
+  const annualPolicy = policiesData?.find(p => p.name === 'Annual Leave') ?? policiesData?.[0];
+
   const { mutate: createRequest, isPending } = useCreateTimeOffRequestMutation();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-    }
+    if (e.target.files && e.target.files[0]) setFile(e.target.files[0]);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Inline validation
     const newErrors: Record<string, string> = {};
-    if (!policy) newErrors.policy = 'Leave policy is required';
     if (!startDate) newErrors.startDate = 'Start date is required';
     if (!endDate) newErrors.endDate = 'End date is required';
-    if (!reason.trim()) newErrors.reason = 'Reason for time off is required';
-
+    if (!reason.trim()) newErrors.reason = 'Reason for leave is required';
     setErrors(newErrors);
-
-    if (Object.keys(newErrors).length > 0) {
-      return;
-    }
+    if (Object.keys(newErrors).length > 0) return;
 
     const formData = new FormData();
-    formData.append('policy_id', String(policy));
+    if (annualPolicy) formData.append('policy_id', String(annualPolicy.id));
     formData.append('start_date', startDate);
     formData.append('end_date', endDate);
-    formData.append('all_day', String(isAllDay));
-    formData.append('exclude_weekends', String(excludeWeekends));
-    formData.append('exclude_holidays', String(excludeHolidays));
+    formData.append('all_day', 'true');
+    formData.append('exclude_weekends', 'false');
+    formData.append('exclude_holidays', 'false');
     formData.append('reason', reason);
-    if (file) {
-      formData.append('supporting_document', file);
-    }
+    if (file) formData.append('supporting_document', file);
 
     createRequest(formData, {
       onSuccess: () => {
-        setPolicy('');
         setStartDate('');
         setEndDate('');
         setReason('');
@@ -80,97 +63,35 @@ const RequestTimeOffModal: React.FC<RequestTimeOffModalProps> = ({ isOpen, onClo
       onClose={onClose}
       size="sm"
       customClass="max-w-[480px] overflow-hidden"
-      title="Request Time Off"
+      title="Request Leave"
     >
       <div className="flex flex-col gap-6">
-
+        {/* Leave balance info */}
+        <div className="flex items-center justify-between px-4 py-3 bg-blue-50 border border-blue-100 rounded-xl">
+          <span className="text-xs font-semibold text-blue-700">Leave Type</span>
+          <span className="text-xs font-black text-blue-900">Annual Leave (12 days/year)</span>
+        </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-          <Select
-            label="Leave Policy *"
-            options={[
-              { label: 'Select Policy', value: '' },
-              ...(policiesData ? policiesData.map(p => ({ label: p.name, value: p.id })) : [])
-            ]}
-            value={policy}
-            onChange={setPolicy}
-            error={errors.policy}
-            placeholder="Select Policy"
-          />
-
           <div className="grid grid-cols-2 gap-4">
             <DatePicker
               label="Start Date *"
               placeholder="Pick date"
               value={startDate}
-              onChange={(date) => setStartDate(date)}
+              onChange={date => setStartDate(date)}
               error={errors.startDate}
             />
             <DatePicker
               label="End Date *"
               placeholder="Pick date"
               value={endDate}
-              onChange={(date) => setEndDate(date)}
+              onChange={date => setEndDate(date)}
               error={errors.endDate}
             />
           </div>
 
-          <label className="flex items-center gap-3 cursor-pointer group w-fit">
-            <div
-              className={cn(
-                "h-5 w-5 rounded border-2 transition-all flex items-center justify-center",
-                isAllDay ? "bg-primary-500 border-primary-500" : "border-gray-200 group-hover:border-gray-300"
-              )}
-              onClick={() => setIsAllDay(!isAllDay)}
-            >
-              {isAllDay && <div className="h-2 w-2 bg-white rounded-full" />}
-            </div>
-            <span className="text-sm font-bold text-gray-700">All Day (24h)</span>
-          </label>
-
-          <div className="flex flex-col gap-3">
-            <span className="text-sm font-black text-gray-900">Exclusions</span>
-            <div className="flex flex-col gap-3">
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <input
-                  type="checkbox"
-                  className="hidden"
-                  checked={excludeWeekends}
-                  onChange={() => setExcludeWeekends(!excludeWeekends)}
-                />
-                <div
-                  className={cn(
-                    "h-5 w-5 rounded-full border-2 transition-all flex items-center justify-center",
-                    excludeWeekends ? "bg-primary-500 border-primary-500" : "border-gray-200 group-hover:border-gray-300"
-                  )}
-                >
-                  {excludeWeekends && <div className="h-2 w-2 bg-white rounded-full" />}
-                </div>
-                <span className="text-sm font-bold text-gray-700">Exclude Weekends</span>
-              </label>
-
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <input
-                  type="checkbox"
-                  className="hidden"
-                  checked={excludeHolidays}
-                  onChange={() => setExcludeHolidays(!excludeHolidays)}
-                />
-                <div
-                  className={cn(
-                    "h-5 w-5 rounded-full border-2 transition-all flex items-center justify-center",
-                    excludeHolidays ? "bg-primary-500 border-primary-500" : "border-gray-200 group-hover:border-gray-300"
-                  )}
-                >
-                  {excludeHolidays && <div className="h-2 w-2 bg-white rounded-full" />}
-                </div>
-                <span className="text-sm font-bold text-gray-700">Exclude Holidays</span>
-              </label>
-            </div>
-          </div>
-
           <div className="flex flex-col gap-2">
-            <span className="text-sm font-black text-gray-900">Supporting Document (Optional)</span>
+            <span className="text-sm font-black text-gray-900">Supporting Document <span className="text-gray-400 font-bold">(Optional)</span></span>
             <div className="relative group">
               <input
                 type="file"
@@ -190,20 +111,20 @@ const RequestTimeOffModal: React.FC<RequestTimeOffModalProps> = ({ isOpen, onClo
                   {file?.name || 'No File Chosen'}
                 </div>
               </label>
-              <p className="text-[10px] text-gray-400 font-bold mt-1">PDF, PNG, Or JPEG. Max 5MB.</p>
+              <p className="text-[10px] text-gray-400 font-bold mt-1">PDF, PNG, or JPEG. Max 5MB.</p>
             </div>
           </div>
 
           <Textarea
             label="Reason *"
-            placeholder="Explain the reason for your time off request...."
+            placeholder="Explain the reason for your leave request…"
             value={reason}
-            onChange={(e) => setReason(e.target.value)}
+            onChange={e => setReason(e.target.value)}
             error={errors.reason}
-            className="min-h-[140px]"
+            className="min-h-[120px]"
           />
 
-          <div className="flex items-center gap-3 pt-4">
+          <div className="flex items-center gap-3 pt-2">
             <Button
               type="button"
               variant="outline"
@@ -216,8 +137,9 @@ const RequestTimeOffModal: React.FC<RequestTimeOffModalProps> = ({ isOpen, onClo
               type="submit"
               variant="primary"
               className="flex-1 rounded-xl h-12 font-black shadow-lg shadow-primary-100"
+              disabled={isPending}
             >
-              Submit Request
+              {isPending ? 'Submitting…' : 'Submit Request'}
             </Button>
           </div>
         </form>
