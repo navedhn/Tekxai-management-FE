@@ -58,6 +58,8 @@ const AddEmployee            = lazy(() => import('@/pages/admin/add-employee'));
 const HRReports              = lazy(() => import('@/pages/admin/hr-reports'));
 const OvertimePage           = lazy(() => import('@/pages/admin/overtime'));
 const IncrementsPage         = lazy(() => import('@/pages/admin/increments'));
+const AdminExpenses          = lazy(() => import('@/pages/admin/expenses'));
+const AdminExpenseLedger     = lazy(() => import('@/pages/admin/expenses/ledger'));
 
 // CRM workspace pages
 const CRMDashboard           = lazy(() => import('@/pages/crm/dashboard'));
@@ -167,6 +169,8 @@ const routes: RouteObject[] = [
           { path: '/admin/requisitions',        element: <AdminRequisitions /> },
           { path: '/admin/permissions',         element: <AdminPermissions /> },
           { path: '/admin/approvals',           element: <AdminApprovals /> },
+          { path: '/admin/expenses',            element: <AdminExpenses /> },
+          { path: '/admin/expenses/:userId',    element: <AdminExpenseLedger /> },
         ],
       },
       { path: '/admin/*', element: <NotFound /> },

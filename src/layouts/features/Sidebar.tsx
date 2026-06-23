@@ -24,6 +24,7 @@ import {
   Wrench,
   Calculator,
   Users2,
+  Receipt,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { clearAuthTokens } from '@/utils/tokenMemory';
@@ -132,6 +133,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { to: '/admin/settings',  label: 'Settings',        icon: <Settings size={20} />,inactive: settingsBlack, active: settingsWhite },
       // Admin/HR — approvals
       { section: 'Admin', to: '/admin/approvals', label: 'Approvals', icon: <ClipboardCheck size={20} /> },
+      { to: '/admin/expenses', label: 'Expenses', icon: <Receipt size={20} /> },
       // Super Admin only — permissions management
       ...(isSuperAdmin ? [{ to: '/admin/permissions', label: 'Access Control', icon: <Shield size={20} /> }] : []),
     ];
