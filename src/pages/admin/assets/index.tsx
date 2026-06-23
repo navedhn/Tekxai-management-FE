@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Monitor, CheckCircle, Package, Wrench, Filter, X, Plus } from 'lucide-react';
+import { Monitor, CheckCircle, Package, Wrench, Filter, X, Plus, Search, RotateCcw } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
+import { useToastContext } from '@/components/toast/ToastProvider';
 
 const STATUS_STYLE: Record<string, string> = {
   AVAILABLE:   'bg-green-100 text-green-700',
@@ -13,66 +14,204 @@ const STATUS_STYLE: Record<string, string> = {
   LOST:        'bg-red-100 text-red-700',
 };
 
+const CONDITION_STYLE: Record<string, string> = {
+  NEW:  'bg-green-100 text-green-700',
+  GOOD: 'bg-blue-100 text-blue-700',
+  FAIR: 'bg-yellow-100 text-yellow-700',
+  POOR: 'bg-red-100 text-red-700',
+};
+
 const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400';
+const labelCls = 'text-xs font-semibold text-gray-500 block mb-1.5';
+
+// ─── Add Asset Modal ──────────────────────────────────────────────────────────
 
 function CreateAssetModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
+  const { showToast } = useToastContext();
+
+  const [categoryId, setCategoryId] = useState('');
+  const [categoryMeta, setCategoryMeta] = useState<{ is_device: boolean; is_assignable: boolean } | null>(null);
+  const [isOther, setIsOther] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [userId, setUserId] = useState('');
+
   const [form, setForm] = useState({
-    name: '', category: '', serial_number: '', purchase_date: '',
-    purchase_price: '', vendor: '', location: '', condition: 'GOOD', notes: '',
+    name: '',
+    brand: '',
+    model: '',
+    serial_number: '',
+    condition: 'GOOD',
+    purchase_date: '',
+    purchase_cost: '',
+    vendor: '',
+    warranty_expiry: '',
+    notes: '',
+    processor: '',
+    ram: '',
+    storage: '',
+    storage_type: '',
+    generation: '',
+    assigned_at: '',
   });
+
   const [err, setErr] = useState('');
 
-  const mutation = useMutation({
-    mutationFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.LIST, {
+  const { data: categories } = useQuery({
+    queryKey: ['asset-categories'],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.CATEGORIES),
+    select: (r: any) => r?.payload || [],
+  });
+
+  const { data: users } = useQuery({
+    queryKey: ['user-list-brief'],
+    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200&status=ACTIVE`),
+    select: (r: any) => r?.payload?.records || [],
+  });
+
+  const createCategoryMutation = useMutation({
+    mutationFn: (data: any) => apiRequest<any>(API_ENDPOINTS.ASSET.CATEGORIES, {
       method: 'POST',
-      body: JSON.stringify({ ...form, purchase_price: form.purchase_price ? +form.purchase_price : undefined }),
+      body: JSON.stringify(data),
     }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['assets-list'] }); onClose(); },
+  });
+
+  const createAssetMutation = useMutation({
+    mutationFn: (data: any) => apiRequest<any>(API_ENDPOINTS.ASSET.CREATE, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['assets-list'] });
+      qc.invalidateQueries({ queryKey: ['asset-categories'] });
+      showToast('Asset added successfully', 'success');
+      onClose();
+    },
     onError: (e: any) => setErr(e?.message || 'Failed to create asset'),
   });
 
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
+  const handleCategoryChange = (val: string) => {
+    if (val === '__OTHER__') {
+      setIsOther(true);
+      setCategoryId('');
+      setCategoryMeta(null);
+    } else {
+      setIsOther(false);
+      setCategoryId(val);
+      const found = (categories || []).find((c: any) => c.id === val);
+      setCategoryMeta(found ? { is_device: found.is_device, is_assignable: found.is_assignable } : null);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!form.name.trim()) { setErr('Asset name is required'); return; }
+    setErr('');
+
+    let final_category_id = categoryId;
+
+    // If "Other", create category first
+    if (isOther) {
+      if (!newCategoryName.trim()) { setErr('Category name is required'); return; }
+      try {
+        const res = await createCategoryMutation.mutateAsync({
+          name: newCategoryName.trim(),
+          is_device: false,
+          is_assignable: false,
+        });
+        final_category_id = (res as any)?.payload?.id;
+      } catch (e: any) {
+        setErr(e?.message || 'Failed to create category');
+        return;
+      }
+    }
+
+    if (!final_category_id) { setErr('Please select a category'); return; }
+
+    const payload: Record<string, any> = {
+      name: form.name.trim(),
+      brand: form.brand || undefined,
+      model: form.model || undefined,
+      serial_number: form.serial_number || undefined,
+      condition: form.condition || undefined,
+      purchase_date: form.purchase_date || undefined,
+      purchase_cost: form.purchase_cost ? Number(form.purchase_cost) : undefined,
+      notes: form.notes || undefined,
+      warranty_expiry: form.warranty_expiry || undefined,
+      category_id: final_category_id,
+    };
+
+    // Device fields
+    if (categoryMeta?.is_device) {
+      if (form.processor) payload.processor = form.processor;
+      if (form.ram) payload.ram = form.ram;
+      if (form.storage) payload.storage = form.storage;
+      if (form.storage_type) payload.storage_type = form.storage_type;
+      if (form.generation) payload.generation = form.generation;
+    }
+
+    // Assignment
+    if (categoryMeta?.is_assignable && userId) {
+      payload.user_id = userId;
+      if (form.assigned_at) payload.assigned_at = form.assigned_at;
+    }
+
+    createAssetMutation.mutate(payload);
+  };
+
+  const isPending = createCategoryMutation.isPending || createAssetMutation.isPending;
+
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-black text-gray-900">Add New Asset</h2>
           <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
         </div>
+
         <div className="space-y-4">
+          {/* Category */}
           <div>
-            <label className="text-xs font-semibold text-gray-500 block mb-1.5">Asset Name <span className="text-red-500">*</span></label>
+            <label className={labelCls}>Category <span className="text-red-500">*</span></label>
+            <select className={inputCls} value={isOther ? '__OTHER__' : categoryId} onChange={e => handleCategoryChange(e.target.value)}>
+              <option value="">Select category</option>
+              {(categories || []).map((c: any) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+              <option value="__OTHER__">Other (create new)</option>
+            </select>
+          </div>
+
+          {/* New category name if Other */}
+          {isOther && (
+            <div>
+              <label className={labelCls}>New Category Name <span className="text-red-500">*</span></label>
+              <input className={inputCls} value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder="e.g. Projector" />
+            </div>
+          )}
+
+          {/* Asset Name */}
+          <div>
+            <label className={labelCls}>Asset Name <span className="text-red-500">*</span></label>
             <input className={inputCls} value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. MacBook Pro 14-inch" />
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold text-gray-500 block mb-1.5">Category</label>
-              <input className={inputCls} value={form.category} onChange={e => set('category', e.target.value)} placeholder="Laptop, Phone, Furniture…" />
+              <label className={labelCls}>Brand</label>
+              <input className={inputCls} value={form.brand} onChange={e => set('brand', e.target.value)} placeholder="Apple, Dell, HP…" />
             </div>
             <div>
-              <label className="text-xs font-semibold text-gray-500 block mb-1.5">Serial Number</label>
+              <label className={labelCls}>Model</label>
+              <input className={inputCls} value={form.model} onChange={e => set('model', e.target.value)} placeholder="Model number or name" />
+            </div>
+            <div>
+              <label className={labelCls}>Serial Number</label>
               <input className={inputCls} value={form.serial_number} onChange={e => set('serial_number', e.target.value)} placeholder="SN-XXXXXXX" />
             </div>
             <div>
-              <label className="text-xs font-semibold text-gray-500 block mb-1.5">Purchase Date</label>
-              <input className={inputCls} type="date" value={form.purchase_date} onChange={e => set('purchase_date', e.target.value)} />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-500 block mb-1.5">Purchase Price</label>
-              <input className={inputCls} type="number" value={form.purchase_price} onChange={e => set('purchase_price', e.target.value)} placeholder="0" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-500 block mb-1.5">Vendor</label>
-              <input className={inputCls} value={form.vendor} onChange={e => set('vendor', e.target.value)} placeholder="Apple, Dell…" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-500 block mb-1.5">Location</label>
-              <input className={inputCls} value={form.location} onChange={e => set('location', e.target.value)} placeholder="Head Office, Room 3…" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-500 block mb-1.5">Condition</label>
+              <label className={labelCls}>Condition</label>
               <select className={inputCls} value={form.condition} onChange={e => set('condition', e.target.value)}>
                 <option value="NEW">New</option>
                 <option value="GOOD">Good</option>
@@ -80,19 +219,98 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
                 <option value="POOR">Poor</option>
               </select>
             </div>
+            <div>
+              <label className={labelCls}>Purchase Date</label>
+              <input className={inputCls} type="date" value={form.purchase_date} onChange={e => set('purchase_date', e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls}>Purchase Price (PKR)</label>
+              <input className={inputCls} type="number" value={form.purchase_cost} onChange={e => set('purchase_cost', e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <label className={labelCls}>Vendor</label>
+              <input className={inputCls} value={form.vendor} onChange={e => set('vendor', e.target.value)} placeholder="Supplier name" />
+            </div>
+            <div>
+              <label className={labelCls}>Warranty Expiry</label>
+              <input className={inputCls} type="date" value={form.warranty_expiry} onChange={e => set('warranty_expiry', e.target.value)} />
+            </div>
           </div>
+
           <div>
-            <label className="text-xs font-semibold text-gray-500 block mb-1.5">Notes</label>
+            <label className={labelCls}>Notes</label>
             <textarea rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
               value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Any additional notes…" />
           </div>
+
+          {/* Device-specific fields */}
+          {categoryMeta?.is_device && (
+            <>
+              <div className="border-t border-gray-100 pt-4">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Device Specifications</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelCls}>Processor / CPU</label>
+                    <input className={inputCls} value={form.processor} onChange={e => set('processor', e.target.value)} placeholder="e.g. Intel Core i7" />
+                  </div>
+                  <div>
+                    <label className={labelCls}>RAM</label>
+                    <input className={inputCls} value={form.ram} onChange={e => set('ram', e.target.value)} placeholder="e.g. 16GB" />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Storage</label>
+                    <input className={inputCls} value={form.storage} onChange={e => set('storage', e.target.value)} placeholder="e.g. 512GB" />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Storage Type</label>
+                    <select className={inputCls} value={form.storage_type} onChange={e => set('storage_type', e.target.value)}>
+                      <option value="">Select type</option>
+                      <option value="HDD">HDD</option>
+                      <option value="SSD">SSD</option>
+                      <option value="NVMe">NVMe</option>
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className={labelCls}>Generation / Version</label>
+                    <input className={inputCls} value={form.generation} onChange={e => set('generation', e.target.value)} placeholder="e.g. 13th Gen, M1 2021" />
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Assignment section */}
+          {categoryMeta?.is_assignable && (
+            <div className="border-t border-gray-100 pt-4">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Assignment (optional)</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Assign To</label>
+                  <select className={inputCls} value={userId} onChange={e => setUserId(e.target.value)}>
+                    <option value="">Leave unassigned (Available)</option>
+                    {(users || []).map((u: any) => (
+                      <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>
+                    ))}
+                  </select>
+                </div>
+                {userId && (
+                  <div>
+                    <label className={labelCls}>Assignment Date</label>
+                    <input className={inputCls} type="date" value={form.assigned_at} onChange={e => set('assigned_at', e.target.value)} />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
+
         {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
+
         <div className="flex gap-3 mt-5">
           <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={() => mutation.mutate()} disabled={!form.name || mutation.isPending}
+          <button onClick={handleSubmit} disabled={!form.name || isPending}
             className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40">
-            {mutation.isPending ? 'Saving…' : 'Add Asset'}
+            {isPending ? 'Saving…' : 'Add Asset'}
           </button>
         </div>
       </div>
@@ -100,8 +318,11 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+// ─── Assign Modal ─────────────────────────────────────────────────────────────
+
 function AssignModal({ asset, onClose }: { asset: any; onClose: () => void }) {
   const qc = useQueryClient();
+  const { showToast } = useToastContext();
   const [userId, setUserId] = useState('');
   const [err, setErr] = useState('');
 
@@ -116,7 +337,11 @@ function AssignModal({ asset, onClose }: { asset: any; onClose: () => void }) {
       method: 'POST',
       body: JSON.stringify({ user_id: userId }),
     }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['assets-list'] }); onClose(); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['assets-list'] });
+      showToast('Asset assigned successfully', 'success');
+      onClose();
+    },
     onError: (e: any) => setErr(e?.message || 'Failed to assign'),
   });
 
@@ -129,7 +354,7 @@ function AssignModal({ asset, onClose }: { asset: any; onClose: () => void }) {
         </div>
         <p className="text-sm text-gray-500 mb-4">Assigning: <span className="font-semibold text-gray-900">{asset.name}</span></p>
         <div>
-          <label className="text-xs font-semibold text-gray-500 block mb-1.5">Assign To <span className="text-red-500">*</span></label>
+          <label className={labelCls}>Assign To <span className="text-red-500">*</span></label>
           <select className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 text-gray-700"
             value={userId} onChange={e => setUserId(e.target.value)}>
             <option value="">Select employee</option>
@@ -149,18 +374,87 @@ function AssignModal({ asset, onClose }: { asset: any; onClose: () => void }) {
   );
 }
 
+// ─── Return Modal ─────────────────────────────────────────────────────────────
+
+function ReturnModal({ asset, onClose }: { asset: any; onClose: () => void }) {
+  const qc = useQueryClient();
+  const { showToast } = useToastContext();
+  const [condition, setCondition] = useState('GOOD');
+  const [notes, setNotes] = useState('');
+  const [err, setErr] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.RETURN(asset.id), {
+      method: 'POST',
+      body: JSON.stringify({ returned_condition: condition, notes }),
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['assets-list'] });
+      showToast('Asset returned successfully', 'success');
+      onClose();
+    },
+    onError: (e: any) => setErr(e?.message || 'Failed to return asset'),
+  });
+
+  const assignedUser = asset.assignments?.[0]?.user;
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-black text-gray-900">Return Asset</h2>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+        </div>
+        <p className="text-sm text-gray-500 mb-1">Asset: <span className="font-semibold text-gray-900">{asset.name}</span></p>
+        {assignedUser && (
+          <p className="text-sm text-gray-500 mb-4">Returning from: <span className="font-semibold text-gray-900">{assignedUser.first_name} {assignedUser.last_name}</span></p>
+        )}
+        <div className="space-y-3">
+          <div>
+            <label className={labelCls}>Return Condition</label>
+            <select className={inputCls} value={condition} onChange={e => setCondition(e.target.value)}>
+              <option value="NEW">New</option>
+              <option value="GOOD">Good</option>
+              <option value="FAIR">Fair</option>
+              <option value="POOR">Poor</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Notes</label>
+            <textarea rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
+              value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any remarks on return…" />
+          </div>
+        </div>
+        {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
+        <div className="flex gap-3 mt-5">
+          <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
+          <button onClick={() => mutation.mutate()} disabled={mutation.isPending}
+            className="flex-1 h-10 bg-amber-600 text-white rounded-xl text-sm font-semibold hover:bg-amber-700 disabled:opacity-40">
+            {mutation.isPending ? 'Returning…' : 'Confirm Return'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
 export default function AssetsPage() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState('');
   const [assignTarget, setAssignTarget] = useState<any>(null);
+  const [returnTarget, setReturnTarget] = useState<any>(null);
   const [showCreate, setShowCreate] = useState(false);
 
   const { data: assetsData, isLoading } = useQuery({
-    queryKey: ['assets-list', categoryFilter, statusFilter],
+    queryKey: ['assets-list', categoryFilter, statusFilter, search],
     queryFn: () => {
       const params = new URLSearchParams();
-      if (categoryFilter) params.set('category', categoryFilter);
+      if (categoryFilter) params.set('category_id', categoryFilter);
       if (statusFilter) params.set('status', statusFilter);
+      if (search) params.set('search', search);
       return apiRequest<any>(`${API_ENDPOINTS.ASSET.LIST}?${params}`);
     },
     select: (r: any) => r?.payload,
@@ -169,18 +463,18 @@ export default function AssetsPage() {
   const { data: categories } = useQuery({
     queryKey: ['asset-categories'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.CATEGORIES),
-    select: (r: any) => r?.payload?.records || r?.payload || [],
+    select: (r: any) => r?.payload || [],
   });
 
   const assets: any[] = assetsData?.records || [];
-  const stats = assetsData?.stats || {};
-  const total = assets.length;
+  const total = assetsData?.total ?? assets.length;
   const assigned = assets.filter((a: any) => a.status === 'ASSIGNED').length;
   const available = assets.filter((a: any) => a.status === 'AVAILABLE').length;
   const maintenance = assets.filter((a: any) => a.status === 'MAINTENANCE').length;
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-gray-900">Assets</h1>
@@ -192,12 +486,13 @@ export default function AssetsPage() {
         </button>
       </div>
 
+      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { icon: Package,     color: 'bg-blue-500',   label: 'Total Assets',  value: stats.total ?? total },
-          { icon: CheckCircle, color: 'bg-blue-400',   label: 'Assigned',      value: stats.assigned ?? assigned },
-          { icon: Monitor,     color: 'bg-green-500',  label: 'Available',     value: stats.available ?? available },
-          { icon: Wrench,      color: 'bg-amber-500',  label: 'Maintenance',   value: stats.in_maintenance ?? maintenance },
+          { icon: Package,     color: 'bg-blue-500',   label: 'Total Assets',  value: total },
+          { icon: CheckCircle, color: 'bg-blue-400',   label: 'Assigned',      value: assigned },
+          { icon: Monitor,     color: 'bg-green-500',  label: 'Available',     value: available },
+          { icon: Wrench,      color: 'bg-amber-500',  label: 'Maintenance',   value: maintenance },
         ].map(s => (
           <div key={s.label} className="flex items-center gap-4 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
             <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', s.color)}>
@@ -211,34 +506,51 @@ export default function AssetsPage() {
         ))}
       </div>
 
+      {/* Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        {/* Filters */}
         <div className="flex flex-wrap gap-3 mb-4">
           <div className="flex items-center gap-2 text-gray-400">
             <Filter size={15} />
             <span className="text-xs font-semibold">Filter:</span>
           </div>
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              className="h-10 pl-8 pr-3 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:border-primary-400 w-48"
+              placeholder="Search assets…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
           <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
-            className="h-10 px-3 border border-gray-200 rounded-xl text-sm text-gray-600">
+            className="h-10 px-3 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:border-primary-400">
             <option value="">All Categories</option>
             {(categories as any[] || []).map((c: any) => (
-              <option key={c.id || c} value={c.name || c}>{c.name || c}</option>
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-            className="h-10 px-3 border border-gray-200 rounded-xl text-sm text-gray-600">
+            className="h-10 px-3 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:border-primary-400">
             <option value="">All Status</option>
             <option value="AVAILABLE">Available</option>
             <option value="ASSIGNED">Assigned</option>
             <option value="MAINTENANCE">Maintenance</option>
             <option value="RETIRED">Retired</option>
           </select>
+          {(categoryFilter || statusFilter || search) && (
+            <button onClick={() => { setCategoryFilter(''); setStatusFilter(''); setSearch(''); }}
+              className="h-10 px-3 text-xs text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 flex items-center gap-1">
+              <X size={12} /> Clear
+            </button>
+          )}
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
-                {['Asset', 'Category', 'Serial No.', 'Location', 'Assigned To', 'Status', 'Actions'].map(h => (
+                {['Asset', 'Category', 'Brand / Model', 'Serial No.', 'Assigned To', 'Condition', 'Status', 'Actions'].map(h => (
                   <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -246,34 +558,58 @@ export default function AssetsPage() {
             <tbody className="divide-y divide-gray-50">
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}><td colSpan={7} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                  <tr key={i}><td colSpan={8} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
                 ))
               ) : assets.length === 0 ? (
-                <tr><td colSpan={7} className="py-12 text-center text-gray-400 text-sm">No assets found</td></tr>
-              ) : assets.map((asset: any) => (
-                <tr key={asset.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="py-3 px-2 font-semibold text-gray-900">{asset.name}</td>
-                  <td className="py-3 px-2 text-gray-500">{asset.category?.name || asset.category || '—'}</td>
-                  <td className="py-3 px-2 font-mono text-xs text-gray-500">{asset.serial_number || '—'}</td>
-                  <td className="py-3 px-2 text-gray-600">{asset.location?.name || asset.location || '—'}</td>
-                  <td className="py-3 px-2 text-gray-700">
-                    {asset.assigned_to ? `${asset.assigned_to.first_name} ${asset.assigned_to.last_name}` : '—'}
-                  </td>
-                  <td className="py-3 px-2">
-                    <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full', STATUS_STYLE[asset.status] || 'bg-gray-100 text-gray-500')}>
-                      {asset.status || '—'}
-                    </span>
-                  </td>
-                  <td className="py-3 px-2">
-                    {asset.status === 'AVAILABLE' && (
-                      <button onClick={() => setAssignTarget(asset)}
-                        className="px-3 h-7 bg-primary-600 text-white rounded-lg text-xs font-semibold hover:bg-primary-700 transition-colors">
-                        Assign
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                <tr><td colSpan={8} className="py-12 text-center text-gray-400 text-sm">No assets found</td></tr>
+              ) : assets.map((asset: any) => {
+                const assignedUser = asset.assignments?.[0]?.user;
+                return (
+                  <tr key={asset.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="py-3 px-2">
+                      <p className="font-semibold text-gray-900">{asset.name}</p>
+                      <p className="text-xs text-gray-400 font-mono">{asset.asset_tag}</p>
+                    </td>
+                    <td className="py-3 px-2 text-gray-500 whitespace-nowrap">{asset.category?.name || '—'}</td>
+                    <td className="py-3 px-2 text-gray-600">
+                      <p>{asset.brand || '—'}</p>
+                      {asset.model && <p className="text-xs text-gray-400">{asset.model}</p>}
+                    </td>
+                    <td className="py-3 px-2 font-mono text-xs text-gray-500">{asset.serial_number || '—'}</td>
+                    <td className="py-3 px-2 text-gray-700 whitespace-nowrap">
+                      {assignedUser ? `${assignedUser.first_name} ${assignedUser.last_name || ''}`.trim() : '—'}
+                    </td>
+                    <td className="py-3 px-2">
+                      {asset.condition ? (
+                        <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full', CONDITION_STYLE[asset.condition] || 'bg-gray-100 text-gray-500')}>
+                          {asset.condition}
+                        </span>
+                      ) : '—'}
+                    </td>
+                    <td className="py-3 px-2">
+                      <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full', STATUS_STYLE[asset.status] || 'bg-gray-100 text-gray-500')}>
+                        {asset.status || '—'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-2">
+                      <div className="flex items-center gap-1.5">
+                        {asset.status === 'AVAILABLE' && (
+                          <button onClick={() => setAssignTarget(asset)}
+                            className="px-3 h-7 bg-primary-600 text-white rounded-lg text-xs font-semibold hover:bg-primary-700 transition-colors">
+                            Assign
+                          </button>
+                        )}
+                        {asset.status === 'ASSIGNED' && (
+                          <button onClick={() => setReturnTarget(asset)}
+                            className="flex items-center gap-1 px-3 h-7 bg-amber-100 text-amber-700 rounded-lg text-xs font-semibold hover:bg-amber-200 transition-colors">
+                            <RotateCcw size={11} />Return
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -281,6 +617,7 @@ export default function AssetsPage() {
 
       {showCreate && <CreateAssetModal onClose={() => setShowCreate(false)} />}
       {assignTarget && <AssignModal asset={assignTarget} onClose={() => setAssignTarget(null)} />}
+      {returnTarget && <ReturnModal asset={returnTarget} onClose={() => setReturnTarget(null)} />}
     </div>
   );
 }
