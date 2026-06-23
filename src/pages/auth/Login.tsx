@@ -19,7 +19,9 @@ const Login: React.FC = () => {
   const handleSubmit = async (values: { email: string; password: string }) => {
     try {
       const res = await loginMutation.mutateAsync(values);
+      console.log('[login] raw res:', JSON.stringify(res));
       const { accessToken, refreshToken, user } = extractTokensFromAuthResponse(res);
+      console.log('[login] extracted:', { accessToken: !!accessToken, user });
 
       if (accessToken) {
         setAuthTokens(accessToken, refreshToken);
@@ -31,6 +33,7 @@ const Login: React.FC = () => {
       // Workspace-aware redirect based on role
       const typedUser = user as User;
       const role_name = typedUser?.role_name ?? (typedUser as any)?.roles?.[0] ?? null;
+      console.log('[login] role_name:', role_name);
 
       if (role_name === USER_ROLES.MARKETING) {
         navigate('/crm');
