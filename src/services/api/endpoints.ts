@@ -253,6 +253,14 @@ export const API_ENDPOINTS = {
     REJECT:  (id: string) => `${v1}/overtime/${id}/reject`,
     CANCEL:  (id: string) => `${v1}/overtime/${id}/cancel`,
   },
+  EXPENSES: {
+    SUMMARY:      `${v1}/expenses/summary`,
+    ACCOUNTS:     `${v1}/expenses/accounts`,
+    ACCOUNT:      (userId: string) => `${v1}/expenses/accounts/${userId}`,
+    TRANSACTIONS: (userId: string) => `${v1}/expenses/accounts/${userId}/transactions`,
+    TRANSACTION:  (id: string)     => `${v1}/expenses/transactions/${id}`,
+    CATEGORIES:   `${v1}/expenses/categories`,
+  },
   HR_REPORT: {
     ANNUAL:    (userId: string) => `${v1}/hr-report/employee/${userId}/annual`,
     MONTHLY:   (userId: string) => `${v1}/hr-report/employee/${userId}/monthly`,
