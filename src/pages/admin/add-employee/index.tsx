@@ -141,7 +141,12 @@ function StepEmployment({ data, onChange, departments, teams, users }: any) {
         <h3 className="font-bold text-gray-900 mb-4">Employment Information</h3>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Employee ID">
-            <input className={inputCls} value={data.employee_id} onChange={e => onChange('employee_id', e.target.value)} placeholder="EMP-0001" />
+            <input
+              className={`${inputCls} bg-gray-50 text-gray-500 cursor-not-allowed select-all`}
+              value={data.employee_id || 'Generating…'}
+              readOnly
+              tabIndex={-1}
+            />
           </Field>
           <Field label="Joining Date" required>
             <input className={inputCls} type="date" value={data.hire_date} onChange={e => onChange('hire_date', e.target.value)} />
@@ -465,13 +470,17 @@ function StepReview({ personal, employment, work }: any) {
   );
 }
 
+function generateEmployeeId(count: number) {
+  return `TXI-${String(count + 1).padStart(4, '0')}`;
+}
+
 // ── Main Wizard ──────────────────────────────────────────────────────────────
 export default function AddEmployee() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [step, setStep] = useState(1);
   const [personal, setPersonal]     = useState(initPersonal);
-  const [employment, setEmployment] = useState(initEmployment);
+  const [employment, setEmployment] = useState({ ...initEmployment });
   const [work, setWork]             = useState(initWork);
   const [docFiles, setDocFiles]     = useState<DocFile[]>([]);
 
@@ -495,6 +504,20 @@ export default function AddEmployee() {
     select: (r: any) => r?.payload?.records || r?.payload || [],
     staleTime: 300000,
   });
+
+  // Auto-generate employee ID once user count is known
+  const { data: userCount } = useQuery({
+    queryKey: ['user-count'],
+    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=1`),
+    select: (r: any) => r?.payload?.total ?? (r?.payload?.records?.length ?? 0),
+    staleTime: 60000,
+  });
+
+  React.useEffect(() => {
+    if (userCount != null && !employment.employee_id) {
+      setEmployment(p => ({ ...p, employee_id: generateEmployeeId(userCount) }));
+    }
+  }, [userCount]);
 
   const createMutation = useMutation({
     mutationFn: async (as_draft: boolean) => {
@@ -567,6 +590,32 @@ export default function AddEmployee() {
         }),
       });
 
+      // 3. Upload documents if any were selected
+      if (docFiles.length > 0) {
+        const token = getAccessToken();
+        await Promise.allSettled(
+          docFiles.map(async (df, idx) => {
+            setDocFiles(prev => prev.map((f, i) => i === idx ? { ...f, status: 'uploading' as const } : f));
+            const form = new FormData();
+            form.append('file', df.file);
+            form.append('doc_type', df.doc_type);
+            form.append('doc_name', df.file.name);
+            const url = `${BASE_URL}${API_ENDPOINTS.EMPLOYEE_DOC.CREATE(String(userId))}`;
+            try {
+              const res = await fetch(url, {
+                method: 'PUT',
+                headers: token ? { authorization: `Bearer ${token}` } : {},
+                body: form,
+              });
+              if (!res.ok) throw new Error(`Upload failed: ${df.file.name}`);
+              setDocFiles(prev => prev.map((f, i) => i === idx ? { ...f, status: 'done' as const } : f));
+            } catch (e: any) {
+              setDocFiles(prev => prev.map((f, i) => i === idx ? { ...f, status: 'error' as const, error: e?.message } : f));
+            }
+          })
+        );
+      }
+
       return userId;
     },
     onSuccess: (userId: string) => {
@@ -631,7 +680,7 @@ export default function AddEmployee() {
             {step === 1 && <StepPersonal data={personal} onChange={changePersonal} />}
             {step === 2 && <StepEmployment data={employment} onChange={changeEmployment} departments={departments} teams={teams} users={users} />}
             {step === 3 && <StepWork data={work} onChange={changeWork} />}
-            {step === 4 && <StepDocuments />}
+            {step === 4 && <StepDocuments docFiles={docFiles} setDocFiles={setDocFiles} />}
             {step === 5 && <StepReview personal={personal} employment={employment} work={work} />}
 
             {/* Actions */}
