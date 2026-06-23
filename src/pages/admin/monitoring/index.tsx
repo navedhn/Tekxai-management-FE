@@ -126,9 +126,13 @@ const MonitoringPage: React.FC = () => {
       key: 'file_url',
       render: (r) =>
         r.file_url ? (
-          <a href={r.file_url} target="_blank" rel="noopener noreferrer"
-            className="text-xs text-primary-600 font-bold hover:underline">
-            View Screenshot
+          <a href={r.file_url} target="_blank" rel="noopener noreferrer" title="Click to open full screenshot">
+            <img
+              src={r.file_url}
+              alt="Screenshot"
+              className="h-12 w-20 object-cover rounded-lg border border-gray-200 hover:border-primary-400 hover:shadow-md transition-all cursor-pointer"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
           </a>
         ) : (
           <span className="text-xs text-gray-400 font-medium font-mono">{r.file_key.split('/').pop()}</span>

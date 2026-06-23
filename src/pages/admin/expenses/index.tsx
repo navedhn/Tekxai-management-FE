@@ -1,14 +1,57 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Wallet, TrendingDown, TrendingUp, Plus, Eye, X, DollarSign, Users } from 'lucide-react';
+import { Wallet, TrendingDown, TrendingUp, Plus, Eye, X, DollarSign, Users, Search } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 
-// PKR formatter
 const pkr = (v: number) => `PKR ${(v || 0).toLocaleString('en-PK')}`;
 const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white';
+
+// ── Quick Employee Ledger Access ──────────────────────────────────────────────
+function QuickLedgerAccess() {
+  const navigate = useNavigate();
+  const [search, setSearch] = useState('');
+
+  const { data: users } = useQuery({
+    queryKey: ['user-list-brief'],
+    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200`),
+    select: (r: any) => r?.payload?.records || [],
+  });
+
+  const filtered = ((users || []) as any[]).filter((u: any) =>
+    !search || `${u.first_name} ${u.last_name}`.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      <h2 className="text-sm font-black text-gray-700 mb-3">Quick Access — Employee Ledger</h2>
+      <p className="text-xs text-gray-400 mb-3">Open any employee's ledger directly to add or view expenses.</p>
+      <div className="relative mb-3">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input
+          className="w-full h-9 pl-8 pr-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
+          placeholder="Search employee…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+      </div>
+      <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+        {filtered.slice(0, 20).map((u: any) => (
+          <button
+            key={u.id}
+            onClick={() => navigate(`/admin/expenses/${u.id}`)}
+            className="flex items-center gap-1.5 px-3 h-8 bg-gray-50 hover:bg-primary-50 border border-gray-200 hover:border-primary-300 text-gray-700 hover:text-primary-700 rounded-lg text-xs font-semibold transition-colors"
+          >
+            {u.first_name} {u.last_name}
+          </button>
+        ))}
+        {filtered.length === 0 && <p className="text-xs text-gray-400 py-2">No employees found</p>}
+      </div>
+    </div>
+  );
+}
 
 // ── Add Account Modal ─────────────────────────────────────────────────────────
 function AddAccountModal({ onClose }: { onClose: () => void }) {
@@ -20,7 +63,7 @@ function AddAccountModal({ onClose }: { onClose: () => void }) {
 
   const { data: users } = useQuery({
     queryKey: ['user-list-brief'],
-    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200&status=ACTIVE`),
+    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200`),
     select: (r: any) => r?.payload?.records || [],
   });
 
@@ -45,7 +88,7 @@ function AddAccountModal({ onClose }: { onClose: () => void }) {
             <label className="text-xs font-semibold text-gray-500 block mb-1.5">Employee <span className="text-red-500">*</span></label>
             <select className={inputCls} value={userId} onChange={e => setUserId(e.target.value)}>
               <option value="">Select employee</option>
-              {(users || []).map((u: any) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
+              {((users || []) as any[]).map((u: any) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
             </select>
           </div>
           <div>
@@ -90,12 +133,12 @@ export default function ExpensesPage() {
   const accounts: any[] = accountsData || [];
 
   const cards = [
-    { label: 'Total Received',    value: pkr(summary?.total_received  || 0), icon: TrendingUp,   color: 'bg-green-500' },
-    { label: 'Total Spent',       value: pkr(summary?.total_spent     || 0), icon: TrendingDown, color: 'bg-red-500' },
-    { label: 'Outstanding Balance',value: pkr(summary?.outstanding_balance || 0), icon: Wallet,  color: 'bg-blue-500' },
-    { label: 'CE Total Spent',    value: pkr(summary?.ce_spent        || 0), icon: DollarSign,   color: 'bg-purple-500' },
-    { label: 'Tekxai Total Spent',value: pkr(summary?.tekxai_spent    || 0), icon: DollarSign,   color: 'bg-orange-500' },
-    { label: 'Active Accounts',   value: accounts.length,                    icon: Users,        color: 'bg-indigo-500' },
+    { label: 'Total Received',     value: pkr(summary?.total_received       || 0), icon: TrendingUp,   color: 'bg-green-500' },
+    { label: 'Total Spent',        value: pkr(summary?.total_spent          || 0), icon: TrendingDown, color: 'bg-red-500' },
+    { label: 'Outstanding Balance',value: pkr(summary?.outstanding_balance  || 0), icon: Wallet,       color: 'bg-blue-500' },
+    { label: 'CE Total Spent',     value: pkr(summary?.ce_spent             || 0), icon: DollarSign,   color: 'bg-purple-500' },
+    { label: 'Tekxai Total Spent', value: pkr(summary?.tekxai_spent         || 0), icon: DollarSign,   color: 'bg-orange-500' },
+    { label: 'Active Accounts',    value: accounts.length,                         icon: Users,        color: 'bg-indigo-500' },
   ];
 
   return (
@@ -124,7 +167,10 @@ export default function ExpensesPage() {
         ))}
       </div>
 
-      {/* Accounts table */}
+      {/* Quick access for Super Admin — navigate directly to any employee ledger */}
+      <QuickLedgerAccess />
+
+      {/* Active accounts table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <h2 className="text-sm font-black text-gray-700 mb-4">Employee Expense Accounts</h2>
         <div className="overflow-x-auto">
@@ -142,7 +188,12 @@ export default function ExpensesPage() {
                   <tr key={i}><td colSpan={8} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
                 ))
               ) : accounts.length === 0 ? (
-                <tr><td colSpan={8} className="py-12 text-center text-gray-400 text-sm">No expense accounts yet. Add one above.</td></tr>
+                <tr>
+                  <td colSpan={8} className="py-8 text-center">
+                    <p className="text-gray-400 text-sm mb-2">No expense accounts with balances yet.</p>
+                    <p className="text-gray-300 text-xs">Use "Quick Access" above to open any employee's ledger and start adding entries.</p>
+                  </td>
+                </tr>
               ) : accounts.map((acc: any) => (
                 <tr key={acc.id} className="hover:bg-gray-50 transition-colors">
                   <td className="py-3 px-2">
