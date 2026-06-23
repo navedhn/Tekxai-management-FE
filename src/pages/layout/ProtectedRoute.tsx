@@ -15,7 +15,6 @@ const ProtectedRoute: React.FC<{ roles?: UserRole[] }> = ({ roles }) => {
   if (!isLoggedIn) return <Navigate to="/login" replace />;
 
   const hasRequiredRole = !roles?.length || (role != null && roles.includes(role as UserRole));
-  console.log('[ProtectedRoute]', { role, roles, hasRequiredRole, isLoggedIn });
   if (!hasRequiredRole) {
     return <Navigate to="/403" replace state={{ from: roles }} />;
   }
