@@ -5,7 +5,7 @@ import { ArrowRight, ChevronDown, CheckCircle2, Circle, MessageSquare, Plus, Tra
 import { cn } from '@/utils/cn';
 import Badge from './Badge';
 import Button from './Button';
-import RequestTimeOffModal from './RequestTimeOffModal';
+import RequestExtensionModal from './RequestExtensionModal';
 import CreateMilestoneModal from '../modals/CreateMilestoneModal';
 import AddTaskModal from '../modals/AddTaskModal';
 import { useGetProjectDetails } from '@/services/projectService';
@@ -200,7 +200,14 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                   </div>
 
                   {/* Modals placed at root level for visibility */}
-                  <RequestTimeOffModal isOpen={showRequestModel} onClose={() => setShowRequestModael(false)} />
+                  {showRequestModel && projectId && (
+                    <RequestExtensionModal
+                      projectId={projectId}
+                      projectName={project?.name || ''}
+                      currentDeadline={project?.end_date}
+                      onClose={() => setShowRequestModael(false)}
+                    />
+                  )}
                   <CreateMilestoneModal
                     isOpen={showCreateMilestone}
                     onClose={() => setShowCreateMilestone(false)}

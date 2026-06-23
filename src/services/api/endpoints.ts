@@ -64,8 +64,9 @@ export const API_ENDPOINTS = {
     DETAIL: (id: string | number) => `${v1}/project/${id}`,
     UPDATE: (id: string | number) => `${v1}/project/${id}`,
     DELETE: (id: string | number) => `${v1}/project/${id}`,
-    SAVE:   (id: string | number) => `${v1}/project/${id}/save`,
-    UNSAVE: (id: string | number) => `${v1}/project/${id}/save`,
+    SAVE:      (id: string | number) => `${v1}/project/${id}/save`,
+    UNSAVE:    (id: string | number) => `${v1}/project/${id}/save`,
+    EXTENSION: (id: string | number) => `${v1}/project/${id}/extension`,
   },
   TIMESHEET: {
     WEEKLY:          `${v1}/timesheet/weekly`,
