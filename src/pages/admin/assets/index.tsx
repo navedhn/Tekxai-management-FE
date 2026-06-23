@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Monitor, CheckCircle, Package, Wrench, Filter, X } from 'lucide-react';
+import { Monitor, CheckCircle, Package, Wrench, Filter, X, Plus } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
@@ -12,6 +12,93 @@ const STATUS_STYLE: Record<string, string> = {
   RETIRED:     'bg-gray-100 text-gray-500',
   LOST:        'bg-red-100 text-red-700',
 };
+
+const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400';
+
+function CreateAssetModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const [form, setForm] = useState({
+    name: '', category: '', serial_number: '', purchase_date: '',
+    purchase_price: '', vendor: '', location: '', condition: 'GOOD', notes: '',
+  });
+  const [err, setErr] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.LIST, {
+      method: 'POST',
+      body: JSON.stringify({ ...form, purchase_price: form.purchase_price ? +form.purchase_price : undefined }),
+    }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['assets-list'] }); onClose(); },
+    onError: (e: any) => setErr(e?.message || 'Failed to create asset'),
+  });
+
+  const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-black text-gray-900">Add New Asset</h2>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-gray-500 block mb-1.5">Asset Name <span className="text-red-500">*</span></label>
+            <input className={inputCls} value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. MacBook Pro 14-inch" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1.5">Category</label>
+              <input className={inputCls} value={form.category} onChange={e => set('category', e.target.value)} placeholder="Laptop, Phone, Furniture…" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1.5">Serial Number</label>
+              <input className={inputCls} value={form.serial_number} onChange={e => set('serial_number', e.target.value)} placeholder="SN-XXXXXXX" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1.5">Purchase Date</label>
+              <input className={inputCls} type="date" value={form.purchase_date} onChange={e => set('purchase_date', e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1.5">Purchase Price</label>
+              <input className={inputCls} type="number" value={form.purchase_price} onChange={e => set('purchase_price', e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1.5">Vendor</label>
+              <input className={inputCls} value={form.vendor} onChange={e => set('vendor', e.target.value)} placeholder="Apple, Dell…" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1.5">Location</label>
+              <input className={inputCls} value={form.location} onChange={e => set('location', e.target.value)} placeholder="Head Office, Room 3…" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1.5">Condition</label>
+              <select className={inputCls} value={form.condition} onChange={e => set('condition', e.target.value)}>
+                <option value="NEW">New</option>
+                <option value="GOOD">Good</option>
+                <option value="FAIR">Fair</option>
+                <option value="POOR">Poor</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 block mb-1.5">Notes</label>
+            <textarea rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
+              value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Any additional notes…" />
+          </div>
+        </div>
+        {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
+        <div className="flex gap-3 mt-5">
+          <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
+          <button onClick={() => mutation.mutate()} disabled={!form.name || mutation.isPending}
+            className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40">
+            {mutation.isPending ? 'Saving…' : 'Add Asset'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function AssignModal({ asset, onClose }: { asset: any; onClose: () => void }) {
   const qc = useQueryClient();
@@ -66,6 +153,7 @@ export default function AssetsPage() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [assignTarget, setAssignTarget] = useState<any>(null);
+  const [showCreate, setShowCreate] = useState(false);
 
   const { data: assetsData, isLoading } = useQuery({
     queryKey: ['assets-list', categoryFilter, statusFilter],
@@ -93,9 +181,15 @@ export default function AssetsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-black text-gray-900">Assets</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Track and manage company assets</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black text-gray-900">Assets</h1>
+          <p className="text-sm text-gray-400 mt-0.5">Track and manage company assets</p>
+        </div>
+        <button onClick={() => setShowCreate(true)}
+          className="flex items-center gap-2 px-4 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition-colors">
+          <Plus size={16} />Add Asset
+        </button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -185,6 +279,7 @@ export default function AssetsPage() {
         </div>
       </div>
 
+      {showCreate && <CreateAssetModal onClose={() => setShowCreate(false)} />}
       {assignTarget && <AssignModal asset={assignTarget} onClose={() => setAssignTarget(null)} />}
     </div>
   );
