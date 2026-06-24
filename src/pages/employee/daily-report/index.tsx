@@ -1,28 +1,54 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, X, FileText } from 'lucide-react';
+import { Plus, X, FileText, CheckCircle, XCircle } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
+import { useAuthStore } from '@/stores/authStore';
 
 const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400';
 
+const DEV_KEYWORDS = ['backend', 'frontend', 'full stack', 'fullstack', 'developer', 'software engineer', 'ai engineer', 'ai developer', 'ml engineer'];
+
+function isDeveloper(designation?: string | null) {
+  if (!designation) return false;
+  const d = designation.toLowerCase();
+  return DEV_KEYWORDS.some(k => d.includes(k));
+}
+
 function SubmitModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
+  const user = useAuthStore(s => s.user);
+  const showCodeDeployed = isDeveloper(user?.designation);
+  const isSuperAdmin = user?.roles?.includes('SUPER_ADMIN') || (user as any)?.role_name === 'SUPER_ADMIN';
+
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
-    tasks_completed: '',
+    todays_progress: '',
     blockers: '',
-    plan_for_tomorrow: '',
+    tomorrow_plan: '',
     hours_worked: '',
+    code_deployed: null as boolean | null,
   });
   const [err, setErr] = useState('');
 
   const mutation = useMutation({
-    mutationFn: () => apiRequest<any>(API_ENDPOINTS.PERFORMANCE.DAILY_REPORTS, {
-      method: 'POST',
-      body: JSON.stringify({ ...form, hours_worked: form.hours_worked ? +form.hours_worked : undefined }),
-    }),
+    mutationFn: () => {
+      const payload: Record<string, any> = {
+        date: form.date,
+        todays_progress: form.todays_progress,
+        blockers: form.blockers || undefined,
+        tomorrow_plan: form.tomorrow_plan || undefined,
+        hours_worked: form.hours_worked ? +form.hours_worked : undefined,
+      };
+      if (showCodeDeployed && form.code_deployed !== null) {
+        payload.code_deployed = form.code_deployed;
+      }
+      return apiRequest<any>(API_ENDPOINTS.PERFORMANCE.DAILY_REPORTS, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['my-daily-reports'] }); onClose(); },
     onError: (e: any) => setErr(e?.message || 'Failed to submit'),
   });
@@ -39,8 +65,13 @@ function SubmitModal({ onClose }: { onClose: () => void }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-gray-500 block mb-1.5">Date <span className="text-red-500">*</span></label>
-              <input type="date" className={inputCls}
-                value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} />
+              <input
+                type="date"
+                className={cn(inputCls, !isSuperAdmin && 'bg-gray-50 text-gray-500 cursor-not-allowed')}
+                value={form.date}
+                readOnly={!isSuperAdmin}
+                onChange={isSuperAdmin ? e => setForm(p => ({ ...p, date: e.target.value })) : undefined}
+              />
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-500 block mb-1.5">Hours Worked</label>
@@ -51,7 +82,7 @@ function SubmitModal({ onClose }: { onClose: () => void }) {
           <div>
             <label className="text-xs font-semibold text-gray-500 block mb-1.5">Tasks Completed <span className="text-red-500">*</span></label>
             <textarea className="w-full h-24 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
-              value={form.tasks_completed} onChange={e => setForm(p => ({ ...p, tasks_completed: e.target.value }))}
+              value={form.todays_progress} onChange={e => setForm(p => ({ ...p, todays_progress: e.target.value }))}
               placeholder="List tasks you completed today…" />
           </div>
           <div>
@@ -63,16 +94,48 @@ function SubmitModal({ onClose }: { onClose: () => void }) {
           <div>
             <label className="text-xs font-semibold text-gray-500 block mb-1.5">Plan for Tomorrow</label>
             <textarea className="w-full h-20 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
-              value={form.plan_for_tomorrow} onChange={e => setForm(p => ({ ...p, plan_for_tomorrow: e.target.value }))}
+              value={form.tomorrow_plan} onChange={e => setForm(p => ({ ...p, tomorrow_plan: e.target.value }))}
               placeholder="What you plan to work on tomorrow…" />
           </div>
+
+          {showCodeDeployed && (
+            <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+              <label className="text-xs font-semibold text-gray-600 block mb-2">Code Deployed to Live?</label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setForm(p => ({ ...p, code_deployed: true }))}
+                  className={cn(
+                    'flex items-center gap-2 px-4 h-9 rounded-xl border text-sm font-semibold transition-colors',
+                    form.code_deployed === true
+                      ? 'bg-green-50 border-green-400 text-green-700'
+                      : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                  )}
+                >
+                  <CheckCircle size={15} />Yes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm(p => ({ ...p, code_deployed: false }))}
+                  className={cn(
+                    'flex items-center gap-2 px-4 h-9 rounded-xl border text-sm font-semibold transition-colors',
+                    form.code_deployed === false
+                      ? 'bg-red-50 border-red-400 text-red-600'
+                      : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                  )}
+                >
+                  <XCircle size={15} />No
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
 
         <div className="flex gap-3 mt-5">
           <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={() => mutation.mutate()} disabled={!form.date || !form.tasks_completed || mutation.isPending}
+          <button onClick={() => mutation.mutate()} disabled={!form.date || !form.todays_progress || mutation.isPending}
             className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40">
             {mutation.isPending ? 'Submitting…' : 'Submit Report'}
           </button>
@@ -84,6 +147,8 @@ function SubmitModal({ onClose }: { onClose: () => void }) {
 
 export default function DailyReportPage() {
   const [showModal, setShowModal] = useState(false);
+  const user = useAuthStore(s => s.user);
+  const showCodeDeployed = isDeveloper(user?.designation);
 
   const { data, isLoading } = useQuery({
     queryKey: ['my-daily-reports'],
@@ -122,7 +187,7 @@ export default function DailyReportPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100">
-                  {['Date', 'Tasks Completed', 'Blockers', 'Tomorrow\'s Plan', 'Hours'].map(h => (
+                  {['Date', 'Tasks Completed', 'Blockers', "Tomorrow's Plan", 'Hours', ...(showCodeDeployed ? ['Deployed'] : [])].map(h => (
                     <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -134,17 +199,32 @@ export default function DailyReportPage() {
                       {r.date ? new Date(r.date).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }) : '—'}
                     </td>
                     <td className="py-3 px-2 text-gray-600 max-w-[220px]">
-                      <p className="line-clamp-2 text-xs leading-relaxed">{r.tasks_completed || r.tasks || '—'}</p>
+                      <p className="line-clamp-2 text-xs leading-relaxed">{r.todays_progress || r.tasks_completed || '—'}</p>
                     </td>
                     <td className="py-3 px-2 text-gray-500 max-w-[160px]">
                       <p className="line-clamp-2 text-xs leading-relaxed">{r.blockers || '—'}</p>
                     </td>
                     <td className="py-3 px-2 text-gray-500 max-w-[160px]">
-                      <p className="line-clamp-2 text-xs leading-relaxed">{r.plan_for_tomorrow || '—'}</p>
+                      <p className="line-clamp-2 text-xs leading-relaxed">{r.tomorrow_plan || r.plan_for_tomorrow || '—'}</p>
                     </td>
                     <td className="py-3 px-2 font-semibold text-gray-700">
-                      {r.hours_worked ?? r.hours ?? '—'}h
+                      {r.hours_worked != null ? `${r.hours_worked}h` : '—'}
                     </td>
+                    {showCodeDeployed && (
+                      <td className="py-3 px-2">
+                        {r.code_deployed === true ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 rounded-lg text-xs font-semibold">
+                            <CheckCircle size={11} />Yes
+                          </span>
+                        ) : r.code_deployed === false ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-500 rounded-lg text-xs font-semibold">
+                            <XCircle size={11} />No
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

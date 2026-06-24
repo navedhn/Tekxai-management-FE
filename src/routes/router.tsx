@@ -60,6 +60,8 @@ const OvertimePage           = lazy(() => import('@/pages/admin/overtime'));
 const IncrementsPage         = lazy(() => import('@/pages/admin/increments'));
 const AdminExpenses          = lazy(() => import('@/pages/admin/expenses'));
 const AdminExpenseLedger     = lazy(() => import('@/pages/admin/expenses/ledger'));
+const AdminPerformanceScoring = lazy(() => import('@/pages/admin/performance-scoring'));
+const AdminFinancialReports  = lazy(() => import('@/pages/admin/financial-reports'));
 
 // CRM workspace pages
 const CRMDashboard           = lazy(() => import('@/pages/crm/dashboard'));
@@ -97,7 +99,6 @@ const ProjectDetailPage      = lazy(() => import('@/pages/shared/projectDetail')
 const ProfilePage            = lazy(() => import('@/pages/shared/profile'));
 
 // Chat
-const ChatAppV2              = lazy(() => import('@/pages/chat-v2'));
 const ChatPage               = lazy(() => import('@/pages/chat'));
 
 const adminRoles = [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN] as any[];
@@ -171,6 +172,8 @@ const routes: RouteObject[] = [
           { path: '/admin/approvals',           element: <AdminApprovals /> },
           { path: '/admin/expenses',            element: <AdminExpenses /> },
           { path: '/admin/expenses/:userId',    element: <AdminExpenseLedger /> },
+          { path: '/admin/performance-scoring', element: <AdminPerformanceScoring /> },
+          { path: '/admin/financial-reports',   element: <AdminFinancialReports /> },
         ],
       },
       { path: '/admin/*', element: <NotFound /> },
@@ -222,6 +225,7 @@ const routes: RouteObject[] = [
           { path: '/hr/attendance',               element: <AdminAttendance /> },
           { path: '/hr/timesheet',                element: <AdminTimesheet /> },
           { path: '/hr/performance',              element: <AdminPerformance /> },
+          { path: '/hr/performance-scoring',     element: <AdminPerformanceScoring /> },
           { path: '/hr/assets',                   element: <AdminAssets /> },
           { path: '/hr/requisitions',             element: <AdminRequisitions /> },
           { path: '/hr/contracts',                element: <AdminContracts /> },
@@ -293,7 +297,7 @@ const routes: RouteObject[] = [
   // ── Chat (all roles) ────────────────────────────────────────────────────────
   {
     element: <ProtectedRoute roles={allRoles} />,
-    children: [{ path: '/chat', element: <ChatAppV2 /> }],
+    children: [{ path: '/chat', element: <ChatPage /> }],
   },
 ];
 

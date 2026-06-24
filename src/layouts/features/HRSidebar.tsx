@@ -41,6 +41,7 @@ const HRSidebar: React.FC<HRSidebarProps> = memo(({ isOpen, onClose }) => {
     { to: '/hr/overtime', label: 'Overtime', icon: AlarmClock },
     { section: 'Payroll & Growth', to: '/hr/increments', label: 'Increments', icon: TrendingUp },
     { section: 'Performance', to: '/hr/performance', label: 'Performance', icon: TrendingUp },
+    { to: '/hr/performance-scoring', label: 'Performance Scoring', icon: TrendingUp },
     { section: 'Reports', to: '/hr/reports', label: 'HR Reports', icon: BarChart3 },
     { section: 'Assets & Ops', to: '/hr/assets', label: 'Assets', icon: Package },
     { to: '/hr/requisitions', label: 'Requisitions', icon: Package },

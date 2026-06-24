@@ -243,8 +243,8 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
               value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Any additional notes…" />
           </div>
 
-          {/* Device-specific fields */}
-          {categoryMeta?.is_device && (
+          {/* Device-specific fields — show when is_device=true or undefined (old categories) */}
+          {categoryMeta && categoryMeta.is_device !== false && (
             <>
               <div className="border-t border-gray-100 pt-4">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Device Specifications</p>
@@ -279,8 +279,8 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
             </>
           )}
 
-          {/* Assignment section */}
-          {categoryMeta?.is_assignable && (
+          {/* Assignment section — show unless category explicitly marks is_assignable=false */}
+          {categoryMeta && categoryMeta.is_assignable !== false && (
             <div className="border-t border-gray-100 pt-4">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Assignment (optional)</p>
               <div className="grid grid-cols-2 gap-3">

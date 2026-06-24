@@ -267,6 +267,29 @@ export const API_ENDPOINTS = {
     MONTHLY:   (userId: string) => `${v1}/hr-report/employee/${userId}/monthly`,
     AGGREGATE: `${v1}/hr-report/aggregate`,
   },
+  REPORTING: {
+    PARSE:         `${v1}/reporting/parse`,
+    INTERNAL_DATA: `${v1}/reporting/internal-data`,
+    REPORTS:       `${v1}/reporting`,
+    REPORT:        (id: string) => `${v1}/reporting/${id}`,
+  },
+  CHAT: {
+    USERS:       `${v1}/chat/users`,
+    CHANNELS:    `${v1}/chat/channels`,
+    CHANNEL:     (id: string) => `${v1}/chat/channels/${id}`,
+    DM:          `${v1}/chat/channels/dm`,
+    GROUP:       `${v1}/chat/channels/group`,
+    PRIVATE:     `${v1}/chat/channels/private`,
+    JOIN:        (id: string) => `${v1}/chat/channels/${id}/join`,
+    ARCHIVE:     (id: string) => `${v1}/chat/channels/${id}/archive`,
+    MEMBERS:     (id: string) => `${v1}/chat/channels/${id}/members`,
+    MEMBER:      (id: string, uid: string) => `${v1}/chat/channels/${id}/members/${uid}`,
+    MEMBER_ROLE: (id: string, uid: string) => `${v1}/chat/channels/${id}/members/${uid}/role`,
+    MESSAGES:    (id: string) => `${v1}/chat/channels/${id}/messages`,
+    MESSAGE:     (id: string, msgId: string) => `${v1}/chat/channels/${id}/messages/${msgId}`,
+    THREAD:      (id: string, msgId: string) => `${v1}/chat/channels/${id}/messages/${msgId}/thread`,
+    REACTION:    (id: string, msgId: string) => `${v1}/chat/channels/${id}/messages/${msgId}/reactions`,
+  },
 } as const;
 
 // Legacy alias — kept for any future imports, content mirrors API_ENDPOINTS
