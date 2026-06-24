@@ -55,7 +55,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const toast = useToastContext();
-  const { data: teamsData } = useGetTeamsQuery(undefined, isOpen);
+  const { data: teamsData } = useGetTeamsQuery(undefined, true);
   const createUser = useCreateUserMutation();
   const updateUser = useUpdateUserMutation();
 
