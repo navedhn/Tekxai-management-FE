@@ -179,6 +179,9 @@ export const API_ENDPOINTS = {
     UPDATE:        (userId: string) => `${v1}/hr-profile/${userId}`,
     FULL_RECORD:   (userId: string) => `${v1}/hr-profile/${userId}/full`,
   },
+  STORAGE: {
+    UPLOAD: `${v1}/storage/upload`,
+  },
   EMPLOYEE_DOC: {
     TYPES:   `${v1}/employee-doc/types`,
     LIST:    (userId: string) => `${v1}/employee-doc/${userId}`,
