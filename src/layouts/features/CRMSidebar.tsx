@@ -22,7 +22,11 @@ const CRMSidebar: React.FC<CRMSidebarProps> = memo(({ isOpen, onClose }) => {
   const { teamId, setTeamId } = useMarketingTeam();
   const location = useLocation();
 
-  const isAdmin = user?.role === USER_ROLES.ADMIN || user?.role === USER_ROLES.SUPER_ADMIN;
+  const role = user?.role_name ?? (user as any)?.role ?? '';
+  const isAdmin    = role === USER_ROLES.ADMIN || role === USER_ROLES.SUPER_ADMIN;
+  const isMarketer = role === USER_ROLES.MARKETING;
+  // Admin/SuperAdmin see everything; MARKETING employees get scoped view
+  const canSeeFinance = isAdmin; // Invoices, Client Accounts, Contracts, Estimator, Deposits
 
   const logout = useCallback(async () => {
     await forceCheckoutApi('LOGOUT');
@@ -39,32 +43,41 @@ const CRMSidebar: React.FC<CRMSidebarProps> = memo(({ isOpen, onClose }) => {
     end?: boolean;
     team?: 'intern' | 'sales';
     section?: string;
+    adminOnly?: boolean;
+    financeOnly?: boolean;
   };
 
   const links: NavEntry[] = [
-    { section: 'Overview',     to: '/crm',           label: 'CRM Dashboard',         icon: LayoutDashboard, end: true },
-    { section: 'Pipeline',     to: '/crm/pipeline',  label: 'Pipeline / All Leads',  icon: GitBranch },
-    {                          to: '/crm/upwork',     label: 'Upwork Bids',           icon: Briefcase },
-    {                          to: '/crm/linkedin',   label: 'LinkedIn Leads',        icon: Linkedin },
-    {                          to: '/crm/email-leads',label: 'Email Leads',           icon: Mail },
-    { section: 'Deals',        to: '/crm/won-deals',  label: 'Won Deals – Intern',    icon: Trophy, team: 'intern' },
-    {                          to: '/crm/won-deals',  label: 'Won Deals – Sales',     icon: Trophy, team: 'sales' },
-    {                          to: '/crm/deposits',   label: 'Deposits',              icon: Wallet },
-    { section: 'Accounts',     to: '/crm/clients',    label: 'Client Accounts',       icon: Building2 },
-    {                          to: '/crm/invoices',   label: 'Invoices',              icon: Receipt },
-    {                          to: '/crm/contracts',  label: 'Contracts',             icon: FileText },
-    {                          to: '/crm/estimator',  label: 'Estimator',             icon: Calculator },
-    { section: 'ERP Handoff',  to: '/crm/handoffs',   label: 'ERP Handoffs',          icon: ArrowRight },
-    { section: 'My Work',      to: '/crm/targets',    label: 'Targets',               icon: Target },
-    {                          to: '/crm/my-report',  label: 'My Report',             icon: FileBarChart },
-    {                          to: '/crm/my-salaries',label: 'My Salaries',           icon: DollarSign },
+    { section: 'Overview',    to: '/crm',            label: 'CRM Dashboard',        icon: LayoutDashboard, end: true },
+    { section: 'Pipeline',    to: '/crm/pipeline',   label: 'Pipeline / All Leads', icon: GitBranch },
+    {                         to: '/crm/upwork',      label: 'Upwork Bids',          icon: Briefcase },
+    {                         to: '/crm/linkedin',    label: 'LinkedIn Leads',       icon: Linkedin },
+    {                         to: '/crm/email-leads', label: 'Email Leads',          icon: Mail },
+    { section: 'Deals',       to: '/crm/won-deals',  label: 'Won Deals – Intern',   icon: Trophy, team: 'intern' },
+    {                         to: '/crm/won-deals',  label: 'Won Deals – Sales',    icon: Trophy, team: 'sales' },
+    // Finance / admin — only visible to Admin/Super Admin
+    {                         to: '/crm/deposits',   label: 'Deposits',             icon: Wallet,     financeOnly: true },
+    { section: 'Accounts',    to: '/crm/clients',    label: 'Client Accounts',      icon: Building2,  financeOnly: true },
+    {                         to: '/crm/invoices',   label: 'Invoices',             icon: Receipt,    financeOnly: true },
+    {                         to: '/crm/contracts',  label: 'Contracts',            icon: FileText,   financeOnly: true },
+    {                         to: '/crm/estimator',  label: 'Estimator',            icon: Calculator, financeOnly: true },
+    { section: 'ERP Handoff', to: '/crm/handoffs',   label: 'ERP Handoffs',         icon: ArrowRight },
+    { section: 'My Work',     to: '/crm/targets',    label: 'Targets',              icon: Target },
+    {                         to: '/crm/my-report',  label: 'My Report',            icon: FileBarChart },
+    {                         to: '/crm/my-salaries',label: 'My Salaries',          icon: DollarSign },
   ];
 
   if (isAdmin) {
-    links.push({ section: 'Admin', to: '/crm/team',         label: 'Team Hierarchy', icon: Users });
-    links.push({                   to: '/crm/hr-dashboard',  label: 'HR Overview',    icon: BarChart2 });
-    links.push({                   to: '/crm/salary-history',label: 'Salary History', icon: Archive });
+    links.push({ section: 'Admin', to: '/crm/team',          label: 'Team Hierarchy', icon: Users,     adminOnly: true });
+    links.push({                   to: '/crm/hr-dashboard',   label: 'HR Overview',    icon: BarChart2, adminOnly: true });
+    links.push({                   to: '/crm/salary-history', label: 'Salary History', icon: Archive,   adminOnly: true });
   }
+
+  const visibleLinks = links.filter(link => {
+    if (link.financeOnly && !canSeeFinance) return false;
+    if (link.adminOnly   && !isAdmin)       return false;
+    return true;
+  });
 
   let lastSection = '';
 
@@ -75,7 +88,6 @@ const CRMSidebar: React.FC<CRMSidebarProps> = memo(({ isOpen, onClose }) => {
         (isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0')
       }
     >
-      {/* Logo + Workspace Badge */}
       <div className="px-5 py-4 flex items-center justify-between border-b border-gray-100">
         <div className="flex items-center gap-3">
           <img src={tekxaiLogo} alt="TekXAI" className="h-8" />
@@ -88,7 +100,6 @@ const CRMSidebar: React.FC<CRMSidebarProps> = memo(({ isOpen, onClose }) => {
         </button>
       </div>
 
-      {/* Workspace switcher for admins */}
       {isAdmin && (
         <div className="px-3 pt-3 flex gap-2">
           <button onClick={() => navigate('/admin')} className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">ERP</button>
@@ -98,7 +109,7 @@ const CRMSidebar: React.FC<CRMSidebarProps> = memo(({ isOpen, onClose }) => {
       )}
 
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
-        {links.map((link) => {
+        {visibleLinks.map((link) => {
           const showSection = link.section && link.section !== lastSection;
           if (link.section) lastSection = link.section;
 
