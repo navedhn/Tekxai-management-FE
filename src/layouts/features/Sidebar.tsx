@@ -136,6 +136,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { to: '/admin/settings',  label: 'Settings',        icon: <Settings size={20} />,inactive: settingsBlack, active: settingsWhite },
       // Admin/HR — approvals
       { section: 'Admin', to: '/admin/approvals', label: 'Approvals', icon: <ClipboardCheck size={20} /> },
+      { to: '/admin/tickets',  label: 'Support Tickets', icon: <Ticket size={20} /> },
       { to: '/admin/expenses', label: 'Expenses', icon: <Receipt size={20} /> },
       // Super Admin only — permissions management + financial reporting + system settings
       ...(isSuperAdmin ? [

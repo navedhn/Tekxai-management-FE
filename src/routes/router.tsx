@@ -31,6 +31,7 @@ const AdminSaved             = lazy(() => import('@/pages/admin/saved'));
 const AdminTeam              = lazy(() => import('@/pages/admin/team'));
 const AdminSettings          = lazy(() => import('@/pages/admin/settings'));
 const SystemSettings         = lazy(() => import('@/pages/admin/system-settings'));
+const AdminTickets           = lazy(() => import('@/pages/admin/tickets'));
 const AdminUsers             = lazy(() => import('@/pages/admin/users'));
 const AdminMonitoring        = lazy(() => import('@/pages/admin/monitoring'));
 const AdminReports           = lazy(() => import('@/pages/admin/reports'));
@@ -172,6 +173,7 @@ const routes: RouteObject[] = [
           { path: '/admin/requisitions',        element: <AdminRequisitions /> },
           { path: '/admin/permissions',         element: <AdminPermissions /> },
           { path: '/admin/approvals',           element: <AdminApprovals /> },
+          { path: '/admin/tickets',             element: <AdminTickets /> },
           { path: '/admin/expenses',            element: <AdminExpenses /> },
           { path: '/admin/expenses/:userId',    element: <AdminExpenseLedger /> },
           { path: '/admin/performance-scoring', element: <AdminPerformanceScoring /> },
