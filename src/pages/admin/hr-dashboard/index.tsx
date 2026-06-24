@@ -1,22 +1,29 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Users, CheckCircle, Clock, UserPlus, Plus, FolderOpen, BarChart2, CalendarCheck } from 'lucide-react';
+import { Users, ShieldCheck, Clock, UserPlus, Plus, FolderOpen, BarChart2, CalendarCheck, AlertCircle } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 
-function StatCard({ icon: Icon, color, label, value }: any) {
+function StatCard({ icon: Icon, color, label, value, onClick }: any) {
   return (
-    <div className="flex items-center gap-4 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-      <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', color)}>
+    <button
+      onClick={onClick}
+      className={cn(
+        'flex items-center gap-4 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm text-left w-full transition-all',
+        onClick ? 'hover:shadow-md hover:border-gray-200 cursor-pointer active:scale-[0.98]' : 'cursor-default',
+      )}
+    >
+      <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0', color)}>
         <Icon size={22} className="text-white" />
       </div>
       <div>
         <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">{label}</p>
         <p className="text-2xl font-black text-gray-900 leading-tight">{value ?? '—'}</p>
       </div>
-    </div>
+      {onClick && <span className="ml-auto text-xs text-gray-300 font-medium">View →</span>}
+    </button>
   );
 }
 
@@ -46,6 +53,9 @@ export default function HRDashboardPage() {
   const leaves: any[] = leaveData?.records || leaveData || [];
   const pendingLeaves = leaves.filter((l: any) => l.status === 'PENDING' || !leaveData?.records);
 
+  const goToDir = (qs?: string) =>
+    navigate(qs ? `/hr/employee-directory?${qs}` : '/hr/employee-directory');
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between">
@@ -61,11 +71,12 @@ export default function HRDashboardPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Users}       color="bg-blue-500"   label="Total Employees"  value={stats.total_employees ?? stats.total} />
-        <StatCard icon={CheckCircle} color="bg-green-500"  label="Active"           value={stats.active} />
-        <StatCard icon={Clock}       color="bg-amber-500"  label="On Leave"         value={stats.on_leave} />
-        <StatCard icon={UserPlus}    color="bg-purple-500" label="New This Month"   value={stats.new_this_month ?? stats.new_hires} />
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <StatCard icon={Users}       color="bg-blue-500"   label="Total Employees"    value={stats.total ?? stats.total_employees}       onClick={() => goToDir()} />
+        <StatCard icon={ShieldCheck} color="bg-green-500"  label="Permanent"          value={stats.permanent}                            onClick={() => goToDir('employment_status=PERMANENT')} />
+        <StatCard icon={Clock}       color="bg-amber-500"  label="On Leave"           value={stats.on_leave}                             onClick={() => goToDir('status=ON_LEAVE')} />
+        <StatCard icon={UserPlus}    color="bg-purple-500" label="New This Month"     value={stats.new_this_month ?? stats.new_hires}    onClick={() => goToDir('filter=new_this_month')} />
+        <StatCard icon={AlertCircle} color="bg-orange-500" label="Probation"          value={stats.probation}                            onClick={() => goToDir('employment_status=PROBATION')} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -91,7 +102,7 @@ export default function HRDashboardPage() {
               ))}
             </div>
           )}
-          <button onClick={() => navigate('/hr/employees')} className="mt-4 w-full h-9 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+          <button onClick={() => goToDir()} className="mt-4 w-full h-9 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
             View All Employees
           </button>
         </div>
@@ -129,7 +140,7 @@ export default function HRDashboardPage() {
         <div className="grid grid-cols-3 gap-3">
           {[
             { label: 'Add Employee',    icon: Plus,        color: 'bg-primary-50 text-primary-700', path: '/hr/add-employee' },
-            { label: 'View Directory',  icon: FolderOpen,  color: 'bg-blue-50 text-blue-700',       path: '/hr/employees' },
+            { label: 'View Directory',  icon: FolderOpen,  color: 'bg-blue-50 text-blue-700',       path: '/hr/employee-directory' },
             { label: 'HR Reports',      icon: BarChart2,   color: 'bg-green-50 text-green-700',     path: '/hr/reports' },
           ].map(a => (
             <button key={a.label} onClick={() => navigate(a.path)}
