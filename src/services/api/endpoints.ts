@@ -92,6 +92,7 @@ export const API_ENDPOINTS = {
     ME:          `${v1}/settings/me`,
     PREFERENCES: `${v1}/settings/preferences`,
     PASSWORD:    `${v1}/settings/password`,
+    SYSTEM:      `${v1}/settings/system`,
   },
   STARRED: {
     QUERIES:    `${v1}/starred/queries`,

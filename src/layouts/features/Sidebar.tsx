@@ -137,10 +137,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       // Admin/HR — approvals
       { section: 'Admin', to: '/admin/approvals', label: 'Approvals', icon: <ClipboardCheck size={20} /> },
       { to: '/admin/expenses', label: 'Expenses', icon: <Receipt size={20} /> },
-      // Super Admin only — permissions management + financial reporting
+      // Super Admin only — permissions management + financial reporting + system settings
       ...(isSuperAdmin ? [
         { to: '/admin/permissions', label: 'Access Control', icon: <Shield size={20} /> },
         { to: '/admin/financial-reports', label: 'Financial Reports', icon: <BarChart3 size={20} /> },
+        { to: '/admin/system-settings', label: 'System Settings', icon: <Settings size={20} /> },
       ] : []),
     ];
   }, [role]);

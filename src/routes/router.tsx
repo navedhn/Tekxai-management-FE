@@ -30,6 +30,7 @@ const AdminTimesheet         = lazy(() => import('@/pages/admin/timesheet'));
 const AdminSaved             = lazy(() => import('@/pages/admin/saved'));
 const AdminTeam              = lazy(() => import('@/pages/admin/team'));
 const AdminSettings          = lazy(() => import('@/pages/admin/settings'));
+const SystemSettings         = lazy(() => import('@/pages/admin/system-settings'));
 const AdminUsers             = lazy(() => import('@/pages/admin/users'));
 const AdminMonitoring        = lazy(() => import('@/pages/admin/monitoring'));
 const AdminReports           = lazy(() => import('@/pages/admin/reports'));
@@ -146,6 +147,7 @@ const routes: RouteObject[] = [
           { path: '/admin/starred',              element: <AdminSaved /> },
           { path: '/admin/team',                 element: <AdminTeam /> },
           { path: '/admin/settings',             element: <AdminSettings /> },
+          { path: '/admin/system-settings',      element: <SystemSettings /> },
           { path: '/admin/users',                element: <AdminUsers /> },
           { path: '/admin/notifications',        element: <SharedNotifications /> },
           { path: '/admin/project-detail',       element: <ProjectDetailPage /> },
