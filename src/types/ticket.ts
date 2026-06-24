@@ -16,6 +16,16 @@ export interface TicketRecipient {
   name: string;
 }
 
+export interface TicketReply {
+  id: string;
+  ticket_id: string;
+  user_id: string;
+  message: string;
+  is_admin_reply: boolean;
+  created_at: string;
+  user?: { id: string; first_name: string; last_name: string; email: string; avatar?: string };
+}
+
 export interface SupportTicket {
   id: string;
   ticketNumber: string;
@@ -31,6 +41,8 @@ export interface SupportTicket {
   resolutionNote?: string;
   createdBy: string;
   createdByEmail: string;
+  replies?: TicketReply[];
+  attachments?: { id: string; file_name: string; file_key: string; mime_type: string; file_size: number; created_at: string }[];
 }
 
 export interface CreateTicketPayload {

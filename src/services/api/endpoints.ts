@@ -112,6 +112,7 @@ export const API_ENDPOINTS = {
     DETAIL:      (id: string | number) => `${v1}/ticket/${id}`,
     UPDATE:      (id: string | number) => `${v1}/ticket/${id}`,
     ATTACHMENTS: (id: string | number) => `${v1}/ticket/${id}/attachments`,
+    REPLIES:     (id: string | number) => `${v1}/ticket/${id}/replies`,
   },
   MARKETING: {
     DEALS:              `${v1}/marketing/deals`,

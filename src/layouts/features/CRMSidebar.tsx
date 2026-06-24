@@ -22,8 +22,9 @@ const CRMSidebar: React.FC<CRMSidebarProps> = memo(({ isOpen, onClose }) => {
   const { teamId, setTeamId } = useMarketingTeam();
   const location = useLocation();
 
-  const role = user?.role_name ?? (user as any)?.role ?? '';
+  const role = user?.role ?? (user as any)?.role_name ?? '';
   const isAdmin    = role === USER_ROLES.ADMIN || role === USER_ROLES.SUPER_ADMIN;
+  const canSwitchWorkspace = isAdmin || role === USER_ROLES.HR;
   const isMarketer = role === USER_ROLES.MARKETING;
   // Admin/SuperAdmin see everything; MARKETING employees get scoped view
   const canSeeFinance = isAdmin; // Invoices, Client Accounts, Contracts, Estimator, Deposits
@@ -100,7 +101,7 @@ const CRMSidebar: React.FC<CRMSidebarProps> = memo(({ isOpen, onClose }) => {
         </button>
       </div>
 
-      {isAdmin && (
+      {canSwitchWorkspace && (
         <div className="px-3 pt-3 flex gap-2">
           <button onClick={() => navigate('/admin')} className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">ERP</button>
           <button className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-[#005CDA] text-white">CRM</button>
