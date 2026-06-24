@@ -1,11 +1,13 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { ChevronRight, ChevronLeft, Check, User, Briefcase, MapPin, FileText, ClipboardList, Save, X, Upload, Paperclip } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Check, User, Briefcase, MapPin, FileText, ClipboardList, Save, X, Upload, Paperclip, RotateCcw } from 'lucide-react';
 import { apiRequest, BASE_URL } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 import { getAccessToken } from '@/utils/tokenMemory';
+
+const DRAFT_KEY = 'add_employee_draft';
 
 // ── Step indicators ─────────────────────────────────────────────────────────
 const STEPS = [
@@ -31,6 +33,78 @@ function Field({ label, children, required }: { label: string; children: React.R
 const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white';
 const selectCls = `${inputCls} text-gray-700`;
 
+// ── CNIC formatter ────────────────────────────────────────────────────────────
+function formatCnic(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 13);
+  if (digits.length <= 5) return digits;
+  if (digits.length <= 12) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+  return `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12)}`;
+}
+
+// ── Phone country codes ───────────────────────────────────────────────────────
+const COUNTRY_CODES = [
+  { code: '+92', flag: '🇵🇰', label: 'PK +92', format: (d: string) => d.length > 3 ? `${d.slice(0, 3)} ${d.slice(3, 10)}` : d },
+  { code: '+1',  flag: '🇺🇸', label: 'US +1',  format: (d: string) => d.length > 6 ? `${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6,10)}` : d },
+  { code: '+44', flag: '🇬🇧', label: 'UK +44', format: (d: string) => d },
+  { code: '+971',flag: '🇦🇪', label: 'AE +971',format: (d: string) => d },
+];
+
+function PhoneInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [selectedCode, setSelectedCode] = useState('+92');
+  const [localNumber, setLocalNumber] = useState('');
+
+  useEffect(() => {
+    if (!value) { setLocalNumber(''); return; }
+    for (const cc of COUNTRY_CODES) {
+      if (value.startsWith(cc.code)) {
+        setSelectedCode(cc.code);
+        setLocalNumber(value.slice(cc.code.length).replace(/\D/g, ''));
+        return;
+      }
+    }
+    setLocalNumber(value.replace(/\D/g, ''));
+  }, []);
+
+  const handleLocal = (raw: string) => {
+    const digits = raw.replace(/\D/g, '').slice(0, 10);
+    setLocalNumber(digits);
+    const cc = COUNTRY_CODES.find(c => c.code === selectedCode)!;
+    onChange(`${selectedCode}${digits}`);
+    return cc.format(digits);
+  };
+
+  const cc = COUNTRY_CODES.find(c => c.code === selectedCode)!;
+  const displayed = cc.format(localNumber);
+
+  return (
+    <div className="flex gap-2">
+      <select
+        value={selectedCode}
+        onChange={e => { setSelectedCode(e.target.value); onChange(`${e.target.value}${localNumber}`); }}
+        className="h-10 px-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white text-gray-700 w-28 flex-shrink-0"
+      >
+        {COUNTRY_CODES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+      </select>
+      <input
+        className={inputCls}
+        value={displayed}
+        onChange={e => handleLocal(e.target.value)}
+        placeholder={selectedCode === '+92' ? '300 1234567' : 'Phone number'}
+        inputMode="numeric"
+      />
+    </div>
+  );
+}
+
+// ── Pakistani cities ─────────────────────────────────────────────────────────
+const PK_CITIES = [
+  'Karachi','Lahore','Islamabad','Rawalpindi','Faisalabad','Multan',
+  'Hyderabad','Peshawar','Quetta','Sialkot','Gujranwala','Bahawalpur',
+  'Sargodha','Sukkur','Larkana','Sheikhupura','Abbottabad','Mardan',
+  'Gujrat','Kasur','Rahim Yar Khan','Sahiwal','Okara','Mirpur','Muzaffarabad',
+  'Remote','Other',
+];
+
 // ── Initial form state ───────────────────────────────────────────────────────
 const initPersonal = {
   first_name: '', last_name: '', email: '', phone: '',
@@ -42,9 +116,9 @@ const initPersonal = {
 
 const initEmployment = {
   employee_id: '', hire_date: '', confirmation_date: '',
-  employment_type: '', employment_status: 'ACTIVE',
+  employment_type: '', employment_status: 'PERMANENT',
   probation_start: '', probation_end: '',
-  notice_period_days: '', work_email: '',
+  notice_period_days: '30', work_email: '',
   department_id: '', team_id: '', designation: '',
   grade: '', supervisor_id: '',
   base_salary: '', salary_currency: 'PKR', pay_frequency: 'MONTHLY',
@@ -77,16 +151,23 @@ function StepPersonal({ data, onChange }: any) {
           <input className={inputCls} type="email" value={data.email} onChange={e => onChange('email', e.target.value)} placeholder="email@company.com" />
         </Field>
         <Field label="Phone Number">
-          <input className={inputCls} value={data.phone} onChange={e => onChange('phone', e.target.value)} placeholder="+92 300 1234567" />
+          <PhoneInput value={data.phone} onChange={v => onChange('phone', v)} />
         </Field>
         <Field label="Alternate Phone">
-          <input className={inputCls} value={data.alternate_phone} onChange={e => onChange('alternate_phone', e.target.value)} placeholder="+92 300 1234567" />
+          <PhoneInput value={data.alternate_phone} onChange={v => onChange('alternate_phone', v)} />
         </Field>
         <Field label="Father's Name">
           <input className={inputCls} value={data.father_name} onChange={e => onChange('father_name', e.target.value)} placeholder="Father's name" />
         </Field>
         <Field label="CNIC / National ID">
-          <input className={inputCls} value={data.cnic} onChange={e => onChange('cnic', e.target.value)} placeholder="XXXXX-XXXXXXX-X" />
+          <input
+            className={inputCls}
+            value={data.cnic}
+            onChange={e => onChange('cnic', formatCnic(e.target.value))}
+            placeholder="12345-1234567-5"
+            maxLength={15}
+            inputMode="numeric"
+          />
         </Field>
         <Field label="Date of Birth">
           <input className={inputCls} type="date" value={data.dob} onChange={e => onChange('dob', e.target.value)} />
@@ -166,13 +247,19 @@ function StepEmployment({ data, onChange, departments, teams, users }: any) {
           </Field>
           <Field label="Employment Status">
             <select className={selectCls} value={data.employment_status} onChange={e => onChange('employment_status', e.target.value)}>
-              <option value="ACTIVE">Active</option>
+              <option value="PERMANENT">Permanent</option>
               <option value="PROBATION">Probation</option>
-              <option value="NOTICE">Notice Period</option>
+              <option value="CONTRACT">Contract</option>
+              <option value="INTERN">Intern</option>
+              <option value="RESIGNED">Resigned</option>
+              <option value="TERMINATED">Terminated</option>
+              <option value="INACTIVE">Inactive</option>
             </select>
           </Field>
-          <Field label="Notice Period (days)">
-            <input className={inputCls} type="number" value={data.notice_period_days} onChange={e => onChange('notice_period_days', e.target.value)} placeholder="30" />
+          <Field label="Notice Period">
+            <div className="flex items-center h-10 px-3 border border-gray-100 rounded-xl bg-gray-50 text-sm text-gray-500 font-semibold select-none">
+              30 days (fixed policy)
+            </div>
           </Field>
           <Field label="Probation Start">
             <input className={inputCls} type="date" value={data.probation_start} onChange={e => onChange('probation_start', e.target.value)} />
@@ -220,7 +307,13 @@ function StepEmployment({ data, onChange, departments, teams, users }: any) {
         <h3 className="font-bold text-gray-900 mb-4">Compensation</h3>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Basic Salary">
-            <input className={inputCls} type="number" value={data.base_salary} onChange={e => onChange('base_salary', e.target.value)} placeholder="50000" />
+            <input
+              className={`${inputCls} [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
+              inputMode="numeric"
+              value={data.base_salary}
+              onChange={e => onChange('base_salary', e.target.value.replace(/\D/g, ''))}
+              placeholder="50000"
+            />
           </Field>
           <Field label="Currency">
             <select className={selectCls} value={data.salary_currency} onChange={e => onChange('salary_currency', e.target.value)}>
@@ -262,8 +355,11 @@ function StepWork({ data, onChange }: any) {
         <Field label="Work Location">
           <input className={inputCls} value={data.work_location} onChange={e => onChange('work_location', e.target.value)} placeholder="Head Office, Remote…" />
         </Field>
-        <Field label="Office Branch">
-          <input className={inputCls} value={data.office_branch} onChange={e => onChange('office_branch', e.target.value)} placeholder="Karachi, Lahore…" />
+        <Field label="Office Branch (City)">
+          <select className={selectCls} value={data.office_branch} onChange={e => onChange('office_branch', e.target.value)}>
+            <option value="">Select city</option>
+            {PK_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
         </Field>
         <Field label="Floor / Area">
           <input className={inputCls} value={data.floor_area} onChange={e => onChange('floor_area', e.target.value)} placeholder="3rd Floor, Block A" />
@@ -278,7 +374,13 @@ function StepWork({ data, onChange }: any) {
           <input className={inputCls} type="time" value={data.work_end} onChange={e => onChange('work_end', e.target.value)} />
         </Field>
         <Field label="Lunch Break (minutes)">
-          <input className={inputCls} type="number" value={data.lunch_break_min} onChange={e => onChange('lunch_break_min', e.target.value)} placeholder="60" />
+          <input
+            className={`${inputCls} [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
+            inputMode="numeric"
+            value={data.lunch_break_min}
+            onChange={e => onChange('lunch_break_min', e.target.value.replace(/\D/g, ''))}
+            placeholder="60"
+          />
         </Field>
         <Field label="Work Extension">
           <input className={inputCls} value={data.work_extension} onChange={e => onChange('work_extension', e.target.value)} placeholder="Ext. 201" />
@@ -343,7 +445,6 @@ function StepDocuments({ docFiles, setDocFiles }: { docFiles: DocFile[]; setDocF
   };
 
   const removeFile = (idx: number) => setDocFiles(prev => prev.filter((_, i) => i !== idx));
-
   const tabFiles = docFiles.filter(f => f.doc_type === tab.doc_type);
 
   return (
@@ -371,7 +472,6 @@ function StepDocuments({ docFiles, setDocFiles }: { docFiles: DocFile[]; setDocF
 
       <div>
         <p className="text-xs text-gray-400 mb-3">{tab.hint} — {tab.accept.replace(/\./g, '').toUpperCase()}, max 10MB per file</p>
-
         <div
           className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-primary-300 transition-colors cursor-pointer"
           onClick={() => fileInputRef.current?.click()}
@@ -426,6 +526,10 @@ function StepDocuments({ docFiles, setDocFiles }: { docFiles: DocFile[]; setDocF
 
 // ── Step 5: Review & Save ────────────────────────────────────────────────────
 function StepReview({ personal, employment, work }: any) {
+  const STATUS_LABELS: Record<string, string> = {
+    PERMANENT: 'Permanent', PROBATION: 'Probation', CONTRACT: 'Contract',
+    INTERN: 'Intern', RESIGNED: 'Resigned', TERMINATED: 'Terminated', INACTIVE: 'Inactive',
+  };
   const sections = [
     { label: 'Personal Information', data: {
       'Name': `${personal.first_name} ${personal.last_name}`,
@@ -437,7 +541,8 @@ function StepReview({ personal, employment, work }: any) {
       'Employee ID': employment.employee_id || '—',
       'Join Date': employment.hire_date || '—',
       'Type': employment.employment_type || '—',
-      'Status': employment.employment_status || '—',
+      'Status': STATUS_LABELS[employment.employment_status] || employment.employment_status || '—',
+      'Notice Period': '30 days',
       'Designation': employment.designation || '—',
       'Basic Salary': employment.base_salary ? `${employment.salary_currency} ${Number(employment.base_salary).toLocaleString()}` : '—',
     }},
@@ -483,6 +588,45 @@ export default function AddEmployee() {
   const [employment, setEmployment] = useState({ ...initEmployment });
   const [work, setWork]             = useState(initWork);
   const [docFiles, setDocFiles]     = useState<DocFile[]>([]);
+  const [draftBanner, setDraftBanner] = useState(false);
+
+  // ── Draft auto-save / restore ──────────────────────────────────────────────
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(DRAFT_KEY);
+      if (saved) {
+        const { personal: p, employment: e, work: w, step: s } = JSON.parse(saved);
+        if (p?.first_name || p?.email) {
+          setDraftBanner(true);
+          setPersonal(prev => ({ ...prev, ...p }));
+          setEmployment(prev => ({ ...prev, ...e }));
+          setWork(prev => ({ ...prev, ...w }));
+          if (s) setStep(s);
+        }
+      }
+    } catch { /* ignore corrupt draft */ }
+  }, []);
+
+  // Save draft to localStorage on every meaningful change
+  useEffect(() => {
+    if (!personal.first_name && !personal.email) return;
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ personal, employment, work, step }));
+    } catch { /* storage full — ignore */ }
+  }, [personal, employment, work, step]);
+
+  const clearDraft = () => {
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+    setDraftBanner(false);
+  };
+
+  const discardDraft = () => {
+    clearDraft();
+    setPersonal(initPersonal);
+    setEmployment({ ...initEmployment });
+    setWork(initWork);
+    setStep(1);
+  };
 
   const { data: departments } = useQuery({
     queryKey: ['departments'],
@@ -505,7 +649,6 @@ export default function AddEmployee() {
     staleTime: 300000,
   });
 
-  // Auto-generate employee ID once user count is known
   const { data: userCount } = useQuery({
     queryKey: ['user-count'],
     queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=1`),
@@ -521,7 +664,6 @@ export default function AddEmployee() {
 
   const createMutation = useMutation({
     mutationFn: async (as_draft: boolean) => {
-      // 1. Create user account
       const userRes: any = await apiRequest<any>(API_ENDPOINTS.USER.CREATE, {
         method: 'POST',
         body: JSON.stringify({
@@ -540,7 +682,6 @@ export default function AddEmployee() {
       const userId = userRes?.payload?.id || userRes?.id;
       if (!userId) throw new Error('Failed to create user');
 
-      // 1b. Assign to team if selected
       if (employment.team_id) {
         await apiRequest<any>(API_ENDPOINTS.USER.UPDATE(userId), {
           method: 'PUT',
@@ -548,11 +689,10 @@ export default function AddEmployee() {
         });
       }
 
-      // 2. Save HR profile
       await apiRequest<any>(API_ENDPOINTS.HR_PROFILE.UPDATE(userId), {
         method: 'PUT',
         body: JSON.stringify({
-          profile_status: as_draft ? 'DRAFT' : 'ACTIVE',
+          profile_status:    as_draft ? 'DRAFT' : 'ACTIVE',
           personal_email:    personal.email,
           cnic:              personal.cnic,
           dob:               personal.dob || undefined,
@@ -571,7 +711,7 @@ export default function AddEmployee() {
           probation_start:   employment.probation_start || undefined,
           probation_end:     employment.probation_end   || undefined,
           confirmation_date: employment.confirmation_date || undefined,
-          notice_period_days: employment.notice_period_days ? +employment.notice_period_days : undefined,
+          notice_period_days: 30,
           base_salary:       employment.base_salary ? +employment.base_salary : undefined,
           salary_currency:   employment.salary_currency,
           pay_frequency:     employment.pay_frequency,
@@ -590,7 +730,6 @@ export default function AddEmployee() {
         }),
       });
 
-      // 3. Upload documents if any were selected
       if (docFiles.length > 0) {
         const token = getAccessToken();
         await Promise.allSettled(
@@ -603,7 +742,7 @@ export default function AddEmployee() {
             const url = `${BASE_URL}${API_ENDPOINTS.EMPLOYEE_DOC.CREATE(String(userId))}`;
             try {
               const res = await fetch(url, {
-                method: 'PUT',
+                method: 'POST',
                 headers: token ? { authorization: `Bearer ${token}` } : {},
                 body: form,
               });
@@ -618,7 +757,8 @@ export default function AddEmployee() {
 
       return userId;
     },
-    onSuccess: (userId: string) => {
+    onSuccess: () => {
+      clearDraft();
       qc.invalidateQueries({ queryKey: ['employee-directory'] });
       navigate(`/hr/employees`);
     },
@@ -646,6 +786,19 @@ export default function AddEmployee() {
           <X size={20} />
         </button>
       </div>
+
+      {/* Draft restore banner */}
+      {draftBanner && (
+        <div className="flex items-center justify-between gap-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-amber-800">
+            <RotateCcw size={15} />
+            <span className="text-sm font-semibold">Draft restored — you can continue from where you left off.</span>
+          </div>
+          <button onClick={discardDraft} className="text-xs text-amber-600 underline font-semibold hover:text-amber-800">
+            Discard draft
+          </button>
+        </div>
+      )}
 
       <div className="flex gap-6">
         {/* Left: Step list */}

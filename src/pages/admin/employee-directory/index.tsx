@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Download, Filter, Users, CheckCircle, Clock, UserX, MoreVertical, Eye, Edit } from 'lucide-react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Search, Plus, Download, Users, CheckCircle, Clock, UserX, Eye } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
@@ -8,16 +8,27 @@ import { useGetEmployeeDirectory } from '@/services/employeeService';
 import { cn } from '@/utils/cn';
 
 const STATUS_STYLE: Record<string, string> = {
-  ACTIVE:    'bg-green-100 text-green-700',
-  INACTIVE:  'bg-gray-100 text-gray-500',
-  ON_LEAVE:  'bg-amber-100 text-amber-700',
-  PROBATION: 'bg-blue-100 text-blue-700',
-  TERMINATED:'bg-red-100 text-red-600',
+  ACTIVE:      'bg-green-100 text-green-700',
+  INACTIVE:    'bg-gray-100 text-gray-500',
+  ON_LEAVE:    'bg-amber-100 text-amber-700',
+  PROBATION:   'bg-blue-100 text-blue-700',
+  TERMINATED:  'bg-red-100 text-red-600',
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  ACTIVE: 'Active', INACTIVE: 'Inactive', ON_LEAVE: 'On Leave',
-  PROBATION: 'Probation', TERMINATED: 'Terminated',
+const EMP_STATUS_STYLE: Record<string, string> = {
+  PERMANENT:   'bg-emerald-100 text-emerald-700',
+  PROBATION:   'bg-blue-100 text-blue-700',
+  CONTRACT:    'bg-indigo-100 text-indigo-700',
+  INTERN:      'bg-purple-100 text-purple-700',
+  RESIGNED:    'bg-orange-100 text-orange-700',
+  TERMINATED:  'bg-red-100 text-red-600',
+  INACTIVE:    'bg-gray-100 text-gray-500',
+};
+
+const EMP_STATUS_LABEL: Record<string, string> = {
+  PERMANENT: 'Permanent', PROBATION: 'Probation', CONTRACT: 'Contract',
+  INTERN: 'Intern', RESIGNED: 'Resigned', TERMINATED: 'Terminated',
+  INACTIVE: 'Inactive', ACTIVE: 'Active',
 };
 
 function StatCard({ icon: Icon, color, label, value }: any) {
@@ -36,19 +47,46 @@ function StatCard({ icon: Icon, color, label, value }: any) {
 
 export default function EmployeeDirectory() {
   const navigate = useNavigate();
-  const [q, setQ]               = useState('');
-  const [divisionId, setDiv]    = useState('');
-  const [deptId, setDept]       = useState('');
-  const [teamId, setTeam]       = useState('');
-  const [status, setStatus]     = useState('');
-  const [page, setPage]         = useState(1);
+  const [searchParams] = useSearchParams();
+
+  // Read URL params passed from dashboard cards
+  const urlStatus           = searchParams.get('status') || '';
+  const urlEmpStatus        = searchParams.get('employment_status') || '';
+  const urlFilter           = searchParams.get('filter') || '';
+
+  const [q, setQ]                         = useState('');
+  const [divisionId, setDiv]              = useState('');
+  const [deptId, setDept]                 = useState('');
+  const [teamId, setTeam]                 = useState('');
+  const [status, setStatus]               = useState(urlStatus);
+  const [employmentStatus, setEmpStatus]  = useState(urlEmpStatus);
+  const [page, setPage]                   = useState(1);
   const limit = 10;
 
-  const filters = useMemo(() => ({
-    q: q || undefined, division_id: divisionId || undefined,
-    department_id: deptId || undefined, team_id: teamId || undefined,
-    status: status || undefined, page, limit,
-  }), [q, divisionId, deptId, teamId, status, page, limit]);
+  useEffect(() => {
+    setStatus(urlStatus);
+    setEmpStatus(urlEmpStatus);
+    setPage(1);
+  }, [urlStatus, urlEmpStatus]);
+
+  // "New This Month" filter: pass as date-based hint to listing
+  const filters = useMemo(() => {
+    const f: Record<string, any> = {
+      q: q || undefined,
+      division_id: divisionId || undefined,
+      department_id: deptId || undefined,
+      team_id: teamId || undefined,
+      status: status || undefined,
+      employment_status: employmentStatus || undefined,
+      page,
+      limit,
+    };
+    if (urlFilter === 'new_this_month') {
+      const now = new Date();
+      f.hire_from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    }
+    return f;
+  }, [q, divisionId, deptId, teamId, status, employmentStatus, urlFilter, page, limit]);
 
   const { data, isLoading } = useGetEmployeeDirectory(filters);
   const records: any[] = data?.records || [];
@@ -56,12 +94,6 @@ export default function EmployeeDirectory() {
   const total = data?.total || 0;
   const pages = data?.pages || 1;
 
-  const { data: divisions } = useQuery({
-    queryKey: ['divisions'],
-    queryFn: () => apiRequest<any>(`api/v1/department`),
-    select: (r: any) => r?.payload?.divisions || r?.payload?.records || [],
-    staleTime: 300000,
-  });
   const { data: departments } = useQuery({
     queryKey: ['departments'],
     queryFn: () => apiRequest<any>(`api/v1/department`),
@@ -69,14 +101,29 @@ export default function EmployeeDirectory() {
     staleTime: 300000,
   });
 
-  const clearFilters = () => { setQ(''); setDiv(''); setDept(''); setTeam(''); setStatus(''); setPage(1); };
+  const clearFilters = () => {
+    setQ(''); setDiv(''); setDept(''); setTeam('');
+    setStatus(''); setEmpStatus(''); setPage(1);
+    navigate('/hr/employee-directory', { replace: true });
+  };
+
+  const activeFilterCount = [q, divisionId, deptId, teamId, status, employmentStatus, urlFilter].filter(Boolean).length;
+
+  const filterLabel = () => {
+    if (urlFilter === 'new_this_month') return '  · New This Month';
+    if (employmentStatus) return `  · ${EMP_STATUS_LABEL[employmentStatus] || employmentStatus}`;
+    if (status) return `  · ${status.replace(/_/g, ' ')}`;
+    return '';
+  };
 
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-black text-gray-900">Employee Directory</h1>
+          <h1 className="text-2xl font-black text-gray-900">
+            Employee Directory{filterLabel()}
+          </h1>
           <p className="text-sm text-gray-400 mt-0.5">View and manage all employees across the organization</p>
         </div>
         <div className="flex gap-2">
@@ -94,13 +141,13 @@ export default function EmployeeDirectory() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Users}       color="bg-blue-500"   label="Total Employees"  value={stats.total_employees} />
-        <StatCard icon={CheckCircle} color="bg-green-500"  label="Active Employees" value={stats.active} />
-        <StatCard icon={Clock}       color="bg-amber-500"  label="On Leave"         value={stats.on_leave} />
-        <StatCard icon={UserX}       color="bg-gray-400"   label="Inactive"         value={stats.inactive} />
+        <StatCard icon={Users}       color="bg-blue-500"   label="Total Employees"    value={stats.total_employees} />
+        <StatCard icon={CheckCircle} color="bg-green-500"  label="Permanent"          value={stats.permanent} />
+        <StatCard icon={Clock}       color="bg-amber-500"  label="On Leave"           value={stats.on_leave} />
+        <StatCard icon={UserX}       color="bg-gray-400"   label="Inactive"           value={stats.inactive} />
       </div>
 
-      {/* Filters */}
+      {/* Filters + Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <div className="flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-[240px]">
@@ -118,10 +165,21 @@ export default function EmployeeDirectory() {
             <option value="ACTIVE">Active</option>
             <option value="INACTIVE">Inactive</option>
             <option value="ON_LEAVE">On Leave</option>
-            <option value="PROBATION">Probation</option>
           </select>
-          {(q || divisionId || deptId || teamId || status) && (
-            <button onClick={clearFilters} className="h-10 px-3 text-sm text-gray-400 hover:text-gray-600 underline">Clear</button>
+          <select value={employmentStatus} onChange={e => { setEmpStatus(e.target.value); setPage(1); }}
+            className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[150px] text-gray-600">
+            <option value="">All Employment Status</option>
+            <option value="PERMANENT">Permanent</option>
+            <option value="PROBATION">Probation</option>
+            <option value="CONTRACT">Contract</option>
+            <option value="INTERN">Intern</option>
+            <option value="RESIGNED">Resigned</option>
+            <option value="TERMINATED">Terminated</option>
+          </select>
+          {activeFilterCount > 0 && (
+            <button onClick={clearFilters} className="h-10 px-3 text-sm text-gray-400 hover:text-gray-600 underline">
+              Clear filters
+            </button>
           )}
         </div>
 
@@ -151,6 +209,9 @@ export default function EmployeeDirectory() {
                       <div>
                         <p className="font-semibold text-gray-900 text-sm leading-tight">{emp.full_name}</p>
                         <p className="text-xs text-gray-400">{emp.email}</p>
+                        {emp.profile_status === 'DRAFT' && (
+                          <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md">Pending</span>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -169,9 +230,15 @@ export default function EmployeeDirectory() {
                     ) : '—'}
                   </td>
                   <td className="py-3 px-2">
-                    <span className={cn('text-xs font-semibold px-2.5 py-1 rounded-full', STATUS_STYLE[emp.status] || 'bg-gray-100 text-gray-500')}>
-                      {STATUS_LABEL[emp.status] || emp.status}
-                    </span>
+                    {emp.employment_status ? (
+                      <span className={cn('text-xs font-semibold px-2.5 py-1 rounded-full', EMP_STATUS_STYLE[emp.employment_status] || 'bg-gray-100 text-gray-500')}>
+                        {EMP_STATUS_LABEL[emp.employment_status] || emp.employment_status}
+                      </span>
+                    ) : (
+                      <span className={cn('text-xs font-semibold px-2.5 py-1 rounded-full', STATUS_STYLE[emp.status] || 'bg-gray-100 text-gray-500')}>
+                        {emp.status || '—'}
+                      </span>
+                    )}
                   </td>
                   <td className="py-3 px-2 text-gray-500 text-xs whitespace-nowrap">
                     {emp.hire_date ? new Date(emp.hire_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
