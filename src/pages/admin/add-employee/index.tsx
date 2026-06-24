@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { ChevronRight, ChevronLeft, Check, User, Briefcase, MapPin, FileText, ClipboardList, Save, X, Plus, Trash2, RotateCcw } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Check, User, Briefcase, MapPin, FileText, ClipboardList, Save, X, Plus, Trash2, RotateCcw, Upload, ExternalLink } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
@@ -443,23 +443,44 @@ interface DocFile { title: string; document_type: string; file_url: string; note
 const EMPTY_DOC: DocFile = { title: '', document_type: 'OTHER', file_url: '', notes: '' };
 
 function StepDocuments({ docFiles, setDocFiles }: { docFiles: DocFile[]; setDocFiles: React.Dispatch<React.SetStateAction<DocFile[]>> }) {
+  const [uploading, setUploading] = React.useState<Record<number, boolean>>({});
   const addRow = () => setDocFiles(prev => [...prev, { ...EMPTY_DOC }]);
   const removeRow = (idx: number) => setDocFiles(prev => prev.filter((_, i) => i !== idx));
   const updateRow = (idx: number, key: keyof DocFile, val: string) =>
     setDocFiles(prev => prev.map((d, i) => i === idx ? { ...d, [key]: val } : d));
 
+  const handleFileUpload = async (idx: number, file: File) => {
+    setUploading(p => ({ ...p, [idx]: true }));
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token') || '';
+      const res = await fetch(`/${API_ENDPOINTS.STORAGE.UPLOAD}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const json = await res.json();
+      if (json.success) {
+        updateRow(idx, 'file_url', json.payload.file_url);
+        if (!docFiles[idx].title) updateRow(idx, 'title', file.name.replace(/\.[^.]+$/, ''));
+      }
+    } catch {}
+    setUploading(p => ({ ...p, [idx]: false }));
+  };
+
   return (
     <div className="space-y-4">
       <div>
         <h3 className="font-bold text-gray-900">Documents</h3>
-        <p className="text-xs text-gray-400 mt-0.5">Record document details. Paste a Google Drive, OneDrive, or any accessible link in the URL field.</p>
+        <p className="text-xs text-gray-400 mt-0.5">Upload files directly or paste a Google Drive / OneDrive link.</p>
       </div>
 
       {docFiles.length === 0 ? (
         <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center">
           <FileText size={24} className="text-gray-300 mx-auto mb-2" />
           <p className="text-sm font-semibold text-gray-500">No documents added yet</p>
-          <p className="text-xs text-gray-300 mt-1">Click "Add Document" to record a document reference</p>
+          <p className="text-xs text-gray-300 mt-1">Click "Add Document" below to upload or link a document</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -492,15 +513,38 @@ function StepDocuments({ docFiles, setDocFiles }: { docFiles: DocFile[]; setDocF
                   </select>
                 </div>
               </div>
+
+              {/* File upload */}
               <div>
-                <label className="text-xs font-bold text-gray-500 mb-1 block">File URL (optional)</label>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">Upload File</label>
+                <label className={`flex items-center gap-2 w-full h-9 px-3 border border-dashed rounded-xl text-sm cursor-pointer transition-colors ${uploading[idx] ? 'border-primary-300 bg-primary-50 text-primary-500' : 'border-gray-300 hover:border-primary-300 hover:bg-primary-50 text-gray-400 hover:text-primary-500'}`}>
+                  <Upload size={14} />
+                  <span className="truncate">{uploading[idx] ? 'Uploading…' : 'Choose file to upload'}</span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    disabled={uploading[idx]}
+                    onChange={e => e.target.files?.[0] && handleFileUpload(idx, e.target.files[0])}
+                  />
+                </label>
+              </div>
+
+              {/* Or URL */}
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">Or paste a link</label>
                 <input
                   className="w-full h-9 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white"
-                  placeholder="https://drive.google.com/... or any accessible link"
+                  placeholder="https://drive.google.com/..."
                   value={doc.file_url}
                   onChange={e => updateRow(idx, 'file_url', e.target.value)}
                 />
+                {doc.file_url && (
+                  <a href={doc.file_url} target="_blank" rel="noreferrer" className="text-xs text-primary-500 hover:underline mt-1 inline-flex items-center gap-1">
+                    <ExternalLink size={10} /> Preview file
+                  </a>
+                )}
               </div>
+
               <div>
                 <label className="text-xs font-bold text-gray-500 mb-1 block">Notes (optional)</label>
                 <input
