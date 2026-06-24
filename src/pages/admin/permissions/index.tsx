@@ -17,6 +17,7 @@ import {
 } from '@/services/permissionsService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { apiRequest } from '@/lib/queryClient';
+import { cn } from '@/utils/cn';
 
 // ── Role display config ───────────────────────────────────────────────────────
 const ROLE_LABELS: Record<string, { label: string; color: string }> = {
@@ -33,70 +34,25 @@ const WORKSPACE_LABELS: Record<string, { label: string; accent: string }> = {
   hr:  { label: 'HR Workspace',  accent: 'border-green-400 bg-green-50' },
 };
 
-// ── Toggle checkbox ───────────────────────────────────────────────────────────
-const Toggle: React.FC<{
+// ── Toggle button (Yes / No) ──────────────────────────────────────────────────
+const ToggleYesNo: React.FC<{
   checked: boolean;
   onChange: (v: boolean) => void;
-  disabled?: boolean;
-}> = ({ checked, onChange, disabled }) => (
+}> = ({ checked, onChange }) => (
   <button
     type="button"
-    onClick={() => !disabled && onChange(!checked)}
-    className={`
-      w-9 h-9 rounded-xl flex items-center justify-center transition-all border text-xs font-black
-      ${disabled ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer hover:scale-110'}
-      ${checked
+    onClick={() => onChange(!checked)}
+    className={cn(
+      'w-16 h-8 rounded-xl flex items-center justify-center transition-all border text-xs font-black',
+      checked
         ? 'bg-primary-500 border-primary-500 text-white shadow-sm shadow-primary-200'
-        : 'bg-white border-gray-200 text-gray-300 hover:border-gray-300'}
-    `}
-    title={disabled ? 'Cannot revoke Super Admin access' : checked ? 'Revoke' : 'Grant'}
+        : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
+    )}
+    title={checked ? 'Revoke' : 'Grant'}
   >
-    {checked ? '✓' : '×'}
+    {checked ? 'Yes' : 'No'}
   </button>
 );
-
-// ── Module section (collapsible) ─────────────────────────────────────────────
-const ModuleSection: React.FC<{
-  module: string;
-  definitions: PermissionDef[];
-  roles: string[];
-  localGrants: Record<string, Record<string, boolean>>;
-  onToggle: (role: string, permission: string, value: boolean) => void;
-}> = ({ module, definitions, roles, localGrants, onToggle }) => {
-  const [open, setOpen] = useState(true);
-
-  return (
-    <div className="border border-gray-100 rounded-2xl overflow-hidden">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-5 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
-      >
-        <span className="text-sm font-black text-gray-700 uppercase tracking-wide">{module.replace(/_/g, ' ')}</span>
-        {open ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
-      </button>
-      {open && (
-        <div className="divide-y divide-gray-50">
-          {definitions.map((def) => (
-            <div key={def.permission} className="grid items-center px-5 py-3 gap-2" style={{ gridTemplateColumns: `1fr repeat(${roles.length}, 2.5rem)` }}>
-              <div className="flex flex-col gap-0.5">
-                <span className="text-[13px] font-semibold text-gray-800">{def.label.split('–')[1]?.trim() || def.label}</span>
-                <span className="text-[10px] text-gray-400 font-mono">{def.permission}</span>
-              </div>
-              {roles.map((role) => (
-                <div key={role} className="flex justify-center">
-                  <Toggle
-                    checked={localGrants[role]?.[def.permission] ?? false}
-                    onChange={(v) => onToggle(role, def.permission, v)}
-                  />
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
 
 // ── Source badge ─────────────────────────────────────────────────────────────
 const SourceBadge: React.FC<{ source: string }> = ({ source }) => {
@@ -129,8 +85,8 @@ const UserOverridePanel: React.FC = () => {
     if (!term.trim()) { setSearchResults([]); return; }
     setSearching(true);
     try {
-      const res: any = await apiRequest(`api/v1/user?q=${encodeURIComponent(term)}&limit=8`);
-      setSearchResults(res?.payload?.users ?? res?.payload ?? []);
+      const res: any = await apiRequest(`api/v1/user?search=${encodeURIComponent(term)}&limit=20`);
+      setSearchResults(res?.payload?.records ?? []);
     } catch {
       setSearchResults([]);
     } finally {
@@ -363,6 +319,45 @@ const UserOverridePanel: React.FC = () => {
   );
 };
 
+// ── Module section for role-first view ──────────────────────────────────────
+const RoleModuleSection: React.FC<{
+  module: string;
+  definitions: PermissionDef[];
+  selectedRole: string;
+  localGrants: Record<string, Record<string, boolean>>;
+  onToggle: (role: string, permission: string, value: boolean) => void;
+}> = ({ module, definitions, selectedRole, localGrants, onToggle }) => {
+  const [open, setOpen] = useState(true);
+
+  return (
+    <div className="border border-gray-100 rounded-2xl overflow-hidden">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-5 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+      >
+        <span className="text-sm font-black text-gray-700 uppercase tracking-wide">{module.replace(/_/g, ' ')}</span>
+        {open ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+      </button>
+      {open && (
+        <div className="divide-y divide-gray-50">
+          {definitions.map(def => (
+            <div key={def.permission} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 gap-4">
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <span className="text-[13px] font-semibold text-gray-800">{def.label.split('–')[1]?.trim() || def.label}</span>
+                <span className="text-[10px] text-gray-400 font-mono">{def.permission}</span>
+              </div>
+              <ToggleYesNo
+                checked={localGrants[selectedRole]?.[def.permission] ?? false}
+                onChange={v => onToggle(selectedRole, def.permission, v)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 const PermissionsPage: React.FC = () => {
   const toast = useToastContext();
@@ -373,12 +368,20 @@ const PermissionsPage: React.FC = () => {
   const [localGrants, setLocalGrants] = useState<Record<string, Record<string, boolean>>>({});
   const [hasChanges, setHasChanges] = useState(false);
   const [selectedWorkspace, setSelectedWorkspace] = useState<string>('erp');
+  const [selectedRole, setSelectedRole] = useState<string>('');
 
   React.useEffect(() => {
     if (data?.by_role && Object.keys(localGrants).length === 0) {
       setLocalGrants(JSON.parse(JSON.stringify(data.by_role)));
     }
   }, [data?.by_role]);
+
+  // Default to first role once data loads
+  React.useEffect(() => {
+    if (data?.roles?.length && !selectedRole) {
+      setSelectedRole(data.roles[0]);
+    }
+  }, [data?.roles]);
 
   const roles = data?.roles ?? [];
   const definitions = data?.definitions ?? [];
@@ -394,21 +397,19 @@ const PermissionsPage: React.FC = () => {
   }, [definitions]);
 
   const handleToggle = (role: string, permission: string, value: boolean) => {
-    setLocalGrants((prev) => ({ ...prev, [role]: { ...prev[role], [permission]: value } }));
+    setLocalGrants(prev => ({ ...prev, [role]: { ...prev[role], [permission]: value } }));
     setHasChanges(true);
   };
 
   const handleSave = async () => {
-    const saves = roles.map((role) => {
-      const grants = Object.entries(localGrants[role] ?? {}).map(([permission, granted]) => ({ permission, granted }));
-      return saveMutation.mutateAsync({ roleName: role, grants });
-    });
+    if (!selectedRole) return;
+    const grants = Object.entries(localGrants[selectedRole] ?? {}).map(([permission, granted]) => ({ permission, granted }));
     try {
-      await Promise.all(saves);
-      toast.success('Permissions saved successfully');
+      await saveMutation.mutateAsync({ roleName: selectedRole, grants });
+      toast.success(`${ROLE_LABELS[selectedRole]?.label ?? selectedRole} permissions saved`);
       setHasChanges(false);
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to save permissions');
+      toast.error(err?.message || 'Failed to save');
     }
   };
 
@@ -447,18 +448,20 @@ const PermissionsPage: React.FC = () => {
       <div className="flex gap-2">
         <button
           onClick={() => setMainTab('roles')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all border
-            ${mainTab === 'roles' ? 'bg-primary-500 text-white border-primary-500 shadow-lg shadow-primary-100' : 'bg-white text-gray-500 border-gray-200 hover:border-primary-200'}
-          `}
+          className={cn(
+            'flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all border',
+            mainTab === 'roles' ? 'bg-primary-500 text-white border-primary-500 shadow-lg shadow-primary-100' : 'bg-white text-gray-500 border-gray-200 hover:border-primary-200'
+          )}
         >
           <Shield size={15} />
           Role Permissions
         </button>
         <button
           onClick={() => setMainTab('users')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all border
-            ${mainTab === 'users' ? 'bg-primary-500 text-white border-primary-500 shadow-lg shadow-primary-100' : 'bg-white text-gray-500 border-gray-200 hover:border-primary-200'}
-          `}
+          className={cn(
+            'flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all border',
+            mainTab === 'users' ? 'bg-primary-500 text-white border-primary-500 shadow-lg shadow-primary-100' : 'bg-white text-gray-500 border-gray-200 hover:border-primary-200'
+          )}
         >
           <Users size={15} />
           User Overrides
@@ -474,67 +477,85 @@ const PermissionsPage: React.FC = () => {
             </div>
           ) : (
             <>
-              {/* Role chips */}
-              <Card className="p-6 rounded-[2rem] border-none shadow-xl">
-                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Roles being configured</h3>
-                <div className="flex flex-wrap gap-2">
-                  {roles.map((role) => (
-                    <span key={role} className={`px-3 py-1.5 rounded-full text-xs font-black ${ROLE_LABELS[role]?.color ?? 'bg-gray-100 text-gray-600'}`}>
-                      {ROLE_LABELS[role]?.label ?? role}
-                    </span>
-                  ))}
-                </div>
-              </Card>
-
-              {/* Workspace tabs */}
-              <div className="flex gap-2 flex-wrap">
-                {Object.keys(byWorkspace).map((ws) => (
+              {/* Role selector buttons */}
+              <div className="flex flex-wrap gap-2 mb-2">
+                {roles.map(role => (
                   <button
-                    key={ws}
-                    onClick={() => setSelectedWorkspace(ws)}
-                    className={`px-5 py-2.5 rounded-xl text-sm font-black transition-all border
-                      ${selectedWorkspace === ws
-                        ? 'bg-primary-500 text-white border-primary-500 shadow-lg shadow-primary-100'
-                        : 'bg-white text-gray-500 border-gray-200 hover:border-primary-200'}
-                    `}
+                    key={role}
+                    onClick={() => { setSelectedRole(role); setHasChanges(false); }}
+                    className={cn(
+                      'px-5 py-2.5 rounded-xl text-sm font-black transition-all border',
+                      selectedRole === role
+                        ? 'bg-primary-500 text-white border-primary-500 shadow-lg'
+                        : 'bg-white text-gray-500 border-gray-200 hover:border-primary-200'
+                    )}
                   >
-                    {WORKSPACE_LABELS[ws]?.label ?? ws.toUpperCase()}
+                    {ROLE_LABELS[role]?.label ?? role}
                   </button>
                 ))}
               </div>
 
-              {/* Permission matrix */}
-              {byWorkspace[selectedWorkspace] && (
-                <Card className={`border-l-4 ${WORKSPACE_LABELS[selectedWorkspace]?.accent ?? ''} rounded-[2rem] border-none shadow-xl overflow-hidden`}>
-                  <div className="px-5 py-4 bg-gray-50 border-b border-gray-100">
-                    <div className="grid items-center gap-2 text-xs font-black text-gray-500 uppercase tracking-wide"
-                         style={{ gridTemplateColumns: `1fr repeat(${roles.length}, 2.5rem)` }}>
-                      <span>Permission</span>
-                      {roles.map((role) => (
-                        <div key={role} className="flex justify-center" title={role}>
-                          <span className={`px-1.5 py-0.5 rounded-lg text-[9px] font-black ${ROLE_LABELS[role]?.color ?? 'bg-gray-100'}`}>
-                            {ROLE_LABELS[role]?.label?.split(' ')[0] ?? role.slice(0, 4)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="p-5 flex flex-col gap-3">
-                    {Object.entries(byWorkspace[selectedWorkspace]).map(([module, defs]) => (
-                      <ModuleSection key={module} module={module} definitions={defs} roles={roles} localGrants={localGrants} onToggle={handleToggle} />
+              {selectedRole && (
+                <>
+                  {/* Workspace tabs */}
+                  <div className="flex gap-2 flex-wrap">
+                    {Object.keys(byWorkspace).map(ws => (
+                      <button
+                        key={ws}
+                        onClick={() => setSelectedWorkspace(ws)}
+                        className={cn(
+                          'px-5 py-2.5 rounded-xl text-sm font-black transition-all border',
+                          selectedWorkspace === ws
+                            ? 'bg-primary-500 text-white border-primary-500 shadow-lg shadow-primary-100'
+                            : 'bg-white text-gray-500 border-gray-200 hover:border-primary-200'
+                        )}
+                      >
+                        {WORKSPACE_LABELS[ws]?.label ?? ws.toUpperCase()}
+                      </button>
                     ))}
                   </div>
-                </Card>
+
+                  {/* Permission list for selectedRole in selectedWorkspace */}
+                  {byWorkspace[selectedWorkspace] && (
+                    <Card className={cn('border-l-4 rounded-[2rem] border-none shadow-xl overflow-hidden', WORKSPACE_LABELS[selectedWorkspace]?.accent ?? '')}>
+                      <div className="px-5 py-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                        <div>
+                          <span className="text-sm font-black text-gray-700">{WORKSPACE_LABELS[selectedWorkspace]?.label ?? selectedWorkspace.toUpperCase()}</span>
+                          <span className="text-xs text-gray-400 ml-2">— {ROLE_LABELS[selectedRole]?.label ?? selectedRole}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-gray-400 font-semibold">
+                          <span>Permission</span>
+                          <span className="w-16 text-center">Access</span>
+                        </div>
+                      </div>
+                      <div className="p-5 flex flex-col gap-3">
+                        {Object.entries(byWorkspace[selectedWorkspace]).map(([module, defs]) => (
+                          <RoleModuleSection
+                            key={module}
+                            module={module}
+                            definitions={defs}
+                            selectedRole={selectedRole}
+                            localGrants={localGrants}
+                            onToggle={handleToggle}
+                          />
+                        ))}
+                      </div>
+                    </Card>
+                  )}
+                </>
               )}
             </>
           )}
 
           {/* Save bar */}
-          <div className={`sticky bottom-0 bg-white/90 backdrop-blur-lg border-t border-gray-100 px-8 py-5 -mx-4 transition-all ${hasChanges ? 'shadow-2xl' : 'opacity-0 pointer-events-none'}`}>
+          <div className={cn(
+            'sticky bottom-0 bg-white/90 backdrop-blur-lg border-t border-gray-100 px-8 py-5 -mx-4 transition-all',
+            hasChanges ? 'shadow-2xl' : 'opacity-0 pointer-events-none'
+          )}>
             <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
               <div className="flex items-center gap-2 text-sm text-amber-600 font-semibold">
                 <AlertCircle size={16} />
-                Unsaved permission changes
+                Unsaved changes for {ROLE_LABELS[selectedRole]?.label ?? selectedRole}
               </div>
               <div className="flex gap-3">
                 <Button variant="outline" className="h-11 rounded-xl px-6" onClick={handleReset}>
@@ -547,7 +568,7 @@ const PermissionsPage: React.FC = () => {
                   loading={saveMutation.isPending}
                 >
                   <Save size={16} />
-                  Save All Changes
+                  Save {ROLE_LABELS[selectedRole]?.label ?? selectedRole} Permissions
                 </Button>
               </div>
             </div>

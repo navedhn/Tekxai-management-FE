@@ -25,6 +25,7 @@ import {
   Calculator,
   Users2,
   Receipt,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { clearAuthTokens } from '@/utils/tokenMemory';
@@ -114,6 +115,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
         { to: '/employee/tickets',      label: 'Support Tickets',  icon: <Ticket size={20} /> },
         { to: '/employee/documents',    label: 'My Documents',     icon: <FileText size={20} /> },
         { to: '/employee/daily-report', label: 'Daily Report',     icon: <FileText size={20} /> },
+        { to: '/chat',                  label: 'Messages',         icon: <MessageSquare size={20} /> },
         { to: '/employee/settings',     label: 'Settings',         icon: <Settings size={20} />,  inactive: settingsBlack, active: settingsWhite },
       ];
     }
@@ -130,12 +132,16 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { to: '/admin/monitoring',label: 'Monitoring',      icon: <Monitor size={20} /> },
       { to: '/admin/reports',   label: 'Reports',         icon: <BarChart3 size={20} /> },
       { section: 'Shared', to: '/admin/starred',  label: 'Starred',           icon: <Star size={20} />,   inactive: savedBlack, active: savedWhite },
+      { to: '/chat',            label: 'Messages',          icon: <MessageSquare size={20} /> },
       { to: '/admin/settings',  label: 'Settings',        icon: <Settings size={20} />,inactive: settingsBlack, active: settingsWhite },
       // Admin/HR — approvals
       { section: 'Admin', to: '/admin/approvals', label: 'Approvals', icon: <ClipboardCheck size={20} /> },
       { to: '/admin/expenses', label: 'Expenses', icon: <Receipt size={20} /> },
-      // Super Admin only — permissions management
-      ...(isSuperAdmin ? [{ to: '/admin/permissions', label: 'Access Control', icon: <Shield size={20} /> }] : []),
+      // Super Admin only — permissions management + financial reporting
+      ...(isSuperAdmin ? [
+        { to: '/admin/permissions', label: 'Access Control', icon: <Shield size={20} /> },
+        { to: '/admin/financial-reports', label: 'Financial Reports', icon: <BarChart3 size={20} /> },
+      ] : []),
     ];
   }, [role]);
 
