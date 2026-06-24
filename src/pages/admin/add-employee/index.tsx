@@ -1,11 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { ChevronRight, ChevronLeft, Check, User, Briefcase, MapPin, FileText, ClipboardList, Save, X, Upload, Paperclip, RotateCcw } from 'lucide-react';
-import { apiRequest, BASE_URL } from '@/lib/queryClient';
+import { ChevronRight, ChevronLeft, Check, User, Briefcase, MapPin, FileText, ClipboardList, Save, X, Plus, Trash2, RotateCcw } from 'lucide-react';
+import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
-import { getAccessToken } from '@/utils/tokenMemory';
 
 const DRAFT_KEY = 'add_employee_draft';
 
@@ -424,102 +423,104 @@ function StepWork({ data, onChange }: any) {
 }
 
 // ── Step 4: Documents ────────────────────────────────────────────────────────
-const DOC_TABS = [
-  { label: 'Identity',          doc_type: 'CNIC',       accept: '.pdf,.jpg,.jpeg,.png', hint: 'CNIC (front & back), Passport' },
-  { label: 'Education',         doc_type: 'EDUCATION',  accept: '.pdf,.jpg,.jpeg,.png', hint: 'Degrees, diplomas, certificates' },
-  { label: 'Employment',        doc_type: 'CONTRACT',   accept: '.pdf,.doc,.docx',      hint: 'Offer letter, contract, experience letters' },
-  { label: 'Agreements & Others', doc_type: 'POLICY',  accept: '.pdf,.doc,.docx,.jpg,.jpeg,.png', hint: 'NDA, policies, other documents' },
+const DOC_TYPE_OPTIONS = [
+  { value: 'CNIC',               label: 'CNIC / National ID' },
+  { value: 'RESUME',             label: 'Resume / CV' },
+  { value: 'OFFER_LETTER',       label: 'Offer Letter' },
+  { value: 'CONTRACT',           label: 'Contract' },
+  { value: 'NDA',                label: 'NDA' },
+  { value: 'EDUCATIONAL',        label: 'Educational Certificate' },
+  { value: 'EXPERIENCE_LETTER',  label: 'Experience Letter' },
+  { value: 'SALARY_REVISION',    label: 'Salary Revision' },
+  { value: 'WARNING_LETTER',     label: 'Warning Letter' },
+  { value: 'RESIGNATION',        label: 'Resignation Letter' },
+  { value: 'CLEARANCE',          label: 'Clearance' },
+  { value: 'OTHER',              label: 'Other' },
 ];
 
-interface DocFile { file: File; doc_type: string; status: 'pending' | 'uploading' | 'done' | 'error'; error?: string; }
+interface DocFile { title: string; document_type: string; file_url: string; notes: string; }
+
+const EMPTY_DOC: DocFile = { title: '', document_type: 'OTHER', file_url: '', notes: '' };
 
 function StepDocuments({ docFiles, setDocFiles }: { docFiles: DocFile[]; setDocFiles: React.Dispatch<React.SetStateAction<DocFile[]>> }) {
-  const [activeTab, setActiveTab] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const tab = DOC_TABS[activeTab];
-
-  const handleFiles = (files: FileList | null) => {
-    if (!files) return;
-    const newFiles: DocFile[] = Array.from(files).map(f => ({ file: f, doc_type: tab.doc_type, status: 'pending' }));
-    setDocFiles(prev => [...prev, ...newFiles]);
-  };
-
-  const removeFile = (idx: number) => setDocFiles(prev => prev.filter((_, i) => i !== idx));
-  const tabFiles = docFiles.filter(f => f.doc_type === tab.doc_type);
+  const addRow = () => setDocFiles(prev => [...prev, { ...EMPTY_DOC }]);
+  const removeRow = (idx: number) => setDocFiles(prev => prev.filter((_, i) => i !== idx));
+  const updateRow = (idx: number, key: keyof DocFile, val: string) =>
+    setDocFiles(prev => prev.map((d, i) => i === idx ? { ...d, [key]: val } : d));
 
   return (
     <div className="space-y-4">
       <div>
         <h3 className="font-bold text-gray-900">Documents</h3>
-        <p className="text-xs text-gray-400 mt-0.5">Select files now — they will be uploaded automatically after the employee account is created.</p>
+        <p className="text-xs text-gray-400 mt-0.5">Record document details. Paste a Google Drive, OneDrive, or any accessible link in the URL field.</p>
       </div>
 
-      <div className="flex gap-1 border-b border-gray-100">
-        {DOC_TABS.map((t, i) => {
-          const count = docFiles.filter(f => f.doc_type === t.doc_type).length;
-          return (
-            <button key={t.doc_type} onClick={() => setActiveTab(i)}
-              className={cn('px-4 py-2.5 text-sm font-semibold transition-colors flex items-center gap-1.5',
-                activeTab === i ? 'text-primary-700 border-b-2 border-primary-600' : 'text-gray-500 hover:text-gray-700')}>
-              {t.label}
-              {count > 0 && (
-                <span className="w-5 h-5 rounded-full bg-primary-600 text-white text-xs flex items-center justify-center font-black">{count}</span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      <div>
-        <p className="text-xs text-gray-400 mb-3">{tab.hint} — {tab.accept.replace(/\./g, '').toUpperCase()}, max 10MB per file</p>
-        <div
-          className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-primary-300 transition-colors cursor-pointer"
-          onClick={() => fileInputRef.current?.click()}
-          onDragOver={e => e.preventDefault()}
-          onDrop={e => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
-        >
-          <Upload size={24} className="text-gray-300 mx-auto mb-2" />
-          <p className="text-sm font-semibold text-gray-500">Click to browse or drag & drop</p>
-          <p className="text-xs text-gray-300 mt-1">{tab.accept}</p>
-          <input ref={fileInputRef} type="file" multiple accept={tab.accept} className="hidden"
-            onChange={e => handleFiles(e.target.files)} />
+      {docFiles.length === 0 ? (
+        <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center">
+          <FileText size={24} className="text-gray-300 mx-auto mb-2" />
+          <p className="text-sm font-semibold text-gray-500">No documents added yet</p>
+          <p className="text-xs text-gray-300 mt-1">Click "Add Document" to record a document reference</p>
         </div>
-
-        {tabFiles.length > 0 && (
-          <div className="mt-3 space-y-2">
-            {tabFiles.map((df, i) => {
-              const globalIdx = docFiles.indexOf(df);
-              return (
-                <div key={i} className={cn('flex items-center gap-3 p-3 rounded-xl border text-sm',
-                  df.status === 'done' ? 'bg-green-50 border-green-200' :
-                  df.status === 'error' ? 'bg-red-50 border-red-200' :
-                  df.status === 'uploading' ? 'bg-blue-50 border-blue-200' :
-                  'bg-gray-50 border-gray-200')}>
-                  <Paperclip size={15} className="text-gray-400 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 truncate">{df.file.name}</p>
-                    <p className="text-xs text-gray-400">{(df.file.size / 1024).toFixed(0)} KB</p>
-                  </div>
-                  {df.status === 'uploading' && <span className="text-xs text-blue-600 font-semibold">Uploading…</span>}
-                  {df.status === 'done' && <span className="text-xs text-green-600 font-semibold">Uploaded</span>}
-                  {df.status === 'error' && <span className="text-xs text-red-600 font-semibold">{df.error || 'Error'}</span>}
-                  {df.status === 'pending' && (
-                    <button onClick={() => removeFile(globalIdx)} className="p-1 text-gray-400 hover:text-red-500 rounded">
-                      <X size={14} />
-                    </button>
-                  )}
+      ) : (
+        <div className="space-y-3">
+          {docFiles.map((doc, idx) => (
+            <div key={idx} className="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-gray-400 uppercase tracking-wide">Document {idx + 1}</span>
+                <button onClick={() => removeRow(idx)} className="p-1 text-gray-400 hover:text-red-500 rounded transition-colors">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">Title *</label>
+                  <input
+                    className="w-full h-9 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white"
+                    placeholder="e.g. CNIC Front"
+                    value={doc.title}
+                    onChange={e => updateRow(idx, 'title', e.target.value)}
+                  />
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {docFiles.length > 0 && (
-        <div className="bg-primary-50 rounded-xl p-3 text-xs text-primary-700 font-semibold">
-          {docFiles.length} file{docFiles.length !== 1 ? 's' : ''} selected across all tabs — will upload after saving.
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">Type</label>
+                  <select
+                    className="w-full h-9 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white"
+                    value={doc.document_type}
+                    onChange={e => updateRow(idx, 'document_type', e.target.value)}
+                  >
+                    {DOC_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">File URL (optional)</label>
+                <input
+                  className="w-full h-9 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white"
+                  placeholder="https://drive.google.com/... or any accessible link"
+                  value={doc.file_url}
+                  onChange={e => updateRow(idx, 'file_url', e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">Notes (optional)</label>
+                <input
+                  className="w-full h-9 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white"
+                  placeholder="Any additional notes"
+                  value={doc.notes}
+                  onChange={e => updateRow(idx, 'notes', e.target.value)}
+                />
+              </div>
+            </div>
+          ))}
         </div>
       )}
+
+      <button
+        onClick={addRow}
+        className="flex items-center gap-2 px-4 py-2 border border-dashed border-primary-300 text-primary-600 rounded-xl text-sm font-semibold hover:bg-primary-50 transition-colors w-full justify-center"
+      >
+        <Plus size={15} /> Add Document
+      </button>
     </div>
   );
 }
@@ -587,7 +588,7 @@ export default function AddEmployee() {
   const [personal, setPersonal]     = useState(initPersonal);
   const [employment, setEmployment] = useState({ ...initEmployment });
   const [work, setWork]             = useState(initWork);
-  const [docFiles, setDocFiles]     = useState<DocFile[]>([]);
+  const [docFiles, setDocFiles]     = useState<DocFile[]>([] as DocFile[]);
   const [draftBanner, setDraftBanner] = useState(false);
 
   // ── Draft auto-save / restore ──────────────────────────────────────────────
@@ -730,28 +731,15 @@ export default function AddEmployee() {
         }),
       });
 
-      if (docFiles.length > 0) {
-        const token = getAccessToken();
+      const validDocs = docFiles.filter(d => d.title.trim());
+      if (validDocs.length > 0) {
         await Promise.allSettled(
-          docFiles.map(async (df, idx) => {
-            setDocFiles(prev => prev.map((f, i) => i === idx ? { ...f, status: 'uploading' as const } : f));
-            const form = new FormData();
-            form.append('file', df.file);
-            form.append('doc_type', df.doc_type);
-            form.append('doc_name', df.file.name);
-            const url = `${BASE_URL}${API_ENDPOINTS.EMPLOYEE_DOC.CREATE(String(userId))}`;
-            try {
-              const res = await fetch(url, {
-                method: 'POST',
-                headers: token ? { authorization: `Bearer ${token}` } : {},
-                body: form,
-              });
-              if (!res.ok) throw new Error(`Upload failed: ${df.file.name}`);
-              setDocFiles(prev => prev.map((f, i) => i === idx ? { ...f, status: 'done' as const } : f));
-            } catch (e: any) {
-              setDocFiles(prev => prev.map((f, i) => i === idx ? { ...f, status: 'error' as const, error: e?.message } : f));
-            }
-          })
+          validDocs.map(doc =>
+            apiRequest<any>(API_ENDPOINTS.EMPLOYEE_DOC.CREATE(String(userId)), {
+              method: 'POST',
+              body: JSON.stringify(doc),
+            })
+          )
         );
       }
 
