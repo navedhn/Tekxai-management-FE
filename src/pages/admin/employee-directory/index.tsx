@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, Plus, Download, Users, CheckCircle, Clock, UserX, Eye, Edit2, Trash2 } from 'lucide-react';
+import { Search, Plus, Download, Users, CheckCircle, Clock, UserX, Eye, Edit2, Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
@@ -64,7 +64,15 @@ export default function EmployeeDirectory() {
   const [status, setStatus]               = useState(urlStatus);
   const [employmentStatus, setEmpStatus]  = useState(urlEmpStatus);
   const [page, setPage]                   = useState(1);
+  const [sortBy, setSortBy]               = useState('hire_date');
+  const [sortDir, setSortDir]             = useState<'asc'|'desc'>('desc');
   const limit = 10;
+
+  const toggleSort = (col: string) => {
+    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(col); setSortDir('asc'); }
+    setPage(1);
+  };
 
   // Edit / Delete state
   const [editEmployee, setEditEmployee]   = useState<any>(null);
@@ -85,6 +93,8 @@ export default function EmployeeDirectory() {
       team_id: teamId || undefined,
       status: status || undefined,
       employment_status: employmentStatus || undefined,
+      sort_by: sortBy,
+      sort_dir: sortDir,
       page,
       limit,
     };
@@ -93,7 +103,7 @@ export default function EmployeeDirectory() {
       f.hire_from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
     }
     return f;
-  }, [q, divisionId, deptId, teamId, status, employmentStatus, urlFilter, page, limit]);
+  }, [q, divisionId, deptId, teamId, status, employmentStatus, urlFilter, sortBy, sortDir, page, limit]);
 
   const { data, isLoading, refetch } = useGetEmployeeDirectory(filters);
   const records: any[] = data?.records || [];
@@ -235,8 +245,34 @@ export default function EmployeeDirectory() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
-                {['Employee', 'Employee ID', 'Designation', 'Department', 'Team', 'Manager', 'Status', 'Join Date', 'Actions']
-                  .map(h => <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>)}
+                {[
+                  { label: 'Employee',    col: 'name' },
+                  { label: 'Employee ID', col: null },
+                  { label: 'Designation', col: 'designation' },
+                  { label: 'Department',  col: null },
+                  { label: 'Team',        col: null },
+                  { label: 'Manager',     col: null },
+                  { label: 'Status',      col: 'status' },
+                  { label: 'Join Date',   col: 'hire_date' },
+                  { label: 'Actions',     col: null },
+                ].map(({ label, col }) => (
+                  <th key={label}
+                    onClick={() => col && toggleSort(col)}
+                    className={cn(
+                      'text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap',
+                      col ? 'cursor-pointer hover:text-gray-700 select-none' : ''
+                    )}
+                  >
+                    <span className="flex items-center gap-1">
+                      {label}
+                      {col && (
+                        sortBy === col
+                          ? sortDir === 'asc' ? <ChevronUp size={12} className="text-primary-500" /> : <ChevronDown size={12} className="text-primary-500" />
+                          : <ChevronsUpDown size={12} className="text-gray-300" />
+                      )}
+                    </span>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
