@@ -34,7 +34,6 @@ const HRSidebar: React.FC<HRSidebarProps> = memo(({ isOpen, onClose }) => {
     { section: 'Overview', to: '/hr', label: 'HR Dashboard', icon: Home, end: true },
     { section: 'People', to: '/hr/employee-directory', label: 'Employee Directory', icon: UserSearch },
     { to: '/hr/add-employee', label: 'Add Employee', icon: PlusCircle },
-    { to: '/hr/employees', label: 'User Management', icon: Users },
     { to: '/hr/departments', label: 'Departments', icon: Building2 },
     { section: 'Time & Attendance', to: '/hr/attendance', label: 'Attendance', icon: Clock },
     { to: '/hr/timesheet', label: 'Timesheets', icon: Clock },

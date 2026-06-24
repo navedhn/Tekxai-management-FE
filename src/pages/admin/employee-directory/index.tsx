@@ -1,10 +1,13 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, Plus, Download, Users, CheckCircle, Clock, UserX, Eye } from 'lucide-react';
+import { Search, Plus, Download, Users, CheckCircle, Clock, UserX, Eye, Edit2, Trash2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useGetEmployeeDirectory } from '@/services/employeeService';
+import { useDeleteUserMutation } from '@/services/userService';
+import { useToastContext } from '@/components/toast/ToastProvider';
+import UserFormModal from '@/components/ui/UserFormModal';
 import { cn } from '@/utils/cn';
 
 const STATUS_STYLE: Record<string, string> = {
@@ -47,12 +50,12 @@ function StatCard({ icon: Icon, color, label, value }: any) {
 
 export default function EmployeeDirectory() {
   const navigate = useNavigate();
+  const toast = useToastContext();
   const [searchParams] = useSearchParams();
 
-  // Read URL params passed from dashboard cards
-  const urlStatus           = searchParams.get('status') || '';
-  const urlEmpStatus        = searchParams.get('employment_status') || '';
-  const urlFilter           = searchParams.get('filter') || '';
+  const urlStatus    = searchParams.get('status') || '';
+  const urlEmpStatus = searchParams.get('employment_status') || '';
+  const urlFilter    = searchParams.get('filter') || '';
 
   const [q, setQ]                         = useState('');
   const [divisionId, setDiv]              = useState('');
@@ -63,13 +66,17 @@ export default function EmployeeDirectory() {
   const [page, setPage]                   = useState(1);
   const limit = 10;
 
+  // Edit / Delete state
+  const [editEmployee, setEditEmployee]   = useState<any>(null);
+  const [deleteTarget, setDeleteTarget]   = useState<any>(null);
+  const deleteUser = useDeleteUserMutation();
+
   useEffect(() => {
     setStatus(urlStatus);
     setEmpStatus(urlEmpStatus);
     setPage(1);
   }, [urlStatus, urlEmpStatus]);
 
-  // "New This Month" filter: pass as date-based hint to listing
   const filters = useMemo(() => {
     const f: Record<string, any> = {
       q: q || undefined,
@@ -88,7 +95,7 @@ export default function EmployeeDirectory() {
     return f;
   }, [q, divisionId, deptId, teamId, status, employmentStatus, urlFilter, page, limit]);
 
-  const { data, isLoading } = useGetEmployeeDirectory(filters);
+  const { data, isLoading, refetch } = useGetEmployeeDirectory(filters);
   const records: any[] = data?.records || [];
   const stats = data?.stats || {};
   const total = data?.total || 0;
@@ -116,8 +123,49 @@ export default function EmployeeDirectory() {
     return '';
   };
 
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    deleteUser.mutate(deleteTarget.id, {
+      onSuccess: () => {
+        toast.success(`${deleteTarget.full_name || deleteTarget.email} removed`);
+        setDeleteTarget(null);
+        refetch();
+      },
+      onError: (e: any) => toast.error(e?.message || 'Failed to delete'),
+    });
+  };
+
   return (
     <div className="flex flex-col gap-6">
+      {/* Edit modal */}
+      <UserFormModal
+        isOpen={!!editEmployee}
+        onClose={() => { setEditEmployee(null); refetch(); }}
+        user={editEmployee}
+      />
+
+      {/* Delete confirmation */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h3 className="text-base font-black text-gray-900 mb-2">Remove Employee?</h3>
+            <p className="text-sm text-gray-500 mb-5">
+              This will deactivate <strong>{deleteTarget.full_name || deleteTarget.email}</strong> and revoke their access. This action can be reversed by re-activating the account.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDeleteTarget(null)} className="px-4 py-2 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-100">Cancel</button>
+              <button
+                onClick={handleDelete}
+                disabled={deleteUser.isPending}
+                className="px-4 py-2 rounded-xl text-sm font-black bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
+              >
+                {deleteUser.isPending ? 'Removing…' : 'Remove'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -183,7 +231,6 @@ export default function EmployeeDirectory() {
           )}
         </div>
 
-        {/* Table */}
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -252,6 +299,20 @@ export default function EmployeeDirectory() {
                       >
                         <Eye size={14} />
                       </button>
+                      <button
+                        onClick={() => setEditEmployee(emp)}
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Edit Employee"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget(emp)}
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Remove Employee"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -260,7 +321,6 @@ export default function EmployeeDirectory() {
           </table>
         </div>
 
-        {/* Pagination */}
         {pages > 1 && (
           <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
             <p className="text-xs text-gray-400">

@@ -226,7 +226,7 @@ const routes: RouteObject[] = [
         element: <ProtectedRoute roles={hrRoles} />,
         children: [
           { path: '/hr',                          element: <AdminHRDashboard /> },
-          { path: '/hr/employees',                element: <AdminUsers /> },
+          { path: '/hr/employees',                element: <Navigate to="/hr/employee-directory" replace /> },
           { path: '/hr/departments',              element: <AdminDepartments /> },
           { path: '/hr/attendance',               element: <AdminAttendance /> },
           { path: '/hr/timesheet',                element: <AdminTimesheet /> },
