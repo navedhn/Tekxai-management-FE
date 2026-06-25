@@ -80,6 +80,8 @@ const RequisitionsPage: React.FC = () => {
 
   const handleCreate = () => {
     if (!form.title) { toast.error('Title is required'); return; }
+    if (!form.vendor_suggestion?.trim()) { toast.error('Vendor suggestion is required'); return; }
+    if (!form.estimated_cost) { toast.error('Estimated cost is required'); return; }
     createMutation.mutate({ ...form, quantity: +form.quantity, estimated_cost: form.estimated_cost ? +form.estimated_cost : undefined }, {
       onSuccess: () => { toast.success('Requisition created'); setCreateOpen(false); setForm({ title: '', category: 'OTHER', description: '', quantity: 1, estimated_cost: '', priority: 'MEDIUM', vendor_suggestion: '', needed_by: '', delivery_location: '', convert_to_asset: false, department_id: '' }); },
       onError: (e: any) => toast.error(e?.message || 'Failed'),
@@ -138,7 +140,12 @@ const RequisitionsPage: React.FC = () => {
     },
     {
       header: 'Est. Cost', key: 'estimated_cost',
-      render: r => <span className="text-sm font-semibold tabular-nums">{r.estimated_cost ? `PKR ${Number(r.estimated_cost).toLocaleString()}` : '—'}</span>,
+      render: r => (
+        <div>
+          <p className="text-sm font-semibold tabular-nums">{r.estimated_cost ? `PKR ${Number(r.estimated_cost).toLocaleString()}` : '—'}</p>
+          {r.vendor_suggestion && <p className="text-xs text-gray-400 truncate max-w-[140px]" title={r.vendor_suggestion}>{r.vendor_suggestion}</p>}
+        </div>
+      ),
     },
     {
       header: 'Needed By', key: 'needed_by',
@@ -258,16 +265,18 @@ const RequisitionsPage: React.FC = () => {
             <Select label="Priority" options={priorities.map((p: string) => ({ value: p, label: p }))} value={form.priority} onChange={v => setForm(p => ({ ...p, priority: String(v) }))} className="h-11 !rounded-xl" />
           </div>
           <Textarea label="Description / Justification" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={3} placeholder="Explain why this is needed..." />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Est. Cost (PKR) *" type="number" value={form.estimated_cost} onChange={e => setForm(p => ({ ...p, estimated_cost: e.target.value }))} className="h-11 rounded-xl" placeholder="e.g. 150000" />
+            <Input label="Vendor Suggestion *" value={form.vendor_suggestion} onChange={e => setForm(p => ({ ...p, vendor_suggestion: e.target.value }))} className="h-11 rounded-xl" placeholder="e.g. Dell Pakistan, Daraz" />
+          </div>
           <div className="grid grid-cols-3 gap-3">
             <Input label="Quantity" type="number" min={1} value={String(form.quantity)} onChange={e => setForm(p => ({ ...p, quantity: +e.target.value }))} className="h-11 rounded-xl" />
-            <Input label="Est. Cost (PKR)" type="number" value={form.estimated_cost} onChange={e => setForm(p => ({ ...p, estimated_cost: e.target.value }))} className="h-11 rounded-xl" />
             <Input label="Needed By" type="date" value={form.needed_by} onChange={e => setForm(p => ({ ...p, needed_by: e.target.value }))} className="h-11 rounded-xl" />
+            <Input label="Delivery Location" value={form.delivery_location} onChange={e => setForm(p => ({ ...p, delivery_location: e.target.value }))} className="h-11 rounded-xl" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Select label="Department" options={[{ value: '', label: 'None' }, ...deptOptions]} value={form.department_id} onChange={v => setForm(p => ({ ...p, department_id: String(v) }))} className="h-11 !rounded-xl" />
-            <Input label="Delivery Location" value={form.delivery_location} onChange={e => setForm(p => ({ ...p, delivery_location: e.target.value }))} className="h-11 rounded-xl" />
           </div>
-          <Input label="Vendor Suggestion (optional)" value={form.vendor_suggestion} onChange={e => setForm(p => ({ ...p, vendor_suggestion: e.target.value }))} className="h-11 rounded-xl" />
           <div className="flex items-center gap-2">
             <input type="checkbox" id="convert_asset" checked={form.convert_to_asset} onChange={e => setForm(p => ({ ...p, convert_to_asset: e.target.checked }))} className="rounded" />
             <label htmlFor="convert_asset" className="text-sm font-semibold text-gray-700">Convert to company asset after fulfillment</label>
