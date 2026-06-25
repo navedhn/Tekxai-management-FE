@@ -272,6 +272,7 @@ const routes: RouteObject[] = [
           { path: '/employee/settings',            element: <EmployeeSettings /> },
           { path: '/employee/daily-report',        element: <DailyReport /> },
           { path: '/employee/documents',           element: <EmployeeDocuments /> },
+          { path: '/employee/requisitions',        element: <AdminRequisitions /> },
           { path: '/employee/notifications',       element: <SharedNotifications /> },
           { path: '/employee/project-detail',      element: <ProjectDetailPage /> },
           { path: '/employee/profile/:memberId?',  element: <ProfilePage /> },

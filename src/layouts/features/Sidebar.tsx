@@ -113,8 +113,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
         { to: '/employee/starred',      label: 'Starred Queries',  icon: <Star size={20} /> },
         { to: '/employee/timesheet',    label: 'Timesheet',        icon: <Clock size={20} />,     inactive: timesheetEmployeeBlack, active: timesheetEmployeeWhite },
         { to: '/employee/tickets',      label: 'Support Tickets',  icon: <Ticket size={20} /> },
-        { to: '/employee/documents',    label: 'My Documents',     icon: <FileText size={20} /> },
-        { to: '/employee/daily-report', label: 'Daily Report',     icon: <FileText size={20} /> },
+        { to: '/employee/documents',     label: 'My Documents',     icon: <FileText size={20} /> },
+        { to: '/employee/requisitions',  label: 'Requisitions',     icon: <Package size={20} /> },
+        { to: '/employee/daily-report',  label: 'Daily Report',     icon: <FileText size={20} /> },
         { to: '/chat',                  label: 'Messages',         icon: <MessageSquare size={20} /> },
         { to: '/employee/settings',     label: 'Settings',         icon: <Settings size={20} />,  inactive: settingsBlack, active: settingsWhite },
       ];
