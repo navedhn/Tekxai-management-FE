@@ -70,6 +70,7 @@ export const QUERY_KEYS = {
     VENDORS:    ['asset', 'vendors'],
   },
   PERFORMANCE: {
+    LIST:    ['performance'],
     REPORTS: ['performance', 'reports'],
     SCORES:  ['performance', 'scores'],
     BONUS:   ['performance', 'bonus'],
