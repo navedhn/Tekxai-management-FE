@@ -434,7 +434,7 @@ export default function EmployeeDirectory() {
                     <td className="py-3 px-2">
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => navigate(`/hr/employee/${emp.id}`)}
+                          onClick={() => navigate(`/hr/employee/${emp.employee_id || emp.id}`)}
                           className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                           title="View Profile"
                         >
