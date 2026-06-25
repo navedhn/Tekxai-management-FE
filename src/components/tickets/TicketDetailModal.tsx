@@ -4,8 +4,8 @@ import Modal from '@/components/ui/Modal';
 import TicketStatusBadge from './TicketStatusBadge';
 import { SupportTicket, TicketReply } from '@/types/ticket';
 import { formatTicketDate } from '@/services/ticketService';
-import { ENDPOINTS } from '@/services/api/endpoints';
-import axiosInstance from '@/services/api/axiosInstance';
+import { API_ENDPOINTS as ENDPOINTS } from '@/services/api/endpoints';
+import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/hooks/useAuth';
 import { Send, User, ShieldCheck } from 'lucide-react';
 
@@ -43,8 +43,8 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ ticket, onClose, 
   const { data: fullTicket } = useQuery<SupportTicket>({
     queryKey: ['ticket', ticket?.id],
     queryFn: async () => {
-      const res = await axiosInstance.get(ENDPOINTS.TICKET.DETAIL(ticket!.id));
-      return res.data.payload;
+      const res = await apiRequest<any>(ENDPOINTS.TICKET.DETAIL(ticket!.id));
+      return res?.payload;
     },
     enabled: !!ticket?.id,
     initialData: ticket ?? undefined,
@@ -52,8 +52,8 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ ticket, onClose, 
 
   const replyMutation = useMutation({
     mutationFn: async (msg: string) => {
-      const res = await axiosInstance.post(ENDPOINTS.TICKET.REPLIES(ticket!.id), { message: msg });
-      return res.data.payload;
+      const res = await apiRequest<any>(ENDPOINTS.TICKET.REPLIES(ticket!.id), { method: 'POST', body: JSON.stringify({ message: msg }) });
+      return res?.payload;
     },
     onSuccess: () => {
       setMessage('');
