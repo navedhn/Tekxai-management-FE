@@ -55,7 +55,8 @@ export const API_ENDPOINTS = {
     DELETE_MANY: `${v1}/user`,
     DETAIL:      (id: string | number) => `${v1}/user/${id}`,
     UPDATE:      (id: string | number) => `${v1}/user/${id}`,
-    DELETE:      (id: string | number) => `${v1}/user/${id}`,
+    DELETE:       (id: string | number) => `${v1}/user/${id}`,
+    BULK_DELETE:  `${v1}/user/bulk-delete`,
   },
   PROJECT: {
     LIST:   `${v1}/project`,
