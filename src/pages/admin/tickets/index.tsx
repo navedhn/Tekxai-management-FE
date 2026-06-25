@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axiosInstance from '@/services/api/axiosInstance';
-import { ENDPOINTS } from '@/services/api/endpoints';
+import { apiRequest } from '@/lib/queryClient';
+import { API_ENDPOINTS as ENDPOINTS } from '@/services/api/endpoints';
 import { SupportTicket } from '@/types/ticket';
 import { TicketDetailModal } from '@/components/tickets';
 import { formatTicketDate } from '@/services/ticketService';
@@ -32,14 +32,14 @@ export default function AdminTickets() {
       const params = new URLSearchParams({ limit: '100' });
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (priorityFilter !== 'all') params.set('priority', priorityFilter);
-      const res = await axiosInstance.get(`${ENDPOINTS.TICKET.LIST}?${params}`);
-      return res.data.payload;
+      const res = await apiRequest<any>(`${ENDPOINTS.TICKET.LIST}?${params}`);
+      return res?.payload;
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, status, resolution_note }: { id: string; status: string; resolution_note?: string }) => {
-      await axiosInstance.patch(ENDPOINTS.TICKET.UPDATE(id), { status, resolution_note });
+      await apiRequest(ENDPOINTS.TICKET.UPDATE(id), { method: 'PATCH', body: JSON.stringify({ status, resolution_note }) });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-tickets'] });
