@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useGetEmployeeDirectory } from '@/services/employeeService';
-import { useDeleteUserMutation } from '@/services/userService';
+import { useDeleteUserMutation, useBulkDeleteUsersMutation } from '@/services/userService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import UserFormModal from '@/components/ui/UserFormModal';
 import { cn } from '@/utils/cn';
@@ -68,22 +68,29 @@ export default function EmployeeDirectory() {
   const [sortDir, setSortDir]             = useState<'asc'|'desc'>('desc');
   const limit = 10;
 
+  // Selection state
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
   const toggleSort = (col: string) => {
     if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortBy(col); setSortDir('asc'); }
     setPage(1);
   };
 
-  // Edit / Delete state
   const [editEmployee, setEditEmployee]   = useState<any>(null);
   const [deleteTarget, setDeleteTarget]   = useState<any>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const deleteUser = useDeleteUserMutation();
+  const bulkDelete = useBulkDeleteUsersMutation();
 
   useEffect(() => {
     setStatus(urlStatus);
     setEmpStatus(urlEmpStatus);
     setPage(1);
   }, [urlStatus, urlEmpStatus]);
+
+  // Clear selection when page/filters change
+  useEffect(() => { setSelected(new Set()); }, [page, q, status, employmentStatus]);
 
   const filters = useMemo(() => {
     const f: Record<string, any> = {
@@ -133,12 +140,46 @@ export default function EmployeeDirectory() {
     return '';
   };
 
+  // Selection helpers
+  const pageIds = records.map(r => r.id);
+  const allOnPageSelected = pageIds.length > 0 && pageIds.every(id => selected.has(id));
+  const someSelected = selected.size > 0;
+
+  const toggleAll = () => {
+    if (allOnPageSelected) {
+      setSelected(prev => { const n = new Set(prev); pageIds.forEach(id => n.delete(id)); return n; });
+    } else {
+      setSelected(prev => new Set([...prev, ...pageIds]));
+    }
+  };
+
+  const toggleOne = (id: string) => {
+    setSelected(prev => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  };
+
   const handleDelete = () => {
     if (!deleteTarget) return;
     deleteUser.mutate(deleteTarget.id, {
       onSuccess: () => {
         toast.success(`${deleteTarget.full_name || deleteTarget.email} removed`);
         setDeleteTarget(null);
+        refetch();
+      },
+      onError: (e: any) => toast.error(e?.message || 'Failed to delete'),
+    });
+  };
+
+  const handleBulkDelete = () => {
+    const ids = Array.from(selected);
+    bulkDelete.mutate(ids, {
+      onSuccess: () => {
+        toast.success(`${ids.length} employee(s) removed`);
+        setSelected(new Set());
+        setBulkDeleteOpen(false);
         refetch();
       },
       onError: (e: any) => toast.error(e?.message || 'Failed to delete'),
@@ -154,13 +195,13 @@ export default function EmployeeDirectory() {
         user={editEmployee}
       />
 
-      {/* Delete confirmation */}
+      {/* Single delete confirmation */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
             <h3 className="text-base font-black text-gray-900 mb-2">Remove Employee?</h3>
             <p className="text-sm text-gray-500 mb-5">
-              This will deactivate <strong>{deleteTarget.full_name || deleteTarget.email}</strong> and revoke their access. This action can be reversed by re-activating the account.
+              This will deactivate <strong>{deleteTarget.full_name || deleteTarget.email}</strong> and revoke their access.
             </p>
             <div className="flex justify-end gap-2">
               <button onClick={() => setDeleteTarget(null)} className="px-4 py-2 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-100">Cancel</button>
@@ -170,6 +211,28 @@ export default function EmployeeDirectory() {
                 className="px-4 py-2 rounded-xl text-sm font-black bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
               >
                 {deleteUser.isPending ? 'Removing…' : 'Remove'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk delete confirmation */}
+      {bulkDeleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h3 className="text-base font-black text-gray-900 mb-2">Remove {selected.size} Employee{selected.size > 1 ? 's' : ''}?</h3>
+            <p className="text-sm text-gray-500 mb-5">
+              This will deactivate <strong>{selected.size} selected employee{selected.size > 1 ? 's' : ''}</strong> and revoke their access. This action can be reversed by re-activating accounts individually.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setBulkDeleteOpen(false)} className="px-4 py-2 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-100">Cancel</button>
+              <button
+                onClick={handleBulkDelete}
+                disabled={bulkDelete.isPending}
+                className="px-4 py-2 rounded-xl text-sm font-black bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
+              >
+                {bulkDelete.isPending ? 'Removing…' : `Remove ${selected.size}`}
               </button>
             </div>
           </div>
@@ -241,10 +304,42 @@ export default function EmployeeDirectory() {
           )}
         </div>
 
+        {/* Bulk action bar */}
+        {someSelected && (
+          <div className="mt-3 flex items-center gap-3 px-4 py-2.5 bg-primary-50 border border-primary-100 rounded-xl">
+            <span className="text-sm font-semibold text-primary-700">
+              {selected.size} employee{selected.size > 1 ? 's' : ''} selected
+            </span>
+            <div className="flex-1" />
+            <button
+              onClick={() => setSelected(new Set())}
+              className="text-xs font-semibold text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-white transition-colors"
+            >
+              Clear selection
+            </button>
+            <button
+              onClick={() => setBulkDeleteOpen(true)}
+              className="flex items-center gap-1.5 text-xs font-black text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <Trash2 size={13} /> Remove {selected.size} selected
+            </button>
+          </div>
+        )}
+
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
+                {/* Checkbox column */}
+                <th className="py-3 px-2 w-8">
+                  <input
+                    type="checkbox"
+                    checked={allOnPageSelected}
+                    onChange={toggleAll}
+                    className="w-4 h-4 rounded accent-primary-600 cursor-pointer"
+                    title={allOnPageSelected ? 'Deselect all on page' : 'Select all on page'}
+                  />
+                </th>
                 {[
                   { label: 'Employee',    col: 'name' },
                   { label: 'Employee ID', col: null },
@@ -278,81 +373,92 @@ export default function EmployeeDirectory() {
             <tbody className="divide-y divide-gray-50">
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}><td colSpan={9} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                  <tr key={i}><td colSpan={10} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
                 ))
               ) : records.length === 0 ? (
-                <tr><td colSpan={9} className="py-12 text-center text-gray-400 text-sm">No employees found</td></tr>
-              ) : records.map(emp => (
-                <tr key={emp.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="py-3 px-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-black text-sm flex-shrink-0">
-                        {emp.avatar ? <img src={emp.avatar} className="w-9 h-9 rounded-full object-cover" alt="" /> : (emp.first_name?.[0] || '?')}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900 text-sm leading-tight">{emp.full_name}</p>
-                        <p className="text-xs text-gray-400">{emp.email}</p>
-                        {emp.profile_status === 'DRAFT' && (
-                          <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md">Pending</span>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3 px-2 text-gray-600 font-mono text-xs">{emp.employee_id || '—'}</td>
-                  <td className="py-3 px-2 text-gray-700">{emp.designation || '—'}</td>
-                  <td className="py-3 px-2 text-gray-600">{emp.department?.name || '—'}</td>
-                  <td className="py-3 px-2 text-gray-600">{emp.team?.name || '—'}</td>
-                  <td className="py-3 px-2">
-                    {emp.manager ? (
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-600">
-                          {emp.manager.first_name?.[0]}
+                <tr><td colSpan={10} className="py-12 text-center text-gray-400 text-sm">No employees found</td></tr>
+              ) : records.map(emp => {
+                const isChecked = selected.has(emp.id);
+                return (
+                  <tr key={emp.id} className={cn('hover:bg-gray-50 transition-colors', isChecked && 'bg-primary-50')}>
+                    <td className="py-3 px-2">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleOne(emp.id)}
+                        className="w-4 h-4 rounded accent-primary-600 cursor-pointer"
+                      />
+                    </td>
+                    <td className="py-3 px-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-black text-sm flex-shrink-0">
+                          {emp.avatar ? <img src={emp.avatar} className="w-9 h-9 rounded-full object-cover" alt="" /> : (emp.first_name?.[0] || '?')}
                         </div>
-                        <span className="text-gray-600 text-xs">{emp.manager.first_name?.[0]}. {emp.manager.last_name}</span>
+                        <div>
+                          <p className="font-semibold text-gray-900 text-sm leading-tight">{emp.full_name}</p>
+                          <p className="text-xs text-gray-400">{emp.email}</p>
+                          {emp.profile_status === 'DRAFT' && (
+                            <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md">Pending</span>
+                          )}
+                        </div>
                       </div>
-                    ) : '—'}
-                  </td>
-                  <td className="py-3 px-2">
-                    {emp.employment_status ? (
-                      <span className={cn('text-xs font-semibold px-2.5 py-1 rounded-full', EMP_STATUS_STYLE[emp.employment_status] || 'bg-gray-100 text-gray-500')}>
-                        {EMP_STATUS_LABEL[emp.employment_status] || emp.employment_status}
-                      </span>
-                    ) : (
-                      <span className={cn('text-xs font-semibold px-2.5 py-1 rounded-full', STATUS_STYLE[emp.status] || 'bg-gray-100 text-gray-500')}>
-                        {emp.status || '—'}
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-3 px-2 text-gray-500 text-xs whitespace-nowrap">
-                    {emp.hire_date ? new Date(emp.hire_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                  </td>
-                  <td className="py-3 px-2">
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => navigate(`/hr/employee/${emp.id}`)}
-                        className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                        title="View Profile"
-                      >
-                        <Eye size={14} />
-                      </button>
-                      <button
-                        onClick={() => setEditEmployee(emp)}
-                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Edit Employee"
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                      <button
-                        onClick={() => setDeleteTarget(emp)}
-                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Remove Employee"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="py-3 px-2 text-gray-600 font-mono text-xs">{emp.employee_id || '—'}</td>
+                    <td className="py-3 px-2 text-gray-700">{emp.designation || '—'}</td>
+                    <td className="py-3 px-2 text-gray-600">{emp.department?.name || '—'}</td>
+                    <td className="py-3 px-2 text-gray-600">{emp.team?.name || '—'}</td>
+                    <td className="py-3 px-2">
+                      {emp.manager ? (
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-600">
+                            {emp.manager.first_name?.[0]}
+                          </div>
+                          <span className="text-gray-600 text-xs">{emp.manager.first_name?.[0]}. {emp.manager.last_name}</span>
+                        </div>
+                      ) : '—'}
+                    </td>
+                    <td className="py-3 px-2">
+                      {emp.employment_status ? (
+                        <span className={cn('text-xs font-semibold px-2.5 py-1 rounded-full', EMP_STATUS_STYLE[emp.employment_status] || 'bg-gray-100 text-gray-500')}>
+                          {EMP_STATUS_LABEL[emp.employment_status] || emp.employment_status}
+                        </span>
+                      ) : (
+                        <span className={cn('text-xs font-semibold px-2.5 py-1 rounded-full', STATUS_STYLE[emp.status] || 'bg-gray-100 text-gray-500')}>
+                          {emp.status || '—'}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-2 text-gray-500 text-xs whitespace-nowrap">
+                      {emp.hire_date ? new Date(emp.hire_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                    </td>
+                    <td className="py-3 px-2">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => navigate(`/hr/employee/${emp.id}`)}
+                          className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          title="View Profile"
+                        >
+                          <Eye size={14} />
+                        </button>
+                        <button
+                          onClick={() => setEditEmployee(emp)}
+                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Edit Employee"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(emp)}
+                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Remove Employee"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -361,6 +467,7 @@ export default function EmployeeDirectory() {
           <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
             <p className="text-xs text-gray-400">
               Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total} employees
+              {someSelected && <span className="ml-2 text-primary-600 font-semibold">· {selected.size} selected</span>}
             </p>
             <div className="flex items-center gap-1">
               <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}

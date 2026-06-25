@@ -113,7 +113,7 @@ export const useBulkUpdateUsersMutation = () => {
 export const useBulkDeleteUsersMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: any) => apiRequest(API_ENDPOINTS.USER.DELETE_MANY, { method: 'DELETE', body: JSON.stringify(data) }),
+    mutationFn: (ids: string[]) => apiRequest(API_ENDPOINTS.USER.BULK_DELETE, { method: 'POST', body: JSON.stringify({ ids }) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.USER.LIST });
     },
