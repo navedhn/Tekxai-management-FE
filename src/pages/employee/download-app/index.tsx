@@ -1,14 +1,15 @@
 import React from 'react';
-import { Monitor, Download, Clock, Camera, Shield, Bell } from 'lucide-react';
+import { Monitor, Download, Clock, Camera, Shield, Bell, Construction } from 'lucide-react';
 
-const WINDOWS_URL = 'https://releases.tekxai.services/agent/TekXAI-Agent-Setup.exe';
-const MAC_URL     = 'https://releases.tekxai.services/agent/TekXAI-Agent.dmg';
+const WINDOWS_URL = '/downloads/TekXAI-Agent-Setup.exe';
+const MAC_URL     = '/downloads/TekXAI-Agent.dmg';
+const BUILDS_READY = false; // flip to true once installers are placed on the server
 
 const features = [
-  { icon: <Clock size={20} />,   title: 'One-click Clock In/Out',   desc: 'Track your work hours directly from your desktop without opening a browser.' },
-  { icon: <Camera size={20} />,  title: 'Auto Screenshots',          desc: 'Automatic screen captures every 5 minutes while you\'re clocked in for activity tracking.' },
-  { icon: <Bell size={20} />,    title: 'System Tray',              desc: 'Stays in your system tray so you can clock in/out without switching apps.' },
-  { icon: <Shield size={20} />,  title: 'Secure & Private',          desc: 'Uses your TekXAI credentials. Screenshots are stored securely in your organization\'s cloud.' },
+  { icon: <Clock size={20} />,   title: 'One-click Clock In/Out',   desc: "Track your work hours directly from your desktop without opening a browser." },
+  { icon: <Camera size={20} />,  title: 'Auto Screenshots',          desc: "Automatic screen captures every 5 minutes while you're clocked in for activity tracking." },
+  { icon: <Bell size={20} />,    title: 'System Tray',               desc: "Stays in your system tray so you can clock in/out without switching apps." },
+  { icon: <Shield size={20} />,  title: 'Secure & Private',          desc: "Uses your TekXAI credentials. Screenshots are stored securely in your organization's cloud." },
 ];
 
 export default function DownloadApp() {
@@ -25,6 +26,20 @@ export default function DownloadApp() {
         </div>
       </div>
 
+      {/* Coming soon banner */}
+      {!BUILDS_READY && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-5">
+          <Construction size={20} className="text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold text-amber-800 text-sm">Installer builds coming soon</p>
+            <p className="text-amber-700 text-xs mt-1 leading-relaxed">
+              The desktop app is ready but the installer files haven't been published yet.
+              Downloads will be available here shortly.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Download cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Windows */}
@@ -36,14 +51,21 @@ export default function DownloadApp() {
               <div className="text-xs text-gray-400">Windows 10 / 11 (64-bit)</div>
             </div>
           </div>
-          <a
-            href={WINDOWS_URL}
-            className="flex items-center justify-center gap-2 h-11 rounded-xl bg-[#005CDA] text-white font-bold text-sm hover:bg-[#0047b3] transition-colors"
-            download
-          >
-            <Download size={16} />
-            Download for Windows (.exe)
-          </a>
+          {BUILDS_READY ? (
+            <a
+              href={WINDOWS_URL}
+              className="flex items-center justify-center gap-2 h-11 rounded-xl bg-[#005CDA] text-white font-bold text-sm hover:bg-[#0047b3] transition-colors"
+              download
+            >
+              <Download size={16} />
+              Download for Windows (.exe)
+            </a>
+          ) : (
+            <button disabled className="flex items-center justify-center gap-2 h-11 rounded-xl bg-gray-100 text-gray-400 font-bold text-sm cursor-not-allowed">
+              <Download size={16} />
+              Coming Soon
+            </button>
+          )}
         </div>
 
         {/* Mac */}
@@ -55,14 +77,21 @@ export default function DownloadApp() {
               <div className="text-xs text-gray-400">macOS 12 Monterey or later</div>
             </div>
           </div>
-          <a
-            href={MAC_URL}
-            className="flex items-center justify-center gap-2 h-11 rounded-xl bg-gray-900 text-white font-bold text-sm hover:bg-gray-700 transition-colors"
-            download
-          >
-            <Download size={16} />
-            Download for Mac (.dmg)
-          </a>
+          {BUILDS_READY ? (
+            <a
+              href={MAC_URL}
+              className="flex items-center justify-center gap-2 h-11 rounded-xl bg-gray-900 text-white font-bold text-sm hover:bg-gray-700 transition-colors"
+              download
+            >
+              <Download size={16} />
+              Download for Mac (.dmg)
+            </a>
+          ) : (
+            <button disabled className="flex items-center justify-center gap-2 h-11 rounded-xl bg-gray-100 text-gray-400 font-bold text-sm cursor-not-allowed">
+              <Download size={16} />
+              Coming Soon
+            </button>
+          )}
         </div>
       </div>
 
