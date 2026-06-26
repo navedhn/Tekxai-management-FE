@@ -151,6 +151,9 @@ jobs:
           name: win-exe
           path: dist/
 
+      - name: Debug — show downloaded files
+        run: find dist/ -type f | sort
+
       - name: Verify both artifacts exist
         run: |
           FAIL=0
