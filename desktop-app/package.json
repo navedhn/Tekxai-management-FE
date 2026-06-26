@@ -12,20 +12,23 @@
   "build": {
     "appId": "com.tekxai.agent",
     "productName": "TekXAI Agent",
-    "icon": "assets/icon",
-    "files": ["src/**/*", "assets/**/*"],
+    "icon": "assets/icon.png",
+    "files": [
+      "src/**/*",
+      "assets/**/*"
+    ],
     "win": {
       "target": "nsis",
-      "icon": "assets/icon.ico"
+      "artifactName": "TekXAI-Agent-Setup.exe"
     },
     "mac": {
       "target": "dmg",
-      "icon": "assets/icon.icns",
+      "artifactName": "TekXAI-Agent.dmg",
       "category": "public.app-category.productivity"
     },
     "linux": {
       "target": "AppImage",
-      "icon": "assets/icon.png"
+      "artifactName": "TekXAI-Agent.AppImage"
     },
     "nsis": {
       "oneClick": false,
