@@ -6,6 +6,9 @@ import Select from '@/components/ui/Select';
 import { useGetTeamsQuery } from '@/services/adminService';
 import { useCreateUserMutation, useUpdateUserMutation } from '@/services/userService';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { API_ENDPOINTS } from '@/services/api/endpoints';
 
 interface UserFormModalProps {
   isOpen: boolean;
@@ -13,31 +16,13 @@ interface UserFormModalProps {
   user?: any;
 }
 
-const departments = [
-  { value: 'TekXAI', label: 'TekXAI' },
-  { value: 'CE', label: 'CE' }
-];
-
 const statuses = [
   { value: 'ACTIVE', label: 'Active' },
-  { value: 'INACTIVE', label: 'Inactive' }
+  { value: 'INACTIVE', label: 'Inactive' },
 ];
 
-const designationsMap: Record<string, { value: string; label: string }[]> = {
-  'CE': [
-    { value: 'CE', label: 'CE' }
-  ],
-  'TekXAI': [
-    { value: 'UI UX', label: 'UI UX' },
-    { value: 'front-end-developer', label: 'Front End Developer' },
-    { value: 'back-end-developer', label: 'Back End Developer' },
-    { value: 'devops-developer', label: 'DevOps Developer' },
-    { value: 'cms-developer', label: 'CMS Developer' },
-    { value: 'ai-developer', label: 'AI Developer' },
-    { value: 'hr', label: 'Human Resource' },
-    { value: 'team-lead', label: 'Team Lead' }
-  ]
-};
+// Roles that HR/Super Admin should NOT assign (system-only)
+const HIDDEN_ROLES = ['SUPER_ADMIN'];
 
 const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) => {
   const [formData, setFormData] = useState({
@@ -45,13 +30,12 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
     last_name: '',
     email: '',
     password: '',
-    department: '',
+    department_id: '',
     designation: '',
     team_id: '',
-    role: 'EMPLLOYEE', // default fixed
-    status: 'ACTIVE'
+    role_id: '',
+    status: 'ACTIVE',
   });
-
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const toast = useToastContext();
@@ -59,39 +43,70 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
   const createUser = useCreateUserMutation();
   const updateUser = useUpdateUserMutation();
 
-  const isEdit = !!user;
+  const { data: rolesData = [] } = useQuery({
+    queryKey: ['roles'],
+    queryFn: async () => {
+      const res = await apiRequest<any>(API_ENDPOINTS.ROLE.LIST);
+      return (res?.payload || res || []) as { id: string; name: string }[];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
-  useEffect(() => {
-    if (user && isOpen) {
-      setFormData({
-        first_name: user.first_name || '',
-        last_name: user.last_name || '',
-        email: user.email || '',
-        password: '',
-        department: user.department || '',
-        designation: user.designation || '',
-        team_id: user.team_memberships?.[0]?.team?.id || user.team_id || '',
-        role: 'EMPLLOYEE', // always fixed
-        status: user.status || 'ACTIVE'
-      });
-    } else if (!user && isOpen) {
-      setFormData({
-        first_name: '',
-        last_name: '',
-        email: '',
-        password: '',
-        department: '',
-        designation: '',
-        team_id: '',
-        role: 'EMPLLOYEE',
-        status: 'ACTIVE'
-      });
-    }
-  }, [user, isOpen]);
+  const { data: departmentsData = [] } = useQuery({
+    queryKey: ['departments-list'],
+    queryFn: async () => {
+      const res = await apiRequest<any>(API_ENDPOINTS.DEPARTMENT.LIST);
+      return (res?.payload?.records || res?.payload || res || []) as { id: string; name: string }[];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const roleOptions = rolesData
+    .filter((r: any) => !HIDDEN_ROLES.includes(r.name))
+    .map((r: any) => ({ value: r.id, label: r.name.replace(/_/g, ' ') }));
+
+  const departmentOptions = departmentsData.map((d: any) => ({ value: d.id, label: d.name }));
 
   const teamsOptions = Array.isArray((teamsData as any)?.payload?.records)
     ? (teamsData as any).payload.records.map((t: any) => ({ value: t.id, label: t.name }))
     : [];
+
+  const defaultRoleId = rolesData.find((r: any) => r.name === 'EMPLOYEE')?.id || '';
+
+  const isEdit = !!user;
+
+  useEffect(() => {
+    if (isOpen) {
+      if (user) {
+        const currentRoleId = user.roles?.[0]?.role?.id || user.role_id || defaultRoleId;
+        const deptId = user.department?.id || user.department_id || '';
+        setFormData({
+          first_name: user.first_name || '',
+          last_name: user.last_name || '',
+          email: user.email || '',
+          password: '',
+          department_id: deptId,
+          designation: user.designation || '',
+          team_id: user.team_memberships?.[0]?.team?.id || user.team_id || '',
+          role_id: currentRoleId,
+          status: user.status || 'ACTIVE',
+        });
+      } else {
+        setFormData({
+          first_name: '',
+          last_name: '',
+          email: '',
+          password: '',
+          department_id: '',
+          designation: '',
+          team_id: '',
+          role_id: defaultRoleId,
+          status: 'ACTIVE',
+        });
+      }
+      setErrors({});
+    }
+  }, [user, isOpen, defaultRoleId]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -99,171 +114,87 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
   };
 
   const handleSelectChange = (name: string) => (val: string | number) => {
-    setFormData(prev => ({ ...prev, [name]: val }));
-
-    if (name === 'department') {
-      setFormData(prev => ({ ...prev, designation: '', team_id: '' }));
-    }
+    setFormData(prev => ({ ...prev, [name]: String(val) }));
   };
 
   const handleSubmit = () => {
-    const { first_name, last_name, email, department, password } = formData;
-
+    const { first_name, last_name, email, department_id, password, role_id } = formData;
     const newErrors: Record<string, string> = {};
     if (!first_name) newErrors.first_name = 'First name is required';
     if (!last_name) newErrors.last_name = 'Last name is required';
     if (!email) newErrors.email = 'Email address is required';
-    if (!department) newErrors.department = 'Department selection is required';
-
-    if (!isEdit && !password) {
-      newErrors.password = 'Password is required for new accounts';
-    }
-
+    if (!department_id) newErrors.department_id = 'Department is required';
+    if (!role_id) newErrors.role_id = 'Role is required';
+    if (!isEdit && !password) newErrors.password = 'Password is required for new accounts';
     setErrors(newErrors);
-
     if (Object.keys(newErrors).length > 0) return;
 
+    const selectedRole = rolesData.find((r: any) => r.id === role_id);
     const payload: any = {
       ...formData,
-      role: 'EMPLLOYEE',
-      role_id: "60e032cc-3305-4de9-a34e-f5a3d9725fbc" // fixed role id
+      role: selectedRole?.name || 'EMPLOYEE',
+      role_id,
     };
 
     if (isEdit) {
       if (!password) delete payload.password;
-
       updateUser.mutate({ id: user.id, data: payload }, {
-        onSuccess: () => {
-          toast.success('User updated successfully');
-          onClose();
-        },
-        onError: (err: any) => {
-          toast.error(err.message || 'Failed to update user');
-        }
+        onSuccess: () => { toast.success('User updated successfully'); onClose(); },
+        onError: (err: any) => toast.error(err.message || 'Failed to update user'),
       });
     } else {
       createUser.mutate(payload, {
-        onSuccess: () => {
-          toast.success('User created successfully');
-          onClose();
-        },
-        onError: (err: any) => {
-          toast.error(err.message || 'Failed to create user');
-        }
+        onSuccess: () => { toast.success('User created successfully'); onClose(); },
+        onError: (err: any) => toast.error(err.message || 'Failed to create user'),
       });
     }
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={isEdit ? 'Edit User' : 'Add New User'}
-      size="lg"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title={isEdit ? 'Edit User' : 'Add New User'} size="lg">
       <div className="flex flex-col gap-5 p-2">
         <div className="grid grid-cols-2 gap-4">
-          <Input
-            label="First Name *"
-            name="first_name"
-            value={formData.first_name}
-            onChange={handleInputChange}
-            error={errors.first_name}
-            placeholder="John"
-            className="h-12 rounded-xl"
-          />
-          <Input
-            label="Last Name *"
-            name="last_name"
-            value={formData.last_name}
-            onChange={handleInputChange}
-            error={errors.last_name}
-            placeholder="Doe"
-            className="h-12 rounded-xl"
-          />
+          <Input label="First Name *" name="first_name" value={formData.first_name}
+            onChange={handleInputChange} error={errors.first_name} placeholder="John" className="h-12 rounded-xl" />
+          <Input label="Last Name *" name="last_name" value={formData.last_name}
+            onChange={handleInputChange} error={errors.last_name} placeholder="Doe" className="h-12 rounded-xl" />
         </div>
 
-        <Input
-          label="Email Address *"
-          name="email"
-          value={formData.email}
-          onChange={handleInputChange}
-          error={errors.email}
-          placeholder="user@example.com"
-          type="email"
-          className="h-12 rounded-xl"
-        />
+        <Input label="Email Address *" name="email" value={formData.email}
+          onChange={handleInputChange} error={errors.email} placeholder="user@example.com"
+          type="email" className="h-12 rounded-xl" />
 
-        <Input
-          label={isEdit ? 'New Password (Optional)' : 'Password *'}
-          name="password"
-          value={formData.password}
-          onChange={handleInputChange}
-          error={errors.password}
-          placeholder="••••••••"
-          type="password"
-          className="h-12 rounded-xl"
-        />
+        <Input label={isEdit ? 'New Password (Optional)' : 'Password *'} name="password"
+          value={formData.password} onChange={handleInputChange} error={errors.password}
+          placeholder="••••••••" type="password" className="h-12 rounded-xl" />
 
-        <div className="grid grid-cols-1 gap-4">
-          <Select
-            label="STATUS *"
-            options={statuses}
-            value={formData.status}
-            onChange={handleSelectChange('status')}
-            className="h-12 !rounded-xl"
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <Select label="ROLE *" options={roleOptions} value={formData.role_id}
+            onChange={handleSelectChange('role_id')} error={errors.role_id}
+            placeholder="Select Role" className="h-12 !rounded-xl" />
+          <Select label="STATUS *" options={statuses} value={formData.status}
+            onChange={handleSelectChange('status')} className="h-12 !rounded-xl" />
         </div>
 
-        <div className="grid grid-cols-1 gap-4">
-          <Select
-            label="DEPARTMENT *"
-            options={departments}
-            value={formData.department}
-            onChange={handleSelectChange('department')}
-            error={errors.department}
-            placeholder="Select Department"
-            className="h-12 !rounded-xl"
-          />
+        <Select label="DEPARTMENT *" options={departmentOptions} value={formData.department_id}
+          onChange={handleSelectChange('department_id')} error={errors.department_id}
+          placeholder="Select Department" className="h-12 !rounded-xl" />
 
-          <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="TEAM"
-              options={teamsOptions}
-              value={formData.team_id}
-              onChange={handleSelectChange('team_id')}
-              placeholder={formData.department ? "Select Team" : "Select Department First"}
-              disabled={!formData.department}
-              className="h-12 !rounded-xl"
-            />
-            <Select
-              label="DESIGNATION"
-              options={designationsMap[formData.department] || []}
-              value={formData.designation}
-              onChange={handleSelectChange('designation')}
-              placeholder={formData.department ? "Select Designation" : "Select Department First"}
-              disabled={!formData.department}
-              className="h-12 !rounded-xl"
-            />
-          </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Select label="TEAM" options={teamsOptions} value={formData.team_id}
+            onChange={handleSelectChange('team_id')} placeholder="Select Team"
+            className="h-12 !rounded-xl" />
+          <Input label="Designation" name="designation" value={formData.designation}
+            onChange={handleInputChange} placeholder="e.g. Frontend Developer"
+            className="h-12 rounded-xl" />
         </div>
 
         <div className="flex gap-3 mt-4">
-          <Button
-            variant="outline"
-            fullWidth
-            className="h-12 rounded-xl"
-            onClick={onClose}
-          >
+          <Button variant="outline" fullWidth className="h-12 rounded-xl" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            variant="primary"
-            fullWidth
-            loading={createUser.isPending || updateUser.isPending}
-            className="h-12 rounded-xl font-bold shadow-lg shadow-primary-100"
-            onClick={handleSubmit}
-          >
+          <Button variant="primary" fullWidth loading={createUser.isPending || updateUser.isPending}
+            className="h-12 rounded-xl font-bold shadow-lg shadow-primary-100" onClick={handleSubmit}>
             {isEdit ? 'Save Changes' : 'Create User'}
           </Button>
         </div>

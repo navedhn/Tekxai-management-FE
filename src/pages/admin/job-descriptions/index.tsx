@@ -80,7 +80,7 @@ const JobDescriptionsPage: React.FC = () => {
         </div>
       </div>
     )},
-    { header: 'Department', key: 'department', render: (u) => <span className="text-gray-600">{(u as any).department || '—'}</span> },
+    { header: 'Department', key: 'department', render: (u) => <span className="text-gray-600">{(u as any).department?.name || (u as any).department || '—'}</span> },
     { header: 'Designation', key: 'designation', render: (u) => <span className="text-gray-600">{u.designation || '—'}</span> },
     { header: 'Actions', key: 'id', align: 'right', render: (u) => (
       <Button variant="outline" size="sm" className="rounded-xl gap-1.5 h-8 text-xs" onClick={() => setSelectedUser(u.id)}>
