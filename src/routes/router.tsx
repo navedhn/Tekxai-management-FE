@@ -94,6 +94,7 @@ const EmployeeTickets        = lazy(() => import('@/pages/employee/tickets'));
 const StarredQueries         = lazy(() => import('@/pages/employee/starred'));
 const DailyReport            = lazy(() => import('@/pages/employee/daily-report'));
 const EmployeeDocuments      = lazy(() => import('@/pages/employee/documents'));
+const DownloadApp            = lazy(() => import('@/pages/employee/download-app'));
 
 // Shared
 const SharedNotifications    = lazy(() => import('@/pages/shared/notifications'));
@@ -272,6 +273,7 @@ const routes: RouteObject[] = [
           { path: '/employee/settings',            element: <EmployeeSettings /> },
           { path: '/employee/daily-report',        element: <DailyReport /> },
           { path: '/employee/documents',           element: <EmployeeDocuments /> },
+          { path: '/employee/download-app',        element: <DownloadApp /> },
           { path: '/employee/requisitions',        element: <AdminRequisitions /> },
           { path: '/employee/notifications',       element: <SharedNotifications /> },
           { path: '/employee/project-detail',      element: <ProjectDetailPage /> },

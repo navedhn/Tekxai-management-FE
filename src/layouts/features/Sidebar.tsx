@@ -117,6 +117,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
         { to: '/employee/requisitions',  label: 'Requisitions',     icon: <Package size={20} /> },
         { to: '/employee/daily-report',  label: 'Daily Report',     icon: <FileText size={20} /> },
         { to: '/chat',                  label: 'Messages',         icon: <MessageSquare size={20} /> },
+        { to: '/employee/download-app',  label: 'Desktop App',      icon: <Monitor size={20} /> },
         { to: '/employee/settings',     label: 'Settings',         icon: <Settings size={20} />,  inactive: settingsBlack, active: settingsWhite },
       ];
     }

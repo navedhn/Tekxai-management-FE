@@ -352,18 +352,4 @@ const WeekBlock: React.FC<{ weekStart: Date; columns: Column<TimesheetEntry>[] }
   );
 };
 
-function startOfWeek(d: Date) {
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  return new Date(d.getFullYear(), d.getMonth(), diff);
-}
-
-function startOfMonth(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth(), 1);
-}
-
-function toDateStr(d: Date) {
-  return d.toISOString().split('T')[0];
-}
-
 export default EmployeeTimesheet;
