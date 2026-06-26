@@ -175,34 +175,33 @@ jobs:
 
       - name: Generate build metadata
         run: |
-          export VERSION=$(node -p "require('./desktop-app/package.json').version")
-          export BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          export COMMIT="${{ github.sha }}"
-          export BRANCH="${{ github.ref_name }}"
-          export AUTHOR="${{ github.actor }}"
-          export COMMIT_MSG=$(git log -1 --pretty=%s)
+          VERSION=$(node -p "require('./desktop-app/package.json').version")
+          BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          COMMIT="${{ github.sha }}"
+          BRANCH="${{ github.ref_name }}"
+          AUTHOR="${{ github.actor }}"
+          COMMIT_MSG=$(git log -1 --pretty=%s)
 
-          python3 - <<PYEOF
-import json, os
-data = {
-  "version":               os.environ.get("VERSION",""),
-  "buildDate":             os.environ.get("BUILD_DATE",""),
-  "commit":                os.environ.get("COMMIT",""),
-  "branch":                os.environ.get("BRANCH",""),
-  "author":                os.environ.get("AUTHOR",""),
-  "commitMessage":         os.environ.get("COMMIT_MSG",""),
-  "releaseNotes":          f"Version {os.environ.get('VERSION','')}\\nCommit: {os.environ.get('COMMIT','')[:7]}\\nBranch: {os.environ.get('BRANCH','')}\\nAuthor: {os.environ.get('AUTHOR','')}\\nDate: {os.environ.get('BUILD_DATE','')}\\n\\n{os.environ.get('COMMIT_MSG','')}",
-  "platforms":             ["windows","mac"],
-  "minimumBackendVersion": "1.0.0",
-  "checksums": {
-    "mac":     os.environ.get("HASH_MAC",""),
-    "windows": os.environ.get("HASH_WIN",""),
-  }
-}
-with open("dist/metadata.json","w") as f:
-  json.dump(data, f, indent=2)
-print("metadata.json written OK")
-PYEOF
+          node -e "
+            const fs = require('fs');
+            const data = {
+              version:               process.env.VERSION,
+              buildDate:             process.env.BUILD_DATE,
+              commit:                process.env.COMMIT,
+              branch:                process.env.BRANCH,
+              author:                process.env.AUTHOR,
+              commitMessage:         process.env.COMMIT_MSG,
+              releaseNotes:          'Version ' + process.env.VERSION + '\nCommit: ' + process.env.COMMIT.slice(0,7) + '\nBranch: ' + process.env.BRANCH + '\nAuthor: ' + process.env.AUTHOR + '\nDate: ' + process.env.BUILD_DATE + '\n\n' + process.env.COMMIT_MSG,
+              platforms:             ['windows','mac'],
+              minimumBackendVersion: '1.0.0',
+              checksums: { mac: process.env.HASH_MAC, windows: process.env.HASH_WIN }
+            };
+            fs.writeFileSync('dist/metadata.json', JSON.stringify(data, null, 2));
+            console.log('metadata.json written OK');
+          " VERSION="$VERSION" BUILD_DATE="$BUILD_DATE" COMMIT="$COMMIT" \
+            BRANCH="$BRANCH" AUTHOR="$AUTHOR" COMMIT_MSG="$COMMIT_MSG" \
+            HASH_MAC="$HASH_MAC" HASH_WIN="$HASH_WIN"
+
           echo "--- metadata.json ---"
           cat dist/metadata.json
 
