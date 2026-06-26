@@ -121,11 +121,10 @@ const getTimeOffPoliciesApi = async () => {
   return (Array.isArray(data) ? data : []) as Policy[];
 };
 
-const createTimeOffRequestApi = async (formData: FormData) => {
+const createTimeOffRequestApi = async (data: Record<string, any>) => {
   return apiRequest(API_ENDPOINTS.TIMESHEET.REQUEST_TIME_OFF, {
     method: 'POST',
-    body: formData,
-    // Do NOT set Content-Type header manually for FormData, fetch will set it properly with boundary
+    body: JSON.stringify(data),
   });
 };
 
