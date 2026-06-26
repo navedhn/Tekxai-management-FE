@@ -211,13 +211,41 @@ jobs:
           echo "--- metadata.json ---"
           cat dist/metadata.json
 
-      - name: Upload all files to server latest/
+      - name: Ensure target directory exists on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: mkdir -p /home/ubuntu/downloads/latest /home/ubuntu/downloads/releases
+
+      - name: Upload macOS DMG
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          source: "dist/TekXAI-Agent.dmg,dist/TekXAI-Agent-Setup.exe,dist/TekXAI-Agent.dmg.sha256,dist/TekXAI-Agent-Setup.exe.sha256,dist/metadata.json"
+          source: dist/TekXAI-Agent.dmg
+          target: /home/ubuntu/downloads/latest/
+          strip_components: 1
+
+      - name: Upload Windows EXE
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: dist/TekXAI-Agent-Setup.exe
+          target: /home/ubuntu/downloads/latest/
+          strip_components: 1
+
+      - name: Upload checksums and metadata
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "dist/TekXAI-Agent.dmg.sha256,dist/TekXAI-Agent-Setup.exe.sha256,dist/metadata.json"
           target: /home/ubuntu/downloads/latest/
           strip_components: 1
 
