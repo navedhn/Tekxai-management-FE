@@ -3,6 +3,7 @@ import { Menu, Bell, User, LogOut } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Badge from '@/components/ui/Badge';
 import NotificationDropdown from './NotificationDropdown';
+import { useNotifications } from '@/services/notificationService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 
@@ -18,6 +19,8 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const { data: notifData } = useNotifications(10);
+    const unreadCount = notifData?.unread_count ?? 0;
     const notifBtnRef = useRef<HTMLButtonElement>(null);
     const profileRef = useRef<HTMLDivElement>(null);
 
@@ -91,7 +94,9 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
                         className="transform rotate-[340deg] group-hover:rotate-0 transition-transform duration-500 ease-in-out"
                     />
 
-                    <span className="absolute top-[-3px] right-[-3px] flex h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white ring-2 ring-red-100 group-hover:animate-bounce" />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-[-3px] right-[-3px] flex h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white ring-2 ring-red-100 group-hover:animate-bounce" />
+                    )}
                 </button>
 
                 <NotificationDropdown
