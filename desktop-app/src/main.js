@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const Store = require('electron-store');
 
@@ -13,6 +14,29 @@ let screenshotTimer = null;
 let sessionId = null;
 
 // ── App ready ─────────────────────────────────────────────────────────────────
+
+// ── Auto updater ──────────────────────────────────────────────────────────────
+// Disabled by default. Set AUTO_UPDATES_ENABLED=true in electron-store or env
+// to enable once update server (latest.yml / latest-mac.yml) is deployed.
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = false;
+autoUpdater.logger = null; // silence logs until enabled
+
+const AUTO_UPDATES_ENABLED = store.get('auto_updates_enabled', false);
+
+if (AUTO_UPDATES_ENABLED) {
+  autoUpdater.checkForUpdatesAndNotify().catch(() => {});
+  autoUpdater.on('update-available', (info) => {
+    mainWindow?.webContents.send('update-available', info);
+  });
+  autoUpdater.on('update-downloaded', (info) => {
+    mainWindow?.webContents.send('update-downloaded', info);
+  });
+}
+
+ipcMain.handle('install-update', () => autoUpdater.quitAndInstall());
+ipcMain.handle('check-for-updates', () => autoUpdater.checkForUpdates().catch(() => null));
+ipcMain.handle('get-app-version', () => app.getVersion());
 
 app.whenReady().then(() => {
   createWindow();
