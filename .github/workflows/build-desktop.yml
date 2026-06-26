@@ -175,30 +175,34 @@ jobs:
 
       - name: Generate build metadata
         run: |
-          VERSION=$(node -p "require('./desktop-app/package.json').version")
-          BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          COMMIT="${{ github.sha }}"
-          BRANCH="${{ github.ref_name }}"
-          AUTHOR="${{ github.actor }}"
-          COMMIT_MSG=$(git log -1 --pretty=%s)
+          export VERSION=$(node -p "require('./desktop-app/package.json').version")
+          export BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          export COMMIT="${{ github.sha }}"
+          export BRANCH="${{ github.ref_name }}"
+          export AUTHOR="${{ github.actor }}"
+          export COMMIT_MSG=$(git log -1 --pretty=%s)
 
-          cat > dist/metadata.json <<EOF
-          {
-            "version":               "$VERSION",
-            "buildDate":             "$BUILD_DATE",
-            "commit":                "$COMMIT",
-            "branch":                "$BRANCH",
-            "author":                "$AUTHOR",
-            "commitMessage":         "$COMMIT_MSG",
-            "releaseNotes":          "Version $VERSION\nCommit: ${COMMIT:0:7}\nBranch: $BRANCH\nAuthor: $AUTHOR\nDate: $BUILD_DATE\n\n$COMMIT_MSG",
-            "platforms":             ["windows", "mac"],
-            "minimumBackendVersion": "1.0.0",
-            "checksums": {
-              "mac":     "$HASH_MAC",
-              "windows": "$HASH_WIN"
-            }
-          }
-          EOF
+          python3 - <<PYEOF
+import json, os
+data = {
+  "version":               os.environ.get("VERSION",""),
+  "buildDate":             os.environ.get("BUILD_DATE",""),
+  "commit":                os.environ.get("COMMIT",""),
+  "branch":                os.environ.get("BRANCH",""),
+  "author":                os.environ.get("AUTHOR",""),
+  "commitMessage":         os.environ.get("COMMIT_MSG",""),
+  "releaseNotes":          f"Version {os.environ.get('VERSION','')}\\nCommit: {os.environ.get('COMMIT','')[:7]}\\nBranch: {os.environ.get('BRANCH','')}\\nAuthor: {os.environ.get('AUTHOR','')}\\nDate: {os.environ.get('BUILD_DATE','')}\\n\\n{os.environ.get('COMMIT_MSG','')}",
+  "platforms":             ["windows","mac"],
+  "minimumBackendVersion": "1.0.0",
+  "checksums": {
+    "mac":     os.environ.get("HASH_MAC",""),
+    "windows": os.environ.get("HASH_WIN",""),
+  }
+}
+with open("dist/metadata.json","w") as f:
+  json.dump(data, f, indent=2)
+print("metadata.json written OK")
+PYEOF
           echo "--- metadata.json ---"
           cat dist/metadata.json
 
@@ -208,12 +212,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          source: >
-            dist/TekXAI-Agent.dmg,
-            dist/TekXAI-Agent-Setup.exe,
-            dist/TekXAI-Agent.dmg.sha256,
-            dist/TekXAI-Agent-Setup.exe.sha256,
-            dist/metadata.json
+          source: "dist/TekXAI-Agent.dmg,dist/TekXAI-Agent-Setup.exe,dist/TekXAI-Agent.dmg.sha256,dist/TekXAI-Agent-Setup.exe.sha256,dist/metadata.json"
           target: /home/ubuntu/downloads/latest/
           strip_components: 1
 
