@@ -4,6 +4,7 @@ import DatePicker from './DatePicker';
 import Textarea from './Textarea';
 import Button from './Button';
 import { useGetTimeOffPolicies, useCreateTimeOffRequestMutation } from '@/services/timesheetService';
+import { useToastContext } from '@/components/toast/ToastProvider';
 
 interface RequestTimeOffModalProps {
   isOpen: boolean;
@@ -12,65 +13,72 @@ interface RequestTimeOffModalProps {
 
 const RequestTimeOffModal: React.FC<RequestTimeOffModalProps> = ({ isOpen, onClose }) => {
   const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [reason, setReason] = useState('');
-  const [file, setFile] = useState<File | null>(null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [endDate, setEndDate]     = useState('');
+  const [reason, setReason]       = useState('');
+  const [policyId, setPolicyId]   = useState('');
+  const [errors, setErrors]       = useState<Record<string, string>>({});
+  const toast = useToastContext();
 
-  // Fetch policies to get the Annual Leave policy ID
   const { data: policiesData } = useGetTimeOffPolicies(isOpen);
-  const annualPolicy = policiesData?.find(p => p.name === 'Annual Leave') ?? policiesData?.[0];
+  const policies = policiesData || [];
 
   const { mutate: createRequest, isPending } = useCreateTimeOffRequestMutation();
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) setFile(e.target.files[0]);
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
-    if (!startDate) newErrors.startDate = 'Start date is required';
-    if (!endDate) newErrors.endDate = 'End date is required';
-    if (!reason.trim()) newErrors.reason = 'Reason for leave is required';
+    if (!startDate)      newErrors.startDate = 'Start date is required';
+    if (!endDate)        newErrors.endDate   = 'End date is required';
+    if (!reason.trim())  newErrors.reason    = 'Reason is required';
+    if (!policyId && !policies.length) newErrors.policy = 'No leave policies available — contact HR';
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
 
-    const formData = new FormData();
-    if (annualPolicy) formData.append('policy_id', String(annualPolicy.id));
-    formData.append('start_date', startDate);
-    formData.append('end_date', endDate);
-    formData.append('all_day', 'true');
-    formData.append('exclude_weekends', 'false');
-    formData.append('exclude_holidays', 'false');
-    formData.append('reason', reason);
-    if (file) formData.append('supporting_document', file);
+    // Calculate days between dates
+    const start = new Date(startDate);
+    const end   = new Date(endDate);
+    const days  = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
 
-    createRequest(formData, {
-      onSuccess: () => {
-        setStartDate('');
-        setEndDate('');
-        setReason('');
-        setFile(null);
-        onClose();
+    const selectedPolicy = policyId || policies[0]?.id;
+
+    createRequest(
+      { policy_id: selectedPolicy, start_date: startDate, end_date: endDate, days, reason } as any,
+      {
+        onSuccess: () => {
+          toast.success('Leave request submitted successfully');
+          setStartDate(''); setEndDate(''); setReason(''); setPolicyId('');
+          onClose();
+        },
+        onError: (e: any) => {
+          toast.error(e?.message || 'Failed to submit leave request');
+        },
       }
-    });
+    );
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      size="sm"
-      customClass="max-w-[480px] overflow-hidden"
-      title="Request Leave"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} size="sm" customClass="max-w-[480px]" title="Request Leave">
       <div className="flex flex-col gap-6">
-        {/* Leave balance info */}
-        <div className="flex items-center justify-between px-4 py-3 bg-blue-50 border border-blue-100 rounded-xl">
-          <span className="text-xs font-semibold text-blue-700">Leave Type</span>
-          <span className="text-xs font-black text-blue-900">Annual Leave (12 days/year)</span>
-        </div>
+        {/* Policy selector */}
+        {policies.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Leave Type *</label>
+            <select
+              value={policyId || policies[0]?.id || ''}
+              onChange={e => setPolicyId(e.target.value)}
+              className="h-11 px-3 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 focus:outline-none focus:border-primary-400"
+            >
+              {policies.map((p: any) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {policies.length === 0 && (
+          <div className="px-4 py-3 bg-amber-50 border border-amber-100 rounded-xl">
+            <p className="text-xs font-semibold text-amber-700">No leave policies found. Please contact HR to set up leave policies.</p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div className="grid grid-cols-2 gap-4">
@@ -90,31 +98,6 @@ const RequestTimeOffModal: React.FC<RequestTimeOffModalProps> = ({ isOpen, onClo
             />
           </div>
 
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-black text-gray-900">Supporting Document <span className="text-gray-400 font-bold">(Optional)</span></span>
-            <div className="relative group">
-              <input
-                type="file"
-                className="hidden"
-                id="leave-file-upload"
-                onChange={handleFileChange}
-                accept=".pdf,.png,.jpeg,.jpg"
-              />
-              <label
-                htmlFor="leave-file-upload"
-                className="flex items-center h-12 w-full border border-gray-200 rounded-xl overflow-hidden cursor-pointer group-hover:border-gray-300 transition-all bg-white"
-              >
-                <div className="px-4 py-2 border-r border-gray-100 bg-gray-50 text-gray-900 text-sm font-black flex items-center gap-2">
-                  Choose File
-                </div>
-                <div className="px-4 text-sm font-bold text-gray-400 truncate flex-1">
-                  {file?.name || 'No File Chosen'}
-                </div>
-              </label>
-              <p className="text-[10px] text-gray-400 font-bold mt-1">PDF, PNG, or JPEG. Max 5MB.</p>
-            </div>
-          </div>
-
           <Textarea
             label="Reason *"
             placeholder="Explain the reason for your leave request…"
@@ -124,21 +107,13 @@ const RequestTimeOffModal: React.FC<RequestTimeOffModalProps> = ({ isOpen, onClo
             className="min-h-[120px]"
           />
 
+          {errors.policy && <p className="text-xs text-red-500">{errors.policy}</p>}
+
           <div className="flex items-center gap-3 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1 rounded-xl h-12 font-black border-gray-200 text-gray-600"
-              onClick={onClose}
-            >
+            <Button type="button" variant="outline" className="flex-1 rounded-xl h-12 font-black" onClick={onClose}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              className="flex-1 rounded-xl h-12 font-black shadow-lg shadow-primary-100"
-              disabled={isPending}
-            >
+            <Button type="submit" variant="primary" className="flex-1 rounded-xl h-12 font-black shadow-lg shadow-primary-100" disabled={isPending}>
               {isPending ? 'Submitting…' : 'Submit Request'}
             </Button>
           </div>
