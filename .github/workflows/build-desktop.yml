@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  # ── macOS build ──────────────────────────────────────────────────────────────
+  # ── Job 1: macOS build ───────────────────────────────────────────────────────
   build-mac:
     runs-on: macos-latest
     steps:
@@ -22,6 +22,25 @@ jobs:
         working-directory: desktop-app
         run: npm ci
 
+      - name: Generate icon.icns from icon.png
+        # macOS has sips + iconutil built-in — no extra install needed
+        run: |
+          mkdir -p desktop-app/assets/AppIcon.iconset
+          PNG=desktop-app/assets/icon.png
+          IS=desktop-app/assets/AppIcon.iconset
+          sips -z 16   16   $PNG --out $IS/icon_16x16.png
+          sips -z 32   32   $PNG --out $IS/icon_16x16@2x.png
+          sips -z 32   32   $PNG --out $IS/icon_32x32.png
+          sips -z 64   64   $PNG --out $IS/icon_32x32@2x.png
+          sips -z 128  128  $PNG --out $IS/icon_128x128.png
+          sips -z 256  256  $PNG --out $IS/icon_128x128@2x.png
+          sips -z 256  256  $PNG --out $IS/icon_256x256.png
+          sips -z 512  512  $PNG --out $IS/icon_256x256@2x.png
+          sips -z 512  512  $PNG --out $IS/icon_512x512.png
+          sips -z 1024 1024 $PNG --out $IS/icon_512x512@2x.png
+          iconutil -c icns $IS -o desktop-app/assets/icon.icns
+          echo "Generated icon.icns ($(wc -c < desktop-app/assets/icon.icns) bytes)"
+
       - name: Build macOS DMG
         working-directory: desktop-app
         run: npm run build:mac
@@ -31,9 +50,9 @@ jobs:
         with:
           name: mac-dmg
           path: desktop-app/dist/TekXAI-Agent.dmg
-          retention-days: 7
+          retention-days: 30
 
-  # ── Windows build ─────────────────────────────────────────────────────────────
+  # ── Job 2: Windows build ──────────────────────────────────────────────────────
   build-win:
     runs-on: windows-latest
     steps:
@@ -47,6 +66,17 @@ jobs:
         working-directory: desktop-app
         run: npm ci
 
+      - name: Generate icon.ico from icon.png
+        # Use ImageMagick which is pre-installed on windows-latest runners
+        shell: bash
+        run: |
+          magick desktop-app/assets/icon.png \
+            -define icon:auto-resize=256,128,64,48,32,16 \
+            desktop-app/assets/icon.ico 2>/dev/null || \
+          # Fallback: copy png as ico (electron-builder accepts png on win too)
+          cp desktop-app/assets/icon.png desktop-app/assets/icon.ico
+          echo "icon.ico generated: $(wc -c < desktop-app/assets/icon.ico) bytes"
+
       - name: Build Windows installer
         working-directory: desktop-app
         run: npm run build:win
@@ -56,13 +86,15 @@ jobs:
         with:
           name: win-exe
           path: desktop-app/dist/TekXAI-Agent-Setup.exe
-          retention-days: 7
+          retention-days: 30
 
-  # ── Deploy both to EC2 (runs on ubuntu, avoids Windows SCP issues) ────────────
+  # ── Job 3: Deploy from Ubuntu (avoids Windows SCP issues) ────────────────────
   deploy:
     runs-on: ubuntu-latest
     needs: [build-mac, build-win]
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download macOS artifact
         uses: actions/download-artifact@v4
         with:
@@ -75,20 +107,59 @@ jobs:
           name: win-exe
           path: dist/
 
-      - name: Create downloads directory on EC2
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: mkdir -p /home/ubuntu/downloads
+      - name: Generate build metadata
+        run: |
+          VERSION=$(node -p "require('./desktop-app/package.json').version")
+          BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          COMMIT="${{ github.sha }}"
+          cat > dist/metadata.json <<EOF
+          {
+            "version": "$VERSION",
+            "buildDate": "$BUILD_DATE",
+            "commit": "$COMMIT",
+            "platforms": ["windows", "mac"]
+          }
+          EOF
+          echo "Generated metadata.json:"
+          cat dist/metadata.json
 
-      - name: Upload to EC2
+      - name: Verify artifacts before upload
+        run: |
+          echo "Files to deploy:"
+          ls -lh dist/
+          test -f dist/TekXAI-Agent.dmg       && echo "✅ TekXAI-Agent.dmg" || echo "❌ TekXAI-Agent.dmg MISSING"
+          test -f dist/TekXAI-Agent-Setup.exe  && echo "✅ TekXAI-Agent-Setup.exe" || echo "❌ TekXAI-Agent-Setup.exe MISSING"
+          test -f dist/metadata.json           && echo "✅ metadata.json" || echo "❌ metadata.json MISSING"
+
+      - name: Upload to server latest/
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: dist/TekXAI-Agent.dmg,dist/TekXAI-Agent-Setup.exe
-          target: /home/ubuntu/downloads/
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: dist/TekXAI-Agent.dmg,dist/TekXAI-Agent-Setup.exe,dist/metadata.json
+          target: /home/ubuntu/downloads/latest/
           strip_components: 1
+
+      - name: Archive release and prune old builds (keep last 5)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -e
+
+            # Archive this build with a timestamp
+            RELEASE_NAME="build-$(date +%s)"
+            RELEASE_DIR="/home/ubuntu/downloads/releases/$RELEASE_NAME"
+            mkdir -p "$RELEASE_DIR"
+            cp /home/ubuntu/downloads/latest/* "$RELEASE_DIR/"
+
+            # Keep last 5 releases only
+            cd /home/ubuntu/downloads/releases
+            ls -1t | tail -n +6 | xargs -I {} rm -rf {} 2>/dev/null || true
+
+            echo "✅ Deployed $RELEASE_NAME"
+            echo "✅ Latest: /home/ubuntu/downloads/latest/"
+            echo "✅ Releases kept: $(ls | wc -l)"
