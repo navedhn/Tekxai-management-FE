@@ -1,18 +1,32 @@
 import React, { useEffect, useState } from 'react';
-import { Monitor, Download, Clock, Camera, Shield, Bell } from 'lucide-react';
-
-const WINDOWS_URL = '/downloads/latest/TekXAI-Agent-Setup.exe';
-const MAC_URL     = '/downloads/latest/TekXAI-Agent.dmg';
-const LINUX_URL   = '/downloads/latest/TekXAI-Agent.AppImage';
+import { Monitor, Download, Clock, Camera, Shield, Bell, CheckCircle2, XCircle, GitCommit, Calendar, User } from 'lucide-react';
+import { DOWNLOADS_ENDPOINTS } from '@/services/api/endpoints';
 
 type Platform = 'windows' | 'mac' | 'linux' | 'unknown';
 
 interface BuildMeta {
-  version: string;
-  buildDate: string;
-  commit: string;
+  version: string | null;
+  buildDate: string | null;
+  commit: string | null;
+  branch: string | null;
+  author: string | null;
+  commitMessage: string | null;
   platforms: string[];
+  windows: string | null;
+  mac: string | null;
+  checksums: { windows: string | null; mac: string | null };
+  releaseNotes: string | null;
+  minimumBackendVersion: string;
 }
+
+const COMPAT = [
+  { os: 'Windows 10',        supported: true },
+  { os: 'Windows 11',        supported: true },
+  { os: 'macOS 12 Monterey', supported: true },
+  { os: 'macOS 13+',         supported: true },
+  { os: 'Linux',             supported: false, note: 'Coming Soon' },
+  { os: 'iOS / Android',     supported: false, note: 'Not supported' },
+];
 
 function detectOS(): Platform {
   const ua = navigator.userAgent.toLowerCase();
@@ -22,68 +36,81 @@ function detectOS(): Platform {
   return 'unknown';
 }
 
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  } catch { return iso; }
+function fmt(iso: string | null) {
+  if (!iso) return '—';
+  try { return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); }
+  catch { return iso; }
+}
+
+function trackDownload(platform: string, version: string | null) {
+  fetch(DOWNLOADS_ENDPOINTS.TRACK, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ platform, version }),
+    credentials: 'include',
+  }).catch(() => {});
 }
 
 const features = [
-  { icon: <Clock size={20} />,  title: 'One-click Clock In/Out', desc: "Track your work hours directly from your desktop without opening a browser." },
-  { icon: <Camera size={20} />, title: 'Auto Screenshots',        desc: "Automatic screen captures every 5 minutes while you're clocked in." },
-  { icon: <Bell size={20} />,   title: 'System Tray',             desc: "Stays in your system tray so you can clock in/out without switching apps." },
-  { icon: <Shield size={20} />, title: 'Secure & Private',        desc: "Uses your TekXAI credentials. Screenshots stored securely in your org's cloud." },
+  { icon: <Clock size={20} />,  title: 'One-click Clock In/Out', desc: "Track your work hours directly from your desktop." },
+  { icon: <Camera size={20} />, title: 'Auto Screenshots',        desc: "Captures every 5 minutes while you're clocked in." },
+  { icon: <Bell size={20} />,   title: 'System Tray',             desc: "Stays in your system tray — always one click away." },
+  { icon: <Shield size={20} />, title: 'Secure & Private',        desc: "Uses your TekXAI credentials. Data stored in your org's cloud." },
 ];
 
 export default function DownloadApp() {
-  const [os, setOs]       = useState<Platform>('unknown');
-  const [meta, setMeta]   = useState<BuildMeta | null>(null);
-  const [ready, setReady] = useState(false);
+  const [os, setOs]     = useState<Platform>('unknown');
+  const [meta, setMeta] = useState<BuildMeta | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setOs(detectOS());
-    fetch('/downloads/latest/metadata.json')
+    fetch(DOWNLOADS_ENDPOINTS.LATEST)
       .then(r => r.ok ? r.json() : null)
-      .then((data: BuildMeta | null) => {
-        if (data?.version) { setMeta(data); setReady(true); }
-      })
-      .catch(() => {});
+      .then(d => { if (d?.payload?.version) setMeta(d.payload); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
+
+  const ready = !!meta;
 
   const platforms: {
     key: Platform; label: string; sub: string; emoji: string;
-    url: string; disabled?: boolean; bg: string; hover: string; ext: string;
+    url: string | null; disabled?: boolean; bg: string; hover: string; ext: string;
+    checksum: string | null;
   }[] = [
-    { key: 'windows', label: 'Windows', sub: 'Windows 10 / 11 (64-bit)',   emoji: '🪟', url: WINDOWS_URL, ext: '.exe',      bg: 'bg-[#005CDA]', hover: 'hover:bg-[#0047b3]' },
-    { key: 'mac',     label: 'macOS',   sub: 'macOS 12 Monterey or later', emoji: '🍎', url: MAC_URL,     ext: '.dmg',      bg: 'bg-gray-900',  hover: 'hover:bg-gray-700' },
-    { key: 'linux',   label: 'Linux',   sub: 'AppImage (x86_64)',           emoji: '🐧', url: LINUX_URL,   ext: '.AppImage', bg: 'bg-gray-400',  hover: '', disabled: true },
+    { key: 'windows', label: 'Windows', sub: 'Windows 10 / 11 (64-bit)',   emoji: '🪟', url: meta?.windows ?? null, checksum: meta?.checksums.windows ?? null, ext: '.exe',      bg: 'bg-[#005CDA]', hover: 'hover:bg-[#0047b3]' },
+    { key: 'mac',     label: 'macOS',   sub: 'macOS 12 Monterey or later', emoji: '🍎', url: meta?.mac ?? null,     checksum: meta?.checksums.mac ?? null,     ext: '.dmg',      bg: 'bg-gray-900',  hover: 'hover:bg-gray-700' },
+    { key: 'linux',   label: 'Linux',   sub: 'AppImage — coming soon',      emoji: '🐧', url: null,                  checksum: null,                            ext: '.AppImage', bg: 'bg-gray-400',  hover: '', disabled: true },
   ];
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
+
       {/* Header */}
       <div className="flex items-center gap-4">
-        <div className="w-14 h-14 rounded-2xl bg-[#005CDA] flex items-center justify-center text-white">
+        <div className="w-14 h-14 rounded-2xl bg-[#005CDA] flex items-center justify-center text-white flex-shrink-0">
           <Monitor size={28} />
         </div>
         <div>
           <h1 className="text-2xl font-black text-gray-900">TekXAI Desktop Agent</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Time tracking &amp; monitoring app for Windows and Mac</p>
+          <p className="text-gray-500 text-sm mt-0.5">Time tracking &amp; monitoring — Windows and Mac</p>
         </div>
       </div>
 
       {/* Build metadata strip */}
       {meta && (
-        <div className="flex flex-wrap gap-4 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
-          <span><span className="font-semibold text-gray-700">Version</span> {meta.version}</span>
-          <span><span className="font-semibold text-gray-700">Released</span> {formatDate(meta.buildDate)}</span>
-          <span><span className="font-semibold text-gray-700">Build</span> {meta.commit.slice(0, 7)}</span>
-          <span><span className="font-semibold text-gray-700">Platforms</span> {meta.platforms.join(', ')}</span>
+        <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-gray-500">
+          <span className="flex items-center gap-1"><span className="font-semibold text-gray-700">v{meta.version}</span></span>
+          {meta.buildDate && <span className="flex items-center gap-1"><Calendar size={11} /> {fmt(meta.buildDate)}</span>}
+          {meta.commit    && <span className="flex items-center gap-1"><GitCommit size={11} /> <code className="font-mono">{meta.commit.slice(0, 7)}</code></span>}
+          {meta.author    && <span className="flex items-center gap-1"><User size={11} /> {meta.author}</span>}
+          {meta.branch    && <span className="flex items-center gap-1"><span className="font-mono text-[10px] bg-gray-200 rounded px-1">{meta.branch}</span></span>}
         </div>
       )}
 
       {/* No builds yet */}
-      {!ready && (
+      {!loading && !ready && (
         <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-5">
           <span className="text-xl mt-0.5">🚧</span>
           <div>
@@ -98,13 +125,13 @@ export default function DownloadApp() {
       {/* Download cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {platforms.map(p => {
-          const isRecommended = p.key === os;
+          const isRec = p.key === os;
           return (
             <div
               key={p.key}
               className={[
-                'bg-white border rounded-2xl p-5 flex flex-col gap-4 shadow-sm',
-                isRecommended ? 'border-[#005CDA] ring-2 ring-[#005CDA]/20' : 'border-gray-200',
+                'bg-white border rounded-2xl p-5 flex flex-col gap-3 shadow-sm',
+                isRec ? 'border-[#005CDA] ring-2 ring-[#005CDA]/20' : 'border-gray-200',
               ].join(' ')}
             >
               <div className="flex items-start gap-2">
@@ -112,7 +139,7 @@ export default function DownloadApp() {
                 <div>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="font-bold text-gray-900 text-sm">{p.label}</span>
-                    {isRecommended && (
+                    {isRec && (
                       <span className="text-[10px] font-bold bg-[#005CDA] text-white rounded-full px-2 py-0.5 leading-tight">
                         Recommended
                       </span>
@@ -122,15 +149,23 @@ export default function DownloadApp() {
                 </div>
               </div>
 
-              {ready && !p.disabled ? (
-                <a
-                  href={p.url}
-                  download
-                  className={`flex items-center justify-center gap-2 h-10 rounded-xl text-white font-bold text-sm transition-colors ${p.bg} ${p.hover}`}
-                >
-                  <Download size={14} />
-                  Download ({p.ext})
-                </a>
+              {ready && !p.disabled && p.url ? (
+                <>
+                  <a
+                    href={p.url}
+                    download
+                    onClick={() => trackDownload(p.key, meta?.version ?? null)}
+                    className={`flex items-center justify-center gap-2 h-10 rounded-xl text-white font-bold text-sm transition-colors ${p.bg} ${p.hover}`}
+                  >
+                    <Download size={14} />
+                    Download ({p.ext})
+                  </a>
+                  {p.checksum && (
+                    <p className="text-[10px] text-gray-400 text-center font-mono leading-tight break-all">
+                      SHA256: {p.checksum.slice(0, 16)}…
+                    </p>
+                  )}
+                </>
               ) : (
                 <button disabled className="flex items-center justify-center gap-2 h-10 rounded-xl bg-gray-100 text-gray-400 font-bold text-sm cursor-not-allowed">
                   <Download size={14} />
@@ -141,6 +176,34 @@ export default function DownloadApp() {
           );
         })}
       </div>
+
+      {/* Compatibility */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+        <h2 className="text-base font-black text-gray-900 mb-4">System Requirements</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {COMPAT.map(c => (
+            <div key={c.os} className="flex items-center gap-2 text-sm">
+              {c.supported
+                ? <CheckCircle2 size={16} className="text-green-500 flex-shrink-0" />
+                : <XCircle     size={16} className="text-gray-300 flex-shrink-0" />}
+              <span className={c.supported ? 'text-gray-800' : 'text-gray-400'}>
+                {c.os}{c.note ? <span className="ml-1 text-xs text-gray-400">({c.note})</span> : null}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Release notes */}
+      {meta?.commitMessage && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+          <h2 className="text-base font-black text-gray-900 mb-3">Release Notes — v{meta.version}</h2>
+          <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{meta.commitMessage}</p>
+          {meta.releaseNotes && meta.releaseNotes !== meta.commitMessage && (
+            <p className="mt-2 text-xs text-gray-500 whitespace-pre-wrap">{meta.releaseNotes}</p>
+          )}
+        </div>
+      )}
 
       {/* Features */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">

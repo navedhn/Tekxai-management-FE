@@ -33,11 +33,16 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
+    },
+    "publish": {
+      "provider": "generic",
+      "url": "https://api.tekxai.services/api/v1/downloads/updates"
     }
   },
   "dependencies": {
     "axios": "^1.7.2",
     "electron-store": "^8.2.0",
+    "electron-updater": "^6.3.9",
     "screenshot-desktop": "^1.15.0"
   },
   "devDependencies": {
