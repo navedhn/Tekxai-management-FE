@@ -11,15 +11,6 @@ import { ArrowLeft } from 'lucide-react';
 import Loader from '@/components/ui/Loader';
 import { useAuth } from '@/hooks/useAuth';
 
-const workingHours = [
-  { day: 'Mon', hours: '7Hr 30m', percent: 94 },
-  { day: 'Tue', hours: '5Hr 00m', percent: 62 },
-  { day: 'Wed', hours: '8Hr 00m', percent: 100 },
-  { day: 'Thu', hours: '3Hr 30m', percent: 44 },
-  { day: 'Fri', hours: '4Hr 50m', percent: 60 },
-  { day: 'Sat', hours: '0Hr 00m', percent: 0 },
-  { day: 'Sun', hours: '0Hr 00m', percent: 0 },
-];
 
 const appreciationIcons = ['👍', '🎁', '🏆', '💰', '👑', '🍸', '🎂', '⑦', '🚩', '⭐', '🍺',
   '🗑️', '🏆', '⚖️', '👑', '🎁', '🍸', '👍', '⑦', '🚩', '⭐'];
@@ -59,8 +50,8 @@ const ProfilePage: React.FC = () => {
       role: typeof targetUser.role === 'object' ? targetUser.role.name : (targetUser.roles?.name || targetUser.role || targetUser.role_name || 'Employee'),
       avatar: targetUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(firstName + '+' + lastName)}&background=005CDA&color=fff&size=128`,
       status: (targetUser.status === 'ACTIVE' || targetUser.status === 'Online') ? 'Online' : 'Offline' as const,
-      lastSeen: (targetUser as any).lastSeen || 'Recently active',
-      workingHours: (targetUser as any).workingHours || workingHours,
+      lastSeen: (targetUser as any).lastSeen || null,
+      workingHours: (targetUser as any).workingHours || null,
       totalProjects: (targetUser as any).totalProjects || 0
     };
   }, [isSelf, user, remoteMember]);
@@ -131,7 +122,7 @@ const ProfilePage: React.FC = () => {
                   <span className={cn("h-2 w-2 rounded-full inline-block", member.status === 'Online' ? "bg-green-500" : "bg-red-500")} />
                   {member.status}
                 </Badge>
-                <span className="text-xs text-gray-400 font-medium">last seen {member.lastSeen}</span>
+                {member.lastSeen && <span className="text-xs text-gray-400 font-medium">last seen {member.lastSeen}</span>}
               </div>
             </div>
 
@@ -174,22 +165,26 @@ const ProfilePage: React.FC = () => {
                   <h3 className="font-black text-gray-900 text-base">Working Hour</h3>
                   <span className="font-black text-gray-900 text-base">40 Hours</span>
                 </div>
-                <div className="flex flex-col gap-3">
-                  {member.workingHours.map((item: any) => (
-                    <div key={item.day} className="flex items-center gap-4">
-                      <span className="text-sm font-bold text-gray-500 w-8">{item.day}</span>
-                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <motion.div
-                          className="h-full bg-[#005CDA] rounded-full"
-                          initial={{ width: 0 }}
-                          animate={{ width: `${item.percent}%` }}
-                          transition={{ duration: 0.8, delay: 0.1, ease: 'easeOut' }}
-                        />
+                {member.workingHours ? (
+                  <div className="flex flex-col gap-3">
+                    {member.workingHours.map((item: any) => (
+                      <div key={item.day} className="flex items-center gap-4">
+                        <span className="text-sm font-bold text-gray-500 w-8">{item.day}</span>
+                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <motion.div
+                            className="h-full bg-[#005CDA] rounded-full"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${item.percent}%` }}
+                            transition={{ duration: 0.8, delay: 0.1, ease: 'easeOut' }}
+                          />
+                        </div>
+                        <span className="text-xs font-bold text-gray-500 w-14 text-right">{item.hours}</span>
                       </div>
-                      <span className="text-xs font-bold text-gray-500 w-14 text-right">{item.hours}</span>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400 font-medium">No working hours data available.</p>
+                )}
               </div>
             </div>
 

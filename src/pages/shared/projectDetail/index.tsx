@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -9,56 +9,10 @@ import Badge from '@/components/ui/Badge';
 import { cn } from '@/utils/cn';
 import { Button } from '@/components';
 import { useGetProjectDetails } from '@/services/projectService';
+import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { API_ENDPOINTS } from '@/services/api/endpoints';
 import Loader from '@/components/ui/Loader';
-
-const mockMilestones = [
-  {
-    id: 'm1',
-    title: 'Home Page',
-    members: ['https://i.pravatar.cc/150?u=1', 'https://i.pravatar.cc/150?u=2', 'https://i.pravatar.cc/150?u=3', 'https://i.pravatar.cc/150?u=4'],
-    hours: '20 Hours',
-    assignee: 'Abdul Rehman',
-    progress: 5,
-    progressLabel: '5Hr',
-    status: 'In Progress',
-    dueDate: 'Jan-10-2025',
-    deadline: 'Jan-12-2025',
-    expanded: true,
-    subItems: [
-      { id: 's1', title: 'Hero Section', hours: '20 Hours', assignee: 'Abdul Rehman', progress: 60, progressLabel: '2Hr', status: 'Extended', dueDate: 'Jan-10-2025', deadline: 'Jan-12-2025' },
-    ]
-  },
-  {
-    id: 'm2',
-    title: 'Dashboard Design',
-    members: ['https://i.pravatar.cc/150?u=5', 'https://i.pravatar.cc/150?u=6', 'https://i.pravatar.cc/150?u=7', 'https://i.pravatar.cc/150?u=8'],
-    hours: '20 Hours',
-    assignee: 'Abdul Rehman',
-    progress: 5,
-    progressLabel: '5Hr',
-    status: 'In Progress',
-    dueDate: 'Jan-10-2025',
-    deadline: 'Jan-12-2025',
-    expanded: false,
-    subItems: [
-      { id: 's2', title: 'Analytics Widget', hours: '10 Hours', assignee: 'Sufyan Ilyas', progress: 80, progressLabel: '4Hr', status: 'Extended', dueDate: 'Jan-11-2025', deadline: 'Jan-13-2025' },
-    ]
-  },
-  {
-    id: 'm3',
-    title: 'Web Design',
-    members: ['https://i.pravatar.cc/150?u=9', 'https://i.pravatar.cc/150?u=10', 'https://i.pravatar.cc/150?u=11', 'https://i.pravatar.cc/150?u=12'],
-    hours: '20 Hours',
-    assignee: 'Abdul Rehman',
-    progress: 5,
-    progressLabel: '5Hr',
-    status: 'In Progress',
-    dueDate: 'Jan-10-2025',
-    deadline: 'Jan-12-2025',
-    expanded: false,
-    subItems: []
-  }
-];
 
 const statusStyles: Record<string, string> = {
   'In Progress': 'bg-[#EFF8FF] text-[#175CD3] border-[#B2DDFF]',
@@ -76,10 +30,29 @@ const ProjectDetailPage: React.FC = () => {
   const initialTitle = (location.state as any)?.projectTitle || 'Dashboard Design';
 
   const { data: project, isLoading } = useGetProjectDetails(projectId);
-  const [milestones, setMilestones] = useState(mockMilestones);
+
+  const { data: milestonesData, isLoading: milestonesLoading } = useQuery({
+    queryKey: ['milestones', projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      const res = await apiRequest<any>(API_ENDPOINTS.MILESTONE.LIST(projectId));
+      return (res?.payload?.records || res?.payload || res || []) as any[];
+    },
+    enabled: !!projectId,
+  });
+
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const milestones = (milestonesData || []).map((m: any) => ({
+    ...m,
+    expanded: expandedIds.has(m.id),
+  }));
 
   const toggleMilestone = (id: string) => {
-    setMilestones(prev => prev.map(m => m.id === id ? { ...m, expanded: !m.expanded } : m));
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   };
 
   const tableHeaderClass = 'text-[12px] font-black text-gray-500 uppercase tracking-wider py-3 px-4 text-left bg-[#F8FAFF] border-b border-gray-100';
@@ -194,27 +167,37 @@ const ProjectDetailPage: React.FC = () => {
 
       {/* Milestones Table */}
       <div className="flex flex-col gap-4">
-        {milestones.map((milestone) => (
+        {milestonesLoading && (
+          <div className="bg-white rounded-2xl border border-gray-100 p-10 flex items-center justify-center">
+            <Loader size={36} />
+          </div>
+        )}
+        {!milestonesLoading && milestones.length === 0 && (
+          <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center text-gray-400 font-semibold text-sm">
+            No milestones yet for this project.
+          </div>
+        )}
+        {milestones.map((milestone) => {
+          const tasks: any[] = milestone.tasks || [];
+          const totalTasks = tasks.length;
+          const doneTasks = tasks.filter((t: any) => t.status === 'Completed' || t.completed).length;
+          const pct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+          const status = milestone.completed ? 'Completed' : (milestone.due_date && new Date(milestone.due_date) < new Date() ? 'Overdue' : 'In Progress');
+          return (
           <div key={milestone.id} className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
-            {/* Main Table Header */}
-            {/* Main Table Container */}
             <div className="overflow-x-auto custom-scrollbar">
               <table className="w-full">
                 <thead>
                   <tr>
-                    <th className={cn(tableHeaderClass, 'w-[220px]')}>Project Title</th>
-                    <th className={tableHeaderClass}>Members</th>
-                    <th className={tableHeaderClass}>Projects Hours</th>
-                    <th className={tableHeaderClass}>Assignee</th>
+                    <th className={cn(tableHeaderClass, 'w-[240px]')}>Milestone</th>
+                    <th className={tableHeaderClass}>Tasks</th>
                     <th className={tableHeaderClass}>Progress</th>
                     <th className={tableHeaderClass}>Status</th>
                     <th className={tableHeaderClass}>Due Date</th>
-                    <th className={tableHeaderClass}>Deadline</th>
                     <th className={cn(tableHeaderClass, 'w-10')}></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {/* Milestone Row */}
                   <tr className="hover:bg-gray-50/80 transition-colors border-b border-gray-50">
                     <td className={cn(tableCellClass, 'font-black')}>
                       <button
@@ -223,33 +206,31 @@ const ProjectDetailPage: React.FC = () => {
                       >
                         <ChevronDown
                           size={16}
-                          className={cn('text-gray-400 transition-transform duration-300 group-hover:text-primary-500', milestone.expanded && 'rotate-0', !milestone.expanded && '-rotate-90')}
+                          className={cn('text-gray-400 transition-transform duration-300 group-hover:text-primary-500', milestone.expanded ? 'rotate-0' : '-rotate-90')}
                         />
                         {milestone.title}
                       </button>
+                      {milestone.description && (
+                        <p className="text-xs text-gray-400 font-medium mt-0.5 pl-6">{milestone.description}</p>
+                      )}
                     </td>
-                    <td className={tableCellClass}>
-                      <div className="flex -space-x-2">
-                        {milestone.members.slice(0, 4).map((src, i) => (
-                          <img key={i} src={src} className="w-7 h-7 rounded-full border-2 border-white shadow-sm" />
-                        ))}
-                      </div>
-                    </td>
-                    <td className={tableCellClass}>{milestone.hours}</td>
-                    <td className={tableCellClass}>{milestone.assignee}</td>
+                    <td className={tableCellClass}>{doneTasks}/{totalTasks}</td>
                     <td className={tableCellClass}>
                       <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#005CDA]" />
-                        <span className="text-[#005CDA] font-bold text-xs">{milestone.progressLabel}</span>
+                        <div className="h-1.5 w-20 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-[#005CDA] rounded-full" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-[#005CDA] font-bold text-xs">{pct}%</span>
                       </div>
                     </td>
                     <td className={tableCellClass}>
-                      <Badge variant="info" className={cn('rounded-lg px-3 py-1 text-[10px] font-black border', statusStyles[milestone.status] || '')}>
-                        {milestone.status}
+                      <Badge variant="info" className={cn('rounded-lg px-3 py-1 text-[10px] font-black border', statusStyles[status] || '')}>
+                        {status}
                       </Badge>
                     </td>
-                    <td className={tableCellClass}>{milestone.dueDate}</td>
-                    <td className={tableCellClass}>{milestone.deadline}</td>
+                    <td className={tableCellClass}>
+                      {milestone.due_date ? new Date(milestone.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                    </td>
                     <td className={tableCellClass}>
                       <button className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors">
                         <MoreVertical size={16} />
@@ -260,7 +241,7 @@ const ProjectDetailPage: React.FC = () => {
               </table>
             </div>
 
-            {/* Expandable Sub-table */}
+            {/* Expandable tasks */}
             <AnimatePresence initial={false}>
               {milestone.expanded && (
                 <motion.div
@@ -270,75 +251,67 @@ const ProjectDetailPage: React.FC = () => {
                   transition={{ duration: 0.25, ease: 'easeInOut' }}
                   className="overflow-hidden"
                 >
-                  {/* Sub items indented with left blue line border */}
                   <div className="ml-0 lg:ml-8 border-l-4 border-[#005CDA]/20">
-                    <div className="overflow-x-auto custom-scrollbar">
-                      <table className="w-full">
-                        <thead>
-                          <tr>
-                            <th className={cn(tableHeaderClass, 'w-[220px]')}>Milestone 1</th>
-                            <th className={tableHeaderClass}>Projects Hours</th>
-                            <th className={tableHeaderClass}>Assignee</th>
-                            <th className={tableHeaderClass}>Progress</th>
-                            <th className={tableHeaderClass}>Status</th>
-                            <th className={tableHeaderClass}>Due Date</th>
-                            <th className={tableHeaderClass}>Deadline</th>
-                            <th className={cn(tableHeaderClass, 'w-10')}></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <AnimatePresence>
-                            {milestone.subItems.map((sub) => (
-                              <motion.tr
-                                key={sub.id}
-                                layout
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="hover:bg-blue-50/40 transition-colors border-b border-gray-50 last:border-0"
-                              >
-                                <td className={cn(tableCellClass, 'font-bold text-gray-800')}>{sub.title}</td>
-                                <td className={tableCellClass}>{sub.hours}</td>
-                                <td className={tableCellClass}>{sub.assignee}</td>
-                                <td className={tableCellClass}>
-                                  <div className="flex items-center gap-2">
-                                    <div className="h-1.5 w-16 bg-gray-100 rounded-full overflow-hidden">
-                                      <div className="h-full bg-[#005CDA] rounded-full" style={{ width: `${sub.progress}%` }} />
-                                    </div>
-                                    <span className="text-[#005CDA] font-bold text-xs">{sub.progressLabel}</span>
-                                  </div>
-                                </td>
-                                <td className={tableCellClass}>
-                                  <Badge variant="info" className={cn('rounded-lg px-3 py-1 text-[10px] font-black border', statusStyles[sub.status] || '')}>
-                                    {sub.status}
-                                  </Badge>
-                                </td>
-                                <td className={tableCellClass}>{sub.dueDate}</td>
-                                <td className={tableCellClass}>{sub.deadline}</td>
-                                <td className={tableCellClass}>
-                                  <button className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors">
-                                    <MoreVertical size={16} />
-                                  </button>
-                                </td>
-                              </motion.tr>
-                            ))}
-                          </AnimatePresence>
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Add Item Row */}
-                    <div className="px-4 py-3">
-                      <button className="flex items-center gap-2 text-[#005CDA] font-black text-[13px] hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors">
-                        <Plus size={14} strokeWidth={3} /> Add Item
-                      </button>
-                    </div>
+                    {tasks.length === 0 ? (
+                      <div className="px-6 py-4 text-sm text-gray-400 font-medium">No tasks in this milestone.</div>
+                    ) : (
+                      <div className="overflow-x-auto custom-scrollbar">
+                        <table className="w-full">
+                          <thead>
+                            <tr>
+                              <th className={cn(tableHeaderClass, 'w-[240px]')}>Task</th>
+                              <th className={tableHeaderClass}>Assignee</th>
+                              <th className={tableHeaderClass}>Status</th>
+                              <th className={tableHeaderClass}>Due Date</th>
+                              <th className={cn(tableHeaderClass, 'w-10')}></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <AnimatePresence>
+                              {tasks.map((task: any) => {
+                                const taskStatus = task.status || (task.completed ? 'Completed' : 'Pending');
+                                return (
+                                  <motion.tr
+                                    key={task.id}
+                                    layout
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="hover:bg-blue-50/40 transition-colors border-b border-gray-50 last:border-0"
+                                  >
+                                    <td className={cn(tableCellClass, 'font-bold text-gray-800 flex items-center gap-2')}>
+                                      {taskStatus === 'Completed' ? <CheckCircle2 size={14} className="text-green-500 shrink-0" /> : <Circle size={14} className="text-gray-300 shrink-0" />}
+                                      {task.title}
+                                    </td>
+                                    <td className={tableCellClass}>{task.assignee?.first_name ? `${task.assignee.first_name} ${task.assignee.last_name || ''}`.trim() : '—'}</td>
+                                    <td className={tableCellClass}>
+                                      <Badge variant="info" className={cn('rounded-lg px-3 py-1 text-[10px] font-black border', statusStyles[taskStatus] || '')}>
+                                        {taskStatus}
+                                      </Badge>
+                                    </td>
+                                    <td className={tableCellClass}>
+                                      {task.due_date ? new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
+                                    </td>
+                                    <td className={tableCellClass}>
+                                      <button className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors">
+                                        <MoreVertical size={16} />
+                                      </button>
+                                    </td>
+                                  </motion.tr>
+                                );
+                              })}
+                            </AnimatePresence>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
