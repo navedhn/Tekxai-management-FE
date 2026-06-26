@@ -261,5 +261,7 @@ config.bat
 temp_auto_push.bat
 temp_interactive_push.bat
 .gitignore
-.github
 branch_structure.json
+desktop-app/node_modules/
+desktop-app/dist/
+desktop-app/out/
