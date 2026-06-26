@@ -181,26 +181,29 @@ jobs:
           BRANCH="${{ github.ref_name }}"
           AUTHOR="${{ github.actor }}"
           COMMIT_MSG=$(git log -1 --pretty=%s)
+          SHORT="${COMMIT:0:7}"
 
-          node -e "
-            const fs = require('fs');
-            const data = {
-              version:               process.env.VERSION,
-              buildDate:             process.env.BUILD_DATE,
-              commit:                process.env.COMMIT,
-              branch:                process.env.BRANCH,
-              author:                process.env.AUTHOR,
-              commitMessage:         process.env.COMMIT_MSG,
-              releaseNotes:          'Version ' + process.env.VERSION + '\nCommit: ' + process.env.COMMIT.slice(0,7) + '\nBranch: ' + process.env.BRANCH + '\nAuthor: ' + process.env.AUTHOR + '\nDate: ' + process.env.BUILD_DATE + '\n\n' + process.env.COMMIT_MSG,
-              platforms:             ['windows','mac'],
-              minimumBackendVersion: '1.0.0',
-              checksums: { mac: process.env.HASH_MAC, windows: process.env.HASH_WIN }
-            };
-            fs.writeFileSync('dist/metadata.json', JSON.stringify(data, null, 2));
-            console.log('metadata.json written OK');
-          " VERSION="$VERSION" BUILD_DATE="$BUILD_DATE" COMMIT="$COMMIT" \
-            BRANCH="$BRANCH" AUTHOR="$AUTHOR" COMMIT_MSG="$COMMIT_MSG" \
-            HASH_MAC="$HASH_MAC" HASH_WIN="$HASH_WIN"
+          jq -n \
+            --arg version    "$VERSION" \
+            --arg buildDate  "$BUILD_DATE" \
+            --arg commit     "$COMMIT" \
+            --arg branch     "$BRANCH" \
+            --arg author     "$AUTHOR" \
+            --arg msg        "$COMMIT_MSG" \
+            --arg hashMac    "$HASH_MAC" \
+            --arg hashWin    "$HASH_WIN" \
+            '{
+              version:               $version,
+              buildDate:             $buildDate,
+              commit:                $commit,
+              branch:                $branch,
+              author:                $author,
+              commitMessage:         $msg,
+              releaseNotes:          ("Version \($version)\nCommit: \($commit[:7])\nBranch: \($branch)\nAuthor: \($author)\nDate: \($buildDate)\n\n\($msg)"),
+              platforms:             ["windows","mac"],
+              minimumBackendVersion: "1.0.0",
+              checksums:             { mac: $hashMac, windows: $hashWin }
+            }' > dist/metadata.json
 
           echo "--- metadata.json ---"
           cat dist/metadata.json
