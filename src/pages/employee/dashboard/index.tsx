@@ -32,7 +32,7 @@ const EmployeeDashboard: React.FC = () => {
         handleBreak,
         handleResume,
         handleCheckOut,
-    } = useTimeTracker(10);
+    } = useTimeTracker();
 
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
