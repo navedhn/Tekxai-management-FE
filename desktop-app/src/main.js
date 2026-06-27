@@ -132,7 +132,11 @@ ipcMain.handle('del-store', (_, key) => store.delete(key));
 ipcMain.handle('login', async (_, { email, password }) => {
   const axios = require('axios');
   const res = await axios.post(`${API_BASE}/auth/login`, { email, password });
-  const { access_token, user } = res.data.payload;
+  if (!res.data?.success || (!res.data?.payload && !res.data?.data)) {
+    throw new Error(res.data?.message || 'Login failed');
+  }
+  const payload = res.data.payload || res.data.data;
+  const { access_token, user } = payload;
   store.set('auth_token', access_token);
   store.set('user', user);
   updateTrayMenu();
