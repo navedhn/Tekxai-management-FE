@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Monitor, Download, Clock, Camera, Shield, Bell, CheckCircle2, XCircle, GitCommit, Calendar, User } from 'lucide-react';
 import { DOWNLOADS_ENDPOINTS } from '@/services/api/endpoints';
+import { BASE_URL } from '@/lib/queryClient';
 
 type Platform = 'windows' | 'mac' | 'linux' | 'unknown';
 
@@ -43,7 +44,7 @@ function fmt(iso: string | null) {
 }
 
 function trackDownload(platform: string, version: string | null) {
-  fetch(DOWNLOADS_ENDPOINTS.TRACK, {
+  fetch(`${BASE_URL}${DOWNLOADS_ENDPOINTS.TRACK}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ platform, version }),
@@ -65,7 +66,7 @@ export default function DownloadApp() {
 
   useEffect(() => {
     setOs(detectOS());
-    fetch(DOWNLOADS_ENDPOINTS.LATEST)
+    fetch(`${BASE_URL}${DOWNLOADS_ENDPOINTS.LATEST}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.payload?.version) setMeta(d.payload); })
       .catch(() => {})
