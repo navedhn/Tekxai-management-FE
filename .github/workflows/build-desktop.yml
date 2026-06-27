@@ -211,43 +211,29 @@ jobs:
           echo "--- metadata.json ---"
           cat dist/metadata.json
 
-      - name: Ensure target directory exists on server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: mkdir -p /home/ubuntu/downloads/latest /home/ubuntu/downloads/releases
+      - name: Upload all files via SCP
+        env:
+          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USER }}
+        run: |
+          echo "$SSH_KEY" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          SSH_OPTS="-i /tmp/deploy_key -o StrictHostKeyChecking=no -o BatchMode=yes"
 
-      - name: Upload macOS DMG
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          source: dist/TekXAI-Agent.dmg
-          target: /home/ubuntu/downloads/latest/
-          strip_components: 1
+          # Ensure target directory exists
+          ssh $SSH_OPTS $USER@$HOST "mkdir -p /home/ubuntu/downloads/latest /home/ubuntu/downloads/releases"
 
-      - name: Upload Windows EXE
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          source: dist/TekXAI-Agent-Setup.exe
-          target: /home/ubuntu/downloads/latest/
-          strip_components: 1
+          # Upload each file individually with progress
+          for f in dist/TekXAI-Agent.dmg dist/TekXAI-Agent-Setup.exe \
+                    dist/TekXAI-Agent.dmg.sha256 dist/TekXAI-Agent-Setup.exe.sha256 \
+                    dist/metadata.json; do
+            echo "Uploading $f..."
+            scp $SSH_OPTS "$f" $USER@$HOST:/home/ubuntu/downloads/latest/
+            echo "✅ $(basename $f) uploaded"
+          done
 
-      - name: Upload checksums and metadata
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          source: "dist/TekXAI-Agent.dmg.sha256,dist/TekXAI-Agent-Setup.exe.sha256,dist/metadata.json"
-          target: /home/ubuntu/downloads/latest/
-          strip_components: 1
+          rm /tmp/deploy_key
 
       - name: Verify uploaded files on server
         uses: appleboy/ssh-action@v1.0.3
