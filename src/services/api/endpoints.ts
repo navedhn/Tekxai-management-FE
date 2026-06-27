@@ -302,7 +302,7 @@ export const API_ENDPOINTS = {
 export const NEW_ENDPOINTS = API_ENDPOINTS;
 
 export const DOWNLOADS_ENDPOINTS = {
-  LATEST: `/${v1}/downloads/latest`,
-  TRACK:  `/${v1}/downloads/track`,
-  STATS:  `/${v1}/downloads/stats`,
+  LATEST: `${v1}/downloads/latest`,
+  TRACK:  `${v1}/downloads/track`,
+  STATS:  `${v1}/downloads/stats`,
 } as const;
