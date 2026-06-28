@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, powerMonitor } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const Store = require('electron-store');
@@ -12,6 +12,17 @@ let mainWindow = null;
 let tray = null;
 let screenshotTimer = null;
 let sessionId = null;
+
+// ── Activity tracking state ───────────────────────────────────────────────────
+let activityToken = null;
+let activityTimer = null;   // 60s productivity flush
+let appTrackTimer = null;   // 30s app+URL tracking
+let activityPollTimer = null; // 5s idle poll
+
+let mouseEvents = 0;
+let keyboardEvents = 0;
+let lastIdleTime = 0;
+const ACTIVITY_IDLE_THRESHOLD = 5; // seconds idle to count as inactive
 
 // ── App ready ─────────────────────────────────────────────────────────────────
 
@@ -182,6 +193,7 @@ ipcMain.handle('clock-in', async () => {
   store.set('clocked_in', true);
   updateTrayMenu();
   startScreenshots(token);
+  startActivityTracking(token);
   return res.data.payload;
 });
 
@@ -190,6 +202,7 @@ ipcMain.handle('clock-out', async () => {
   const axios = require('axios');
 
   stopScreenshots();
+  stopActivityTracking();
 
   const res = await axios.post(`${API_BASE}/timesheet/clock-out`, { note: '' }, {
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -224,6 +237,7 @@ function startScreenshots(token) {
 
 function stopScreenshots() {
   if (screenshotTimer) { clearInterval(screenshotTimer); screenshotTimer = null; }
+  stopActivityTracking();
 }
 
 async function takeScreenshot(token) {
@@ -268,4 +282,148 @@ async function takeScreenshot(token) {
   } catch (err) {
     console.error('[screenshot]', err.message);
   }
+}
+
+// ── Activity tracking ─────────────────────────────────────────────────────────
+
+function startActivityTracking(token) {
+  stopActivityTracking();
+  activityToken = token;
+  mouseEvents = 0;
+  keyboardEvents = 0;
+  lastIdleTime = 0;
+
+  // Poll idle time every 5 seconds to infer mouse/keyboard activity
+  activityPollTimer = setInterval(() => {
+    try {
+      const idleNow = powerMonitor.getSystemIdleTime(); // seconds
+      if (idleNow < ACTIVITY_IDLE_THRESHOLD && lastIdleTime >= ACTIVITY_IDLE_THRESHOLD) {
+        // User just became active after being idle — count as mouse/keyboard event
+        mouseEvents += 1;
+        keyboardEvents += 1;
+      } else if (idleNow < lastIdleTime) {
+        // Idle counter reset means activity happened
+        mouseEvents += 1;
+      }
+      lastIdleTime = idleNow;
+    } catch (_) {}
+  }, 5000);
+
+  // Every 60 seconds, flush productivity stats
+  activityTimer = setInterval(async () => {
+    await flushProductivity();
+  }, 60 * 1000);
+
+  // Every 30 seconds, track active app + URL
+  appTrackTimer = setInterval(async () => {
+    await trackAppAndUrl();
+  }, 30 * 1000);
+}
+
+function stopActivityTracking() {
+  if (activityPollTimer) { clearInterval(activityPollTimer); activityPollTimer = null; }
+  if (activityTimer) { clearInterval(activityTimer); activityTimer = null; }
+  if (appTrackTimer) { clearInterval(appTrackTimer); appTrackTimer = null; }
+  activityToken = null;
+}
+
+async function flushProductivity() {
+  if (!activityToken || !sessionId) return;
+  const axios = require('axios');
+  const idleTime = powerMonitor.getSystemIdleTime();
+  const isIdle = idleTime >= ACTIVITY_IDLE_THRESHOLD;
+  const active_seconds = isIdle ? 0 : 60;
+  const idle_seconds = isIdle ? 60 : 0;
+  const snap = { mouse: mouseEvents, keyboard: keyboardEvents };
+  mouseEvents = 0;
+  keyboardEvents = 0;
+
+  try {
+    await axios.post(`${API_BASE}/monitoring/productivity`, {
+      date: new Date().toISOString().slice(0, 10),
+      active_seconds,
+      idle_seconds,
+      mouse_events: snap.mouse,
+      keyboard_events: snap.keyboard,
+    }, { headers: { Authorization: `Bearer ${activityToken}` } });
+  } catch (_) {}
+}
+
+function getActiveAppName() {
+  const { execSync } = require('child_process');
+  try {
+    if (process.platform === 'darwin') {
+      return execSync(
+        `osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true'`,
+        { timeout: 3000 }
+      ).toString().trim();
+    } else if (process.platform === 'win32') {
+      return execSync(
+        `powershell -command "Get-Process | Where-Object {$_.MainWindowHandle -ne 0 -and $_.Responding} | Sort-Object CPU -Descending | Select-Object -First 1 -ExpandProperty ProcessName"`,
+        { timeout: 3000 }
+      ).toString().trim();
+    }
+  } catch (_) {}
+  return null;
+}
+
+function getActiveBrowserUrl() {
+  const { execSync } = require('child_process');
+  if (process.platform === 'darwin') {
+    // Try Chrome
+    try {
+      const url = execSync(
+        `osascript -e 'tell application "Google Chrome" to get URL of active tab of front window'`,
+        { timeout: 3000 }
+      ).toString().trim();
+      if (url && url.startsWith('http')) return url;
+    } catch (_) {}
+    // Try Safari
+    try {
+      const url = execSync(
+        `osascript -e 'tell application "Safari" to get URL of current tab of front window'`,
+        { timeout: 3000 }
+      ).toString().trim();
+      if (url && url.startsWith('http')) return url;
+    } catch (_) {}
+    // Try Firefox (via UI automation — best effort)
+    try {
+      const url = execSync(
+        `osascript -e 'tell application "Firefox" to get URL of active tab of front window'`,
+        { timeout: 3000 }
+      ).toString().trim();
+      if (url && url.startsWith('http')) return url;
+    } catch (_) {}
+  } else if (process.platform === 'win32') {
+    try {
+      // Best-effort PowerShell UI Automation to read Chrome address bar
+      const url = execSync(
+        `powershell -command "Add-Type -AssemblyName UIAutomationClient; $root=[Windows.Automation.AutomationElement]::RootElement; $chrome=$root.FindFirst([Windows.Automation.TreeScope]::Children,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,'Google Chrome')); if($chrome){$bar=$chrome.FindFirst([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Edit)); if($bar){$val=[Windows.Automation.ValuePattern]$bar.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern); $val.Current.Value}}"`,
+        { timeout: 5000 }
+      ).toString().trim();
+      if (url && url.startsWith('http')) return url;
+    } catch (_) {}
+  }
+  return null;
+}
+
+async function trackAppAndUrl() {
+  if (!activityToken || !sessionId) return;
+  const axios = require('axios');
+
+  const app_name = getActiveAppName();
+  if (!app_name) return;
+
+  const url = getActiveBrowserUrl();
+
+  try {
+    await axios.post(`${API_BASE}/monitoring/app-usage`, {
+      session_id: sessionId,
+      app_name,
+      window_title: '',
+      url: url || null,
+      duration_seconds: 30,
+      captured_at: new Date().toISOString(),
+    }, { headers: { Authorization: `Bearer ${activityToken}` } });
+  } catch (_) {}
 }
