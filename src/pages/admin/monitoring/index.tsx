@@ -4,10 +4,10 @@ import Table, { Column } from '@/components/ui/Table';
 import Tabs from '@/components/ui/Tabs';
 import Select from '@/components/ui/Select';
 import Badge from '@/components/ui/Badge';
-import { Monitor, Activity, Camera, Clock } from 'lucide-react';
+import { Monitor, Activity, Camera, Clock, Cpu } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useFetchUsersQuery } from '@/services/userService';
-import { useGetScreenshots, useGetProductivity, type Screenshot, type ProductivitySession } from '@/services/monitoringService';
+import { useGetScreenshots, useGetProductivity, useGetAppUsage, type Screenshot, type ProductivitySession } from '@/services/monitoringService';
 import { StatSkeleton } from '@/components/skeletons';
 
 const TABS = ['Productivity Overview', 'Screenshot History'];
@@ -16,6 +16,41 @@ function fmtDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   return `${h}h ${m}m`;
+}
+
+function fmtMinutes(seconds: number): string {
+  const m = Math.round(seconds / 60);
+  return `${m}m`;
+}
+
+/** Circular SVG progress ring */
+const ProgressRing: React.FC<{ pct: number; size?: number; stroke?: number }> = ({ pct, size = 88, stroke = 8 }) => {
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (pct / 100) * circ;
+  const color = pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="rotate-[-90deg]">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#f1f5f9" strokeWidth={stroke} />
+      <circle
+        cx={size / 2} cy={size / 2} r={r} fill="none"
+        stroke={color} strokeWidth={stroke}
+        strokeDasharray={circ} strokeDashoffset={offset}
+        strokeLinecap="round" style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+      />
+    </svg>
+  );
+};
+
+/** Aggregated stats from productivity records */
+function aggregateProductivity(records: any[]) {
+  if (!records.length) return null;
+  const total_active = records.reduce((s, r) => s + r.active_seconds, 0);
+  const total_idle   = records.reduce((s, r) => s + r.idle_seconds, 0);
+  const total_mouse  = records.reduce((s, r) => s + r.mouse_events, 0);
+  const total_kb     = records.reduce((s, r) => s + r.keyboard_events, 0);
+  const avg_score    = records.reduce((s, r) => s + r.productivity_score, 0) / records.length;
+  return { total_active, total_idle, total_mouse, total_kb, avg_score };
 }
 
 const MonitoringPage: React.FC = () => {
@@ -30,10 +65,10 @@ const MonitoringPage: React.FC = () => {
   if (selectedUser) prodParams.user_id = selectedUser;
   if (dateFrom) prodParams.from = dateFrom;
   if (dateTo) prodParams.to = dateTo;
+  const hasParams = Object.keys(prodParams).length > 0;
 
-  const { data: productivity = [], isLoading: pLoading } = useGetProductivity(
-    Object.keys(prodParams).length ? prodParams : undefined
-  );
+  const { data: productivity = [], isLoading: pLoading } = useGetProductivity(hasParams ? prodParams : undefined);
+  const { data: appUsage = [], isLoading: appLoading } = useGetAppUsage(hasParams ? prodParams : undefined);
 
   const ssParams: Record<string, string> = {};
   if (selectedUser) ssParams.user_id = selectedUser;
@@ -49,6 +84,9 @@ const MonitoringPage: React.FC = () => {
     { value: '', label: 'All Employees' },
     ...(users as any[]).map((u: any) => ({ value: u.id, label: `${u.first_name} ${u.last_name}` })),
   ];
+
+  const agg = aggregateProductivity(productivity as any[]);
+  const totalAppSecs = appUsage.reduce((s, a) => s + a.duration_seconds, 0);
 
   const prodCols: Column<any>[] = [
     {
@@ -174,14 +212,103 @@ const MonitoringPage: React.FC = () => {
       <Tabs options={TABS} value={activeTab} onChange={setActiveTab} />
 
       {activeTab === 'Productivity Overview' && (
-        <Card className="border-none shadow-sm">
-          <Table
-            columns={prodCols}
-            data={productivity as any[]}
-            isLoading={pLoading}
-            emptyMessage="No productivity data. Desktop agent must be running."
-          />
-        </Card>
+        <div className="flex flex-col gap-6">
+          {/* Activity % + App Usage panels */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Activity % Panel */}
+            <Card className="border-none shadow-sm p-6">
+              <div className="flex items-center gap-2 mb-5">
+                <Activity size={18} className="text-primary-500" />
+                <h3 className="text-base font-black text-gray-900">Productivity Score</h3>
+              </div>
+              {pLoading ? (
+                <div className="flex items-center justify-center h-40"><StatSkeleton /></div>
+              ) : agg ? (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="relative flex items-center justify-center">
+                    <ProgressRing pct={Math.round(agg.avg_score)} size={100} stroke={10} />
+                    <div className="absolute flex flex-col items-center">
+                      <span className="text-2xl font-black text-gray-900">{Math.round(agg.avg_score)}%</span>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Score</span>
+                    </div>
+                  </div>
+                  <div className="w-full grid grid-cols-2 gap-3 mt-2">
+                    <div className="bg-green-50 rounded-xl p-3">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-green-600 mb-0.5">Active Time</p>
+                      <p className="text-lg font-black text-gray-900">{fmtDuration(agg.total_active)}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-0.5">Idle Time</p>
+                      <p className="text-lg font-black text-gray-900">{fmtDuration(agg.total_idle)}</p>
+                    </div>
+                    <div className="bg-blue-50 rounded-xl p-3">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-0.5">Mouse Events</p>
+                      <p className="text-lg font-black text-gray-900">{agg.total_mouse.toLocaleString()}</p>
+                    </div>
+                    <div className="bg-purple-50 rounded-xl p-3">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-purple-500 mb-0.5">Keyboard Events</p>
+                      <p className="text-lg font-black text-gray-900">{agg.total_kb.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400 font-medium text-center py-10">No productivity data available.</p>
+              )}
+            </Card>
+
+            {/* App Usage Panel */}
+            <Card className="border-none shadow-sm p-6">
+              <div className="flex items-center gap-2 mb-5">
+                <Cpu size={18} className="text-primary-500" />
+                <h3 className="text-base font-black text-gray-900">App Usage</h3>
+              </div>
+              {appLoading ? (
+                <div className="flex items-center justify-center h-40"><StatSkeleton /></div>
+              ) : appUsage.length > 0 ? (
+                <div className="flex flex-col gap-3">
+                  {appUsage.slice(0, 8).map((app) => {
+                    const pct = totalAppSecs > 0 ? Math.round((app.duration_seconds / totalAppSecs) * 100) : (app.percentage ?? 0);
+                    return (
+                      <div key={app.app_name} className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-md bg-gray-100 flex items-center justify-center text-gray-400 text-[10px] font-black shrink-0">
+                              {app.app_name.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="text-sm font-bold text-gray-800 truncate max-w-[140px]">{app.app_name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-xs font-bold text-gray-500">{fmtMinutes(app.duration_seconds)}</span>
+                            <span className="text-xs font-black text-gray-400 w-8 text-right">{pct}%</span>
+                          </div>
+                        </div>
+                        {/* CSS-only horizontal bar */}
+                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-primary-500 rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400 font-medium text-center py-10">No app usage data available.</p>
+              )}
+            </Card>
+          </div>
+
+          {/* Detailed table */}
+          <Card className="border-none shadow-sm">
+            <Table
+              columns={prodCols}
+              data={productivity as any[]}
+              isLoading={pLoading}
+              emptyMessage="No productivity data. Desktop agent must be running."
+            />
+          </Card>
+        </div>
       )}
 
       {activeTab === 'Screenshot History' && (

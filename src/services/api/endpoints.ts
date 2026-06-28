@@ -281,6 +281,19 @@ export const API_ENDPOINTS = {
     REPORTS:       `${v1}/reporting`,
     REPORT:        (id: string) => `${v1}/reporting/${id}`,
   },
+  MONITORING: {
+    SCREENSHOTS:  `${v1}/monitoring/screenshots`,
+    PRODUCTIVITY: `${v1}/monitoring/productivity`,
+    APP_USAGE:    `${v1}/monitoring/app-usage`,
+  },
+  PAYROLL: {
+    LIST:      `${v1}/payroll`,
+    CREATE:    `${v1}/payroll`,
+    GET:       (id: string) => `${v1}/payroll/${id}`,
+    CALCULATE: (id: string) => `${v1}/payroll/${id}/calculate`,
+    STATUS:    (id: string) => `${v1}/payroll/${id}/status`,
+    PAYSLIP:   (runId: string, entryId: string) => `${v1}/payroll/${runId}/entries/${entryId}/payslip`,
+  },
   CHAT: {
     USERS:       `${v1}/chat/users`,
     CHANNELS:    `${v1}/chat/channels`,

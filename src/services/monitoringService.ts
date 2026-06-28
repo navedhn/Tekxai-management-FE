@@ -49,6 +49,23 @@ export const useGetProductivity = (params?: Record<string, string>) =>
     staleTime: 30000,
   });
 
+export interface AppUsageEntry {
+  app_name: string;
+  duration_seconds: number;
+  percentage: number;
+}
+
+export const useGetAppUsage = (params?: Record<string, string>) =>
+  useQuery({
+    queryKey: ['app-usage', params],
+    queryFn: async () => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      const r = await apiRequest<any>(`${v1}/monitoring/app-usage${qs}`);
+      return (r?.payload?.app_summary || []) as AppUsageEntry[];
+    },
+    staleTime: 30000,
+  });
+
 export const useUpdateProductivity = () => {
   const qc = useQueryClient();
   return useMutation({
