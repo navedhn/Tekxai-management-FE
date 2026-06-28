@@ -3,18 +3,27 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import type { UserRole } from '@/constants/roles';
 import { getRoleHomePath } from '@/constants/roles';
+import { useMyPermissions } from '@/services/permissionsService';
 
-const ProtectedRoute: React.FC<{ roles?: UserRole[] }> = ({ roles }) => {
+const ProtectedRoute: React.FC<{ roles?: UserRole[]; permission?: string }> = ({ roles, permission }) => {
   const { isLoggedIn, role } = useAuth();
+  const { data: myPerms, isLoading } = useMyPermissions();
 
   if (!isLoggedIn) return <Navigate to="/login" replace />;
 
   const hasRequiredRole = !roles?.length || (role != null && roles.includes(role as UserRole));
-  if (!hasRequiredRole) {
-    return <Navigate to={getRoleHomePath(role)} replace />;
+
+  // If role check passes, allow immediately (no need to wait for permissions)
+  if (hasRequiredRole) return <Outlet />;
+
+  // If a permission override can grant access, wait for permissions to load
+  if (permission) {
+    if (isLoading) return null;
+    const hasPermission = myPerms?.is_super_admin || myPerms?.permissions?.includes(permission);
+    if (hasPermission) return <Outlet />;
   }
 
-  return <Outlet />;
+  return <Navigate to={getRoleHomePath(role)} replace />;
 };
 
 export default ProtectedRoute;

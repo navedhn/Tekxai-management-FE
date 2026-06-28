@@ -28,6 +28,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useMyPermissions } from '@/services/permissionsService';
 import { clearAuthTokens } from '@/utils/tokenMemory';
 import { forceCheckoutApi } from '@/utils/attendanceAutoCheckout';
 import { useNavigate as useNav } from 'react-router-dom';
@@ -102,11 +103,13 @@ const NavItem: React.FC<{ link: SidebarLink }> = ({ link }) => (
 const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
   const { role, userLogout } = useAuth();
   const navigate = useNavigate();
+  const { data: myPerms } = useMyPermissions();
 
   const links: SidebarLink[] = useMemo(() => {
     const isAdmin = ADMIN_ROLES.includes(role as any);
+    const hasErpAccess = isAdmin || myPerms?.permissions?.includes('erp.workspace.access');
 
-    if (!isAdmin) {
+    if (!hasErpAccess) {
       return [
         { to: '/employee',              label: 'Home',             icon: <Home size={20} />,      inactive: dashboardIconBlack, active: dashboardIconWhite, end: true },
         { to: '/employee/projects',     label: 'Projects',         icon: <FolderCheck size={20} />,inactive: projectIconBlack, active: projectIconWhite },
@@ -147,9 +150,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
         { to: '/admin/system-settings', label: 'System Settings', icon: <Settings size={20} /> },
       ] : []),
     ];
-  }, [role]);
+  }, [role, myPerms]);
 
-  const isAdmin = ADMIN_ROLES.includes(role as any);
+  const isAdmin = ADMIN_ROLES.includes(role as any) || myPerms?.permissions?.includes('erp.workspace.access');
 
   const handleLogout = async () => {
     // Auto-checkout any open attendance session before logging out

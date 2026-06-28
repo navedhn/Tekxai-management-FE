@@ -141,7 +141,7 @@ const routes: RouteObject[] = [
     element: <AdminLayout />,
     children: [
       {
-        element: <ProtectedRoute roles={adminRoles} />,
+        element: <ProtectedRoute roles={adminRoles} permission="erp.workspace.access" />,
         children: [
           { path: '/admin',                      element: <AdminDashboard /> },
           { path: '/admin/projects',             element: <AdminProjects /> },
