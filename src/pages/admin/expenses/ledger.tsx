@@ -6,7 +6,6 @@ import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
-import api from '@/services/api';
 
 const pkr = (v: number) => `PKR ${(v || 0).toLocaleString('en-PK')}`;
 const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white';
@@ -42,7 +41,7 @@ function TransactionModal({
     reader.onload = async (e) => {
       const receipt_url = e.target?.result as string;
       try {
-        await api.patch(`/expenses/${editTxn.id}/receipt`, { receipt_url });
+        await apiRequest(`/expenses/${editTxn.id}/receipt`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ receipt_url }) });
         qc.invalidateQueries({ queryKey: ['expense-ledger', userId] });
         toast.success('Receipt attached');
       } catch {
