@@ -252,6 +252,8 @@ const routes: RouteObject[] = [
           { path: '/hr/increments',               element: <IncrementsPage /> },
           { path: '/hr/notifications',            element: <SharedNotifications /> },
           { path: '/hr/profile/:memberId?',       element: <ProfilePage /> },
+          { path: '/hr/monitoring',               element: <AdminMonitoring /> },
+          { path: '/hr/download-app',             element: <DownloadApp /> },
         ],
       },
       { path: '/hr/*', element: <NotFound /> },
