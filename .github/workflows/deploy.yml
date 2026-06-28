@@ -52,9 +52,8 @@ jobs:
           sudo find "$RELEASE_DIR" -type d -exec chmod 755 {} \;
           sudo find "$RELEASE_DIR" -type f -exec chmod 644 {} \;
 
-          echo "🔄 Swapping symlink atomically to zero-downtime path..."
-          # -s (symlink), -f (force/overwrite existing link), -n (treat link as a normal file if it's a directory link)
-          sudo ln -sfn "$RELEASE_DIR" /var/www/html
+          echo "🔄 Copying build to /var/www/html..."
+          sudo cp -rf "$RELEASE_DIR"/. /var/www/html/
 
           echo "🧹 Cleaning up older releases (keeping the last 5 builds)..."
           cd /var/www/ask-charles/releases && ls -1t | tail -n +6 | xargs -I {} sudo rm -rf {}
