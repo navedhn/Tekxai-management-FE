@@ -4,7 +4,8 @@ import Button, { pageActionButtonClass } from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Tabs from '@/components/ui/Tabs';
 import Table, { Column } from '@/components/ui/Table';
-import { Search, Filter, Mail, Calendar, Info, Clock, Plus, Trash2, Edit2, ShieldCheck, Shield, X } from 'lucide-react';
+import { Search, Filter, Mail, Calendar, Info, Clock, Plus, Trash2, Edit2, ShieldCheck, Shield, X, Monitor } from 'lucide-react';
+import { useAuthStore } from '@/stores/authStore';
 import { apiRequest } from '@/lib/queryClient';
 const api = {
   get:    (url: string) => apiRequest<any>(url).then((r: any) => ({ data: { payload: r?.payload ?? r } })),
@@ -18,7 +19,6 @@ import InviteMemberModal from '@/components/ui/InviteMemberModal';
 import ActionModal from '@/components/ui/ActionModal';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
 
 // ─── 2FA helpers ─────────────────────────────────────────────────────────────
 const use2FAStatus = () =>
@@ -151,8 +151,68 @@ const TwoFactorSection: React.FC = () => {
   );
 };
 
+const MonitoringSettings: React.FC = () => {
+  const toast = useToastContext();
+  const { data, refetch } = useQuery({
+    queryKey: ['screenshot-interval'],
+    queryFn: () => apiRequest<any>('/settings/screenshot-interval').then((r: any) => r?.payload ?? r),
+  });
+  const [minutes, setMinutes] = useState<number>(5);
+
+  React.useEffect(() => {
+    if ((data as any)?.interval_minutes) setMinutes((data as any).interval_minutes);
+  }, [data]);
+
+  const save = useMutation({
+    mutationFn: () => apiRequest<any>('/settings/screenshot-interval', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ interval_minutes: minutes }),
+    }),
+    onSuccess: () => { toast.success('Screenshot interval updated'); refetch(); },
+    onError: (e: any) => toast.error(e?.message || 'Failed to update'),
+  });
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col gap-6">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+          <Monitor size={20} />
+        </div>
+        <div>
+          <h3 className="font-black text-gray-900">Screenshot Interval</h3>
+          <p className="text-sm text-gray-400 mt-0.5">Set how often the desktop agent captures screenshots during work sessions</p>
+        </div>
+      </div>
+      <div className="flex items-end gap-4">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Interval (minutes)</label>
+          <input
+            type="number"
+            min={1}
+            max={60}
+            value={minutes}
+            onChange={(e) => setMinutes(Math.max(1, Math.min(60, +e.target.value)))}
+            className="w-32 h-11 px-3 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-200"
+          />
+          <p className="text-xs text-gray-400">Between 1–60 minutes. Employees will not see this value.</p>
+        </div>
+        <button
+          onClick={() => save.mutate()}
+          disabled={save.isPending}
+          className="h-11 px-6 rounded-xl bg-[#005CDA] text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        >
+          {save.isPending ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const Setting: React.FC = () => {
     const toast = useToastContext();
+    const { role } = useAuthStore();
+    const isSuperAdmin = role === 'SUPER_ADMIN';
     const [activeTab, setActiveTab] = useState('security');
 
     const { data: calStatus, refetch: refetchCalStatus } = useQuery({
@@ -379,7 +439,8 @@ const Setting: React.FC = () => {
             <Tabs
                 options={[
                     { label: 'General & Security', value: 'security' },
-                    { label: 'Member Invites', value: 'invites' }
+                    { label: 'Member Invites', value: 'invites' },
+                    ...(isSuperAdmin ? [{ label: 'Monitoring', value: 'monitoring' }] : []),
                 ]}
                 value={activeTab}
                 onChange={setActiveTab}
@@ -492,6 +553,13 @@ const Setting: React.FC = () => {
                                 </div>
                             </Card>
                         </div>
+                    </div>
+                )}
+
+                {activeTab === 'monitoring' && isSuperAdmin && (
+                    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        <h2 className="text-2xl font-black text-gray-900 tracking-tight">Monitoring Settings</h2>
+                        <MonitoringSettings />
                     </div>
                 )}
 
