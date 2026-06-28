@@ -27,6 +27,7 @@ import {
   Receipt,
   MessageSquare,
   Banknote,
+  Webhook,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/services/permissionsService';
@@ -144,7 +145,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { section: 'Admin', to: '/admin/approvals', label: 'Approvals', icon: <ClipboardCheck size={20} /> },
       { to: '/admin/tickets',  label: 'Support Tickets', icon: <Ticket size={20} /> },
       { to: '/admin/expenses', label: 'Expenses', icon: <Receipt size={20} /> },
-      { to: '/admin/payroll',  label: 'Payroll', icon: <Banknote size={20} /> },
+      { to: '/admin/payroll',         label: 'Payroll',        icon: <Banknote size={20} /> },
+      { to: '/admin/webhooks',        label: 'Webhooks',       icon: <Webhook size={20} /> },
+      { to: '/admin/report-builder',  label: 'Report Builder', icon: <BarChart3 size={20} /> },
       // Super Admin only — permissions management + financial reporting + system settings
       ...(isSuperAdmin ? [
         { to: '/admin/permissions', label: 'Access Control', icon: <Shield size={20} /> },
