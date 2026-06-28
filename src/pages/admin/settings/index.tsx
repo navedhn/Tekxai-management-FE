@@ -5,6 +5,7 @@ import Input from '@/components/ui/Input';
 import Tabs from '@/components/ui/Tabs';
 import Table, { Column } from '@/components/ui/Table';
 import { Search, Filter, Mail, Calendar, Info, Clock, Plus, Trash2, Edit2, ShieldCheck, Shield, X } from 'lucide-react';
+import api from '@/services/api';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useGetInvitesQuery, useDeleteInviteMutation } from '@/services/inviteService';
 import { useGetMySettingsQuery, useUpdatePreferencesMutation, useChangePasswordMutation } from '@/services/settingsService';
@@ -148,6 +149,46 @@ const TwoFactorSection: React.FC = () => {
 const Setting: React.FC = () => {
     const toast = useToastContext();
     const [activeTab, setActiveTab] = useState('security');
+
+    const { data: calStatus, refetch: refetchCalStatus } = useQuery({
+      queryKey: ['calendar-status'],
+      queryFn: () => api.get('/calendar/status').then(r => r.data.payload),
+    });
+    const connectCalendar = useMutation({
+      mutationFn: (code: string) => api.post('/calendar/connect', { code }),
+      onSuccess: () => refetchCalStatus(),
+    });
+    const disconnectCalendar = useMutation({
+      mutationFn: () => api.delete('/calendar/disconnect'),
+      onSuccess: () => refetchCalStatus(),
+    });
+
+    const handleGoogleCalendar = () => {
+      if (!(window as any).google) return;
+      const client = (window as any).google.accounts.oauth2.initCodeClient({
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
+        scope: 'https://www.googleapis.com/auth/calendar.events',
+        callback: (response: any) => {
+          if (response.code) connectCalendar.mutate(response.code);
+        },
+      });
+      client.requestCode();
+    };
+
+    const syncDeadlines = async () => {
+      const { data } = await api.get('/calendar/token');
+      const token = data.payload.access_token;
+      const projects = await api.get('/projects').then(r => r.data.payload?.projects || []);
+      for (const p of projects) {
+        if (!p.deadline) continue;
+        await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ summary: `Deadline: ${p.title}`, start: { date: p.deadline.split('T')[0] }, end: { date: p.deadline.split('T')[0] } }),
+        });
+      }
+      alert('Project deadlines synced to Google Calendar!');
+    };
     const [notifications, setNotifications] = useState(true);
     const [oldPassword, setOldPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -347,6 +388,32 @@ const Setting: React.FC = () => {
                         <div className="flex flex-col gap-4">
                             <h2 className="text-2xl font-black text-gray-900 tracking-tight">Security</h2>
                             <TwoFactorSection />
+                        </div>
+
+                        {/* Google Calendar Integration */}
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <div>
+                              <h3 className="font-black text-gray-900">Google Calendar</h3>
+                              <p className="text-sm text-gray-400 mt-0.5">Sync project deadlines to your Google Calendar</p>
+                            </div>
+                            {(calStatus as any)?.connected ? (
+                              <span className="text-xs font-bold bg-green-100 text-green-700 px-3 py-1 rounded-full">Connected</span>
+                            ) : (
+                              <span className="text-xs font-bold bg-gray-100 text-gray-500 px-3 py-1 rounded-full">Not connected</span>
+                            )}
+                          </div>
+                          {(calStatus as any)?.connected ? (
+                            <div className="flex gap-3">
+                              <button onClick={syncDeadlines} className="px-4 py-2 rounded-xl bg-blue-50 text-blue-700 text-sm font-bold hover:bg-blue-100">Sync Deadlines Now</button>
+                              <button onClick={() => disconnectCalendar.mutate()} className="px-4 py-2 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50">Disconnect</button>
+                            </div>
+                          ) : (
+                            <button onClick={handleGoogleCalendar} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-gray-700 text-sm font-bold hover:bg-gray-50">
+                              <svg width="16" height="16" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/><path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.348 2.825.957 4.039l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/></svg>
+                              Connect Google Calendar
+                            </button>
+                          )}
                         </div>
 
                         {/* Notifications Setting */}

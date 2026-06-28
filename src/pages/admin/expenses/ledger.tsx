@@ -6,6 +6,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import api from '@/services/api';
 
 const pkr = (v: number) => `PKR ${(v || 0).toLocaleString('en-PK')}`;
 const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white';
@@ -32,6 +33,26 @@ function TransactionModal({
     editTxn ? (editTxn.ce_amount === editTxn.total_amount ? 'ce' : editTxn.tekxai_amount === editTxn.total_amount ? 'tekxai' : 'split') : 'split'
   );
   const [err, setErr] = useState('');
+  const [receiptUploading, setReceiptUploading] = useState(false);
+
+  const handleReceiptUpload = async (file: File) => {
+    if (!editTxn?.id) return;
+    setReceiptUploading(true);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const receipt_url = e.target?.result as string;
+      try {
+        await api.patch(`/expenses/${editTxn.id}/receipt`, { receipt_url });
+        qc.invalidateQueries({ queryKey: ['expense-ledger', userId] });
+        toast.success('Receipt attached');
+      } catch {
+        toast.error('Failed to attach receipt');
+      } finally {
+        setReceiptUploading(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const { data: categories } = useQuery({
     queryKey: ['expense-categories'],
@@ -172,6 +193,28 @@ function TransactionModal({
             <label className="text-xs font-semibold text-gray-500 block mb-1.5">Notes</label>
             <textarea rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none" value={form.notes} onChange={e => set('notes', e.target.value)} />
           </div>
+          {isEdit && (
+            <div>
+              <p className="text-xs font-semibold text-gray-500 mb-1.5">Receipt</p>
+              {editTxn?.receipt_url ? (
+                <div className="flex items-center gap-2">
+                  {editTxn.receipt_url.startsWith('data:image') ? (
+                    <img src={editTxn.receipt_url} alt="Receipt" className="h-16 rounded-lg border border-gray-200 object-cover" />
+                  ) : (
+                    <a href={editTxn.receipt_url} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline">View Receipt</a>
+                  )}
+                </div>
+              ) : (
+                <label className="cursor-pointer">
+                  <span className={cn('text-sm px-3 py-1.5 rounded-lg border border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors inline-block', receiptUploading && 'opacity-50 pointer-events-none')}>
+                    {receiptUploading ? 'Uploading…' : '+ Attach Receipt'}
+                  </span>
+                  <input type="file" accept="image/*,application/pdf" className="hidden"
+                    onChange={(e) => e.target.files?.[0] && handleReceiptUpload(e.target.files[0])} />
+                </label>
+              )}
+            </div>
+          )}
         </div>
 
         {err && <p className="text-red-500 text-xs mt-3 font-medium">{err}</p>}
