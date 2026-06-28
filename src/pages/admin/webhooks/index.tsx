@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '@/services/api';
+import { apiRequest } from '@/lib/queryClient';
+const api = {
+  get:    (url: string) => apiRequest<any>(url).then((r: any) => ({ data: { payload: r?.payload ?? r } })),
+  post:   (url: string, body?: any) => apiRequest<any>(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+  patch:  (url: string, body?: any) => apiRequest<any>(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+  delete: (url: string) => apiRequest<any>(url, { method: 'DELETE' }),
+};
 import { Webhook, Plus, Trash2, TestTube, CheckCircle, XCircle } from 'lucide-react';
 
 const VALID_EVENTS = [

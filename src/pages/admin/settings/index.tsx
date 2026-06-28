@@ -5,7 +5,12 @@ import Input from '@/components/ui/Input';
 import Tabs from '@/components/ui/Tabs';
 import Table, { Column } from '@/components/ui/Table';
 import { Search, Filter, Mail, Calendar, Info, Clock, Plus, Trash2, Edit2, ShieldCheck, Shield, X } from 'lucide-react';
-import api from '@/services/api';
+import { apiRequest } from '@/lib/queryClient';
+const api = {
+  get:    (url: string) => apiRequest<any>(url).then((r: any) => ({ data: { payload: r?.payload ?? r } })),
+  post:   (url: string, body?: any) => apiRequest<any>(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+  delete: (url: string) => apiRequest<any>(url, { method: 'DELETE' }),
+};
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useGetInvitesQuery, useDeleteInviteMutation } from '@/services/inviteService';
 import { useGetMySettingsQuery, useUpdatePreferencesMutation, useChangePasswordMutation } from '@/services/settingsService';
