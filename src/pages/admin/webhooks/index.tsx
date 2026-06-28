@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
-const api = {
-  get:    (url: string) => apiRequest<any>(url).then((r: any) => ({ data: { payload: r?.payload ?? r } })),
-  post:   (url: string, body?: any) => apiRequest<any>(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
-  patch:  (url: string, body?: any) => apiRequest<any>(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
-  delete: (url: string) => apiRequest<any>(url, { method: 'DELETE' }),
-};
 import { Webhook, Plus, Trash2, TestTube, CheckCircle, XCircle } from 'lucide-react';
+
+const get    = (url: string) => apiRequest<any>(url).then((r: any) => r?.payload ?? r);
+const post   = (url: string, body?: any) => apiRequest<any>(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+const patch  = (url: string, body?: any) => apiRequest<any>(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+const del    = (url: string) => apiRequest<any>(url, { method: 'DELETE' });
 
 const VALID_EVENTS = [
   'task.created','task.updated','task.completed',
@@ -25,28 +24,36 @@ export default function WebhooksPage() {
   const [form, setForm] = useState({ ...DEFAULT_FORM });
   const [deliveryHookId, setDeliveryHookId] = useState<string | null>(null);
 
-  const { data } = useQuery(['webhooks'], () =>
-    api.get('/webhooks').then(r => r.data.payload)
-  );
-  const hooks: any[] = data?.hooks || [];
+  const { data } = useQuery({ queryKey: ['webhooks'], queryFn: () => get('/webhooks') });
+  const hooks: any[] = (data as any)?.hooks || [];
 
-  const { data: deliveries } = useQuery(
-    ['webhook-deliveries', deliveryHookId],
-    () => api.get(`/webhooks/${deliveryHookId}/deliveries`).then(r => r.data.payload),
-    { enabled: !!deliveryHookId }
-  );
+  const { data: deliveries } = useQuery({
+    queryKey: ['webhook-deliveries', deliveryHookId],
+    queryFn: () => get(`/webhooks/${deliveryHookId}/deliveries`),
+    enabled: !!deliveryHookId,
+  });
 
-  const create = useMutation((body: any) => api.post('/webhooks', body), { onSuccess: () => { qc.invalidateQueries(['webhooks']); setShowModal(false); setForm({ ...DEFAULT_FORM }); } });
-  const update = useMutation(({ id, ...body }: any) => api.patch(`/webhooks/${id}`, body), { onSuccess: () => { qc.invalidateQueries(['webhooks']); setShowModal(false); setEditHook(null); } });
-  const remove = useMutation((id: string) => api.delete(`/webhooks/${id}`), { onSuccess: () => qc.invalidateQueries(['webhooks']) });
-  const test   = useMutation((id: string) => api.post(`/webhooks/${id}/test`, {}));
-  const toggleActive = useMutation(({ id, active }: any) => api.patch(`/webhooks/${id}`, { active }), { onSuccess: () => qc.invalidateQueries(['webhooks']) });
+  const create = useMutation({
+    mutationFn: (body: any) => post('/webhooks', body),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['webhooks'] }); setShowModal(false); setForm({ ...DEFAULT_FORM }); },
+  });
+  const update = useMutation({
+    mutationFn: ({ id, ...body }: any) => patch(`/webhooks/${id}`, body),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['webhooks'] }); setShowModal(false); setEditHook(null); },
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => del(`/webhooks/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['webhooks'] }),
+  });
+  const testHook = useMutation({ mutationFn: (id: string) => post(`/webhooks/${id}/test`, {}) });
+  const toggleActive = useMutation({
+    mutationFn: ({ id, active }: any) => patch(`/webhooks/${id}`, { active }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['webhooks'] }),
+  });
 
   const openCreate = () => { setEditHook(null); setForm({ ...DEFAULT_FORM }); setShowModal(true); };
   const openEdit = (h: any) => { setEditHook(h); setForm({ name: h.name, url: h.url, secret: '', events: h.events, active: h.active }); setShowModal(true); };
-
   const toggleEvent = (e: string) => setForm(f => ({ ...f, events: f.events.includes(e) ? f.events.filter(x => x !== e) : [...f.events, e] }));
-
   const submit = () => {
     const body = { ...form, secret: form.secret || undefined };
     if (editHook) update.mutate({ id: editHook.id, ...body });
@@ -97,7 +104,7 @@ export default function WebhooksPage() {
                   <button onClick={() => setDeliveryHookId(deliveryHookId === h.id ? null : h.id)} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
                     Logs ({h._count?.deliveries ?? 0})
                   </button>
-                  <button onClick={() => test.mutate(h.id)} className="p-2 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50" title="Send test"><TestTube size={16} /></button>
+                  <button onClick={() => testHook.mutate(h.id)} className="p-2 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50" title="Send test"><TestTube size={16} /></button>
                   <button onClick={() => openEdit(h)} className="p-2 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100">Edit</button>
                   <button onClick={() => remove.mutate(h.id)} className="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50"><Trash2 size={16} /></button>
                 </div>

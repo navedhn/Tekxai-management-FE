@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
-const api = {
-  get:    (url: string) => apiRequest<any>(url).then((r: any) => ({ data: { payload: r?.payload ?? r } })),
-  post:   (url: string, body?: any) => apiRequest<any>(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
-  delete: (url: string) => apiRequest<any>(url, { method: 'DELETE' }),
-};
+const get  = (url: string) => apiRequest<any>(url).then((r: any) => r?.payload ?? r);
+const post = (url: string, body?: any) => apiRequest<any>(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+const del  = (url: string) => apiRequest<any>(url, { method: 'DELETE' });
 import { Play, Download, Save, Trash2, BarChart3 } from 'lucide-react';
 
 type SchemaEntity = { entity: string; fields: string[]; filterable: string[] };
@@ -33,31 +31,27 @@ export default function ReportBuilderPage() {
   const [saveDesc, setSaveDesc] = useState('');
   const [isPublic, setIsPublic] = useState(false);
 
-  const { data: schemaData } = useQuery(['report-schema'], () =>
-    api.get('/reports/builder/schema').then(r => r.data.payload)
-  );
-  const schemas: SchemaEntity[] = schemaData || [];
-  const currentSchema = schemas.find(s => s.entity === entity);
+  const { data: schemaData } = useQuery({ queryKey: ['report-schema'], queryFn: () => get('/reports/builder/schema') });
+  const schemas: SchemaEntity[] = (schemaData as any) || [];
+  const currentSchema = schemas.find((s: any) => s.entity === entity);
 
-  const { data: savedData } = useQuery(['saved-reports'], () =>
-    api.get('/reports/builder/saved').then(r => r.data.payload)
-  );
-  const saved: any[] = savedData || [];
+  const { data: savedData } = useQuery({ queryKey: ['saved-reports'], queryFn: () => get('/reports/builder/saved') });
+  const saved: any[] = (savedData as any) || [];
 
-  const runMutation = useMutation(
-    (body: any) => api.post('/reports/builder/run', body).then(r => r.data.payload),
-    { onSuccess: (data) => setResults(data) }
-  );
+  const runMutation = useMutation({
+    mutationFn: (body: any) => post('/reports/builder/run', body).then((r: any) => r?.payload ?? r),
+    onSuccess: (data) => setResults(data),
+  });
 
-  const saveMutation = useMutation(
-    (body: any) => api.post('/reports/builder/saved', body),
-    { onSuccess: () => { qc.invalidateQueries(['saved-reports']); setSaveModal(false); setSaveName(''); } }
-  );
+  const saveMutation = useMutation({
+    mutationFn: (body: any) => post('/reports/builder/saved', body),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['saved-reports'] }); setSaveModal(false); setSaveName(''); },
+  });
 
-  const deleteSaved = useMutation(
-    (id: string) => api.delete(`/reports/builder/saved/${id}`),
-    { onSuccess: () => qc.invalidateQueries(['saved-reports']) }
-  );
+  const deleteSaved = useMutation({
+    mutationFn: (id: string) => del(`/reports/builder/saved/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['saved-reports'] }),
+  });
 
   const toggleColumn = (col: string) =>
     setColumns(prev => prev.includes(col) ? prev.filter(c => c !== col) : [...prev, col]);
