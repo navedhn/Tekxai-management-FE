@@ -175,8 +175,8 @@ ipcMain.handle('clock-in', async () => {
     sessionId = sessRes.data.payload.id;
   } catch (_) {}
 
-  const res = await axios.post(`${API_BASE}/timesheet/clock-in`, {}, {
-    headers: { Authorization: `Bearer ${token}` },
+  const res = await axios.post(`${API_BASE}/timesheet/clock-in`, { note: '' }, {
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
   });
 
   store.set('clocked_in', true);
@@ -191,8 +191,8 @@ ipcMain.handle('clock-out', async () => {
 
   stopScreenshots();
 
-  const res = await axios.post(`${API_BASE}/timesheet/clock-out`, {}, {
-    headers: { Authorization: `Bearer ${token}` },
+  const res = await axios.post(`${API_BASE}/timesheet/clock-out`, { note: '' }, {
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
   });
 
   // End monitoring session
