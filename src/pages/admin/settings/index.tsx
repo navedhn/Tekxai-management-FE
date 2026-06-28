@@ -4,13 +4,146 @@ import Button, { pageActionButtonClass } from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Tabs from '@/components/ui/Tabs';
 import Table, { Column } from '@/components/ui/Table';
-import { Search, Filter, Mail, Calendar, Info, Clock, Plus, Trash2, Edit2 } from 'lucide-react';
+import { Search, Filter, Mail, Calendar, Info, Clock, Plus, Trash2, Edit2, ShieldCheck, Shield, X } from 'lucide-react';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useGetInvitesQuery, useDeleteInviteMutation } from '@/services/inviteService';
 import { useGetMySettingsQuery, useUpdatePreferencesMutation, useChangePasswordMutation } from '@/services/settingsService';
 import InviteMemberModal from '@/components/ui/InviteMemberModal';
 import ActionModal from '@/components/ui/ActionModal';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+
+// ─── 2FA helpers ─────────────────────────────────────────────────────────────
+const use2FAStatus = () =>
+  useQuery({
+    queryKey: ['2fa-status'],
+    queryFn: () => apiRequest<any>('api/v1/auth/2fa/status').then((r) => r?.payload || { enabled: false }),
+    staleTime: 60000,
+  });
+
+const TwoFactorSection: React.FC = () => {
+  const toast = useToastContext();
+  const { data: twoFaData, refetch } = use2FAStatus();
+  const enabled = !!twoFaData?.enabled;
+
+  const [showEnableModal, setShowEnableModal] = useState(false);
+  const [showDisableModal, setShowDisableModal] = useState(false);
+  const [qrUrl, setQrUrl]   = useState('');
+  const [otp, setOtp]       = useState('');
+
+  const setupMutation = useMutation({
+    mutationFn: () => apiRequest<any>('api/v1/auth/2fa/setup', { method: 'POST', body: '{}' }),
+    onSuccess: (r) => {
+      setQrUrl(r?.payload?.qr_url || '');
+      setShowEnableModal(true);
+    },
+    onError: (e: any) => toast.error(e?.message || 'Failed to start 2FA setup'),
+  });
+
+  const verifyMutation = useMutation({
+    mutationFn: (token: string) => apiRequest('api/v1/auth/2fa/verify', { method: 'POST', body: JSON.stringify({ token }) }),
+    onSuccess: () => {
+      toast.success('2FA enabled successfully');
+      setShowEnableModal(false);
+      setOtp('');
+      refetch();
+    },
+    onError: (e: any) => toast.error(e?.message || 'Invalid OTP'),
+  });
+
+  const disableMutation = useMutation({
+    mutationFn: (token: string) => apiRequest('api/v1/auth/2fa/disable', { method: 'POST', body: JSON.stringify({ token }) }),
+    onSuccess: () => {
+      toast.success('2FA disabled');
+      setShowDisableModal(false);
+      setOtp('');
+      refetch();
+    },
+    onError: (e: any) => toast.error(e?.message || 'Invalid OTP'),
+  });
+
+  return (
+    <>
+      <Card className="flex items-center justify-between p-6 shadow-sm border border-gray-100 bg-white rounded-2xl">
+        <div className="flex items-start gap-4">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${enabled ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
+            {enabled ? <ShieldCheck size={20} /> : <Shield size={20} />}
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-2">
+              <h4 className="text-[16px] font-black text-gray-900 tracking-tight">Two-Factor Authentication</h4>
+              <span className={`px-2 py-0.5 rounded-lg text-xs font-black uppercase ${enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                {enabled ? 'Enabled' : 'Disabled'}
+              </span>
+            </div>
+            <p className="text-[13px] text-gray-500 font-medium tracking-tight">
+              {enabled
+                ? 'Your account is protected with two-factor authentication.'
+                : 'Add an extra layer of security by enabling 2FA on your account.'}
+            </p>
+          </div>
+        </div>
+        {enabled ? (
+          <Button variant="secondary" size="sm" className="rounded-xl shrink-0" onClick={() => { setOtp(''); setShowDisableModal(true); }}>
+            Disable 2FA
+          </Button>
+        ) : (
+          <Button variant="primary" size="sm" className="rounded-xl shrink-0" onClick={() => setupMutation.mutate()} disabled={setupMutation.isPending}>
+            {setupMutation.isPending ? 'Loading...' : 'Enable 2FA'}
+          </Button>
+        )}
+      </Card>
+
+      {/* Enable 2FA Modal */}
+      {showEnableModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowEnableModal(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm z-10 flex flex-col gap-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black text-gray-900">Enable 2FA</h3>
+              <button onClick={() => setShowEnableModal(false)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><X size={18} /></button>
+            </div>
+            <p className="text-sm text-gray-500 font-medium">Scan this QR code with your authenticator app, then enter the 6-digit code below.</p>
+            {qrUrl && <img src={qrUrl} alt="2FA QR Code" className="w-48 h-48 mx-auto rounded-xl border border-gray-100" />}
+            <input
+              type="text" inputMode="numeric" maxLength={6} placeholder="Enter 6-digit OTP"
+              value={otp} onChange={(e) => setOtp(e.target.value)}
+              className="h-12 px-4 rounded-xl border border-gray-200 text-center text-2xl font-black tracking-widest outline-none focus:ring-2 focus:ring-primary-100"
+            />
+            <Button variant="primary" fullWidth className="h-11 rounded-xl font-black"
+              onClick={() => verifyMutation.mutate(otp)} disabled={verifyMutation.isPending || otp.length < 6}>
+              {verifyMutation.isPending ? 'Verifying...' : 'Verify & Enable'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Disable 2FA Modal */}
+      {showDisableModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowDisableModal(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm z-10 flex flex-col gap-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black text-gray-900">Disable 2FA</h3>
+              <button onClick={() => setShowDisableModal(false)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><X size={18} /></button>
+            </div>
+            <p className="text-sm text-gray-500 font-medium">Enter your current 6-digit authenticator code to disable 2FA.</p>
+            <input
+              type="text" inputMode="numeric" maxLength={6} placeholder="Enter 6-digit OTP"
+              value={otp} onChange={(e) => setOtp(e.target.value)}
+              className="h-12 px-4 rounded-xl border border-gray-200 text-center text-2xl font-black tracking-widest outline-none focus:ring-2 focus:ring-primary-100"
+            />
+            <Button variant="secondary" fullWidth className="h-11 rounded-xl font-black text-red-600 border-red-200 hover:bg-red-50"
+              onClick={() => disableMutation.mutate(otp)} disabled={disableMutation.isPending || otp.length < 6}>
+              {disableMutation.isPending ? 'Disabling...' : 'Confirm Disable'}
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
 
 const Setting: React.FC = () => {
     const toast = useToastContext();
@@ -210,6 +343,12 @@ const Setting: React.FC = () => {
             <div className="flex flex-col gap-6">
                 {activeTab === 'security' && (
                     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        {/* Two-Factor Authentication */}
+                        <div className="flex flex-col gap-4">
+                            <h2 className="text-2xl font-black text-gray-900 tracking-tight">Security</h2>
+                            <TwoFactorSection />
+                        </div>
+
                         {/* Notifications Setting */}
                         <Card className="flex items-center justify-between p-6 shadow-sm border border-gray-100 bg-white rounded-2xl">
                             <div className="flex flex-col gap-1.5 focus-within:ring-0">
