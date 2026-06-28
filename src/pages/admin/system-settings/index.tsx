@@ -18,25 +18,31 @@ const INTERVAL_OPTIONS = [
 
 export default function SystemSettings() {
   const qc = useQueryClient();
-  const { toast } = useToastContext();
+  const toast = useToastContext();
   const [form, setForm] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['system-settings'],
-    queryFn: () => apiRequest<any>(API_ENDPOINTS.SETTINGS.SYSTEM),
-    select: (r: any) => r?.payload || {},
-    onSuccess: (d: any) => setForm(d),
-  } as any);
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.SETTINGS.SYSTEM).then((r: any) => r?.payload || {}),
+  });
+
+  React.useEffect(() => {
+    if (data) setForm(data as any);
+  }, [data]);
 
   const save = useMutation({
-    mutationFn: (body: any) => apiRequest<any>(API_ENDPOINTS.SETTINGS.SYSTEM, { method: 'PUT', body: JSON.stringify(body) }),
+    mutationFn: (body: any) => apiRequest<any>(API_ENDPOINTS.SETTINGS.SYSTEM, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
     onSuccess: () => {
       toast.success('Settings saved');
       setDirty(false);
       qc.invalidateQueries({ queryKey: ['system-settings'] });
     },
-    onError: () => toast.error('Failed to save settings'),
+    onError: (e: any) => toast.error(e?.message || e?.response?.data?.message || 'Failed to save settings'),
   });
 
   const set = (key: string, val: string) => {
@@ -113,7 +119,7 @@ export default function SystemSettings() {
 
       <div className="flex justify-end">
         <button
-          disabled={!dirty || save.isPending}
+          disabled={save.isPending}
           onClick={() => save.mutate(form)}
           className="flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-bold hover:bg-primary-700 disabled:opacity-50 transition-colors"
         >
