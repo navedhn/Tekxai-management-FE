@@ -16,10 +16,10 @@ export type HRSidebarProps = { isOpen: boolean; onClose: () => void };
 
 const HRSidebar: React.FC<HRSidebarProps> = memo(({ isOpen, onClose }) => {
   const navigate = useNavigate();
-  const { userLogout, user } = useAuthStore();
+  const { userLogout, user, role } = useAuthStore();
   const logoutMutation = useLogoutMutation();
-  const isAdmin = user?.role === USER_ROLES.ADMIN || user?.role === USER_ROLES.SUPER_ADMIN;
-  const canSwitchWorkspace = isAdmin || user?.role === USER_ROLES.HR;
+  const isAdmin = role === USER_ROLES.ADMIN || role === USER_ROLES.SUPER_ADMIN;
+  const canSwitchWorkspace = isAdmin || role === USER_ROLES.HR;
 
   const logout = useCallback(async () => {
     await forceCheckoutApi('LOGOUT');
