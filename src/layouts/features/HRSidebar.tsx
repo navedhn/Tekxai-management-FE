@@ -18,8 +18,10 @@ const HRSidebar: React.FC<HRSidebarProps> = memo(({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const { userLogout, user, role } = useAuthStore();
   const logoutMutation = useLogoutMutation();
-  const isAdmin = role === USER_ROLES.ADMIN || role === USER_ROLES.SUPER_ADMIN;
-  const canSwitchWorkspace = isAdmin || role === USER_ROLES.HR;
+  // Resolve role from store string OR user.role_name fallback (handles stale persisted state)
+  const effectiveRole = role || (user as any)?.role_name || (typeof (user as any)?.role === 'string' ? (user as any)?.role : '');
+  const isAdmin = effectiveRole === USER_ROLES.ADMIN || effectiveRole === USER_ROLES.SUPER_ADMIN;
+  const canSwitchWorkspace = isAdmin || effectiveRole === USER_ROLES.HR;
 
   const logout = useCallback(async () => {
     await forceCheckoutApi('LOGOUT');
