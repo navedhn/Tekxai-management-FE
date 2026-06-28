@@ -24,7 +24,7 @@ const CRMSidebar: React.FC<CRMSidebarProps> = memo(({ isOpen, onClose }) => {
 
   const role = user?.role ?? (user as any)?.role_name ?? '';
   const isAdmin    = role === USER_ROLES.ADMIN || role === USER_ROLES.SUPER_ADMIN;
-  const canSwitchWorkspace = isAdmin || role === USER_ROLES.HR;
+  const canSwitchWorkspace = isAdmin;
   const isMarketer = role === USER_ROLES.MARKETING;
   // Admin/SuperAdmin see everything; MARKETING employees get scoped view
   const canSeeFinance = isAdmin; // Invoices, Client Accounts, Contracts, Estimator, Deposits

@@ -15,7 +15,8 @@ export type HRSidebarProps = { isOpen: boolean; onClose: () => void };
 
 const HRSidebar: React.FC<HRSidebarProps> = memo(({ isOpen, onClose }) => {
   const navigate = useNavigate();
-  const { userLogout, user } = useAuthStore();
+  const { userLogout, user, role } = useAuthStore();
+  const canSwitchWorkspace = role === 'SUPER_ADMIN' || role === 'ADMIN';
   const logoutMutation = useLogoutMutation();
 
   const logout = useCallback(async () => {
@@ -72,11 +73,13 @@ const HRSidebar: React.FC<HRSidebarProps> = memo(({ isOpen, onClose }) => {
         </button>
       </div>
 
-      <div className="px-3 pt-3 flex gap-2">
-        <button onClick={() => navigate('/admin')} className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">ERP</button>
-        <button onClick={() => navigate('/crm')} className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">CRM</button>
-        <button className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-emerald-600 text-white">HR</button>
-      </div>
+      {canSwitchWorkspace && (
+        <div className="px-3 pt-3 flex gap-2">
+          <button onClick={() => navigate('/admin')} className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">ERP</button>
+          <button onClick={() => navigate('/crm')} className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">CRM</button>
+          <button className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-emerald-600 text-white">HR</button>
+        </div>
+      )}
 
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
         {links.map((link) => {
