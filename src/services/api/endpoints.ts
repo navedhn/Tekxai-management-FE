@@ -168,6 +168,8 @@ export const API_ENDPOINTS = {
     UPDATE: (projectId: string, taskId: string) => `${v1}/project/${projectId}/tasks/${taskId}`,
     DELETE: (projectId: string, taskId: string) => `${v1}/project/${projectId}/tasks/${taskId}`,
   },
+  SUB_TASKS: (taskId: string) => `${v1}/tasks/${taskId}/sub-tasks`,
+  TIME_LOGS:  (taskId: string) => `${v1}/tasks/${taskId}/time-logs`,
   // Milestones are nested under projects: /project/:projectId/milestones
   MILESTONE: {
     LIST:   (projectId: string) => `${v1}/project/${projectId}/milestones`,

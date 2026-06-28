@@ -13,6 +13,9 @@ import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import Loader from '@/components/ui/Loader';
+import KanbanBoard from '@/components/kanban/KanbanBoard';
+import TaskDrawer from '@/components/kanban/TaskDrawer';
+import { useKanbanTasks, useUpdateTask, type KanbanTask } from '@/services/tasksService';
 
 const statusStyles: Record<string, string> = {
   'In Progress': 'bg-[#EFF8FF] text-[#175CD3] border-[#B2DDFF]',
@@ -40,6 +43,24 @@ const ProjectDetailPage: React.FC = () => {
     },
     enabled: !!projectId,
   });
+
+  const [activeTab, setActiveTab] = useState<'milestones' | 'kanban'>('milestones');
+  const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null);
+
+  const { data: kanbanTasks = [] } = useKanbanTasks(projectId);
+  const updateTaskMutation = useUpdateTask(projectId);
+  const logTimeMutation = useLogTime(selectedTask?.id ?? null);
+
+  const handleUpdateTask = (taskId: string, updates: Partial<KanbanTask>) => {
+    updateTaskMutation.mutate({ taskId, updates });
+  };
+
+  const handleLogTime = (taskId: string, seconds: number) => {
+    apiRequest<any>(API_ENDPOINTS.TIME_LOGS(taskId), {
+      method: 'POST',
+      body: JSON.stringify({ seconds }),
+    }).catch(() => {});
+  };
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const milestones = (milestonesData || []).map((m: any) => ({
@@ -165,8 +186,47 @@ const ProjectDetailPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Tab switcher */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+        <button
+          onClick={() => setActiveTab('milestones')}
+          className={cn(
+            'text-sm font-black px-5 py-2 rounded-lg transition-all',
+            activeTab === 'milestones' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          )}
+        >
+          Milestones
+        </button>
+        <button
+          onClick={() => setActiveTab('kanban')}
+          className={cn(
+            'text-sm font-black px-5 py-2 rounded-lg transition-all',
+            activeTab === 'kanban' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          )}
+        >
+          Kanban
+        </button>
+      </div>
+
+      {/* Kanban View */}
+      {activeTab === 'kanban' && (
+        <>
+          <KanbanBoard
+            tasks={kanbanTasks}
+            onUpdateTask={handleUpdateTask}
+            onLogTime={handleLogTime}
+            onSelectTask={setSelectedTask}
+          />
+          <TaskDrawer
+            task={selectedTask}
+            onClose={() => setSelectedTask(null)}
+            onUpdateTask={handleUpdateTask}
+          />
+        </>
+      )}
+
       {/* Milestones Table */}
-      <div className="flex flex-col gap-4">
+      {activeTab === 'milestones' && <div className="flex flex-col gap-4">
         {milestonesLoading && (
           <div className="bg-white rounded-2xl border border-gray-100 p-10 flex items-center justify-center">
             <Loader size={36} />
@@ -312,7 +372,7 @@ const ProjectDetailPage: React.FC = () => {
           </div>
           );
         })}
-      </div>
+      </div>}
     </div>
   );
 };
