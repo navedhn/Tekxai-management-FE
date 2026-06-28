@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home, Users, Building2, Clock, Package, TrendingUp, FileText,
   UserPlus, ShieldCheck, Briefcase, Heart, LogOut, X, Star,
-  BarChart3, AlarmClock, UserSearch, PlusCircle,
+  BarChart3, AlarmClock, UserSearch, PlusCircle, Monitor,
 } from 'lucide-react';
 import tekxaiLogo from '@/assets/icons/tekxai-logo.svg';
 import { useLogoutMutation } from '@/services/authService';
@@ -49,6 +49,8 @@ const HRSidebar: React.FC<HRSidebarProps> = memo(({ isOpen, onClose }) => {
     { to: '/hr/onboarding', label: 'Hiring & Onboarding', icon: UserPlus },
     { to: '/hr/policies', label: 'Policies', icon: ShieldCheck },
     { to: '/hr/job-descriptions', label: 'Job Descriptions', icon: Briefcase },
+    { section: 'Tools', to: '/hr/monitoring', label: 'Monitoring', icon: Monitor },
+    { to: '/hr/download-app', label: 'Desktop App', icon: Monitor },
     { section: 'My HR', to: '/hr/my-salaries', label: 'My Salaries', icon: Heart },
   ];
 
