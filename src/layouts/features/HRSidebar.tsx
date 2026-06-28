@@ -10,18 +10,13 @@ import { useLogoutMutation } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
 import { clearAuthTokens } from '@/utils/tokenMemory';
 import { forceCheckoutApi } from '@/utils/attendanceAutoCheckout';
-import { USER_ROLES } from '@/constants/roles';
 
 export type HRSidebarProps = { isOpen: boolean; onClose: () => void };
 
 const HRSidebar: React.FC<HRSidebarProps> = memo(({ isOpen, onClose }) => {
   const navigate = useNavigate();
-  const { userLogout, user, role } = useAuthStore();
+  const { userLogout, user } = useAuthStore();
   const logoutMutation = useLogoutMutation();
-  // Resolve role from store string OR user.role_name fallback (handles stale persisted state)
-  const effectiveRole = role || (user as any)?.role_name || (typeof (user as any)?.role === 'string' ? (user as any)?.role : '');
-  const isAdmin = effectiveRole === USER_ROLES.ADMIN || effectiveRole === USER_ROLES.SUPER_ADMIN;
-  const canSwitchWorkspace = isAdmin || effectiveRole === USER_ROLES.HR;
 
   const logout = useCallback(async () => {
     await forceCheckoutApi('LOGOUT');
@@ -77,13 +72,11 @@ const HRSidebar: React.FC<HRSidebarProps> = memo(({ isOpen, onClose }) => {
         </button>
       </div>
 
-      {canSwitchWorkspace && (
-        <div className="px-3 pt-3 flex gap-2">
-          <button onClick={() => navigate('/admin')} className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">ERP</button>
-          <button onClick={() => navigate('/crm')} className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">CRM</button>
-          <button className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-emerald-600 text-white">HR</button>
-        </div>
-      )}
+      <div className="px-3 pt-3 flex gap-2">
+        <button onClick={() => navigate('/admin')} className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">ERP</button>
+        <button onClick={() => navigate('/crm')} className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">CRM</button>
+        <button className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-emerald-600 text-white">HR</button>
+      </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
         {links.map((link) => {
