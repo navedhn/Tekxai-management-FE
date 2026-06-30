@@ -6,56 +6,62 @@ on:
       - main
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Deploy to AWS via SSH
-      uses: appleboy/ssh-action@v1.0.3
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
       with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SERVER_SSH_KEY }} 
-        script: |
-          set -e
-          
-          # Navigate to the project directory
-          cd /home/ubuntu/tekxai-management-FE
+        node-version: 20
+        cache: npm
 
-          echo "Pulling latest code from git..."
-          sudo git fetch origin
-          sudo git reset --hard origin/main
+    - name: Install dependencies
+      run: npm ci
 
-          echo "Installing dependencies..."
-          sudo npm install
+    - name: Build
+      run: npm run build
+      env:
+        NODE_OPTIONS: --max-old-space-size=4096
 
-          echo "Building..."
-          sudo npm run build
+    - name: Verify build output
+      run: |
+        test -d dist && echo "✅ dist/ exists" || (echo "❌ dist/ missing" && exit 1)
+        echo "Build size: $(du -sh dist/)"
 
-          echo "✅ Build created successfully!"
+    - name: Deploy dist to server via SCP
+      env:
+        SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+        HOST: ${{ secrets.SERVER_HOST }}
+        USER: ${{ secrets.SERVER_USER }}
+      run: |
+        echo "$SSH_KEY" > /tmp/deploy_key
+        chmod 600 /tmp/deploy_key
+        SSH_OPTS="-i /tmp/deploy_key -o StrictHostKeyChecking=no -o BatchMode=yes"
 
-          # 1. Define unique release name based on epoch timestamp
-          RELEASE_NAME="build-$(date +%s)"
-          RELEASE_DIR="/var/www/tekxai-manage-FE/releases/$RELEASE_NAME"
+        RELEASE_NAME="build-$(date +%s)"
+        RELEASE_DIR="/var/www/tekxai-manage-FE/releases/$RELEASE_NAME"
 
-          echo "Creating new release directory: $RELEASE_DIR"
-          sudo mkdir -p "$RELEASE_DIR"
+        # Ensure release directory exists on server
+        ssh $SSH_OPTS $USER@$HOST "mkdir -p $RELEASE_DIR"
 
-          echo "Copying distribution files to release directory..."
-          sudo cp -r /home/ubuntu/tekxai-management-FE/dist/* "$RELEASE_DIR/"
+        # Upload built dist/ to release dir
+        scp $SSH_OPTS -r dist/. $USER@$HOST:$RELEASE_DIR/
 
-          echo "Fixing permissions..."
-          sudo chown -R www-data:www-data "$RELEASE_DIR"
-          sudo find "$RELEASE_DIR" -type d -exec chmod 755 {} \;
-          sudo find "$RELEASE_DIR" -type f -exec chmod 644 {} \;
+        # Swap into /var/www/html and fix permissions
+        ssh $SSH_OPTS $USER@$HOST "
+          sudo cp -rf $RELEASE_DIR/. /var/www/html/
+          sudo chown -R www-data:www-data /var/www/html
+          sudo find /var/www/html -type d -exec chmod 755 {} \;
+          sudo find /var/www/html -type f -exec chmod 644 {} \;
 
-          echo "🔄 Copying build to /var/www/html..."
-          sudo cp -rf "$RELEASE_DIR"/. /var/www/html/
+          # Prune old releases (keep last 5)
+          cd /var/www/tekxai-manage-FE/releases && ls -1t | tail -n +6 | xargs -I {} sudo rm -rf {} 2>/dev/null || true
 
-          echo "🧹 Cleaning up older releases (keeping the last 5 builds)..."
-          cd /var/www/ask-charles/releases && ls -1t | tail -n +6 | xargs -I {} sudo rm -rf {}
+          echo '✅ Deployment completed at \$(date)'
+        "
 
-          echo "✅ Zero-Downtime Deployment completed successfully $(date)"
+        rm /tmp/deploy_key
