@@ -41,26 +41,26 @@ jobs:
         chmod 600 /tmp/deploy_key
         SSH_OPTS="-i /tmp/deploy_key -o StrictHostKeyChecking=no -o BatchMode=yes"
 
-        RELEASE_NAME="build-$(date +%s)"
-        RELEASE_DIR="/var/www/tekxai-manage-FE/releases/$RELEASE_NAME"
+        # Pack into single tar for fast transfer
+        tar -czf /tmp/fe-dist.tar.gz -C dist .
 
-        # Ensure release directory exists on server
-        ssh $SSH_OPTS $USER@$HOST "mkdir -p $RELEASE_DIR"
+        # Upload single tar file
+        scp $SSH_OPTS /tmp/fe-dist.tar.gz $USER@$HOST:/tmp/fe-dist.tar.gz
 
-        # Upload built dist/ to release dir
-        scp $SSH_OPTS -r dist/. $USER@$HOST:$RELEASE_DIR/
-
-        # Swap into /var/www/html and fix permissions
+        # Extract and deploy on server
         ssh $SSH_OPTS $USER@$HOST "
-          sudo cp -rf $RELEASE_DIR/. /var/www/html/
+          set -e
+          RELEASE_NAME=\"build-\$(date +%s)\"
+          RELEASE_DIR=\"/var/www/tekxai-manage-FE/releases/\$RELEASE_NAME\"
+          sudo mkdir -p \"\$RELEASE_DIR\"
+          sudo tar -xzf /tmp/fe-dist.tar.gz -C \"\$RELEASE_DIR\"
+          sudo cp -rf \"\$RELEASE_DIR\"/. /var/www/html/
           sudo chown -R www-data:www-data /var/www/html
           sudo find /var/www/html -type d -exec chmod 755 {} \;
           sudo find /var/www/html -type f -exec chmod 644 {} \;
-
-          # Prune old releases (keep last 5)
+          rm -f /tmp/fe-dist.tar.gz
           cd /var/www/tekxai-manage-FE/releases && ls -1t | tail -n +6 | xargs -I {} sudo rm -rf {} 2>/dev/null || true
-
-          echo '✅ Deployment completed at \$(date)'
+          echo \"✅ Deployed \$RELEASE_NAME at \$(date)\"
         "
 
         rm /tmp/deploy_key
