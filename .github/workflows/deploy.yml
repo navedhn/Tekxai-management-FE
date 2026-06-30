@@ -56,7 +56,7 @@ jobs:
           # -s (symlink), -f (force/overwrite existing link), -n (treat link as a normal file if it's a directory link)
           sudo ln -sfn "$RELEASE_DIR" /var/www/html
 
-          echo "🧹 Cleaning up older releases (keeping the last 5 builds)..."
+          echo "Cleaning up older releases (keeping the last 5 builds)..."
           cd /var/www/tekxai-management-FE/releases && ls -1t | tail -n +6 | xargs -I {} sudo rm -rf {}
 
           echo "✅ Zero-Downtime Deployment completed successfully $(date)"
