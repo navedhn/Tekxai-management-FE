@@ -25,10 +25,12 @@ export default function SystemSettings() {
   const { data, isLoading } = useQuery({
     queryKey: ['system-settings'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.SETTINGS.SYSTEM).then((r: any) => r?.payload || {}),
+    retry: 1,
+    staleTime: 30000,
   });
 
   React.useEffect(() => {
-    if (data) setForm(data as any);
+    if (data && Object.keys(data).length > 0) setForm(data as any);
   }, [data]);
 
   const save = useMutation({
