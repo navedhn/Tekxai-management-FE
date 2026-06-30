@@ -279,6 +279,16 @@ async function takeScreenshot(token) {
     }, { headers: { Authorization: `Bearer ${token}` } });
 
     mainWindow?.webContents.send('screenshot-taken');
+
+    // System notification — visible even when app is minimised to tray
+    const { Notification } = require('electron');
+    if (Notification.isSupported()) {
+      new Notification({
+        title: 'TekXAI Agent',
+        body: 'Screenshot captured ✓',
+        silent: true,
+      }).show();
+    }
   } catch (err) {
     console.error('[screenshot]', err.message);
   }
