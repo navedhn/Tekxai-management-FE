@@ -180,24 +180,30 @@ ipcMain.handle('clock-in', async () => {
   const axios = require('axios');
 
   // Fetch screenshot interval from admin settings
+  console.log('[CLOCK-IN] Fetching screenshot interval from settings...');
   try {
     const settingsRes = await axios.get(`${API_BASE}/settings/system/public`);
     const mins = parseInt(settingsRes.data?.payload?.screenshot_interval_minutes, 10);
     screenshotIntervalMs = (!isNaN(mins) && mins > 0) ? mins * 60 * 1000 : DEFAULT_SCREENSHOT_INTERVAL_MS;
-  } catch (_) {
+    console.log(`[CLOCK-IN] Screenshot interval: ${screenshotIntervalMs / 1000}s (${mins} min from settings)`);
+  } catch (e) {
     screenshotIntervalMs = DEFAULT_SCREENSHOT_INTERVAL_MS;
+    console.warn('[CLOCK-IN] Could not fetch settings, using default 5 min:', e.message);
   }
 
   // Start monitoring session (non-fatal if it fails)
+  console.log('[CLOCK-IN] Starting monitoring session...');
   try {
     const sessRes = await axios.post(`${API_BASE}/monitoring/session/start`, {
       agent_version: app.getVersion(),
       os_platform: process.platform,
     }, { headers: { Authorization: `Bearer ${token}` } });
     sessionId = sessRes.data.payload.id;
+    console.log(`[CLOCK-IN] Monitoring session created — id: ${sessionId}`);
   } catch (err) {
-    console.error('[session-start]', err.message);
-    sessionId = null; // screenshots will still be taken and upload attempted
+    console.error('[CLOCK-IN] Monitoring session FAILED (non-fatal):', err.message);
+    if (err.response) console.error('[CLOCK-IN] Session response:', err.response.status, JSON.stringify(err.response.data));
+    sessionId = null;
   }
 
   const res = await axios.post(`${API_BASE}/timesheet/clock-in`, { note: '' }, {
@@ -277,27 +283,46 @@ function stopScreenshots() {
 }
 
 async function takeScreenshot(token) {
+  const ts = new Date().toISOString();
+  console.log(`\n[SS ${ts}] ── Starting screenshot capture ──`);
+  console.log(`[SS] Session ID: ${sessionId || 'NONE (no monitoring session)'}`);
+
   try {
     const screenshot = require('screenshot-desktop');
     const axios = require('axios');
 
-    // Refresh token proactively if within 5 minutes of expiry
+    // ── Token refresh ──────────────────────────────────────────────────────────
     try {
       const parts = token.split('.');
       const { exp } = JSON.parse(Buffer.from(parts[1], 'base64').toString());
-      if (exp && (exp - Math.floor(Date.now() / 1000)) < 300) {
+      const secsLeft = exp - Math.floor(Date.now() / 1000);
+      console.log(`[SS] Token expires in: ${secsLeft}s`);
+      if (secsLeft < 300) {
+        console.log('[SS] Token expiring soon — refreshing...');
         const fresh = await refreshAccessToken();
-        if (fresh) token = fresh;
+        if (fresh) { token = fresh; console.log('[SS] Token refreshed OK'); }
+        else console.warn('[SS] Token refresh FAILED — continuing with old token');
       }
-    } catch (_) {}
+    } catch (e) { console.warn('[SS] Could not decode token:', e.message); }
 
-    const img = await screenshot({ format: 'png' });
-    const key = `screenshots/${store.get('user')?.id || 'unknown'}/${Date.now()}.png`;
+    // ── Capture screen ─────────────────────────────────────────────────────────
+    console.log('[SS] Capturing screen...');
+    let img;
+    try {
+      img = await screenshot({ format: 'png' });
+      console.log(`[SS] Screen captured OK — size: ${img.length} bytes`);
+    } catch (e) {
+      console.error('[SS] FAILED to capture screen:', e.message);
+      throw e;
+    }
 
-    // Get presigned upload URL from backend
+    // ── Get presigned S3 URL ───────────────────────────────────────────────────
+    console.log('[SS] Requesting presigned S3 URL...');
     const fileName = `${Date.now()}.png`;
-    let fileKey = key;
+    const fallbackKey = `screenshots/${store.get('user')?.id || 'unknown'}/${fileName}`;
+    let fileKey = fallbackKey;
     let fileUrl = null;
+    let s3Ok = false;
 
     try {
       const presignRes = await axios.post(`${API_BASE}/storage/presign`, {
@@ -307,35 +332,59 @@ async function takeScreenshot(token) {
       }, { headers: { Authorization: `Bearer ${token}` } });
 
       const uploadUrl = presignRes.data?.payload?.upload_url;
-      fileKey = presignRes.data?.payload?.file_key || key;
+      fileKey = presignRes.data?.payload?.file_key || fallbackKey;
+      console.log(`[SS] Presign OK — file_key: ${fileKey}`);
 
-      if (uploadUrl && !uploadUrl.includes('localhost')) {
-        await axios.put(uploadUrl, img, { headers: { 'Content-Type': 'image/png' } });
-        fileUrl = uploadUrl.split('?')[0];
+      // ── Upload to S3 ─────────────────────────────────────────────────────────
+      if (uploadUrl) {
+        console.log(`[SS] Uploading to S3: ${uploadUrl.split('?')[0]}`);
+        try {
+          const s3Res = await axios.put(uploadUrl, img, { headers: { 'Content-Type': 'image/png' } });
+          fileUrl = uploadUrl.split('?')[0];
+          s3Ok = true;
+          console.log(`[SS] S3 upload OK — HTTP ${s3Res.status} — url: ${fileUrl}`);
+        } catch (e) {
+          console.error(`[SS] S3 upload FAILED: ${e.message}`);
+          if (e.response) console.error(`[SS] S3 response: HTTP ${e.response.status} — ${JSON.stringify(e.response.data)}`);
+        }
+      } else {
+        console.warn('[SS] No upload_url in presign response');
       }
-    } catch (_) {}
+    } catch (e) {
+      console.error(`[SS] Presign request FAILED: ${e.message}`);
+      if (e.response) console.error(`[SS] Presign response: HTTP ${e.response.status} — ${JSON.stringify(e.response.data)}`);
+    }
 
-    // Record in backend (with or without S3 URL)
-    await axios.post(`${API_BASE}/monitoring/screenshot`, {
-      session_id: sessionId,
-      file_key: fileKey,
-      file_url: fileUrl || `data:image/png;base64,${img.toString('base64').slice(0, 100)}`,
-      captured_at: new Date().toISOString(),
-    }, { headers: { Authorization: `Bearer ${token}` } });
+    // ── Save to DB ────────────────────────────────────────────────────────────
+    console.log(`[SS] Saving to DB — session_id: ${sessionId || 'null'}, s3_ok: ${s3Ok}, file_key: ${fileKey}`);
+    try {
+      const dbRes = await axios.post(`${API_BASE}/monitoring/screenshot`, {
+        session_id: sessionId,
+        file_key: fileKey,
+        file_url: fileUrl || `fallback:${img.length}bytes`,
+        captured_at: new Date().toISOString(),
+      }, { headers: { Authorization: `Bearer ${token}` } });
+
+      console.log(`[SS] DB save OK — id: ${dbRes.data?.payload?.id}`);
+    } catch (e) {
+      console.error(`[SS] DB save FAILED: ${e.message}`);
+      if (e.response) console.error(`[SS] DB response: HTTP ${e.response.status} — ${JSON.stringify(e.response.data)}`);
+      throw e;
+    }
 
     mainWindow?.webContents.send('screenshot-taken');
+    console.log(`[SS] ✓ Screenshot complete — s3: ${s3Ok ? 'uploaded' : 'SKIPPED'}`);
 
-    // System notification — visible even when app is minimised to tray
     const { Notification } = require('electron');
     if (Notification.isSupported()) {
       new Notification({
         title: 'TekXAI Agent',
-        body: 'Screenshot captured ✓',
+        body: `Screenshot captured ✓ ${s3Ok ? '(S3)' : '(no S3)'}`,
         silent: true,
       }).show();
     }
   } catch (err) {
-    console.error('[screenshot]', err.message);
+    console.error(`[SS] ✗ Screenshot FAILED: ${err.message}`);
   }
 }
 
