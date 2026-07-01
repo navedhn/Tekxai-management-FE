@@ -143,7 +143,8 @@ ipcMain.handle('del-store', (_, key) => store.delete(key));
 
 ipcMain.handle('login', async (_, { email, password }) => {
   const axios = require('axios');
-  const res = await axios.post(`${API_BASE}/auth/login`, { email, password });
+  console.log('[LOGIN] Attempting login for:', email);
+  const res = await axios.post(`${API_BASE}/auth/login`, { email, password }, { timeout: 15000 });
   if (!res.data?.success || (!res.data?.payload && !res.data?.data)) {
     throw new Error(res.data?.message || 'Login failed');
   }
@@ -182,7 +183,7 @@ ipcMain.handle('clock-in', async () => {
   // Fetch screenshot interval from admin settings
   console.log('[CLOCK-IN] Fetching screenshot interval from settings...');
   try {
-    const settingsRes = await axios.get(`${API_BASE}/settings/system/public`);
+    const settingsRes = await axios.get(`${API_BASE}/settings/system/public`, { timeout: 10000 });
     const mins = parseInt(settingsRes.data?.payload?.screenshot_interval_minutes, 10);
     screenshotIntervalMs = (!isNaN(mins) && mins > 0) ? mins * 60 * 1000 : DEFAULT_SCREENSHOT_INTERVAL_MS;
     console.log(`[CLOCK-IN] Screenshot interval: ${screenshotIntervalMs / 1000}s (${mins} min from settings)`);
