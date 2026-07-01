@@ -97,14 +97,18 @@ const HRSidebar: React.FC<HRSidebarProps> = memo(({ isOpen, onClose }) => {
                 end={link.end}
                 onClick={onClose}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-150 ` +
+                  `flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-150 ` +
                   (isActive
-                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-200'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900')
                 }
               >
-                <link.icon size={18} className="shrink-0" />
-                <span className="truncate">{link.label}</span>
+                {({ isActive }) => (
+                  <>
+                    <link.icon size={18} strokeWidth={1.5} className={`shrink-0 ${isActive ? 'text-white' : 'text-gray-400'}`} />
+                    <span className="truncate">{link.label}</span>
+                  </>
+                )}
               </NavLink>
             </React.Fragment>
           );
@@ -115,9 +119,9 @@ const HRSidebar: React.FC<HRSidebarProps> = memo(({ isOpen, onClose }) => {
         <button
           onClick={logout}
           disabled={logoutMutation.isPending}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-bold text-gray-500 hover:bg-red-50 hover:text-red-500 transition-all disabled:opacity-60"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-medium text-gray-500 hover:bg-red-50 hover:text-red-500 transition-all disabled:opacity-60"
         >
-          <LogOut size={18} />
+          <LogOut size={18} strokeWidth={1.5} />
           Sign Out
         </button>
       </div>
