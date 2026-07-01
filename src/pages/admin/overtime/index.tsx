@@ -9,6 +9,7 @@ import {
 } from '@/services/employeeService';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/hooks/useAuth';
+import { useToastContext } from '@/components/toast/ToastProvider';
 
 const STATUS_STYLE: Record<string, string> = {
   PENDING:   'bg-amber-100 text-amber-700',
@@ -49,6 +50,7 @@ function StatsBar({ stats }: { stats: any }) {
 // ── Submit Overtime Modal ─────────────────────────────────────────────────────
 function SubmitModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
+  const toast = useToastContext();
   const submit = useSubmitOvertime();
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -74,7 +76,7 @@ function SubmitModal({ onClose }: { onClose: () => void }) {
       duration_minutes: mins,
       reason: form.reason,
       notes:  form.notes,
-    }, { onSuccess: onClose });
+    }, { onSuccess: () => { toast.success('Overtime request submitted'); onClose(); } });
   };
 
   return (

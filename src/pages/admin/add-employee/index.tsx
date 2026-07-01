@@ -702,8 +702,17 @@ export default function AddEmployee() {
   });
 
   React.useEffect(() => {
-    if (userCount != null && !employment.employee_id) {
-      setEmployment(p => ({ ...p, employee_id: generateEmployeeId(userCount) }));
+    if (userCount != null) {
+      setEmployment(p => ({ ...p, employee_id: p.employee_id || generateEmployeeId(userCount) }));
+    } else {
+      // Fallback so field never stays "Generating…" indefinitely
+      const timeout = setTimeout(() => {
+        setEmployment(p => {
+          if (!p.employee_id) return { ...p, employee_id: `TXI-${String(Date.now()).slice(-4)}` };
+          return p;
+        });
+      }, 3000);
+      return () => clearTimeout(timeout);
     }
   }, [userCount]);
 
@@ -871,26 +880,26 @@ export default function AddEmployee() {
             {/* Actions */}
             <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-100">
               <button disabled={step === 1} onClick={() => setStep(s => s - 1)}
-                className="flex items-center gap-2 px-5 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors">
+                className="flex items-center gap-2 px-5 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors">
                 <ChevronLeft size={16} />Previous
               </button>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => createMutation.mutate(true)}
                   disabled={createMutation.isPending}
-                  className="flex items-center gap-2 px-5 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40">
+                  className="flex items-center gap-2 px-5 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
                   <Save size={16} />Save as Draft
                 </button>
                 {step < 5 ? (
                   <button disabled={!canNext()} onClick={() => setStep(s => s + 1)}
-                    className="flex items-center gap-2 px-5 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40 transition-colors">
+                    className="flex items-center gap-2 px-5 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors">
                     Next<ChevronRight size={16} />
                   </button>
                 ) : (
                   <button
                     onClick={() => createMutation.mutate(false)}
                     disabled={createMutation.isPending}
-                    className="flex items-center gap-2 px-5 h-10 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 disabled:opacity-40 transition-colors">
+                    className="flex items-center gap-2 px-5 h-10 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors">
                     <Check size={16} />{createMutation.isPending ? 'Saving…' : 'Save Employee'}
                   </button>
                 )}

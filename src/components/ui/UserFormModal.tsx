@@ -9,6 +9,7 @@ import { useToastContext } from '@/components/toast/ToastProvider';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
+import { useAuthStore } from '@/stores/authStore';
 
 interface UserFormModalProps {
   isOpen: boolean;
@@ -21,10 +22,11 @@ const statuses = [
   { value: 'INACTIVE', label: 'Inactive' },
 ];
 
-// Roles that HR/Super Admin should NOT assign (system-only)
-const HIDDEN_ROLES = ['SUPER_ADMIN'];
+// Roles hidden from non-super-admin users
+const SUPER_ADMIN_ONLY_ROLES = ['SUPER_ADMIN'];
 
 const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) => {
+  const currentRole = useAuthStore(s => s.role);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -61,8 +63,9 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
     staleTime: 5 * 60 * 1000,
   });
 
+  const isSuperAdmin = currentRole === 'SUPER_ADMIN';
   const roleOptions = rolesData
-    .filter((r: any) => !HIDDEN_ROLES.includes(r.name))
+    .filter((r: any) => isSuperAdmin || !SUPER_ADMIN_ONLY_ROLES.includes(r.name))
     .map((r: any) => ({ value: r.id, label: r.name.replace(/_/g, ' ') }));
 
   const departmentOptions = departmentsData.map((d: any) => ({ value: d.id, label: d.name }));
@@ -76,37 +79,38 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
   const isEdit = !!user;
 
   useEffect(() => {
-    if (isOpen) {
-      if (user) {
-        const currentRoleId = user.roles?.[0]?.role?.id || user.role_id || defaultRoleId;
-        const deptId = user.department?.id || user.department_id || '';
-        setFormData({
-          first_name: user.first_name || '',
-          last_name: user.last_name || '',
-          email: user.email || '',
-          password: '',
-          department_id: deptId,
-          designation: user.designation || '',
-          team_id: user.team_memberships?.[0]?.team?.id || user.team_id || '',
-          role_id: currentRoleId,
-          status: user.status || 'ACTIVE',
-        });
-      } else {
-        setFormData({
-          first_name: '',
-          last_name: '',
-          email: '',
-          password: '',
-          department_id: '',
-          designation: '',
-          team_id: '',
-          role_id: defaultRoleId,
-          status: 'ACTIVE',
-        });
-      }
-      setErrors({});
+    if (!isOpen) return;
+    if (user) {
+      const currentRoleId = user.roles?.[0]?.role?.id || user.role_id || defaultRoleId;
+      const deptId = user.department?.id || user.department_id || '';
+      setFormData({
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+        email: user.email || '',
+        password: '',
+        department_id: deptId,
+        designation: user.designation || '',
+        team_id: user.team_memberships?.[0]?.team?.id || user.team_id || '',
+        role_id: currentRoleId,
+        status: user.status || 'ACTIVE',
+      });
+    } else {
+      setFormData({
+        first_name: '',
+        last_name: '',
+        email: '',
+        password: '',
+        department_id: '',
+        designation: '',
+        team_id: '',
+        role_id: defaultRoleId,
+        status: 'ACTIVE',
+      });
     }
-  }, [user, isOpen, defaultRoleId]);
+    setErrors({});
+  // Only re-initialize when the modal opens or the user changes, not when async data loads
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, isOpen]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

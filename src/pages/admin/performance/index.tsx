@@ -13,6 +13,72 @@ const STATUS_STYLE: Record<string, string> = {
   PENDING:   'bg-amber-100 text-amber-700',
 };
 
+function DailyReportModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], todays_progress: '', blockers: '', tomorrow_plan: '', hours_worked: '' });
+  const [err, setErr] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.PERFORMANCE.DAILY_REPORTS, {
+      method: 'POST',
+      body: JSON.stringify({ ...form, hours_worked: form.hours_worked ? +form.hours_worked : undefined }),
+    }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['perf-reports'] }); onClose(); },
+    onError: (e: any) => setErr(e?.message || 'Failed to submit report'),
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-black text-gray-900">Add Daily Report</h2>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+        </div>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1.5">Date <span className="text-red-500">*</span></label>
+              <input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
+                className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1.5">Hours Worked</label>
+              <input type="number" min="0" max="24" value={form.hours_worked} onChange={e => setForm(p => ({ ...p, hours_worked: e.target.value }))}
+                className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" placeholder="8" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 block mb-1.5">Today's Progress <span className="text-red-500">*</span></label>
+            <textarea value={form.todays_progress} onChange={e => setForm(p => ({ ...p, todays_progress: e.target.value }))}
+              className="w-full h-20 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
+              placeholder="What did you accomplish today?" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 block mb-1.5">Blockers</label>
+            <textarea value={form.blockers} onChange={e => setForm(p => ({ ...p, blockers: e.target.value }))}
+              className="w-full h-16 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
+              placeholder="Any blockers or issues?" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 block mb-1.5">Tomorrow's Plan</label>
+            <textarea value={form.tomorrow_plan} onChange={e => setForm(p => ({ ...p, tomorrow_plan: e.target.value }))}
+              className="w-full h-16 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
+              placeholder="What's planned for tomorrow?" />
+          </div>
+        </div>
+        {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
+        <div className="flex gap-3 mt-5">
+          <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 cursor-pointer">Cancel</button>
+          <button onClick={() => mutation.mutate()} disabled={!form.todays_progress || mutation.isPending}
+            className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40 cursor-pointer">
+            {mutation.isPending ? 'Submitting…' : 'Submit Report'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ScoreModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const [form, setForm] = useState({ employee_id: '', score: '', period: '', notes: '' });
@@ -85,6 +151,7 @@ function ScoreModal({ onClose }: { onClose: () => void }) {
 export default function PerformancePage() {
   const [tab, setTab] = useState<'reports' | 'scores' | 'bonus'>('reports');
   const [showScoreModal, setShowScoreModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const { data: reports, isLoading: reportsLoading } = useQuery({
     queryKey: ['perf-reports'],
@@ -113,9 +180,15 @@ export default function PerformancePage() {
           <h1 className="text-2xl font-black text-gray-900">Performance</h1>
           <p className="text-sm text-gray-400 mt-0.5">Track daily reports, scores, and bonuses</p>
         </div>
+        {tab === 'reports' && (
+          <button onClick={() => setShowReportModal(true)}
+            className="flex items-center gap-2 px-4 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition-colors cursor-pointer">
+            <Plus size={16} />Add Report
+          </button>
+        )}
         {tab === 'scores' && (
           <button onClick={() => setShowScoreModal(true)}
-            className="flex items-center gap-2 px-4 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition-colors">
+            className="flex items-center gap-2 px-4 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition-colors cursor-pointer">
             <Plus size={16} />Submit Score
           </button>
         )}
@@ -252,6 +325,7 @@ export default function PerformancePage() {
         )}
       </div>
 
+      {showReportModal && <DailyReportModal onClose={() => setShowReportModal(false)} />}
       {showScoreModal && <ScoreModal onClose={() => setShowScoreModal(false)} />}
     </div>
   );

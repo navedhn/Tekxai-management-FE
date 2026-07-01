@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Settings, Camera, Clock, Save, HardDrive } from 'lucide-react';
+import { Settings, Camera, Clock, Save, HardDrive, Timer } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useToastContext } from '@/components/toast/ToastProvider';
@@ -14,6 +14,17 @@ const INTERVAL_OPTIONS = [
   { value: '20', label: 'Every 20 minutes' },
   { value: '30', label: 'Every 30 minutes' },
   { value: '60', label: 'Every hour' },
+];
+
+const IDLE_TIMEOUT_OPTIONS = [
+  { value: '5',  label: '5 minutes' },
+  { value: '10', label: '10 minutes' },
+  { value: '15', label: '15 minutes (default)' },
+  { value: '20', label: '20 minutes' },
+  { value: '30', label: '30 minutes' },
+  { value: '45', label: '45 minutes' },
+  { value: '60', label: '1 hour' },
+  { value: '120', label: '2 hours' },
 ];
 
 export default function SystemSettings() {
@@ -105,6 +116,44 @@ export default function SystemSettings() {
               <option value="local">Local Server Disk</option>
             </select>
             <p className="text-xs text-gray-400 mt-1">Where uploaded files and screenshots are stored. S3 requires AWS credentials in .env.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Idle Auto-Checkout Settings */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
+        <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
+          <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center">
+            <Timer size={18} className="text-amber-600" />
+          </div>
+          <div>
+            <h2 className="font-bold text-gray-900">Idle Auto-Checkout</h2>
+            <p className="text-xs text-gray-400">Automatically check out employees after a period of inactivity in the browser</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-bold text-gray-500 mb-1.5 block flex items-center gap-1.5">
+              <Clock size={12} /> Idle Timeout Duration
+            </label>
+            <select
+              value={form.idle_timeout_minutes || '15'}
+              onChange={e => set('idle_timeout_minutes', e.target.value)}
+              className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
+            >
+              {IDLE_TIMEOUT_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              If an employee has no mouse, keyboard, or scroll activity in the app for this duration, they will be automatically checked out.
+            </p>
+          </div>
+          <div className="flex items-start pt-6">
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-700 leading-relaxed">
+              <strong>Browser-only detection.</strong> This tracks inactivity within the Tekxai web app tab. For device-wide idle detection (e.g. user switches to another app), the desktop agent is required.
+            </div>
           </div>
         </div>
       </div>

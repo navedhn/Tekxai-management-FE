@@ -27,7 +27,7 @@ const ToastContainer: React.FC<Props> = ({
   return (
     <div
       className={classNames(
-        'fixed z-[200] flex flex-col gap-3',
+        'fixed z-[999999] flex flex-col gap-3',
         positionClasses[position]
       )}
     >

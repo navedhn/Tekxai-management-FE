@@ -327,6 +327,7 @@ const TimesheetManagement: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                         <Input
                             label="Check In"
+                            type="datetime-local"
                             value={editForm.checkIn}
                             onChange={(e) => setEditForm({ ...editForm, checkIn: e.target.value })}
                             leftIcon={Calendar}
@@ -334,6 +335,7 @@ const TimesheetManagement: React.FC = () => {
                         />
                         <Input
                             label="Check Out"
+                            type="datetime-local"
                             value={editForm.checkOut}
                             onChange={(e) => setEditForm({ ...editForm, checkOut: e.target.value })}
                             leftIcon={Calendar}
