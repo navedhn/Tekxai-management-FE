@@ -38,18 +38,18 @@ const Tabs: React.FC<TabsProps> = ({
   const buttonStyles = {
     pills: (isActive: boolean) =>
       cn(
-        'whitespace-nowrap rounded-xl transition-all duration-300 flex items-center gap-2 font-black tracking-tight',
-        size === 'sm' ? 'px-4 py-1.5 text-xs' : 'px-6 py-2.5 text-sm',
+        'whitespace-nowrap rounded-xl transition-all duration-300 flex items-center gap-2 font-medium tracking-normal',
+        size === 'sm' ? 'px-4 py-1.5 text-xs' : 'px-5 py-2 text-sm',
         isActive
-          ? 'bg-gradient-to-b from-[#005CDA] to-[#001F4A] text-white shadow-lg shadow-primary-200 scale-[1.02]'
-          : 'text-gray-400 hover:text-blue-900 hover:bg-blue-50'
+          ? 'bg-primary-600 text-white shadow-sm'
+          : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
       ),
     underline: (isActive: boolean) =>
       cn(
-        'whitespace-nowrap pb-4 border-b-2 transition-all duration-300 font-black relative top-[1px]',
+        'whitespace-nowrap pb-4 border-b-2 transition-all duration-300 font-medium relative top-[1px]',
         size === 'sm' ? 'text-xs' : 'text-sm',
         isActive
-          ? 'border-primary-500 text-primary-500'
+          ? 'border-primary-500 text-primary-600 font-semibold'
           : 'border-transparent text-gray-400 hover:text-gray-600'
       ),
   };

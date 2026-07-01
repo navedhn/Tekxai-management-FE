@@ -49,10 +49,10 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary: 'btn-sweep text-white',
-  secondary: 'bg-white text-gray-900 border-2 border-gray-900 hover:bg-gray-100',
+  secondary: 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100 font-medium',
   dark: 'btn-sweep-black text-white',
-  outline: 'bg-transparent text-gray-900 border-2 border-gray-300 hover:bg-gray-50',
-  ghost: 'bg-transparent text-gray-700 hover:bg-gray-100',
+  outline: 'bg-transparent text-gray-600 border border-gray-200 hover:bg-gray-50 font-medium',
+  ghost: 'bg-transparent text-gray-500 hover:bg-gray-100 font-medium',
   link: 'bg-transparent text-primary-500 hover:text-primary-600 underline-offset-4 hover:underline',
   transparent: 'bg-transparent text-primary-600 font-medium !p-0'
 };
@@ -76,7 +76,7 @@ export const pageActionButtonClass =
 
 /** Compact outline action for page headers (Filters, configuration, etc.) */
 export const pageOutlineButtonClass =
-  'rounded-xl h-9 min-h-9 text-sm font-bold px-5 border-gray-200 w-full sm:w-auto whitespace-nowrap shrink-0';
+  'rounded-xl h-9 min-h-9 text-sm font-medium px-5 border-gray-200 w-full sm:w-auto whitespace-nowrap shrink-0';
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
