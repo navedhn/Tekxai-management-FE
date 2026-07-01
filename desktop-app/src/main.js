@@ -148,8 +148,9 @@ ipcMain.handle('login', async (_, { email, password }) => {
     throw new Error(res.data?.message || 'Login failed');
   }
   const payload = res.data.payload || res.data.data;
-  const { access_token, user } = payload;
+  const { access_token, refresh_token, user } = payload;
   store.set('auth_token', access_token);
+  if (refresh_token) store.set('refresh_token', refresh_token);
   store.set('user', user);
   updateTrayMenu();
   return { user };
@@ -206,7 +207,7 @@ ipcMain.handle('clock-in', async () => {
   store.set('clocked_in', true);
   store.set('screenshot_interval_ms', screenshotIntervalMs);
   updateTrayMenu();
-  startScreenshots(token);
+  startScreenshots();
   startActivityTracking(token);
   return res.data.payload;
 });
@@ -241,12 +242,33 @@ ipcMain.handle('open-dashboard', () => {
   shell.openExternal(DASHBOARD_URL);
 });
 
+// ── Token refresh ─────────────────────────────────────────────────────────────
+
+async function refreshAccessToken() {
+  const refreshToken = store.get('refresh_token');
+  if (!refreshToken) return null;
+  try {
+    const axios = require('axios');
+    const res = await axios.post(`${API_BASE}/auth/refresh`, { refresh_token: refreshToken });
+    const payload = res.data?.payload || res.data?.data || res.data;
+    const newToken = payload?.access_token || payload?.accessToken;
+    const newRefresh = payload?.refresh_token || payload?.refreshToken;
+    if (newToken) {
+      store.set('auth_token', newToken);
+      if (newRefresh) store.set('refresh_token', newRefresh);
+      return newToken;
+    }
+  } catch (_) {}
+  return null;
+}
+
 // ── Screenshot capture ────────────────────────────────────────────────────────
 
-function startScreenshots(token) {
+function startScreenshots() {
   stopScreenshots();
-  takeScreenshot(token); // immediate first capture
-  screenshotTimer = setInterval(() => takeScreenshot(token), screenshotIntervalMs);
+  const getToken = () => store.get('auth_token');
+  takeScreenshot(getToken());
+  screenshotTimer = setInterval(() => takeScreenshot(getToken()), screenshotIntervalMs);
 }
 
 function stopScreenshots() {
@@ -258,6 +280,16 @@ async function takeScreenshot(token) {
   try {
     const screenshot = require('screenshot-desktop');
     const axios = require('axios');
+
+    // Refresh token proactively if within 5 minutes of expiry
+    try {
+      const parts = token.split('.');
+      const { exp } = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+      if (exp && (exp - Math.floor(Date.now() / 1000)) < 300) {
+        const fresh = await refreshAccessToken();
+        if (fresh) token = fresh;
+      }
+    } catch (_) {}
 
     const img = await screenshot({ format: 'png' });
     const key = `screenshots/${store.get('user')?.id || 'unknown'}/${Date.now()}.png`;
