@@ -106,7 +106,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         return 'btn-sweep-black text-white';
       }
       if (animation === 'none') {
-        // Remove animation classes from variant
+        if (variant === 'primary') return 'bg-primary-600 hover:bg-primary-700 text-white';
+        if (variant === 'dark') return 'bg-gray-900 hover:bg-gray-800 text-white';
         const baseVariant = variantClasses[variant]
           .replace('btn-sweep', '')
           .replace('btn-sweep-black', '')

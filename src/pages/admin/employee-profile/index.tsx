@@ -87,6 +87,7 @@ const EmployeeProfilePage: React.FC = () => {
   const handleEditProfile = () => {
     setHrForm({ ...profile });
     setHrEditing(true);
+    setActiveTab('Employment');
   };
 
   const handleSaveProfile = () => {

@@ -24,7 +24,7 @@
 import { useEffect, useRef } from 'react';
 import { forceCheckoutApi, setIdleCheckoutFlag } from '@/utils/attendanceAutoCheckout';
 
-const IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+const DEFAULT_IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 const ACTIVITY_EVENTS = [
   'mousemove',
@@ -40,9 +40,11 @@ interface UseIdleAutoCheckoutOptions {
   isClockdIn: boolean;
   /** Called immediately after the auto-checkout fires so the parent can update state */
   onAutoCheckout?: () => void;
+  /** Idle timeout in milliseconds. Defaults to 15 minutes if not provided. */
+  idleTimeoutMs?: number;
 }
 
-export function useIdleAutoCheckout({ isClockdIn, onAutoCheckout }: UseIdleAutoCheckoutOptions) {
+export function useIdleAutoCheckout({ isClockdIn, onAutoCheckout, idleTimeoutMs = DEFAULT_IDLE_TIMEOUT_MS }: UseIdleAutoCheckoutOptions) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didCheckout = useRef(false);
 
@@ -65,7 +67,7 @@ export function useIdleAutoCheckout({ isClockdIn, onAutoCheckout }: UseIdleAutoC
         setIdleCheckoutFlag();
         await forceCheckoutApi('IDLE_TIMEOUT');
         onAutoCheckout?.();
-      }, IDLE_TIMEOUT_MS);
+      }, idleTimeoutMs);
     };
 
     // Start the timer immediately
@@ -85,5 +87,5 @@ export function useIdleAutoCheckout({ isClockdIn, onAutoCheckout }: UseIdleAutoC
       ACTIVITY_EVENTS.forEach((ev) => window.removeEventListener(ev, resetTimer));
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [isClockdIn, onAutoCheckout]);
+  }, [isClockdIn, onAutoCheckout, idleTimeoutMs]);
 }

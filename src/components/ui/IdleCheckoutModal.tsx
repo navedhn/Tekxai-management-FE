@@ -15,9 +15,11 @@ import { Button } from '@/components/ui/Button';
 interface IdleCheckoutModalProps {
   /** Only show the modal when the user is authenticated */
   isAuthenticated: boolean;
+  /** Idle timeout in minutes, used for display text */
+  idleTimeoutMinutes?: number;
 }
 
-const IdleCheckoutModal: React.FC<IdleCheckoutModalProps> = ({ isAuthenticated }) => {
+const IdleCheckoutModal: React.FC<IdleCheckoutModalProps> = ({ isAuthenticated, idleTimeoutMinutes = 15 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [checkedIn, setCheckedIn] = useState(false);
   const qc = useQueryClient();
@@ -72,7 +74,7 @@ const IdleCheckoutModal: React.FC<IdleCheckoutModalProps> = ({ isAuthenticated }
             You were automatically checked out
           </h2>
           <p className="text-sm text-gray-500 font-medium leading-relaxed">
-            Your attendance session was closed after 15 minutes of inactivity in the app.
+            Your attendance session was closed after {idleTimeoutMinutes} {idleTimeoutMinutes === 1 ? 'minute' : 'minutes'} of inactivity in the app.
             Would you like to check in again to continue tracking your time?
           </p>
           <p className="text-xs text-amber-600 font-semibold bg-amber-50 rounded-lg px-3 py-2 mt-1">

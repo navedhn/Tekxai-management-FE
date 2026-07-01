@@ -6,10 +6,10 @@ import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
-import { Clock, AlertTriangle, Settings, Plus } from 'lucide-react';
+import { Clock, AlertTriangle, Settings, Plus, Pencil, Trash2 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
-import { useGetShiftsQuery, useGetViolationsQuery, useUpsertShiftMutation, useAssignShiftMutation } from '@/services/attendanceService';
+import { useGetShiftsQuery, useGetViolationsQuery, useUpsertShiftMutation, useAssignShiftMutation, useDeleteShiftMutation } from '@/services/attendanceService';
 import { useFetchUsersQuery } from '@/services/userService';
 
 const TABS = ['Late Coming / Violations', 'Shift Management'];
@@ -25,6 +25,7 @@ const AttendancePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('Late Coming / Violations');
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [editingShift, setEditingShift] = useState<any>(null);
   const [shiftForm, setShiftForm] = useState({ name: '', start_time: '09:00', end_time: '18:00', grace_period_min: 15, is_default: false });
   const [assignForm, setAssignForm] = useState({ user_id: '', shift_id: '' });
 
@@ -33,6 +34,7 @@ const AttendancePage: React.FC = () => {
   const { data: users = [] } = useFetchUsersQuery({});
   const upsertShift = useUpsertShiftMutation();
   const assignShift = useAssignShiftMutation();
+  const deleteShift = useDeleteShiftMutation();
 
   const violations = (violationsData as any)?.records || [];
 
@@ -50,20 +52,41 @@ const AttendancePage: React.FC = () => {
     { header: 'Excused', key: 'is_excused', render: (item) => item.is_excused ? <span className="text-green-500 font-bold text-xs">Yes</span> : <span className="text-gray-300 text-xs">No</span> },
   ];
 
+  const openEditShift = (shift: any) => {
+    setEditingShift(shift);
+    setShiftForm({ name: shift.name, start_time: shift.start_time, end_time: shift.end_time, grace_period_min: shift.grace_period_min, is_default: shift.is_default });
+    setShowShiftModal(true);
+  };
+
+  const handleDeleteShift = async (shift: any) => {
+    if (!window.confirm(`Delete shift "${shift.name}"?`)) return;
+    try {
+      await deleteShift.mutateAsync(shift.id);
+      toast.success('Shift deleted');
+    } catch { toast.error('Failed to delete shift'); }
+  };
+
   const shiftCols: Column<any>[] = [
     { header: 'Shift Name', key: 'name', render: (item) => <span className="font-black">{item.name}</span> },
     { header: 'Start', key: 'start_time', render: (item) => <span className="font-mono">{item.start_time}</span> },
     { header: 'End', key: 'end_time', render: (item) => <span className="font-mono">{item.end_time}</span> },
     { header: 'Grace Period', key: 'grace_period_min', render: (item) => <span>{item.grace_period_min} min</span> },
     { header: 'Default', key: 'is_default', render: (item) => item.is_default ? <Badge variant="success" className="text-[10px] px-2 py-0.5 bg-green-50 text-green-600 border border-green-100 rounded-lg">Default</Badge> : null },
+    { header: 'Actions', key: 'actions', render: (item) => (
+      <div className="flex items-center gap-2">
+        <button onClick={() => openEditShift(item)} className="cursor-pointer text-gray-500 hover:text-primary-600 transition-colors p-1 rounded"><Pencil size={14} /></button>
+        <button onClick={() => handleDeleteShift(item)} className="cursor-pointer text-gray-500 hover:text-red-500 transition-colors p-1 rounded"><Trash2 size={14} /></button>
+      </div>
+    )},
   ];
 
   const handleSaveShift = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await upsertShift.mutateAsync(shiftForm);
-      toast.success('Shift saved');
+      await upsertShift.mutateAsync(editingShift ? { ...shiftForm, id: editingShift.id } : shiftForm);
+      toast.success(editingShift ? 'Shift updated' : 'Shift created');
       setShowShiftModal(false);
+      setEditingShift(null);
     } catch { toast.error('Failed to save shift'); }
   };
 
@@ -101,7 +124,7 @@ const AttendancePage: React.FC = () => {
               <Button variant="outline" size="sm" className="rounded-xl gap-1.5 h-9" onClick={() => setShowAssignModal(true)}>
                 <Clock size={14} /> Assign Shift
               </Button>
-              <Button variant="primary" size="sm" className="rounded-xl gap-1.5 h-9" onClick={() => setShowShiftModal(true)}>
+              <Button variant="primary" size="sm" className="rounded-xl gap-1.5 h-9" onClick={() => { setEditingShift(null); setShiftForm({ name: '', start_time: '09:00', end_time: '18:00', grace_period_min: 15, is_default: false }); setShowShiftModal(true); }}>
                 <Plus size={14} /> New Shift
               </Button>
             </div>
@@ -110,8 +133,8 @@ const AttendancePage: React.FC = () => {
         </Card>
       )}
 
-      {/* New Shift Modal */}
-      <Modal isOpen={showShiftModal} onClose={() => setShowShiftModal(false)} title="Configure Shift">
+      {/* New/Edit Shift Modal */}
+      <Modal isOpen={showShiftModal} onClose={() => { setShowShiftModal(false); setEditingShift(null); }} title={editingShift ? 'Edit Shift' : 'New Shift'}>
         <form onSubmit={handleSaveShift} className="flex flex-col gap-4 mt-4">
           {[
             { label: 'Shift Name', key: 'name', type: 'text', placeholder: 'e.g. Morning Shift' },

@@ -31,8 +31,17 @@ const CRMLayout: React.FC = memo(() => {
 
   const isActiveSession = !!(todayStatus?.clocked_in && !todayStatus?.clocked_out);
 
+  const { data: publicSettings } = useQuery({
+    queryKey: ['system-settings-public'],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.SETTINGS.SYSTEM_PUBLIC).then((r: any) => r?.payload || {}),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const idleTimeoutMs = (Number(publicSettings?.idle_timeout_minutes) || 15) * 60 * 1000;
+
   useIdleAutoCheckout({
     isClockdIn: isActiveSession,
+    idleTimeoutMs,
     onAutoCheckout: () => {
       qc.invalidateQueries({ queryKey: ['timesheet', 'today'] });
       qc.invalidateQueries({ queryKey: ['timesheet', 'weekly'] });
@@ -78,7 +87,7 @@ const CRMLayout: React.FC = memo(() => {
             </AnimatePresence>
           </div>
         </main>
-        <IdleCheckoutModal isAuthenticated={isLoggedIn} />
+        <IdleCheckoutModal isAuthenticated={isLoggedIn} idleTimeoutMinutes={Number(publicSettings?.idle_timeout_minutes) || 15} />
       </div>
     </MarketingTeamProvider>
   );

@@ -118,6 +118,25 @@ export default function EmployeeDirectory() {
   const total = data?.total || 0;
   const pages = data?.pages || 1;
 
+  const handleExport = () => {
+    const headers = ['Name', 'Email', 'Employee ID', 'Department', 'Designation', 'Status', 'Hire Date'];
+    const rows = records.map((e: any) => [
+      `${e.first_name || ''} ${e.last_name || ''}`.trim(),
+      e.email || '',
+      e.employee_id || '',
+      e.department?.name || '',
+      e.designation || '',
+      e.status || '',
+      e.hire_date ? new Date(e.hire_date).toLocaleDateString() : '',
+    ]);
+    const csv = [headers, ...rows].map(r => r.map((c: any) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'employees.csv'; a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const { data: departments } = useQuery({
     queryKey: ['departments'],
     queryFn: () => apiRequest<any>(`api/v1/department`),
@@ -248,7 +267,7 @@ export default function EmployeeDirectory() {
           <p className="text-sm text-gray-400 mt-0.5">View and manage all employees across the organization</p>
         </div>
         <div className="flex gap-2">
-          <button className="flex items-center gap-2 px-4 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+          <button onClick={handleExport} className="flex items-center gap-2 px-4 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer">
             <Download size={16} />Export
           </button>
           <button

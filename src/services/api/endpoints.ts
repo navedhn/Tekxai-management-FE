@@ -90,10 +90,11 @@ export const API_ENDPOINTS = {
     REJECT_TIMEOFF:  (id: string | number) => `${v1}/timesheet/time-off/${id}/reject`,
   },
   SETTINGS: {
-    ME:          `${v1}/settings/me`,
-    PREFERENCES: `${v1}/settings/preferences`,
-    PASSWORD:    `${v1}/settings/password`,
-    SYSTEM:      `${v1}/settings/system`,
+    ME:            `${v1}/settings/me`,
+    PREFERENCES:   `${v1}/settings/preferences`,
+    PASSWORD:      `${v1}/settings/password`,
+    SYSTEM:        `${v1}/settings/system`,
+    SYSTEM_PUBLIC: `${v1}/settings/system/public`,
   },
   STARRED: {
     QUERIES:    `${v1}/starred/queries`,
