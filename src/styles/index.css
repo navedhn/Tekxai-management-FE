@@ -216,6 +216,16 @@ span {
   background: #1f7bff;
 }
 
+/* Global pointer cursor for all interactive elements */
+button,
+[role="button"],
+select,
+label[for],
+a,
+[onClick],
+summary {
+  cursor: pointer;
+}
 
 ::-webkit-scrollbar {
   width: 6px;
