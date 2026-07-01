@@ -187,7 +187,10 @@ function setSsIndicator(active) {
   const label = document.getElementById('ss-label');
   if (active) {
     dot.classList.add('active');
-    label.textContent = 'Screenshots active (every 5 min)';
+    window.agent.getStore('screenshot_interval_ms').then(intervalMs => {
+      const mins = Math.round((intervalMs || 5 * 60 * 1000) / 60000);
+      label.textContent = `Screenshots active (every ${mins} min)`;
+    }).catch(() => { label.textContent = 'Screenshots active'; });
   } else {
     dot.classList.remove('active');
     label.textContent = 'Screenshots paused';

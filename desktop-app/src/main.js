@@ -6,12 +6,13 @@ const Store = require('electron-store');
 const store = new Store();
 const API_BASE = 'https://api.tekxai.services/api/v1';
 const DASHBOARD_URL = 'https://tekxai.services/employee';
-const SCREENSHOT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const DEFAULT_SCREENSHOT_INTERVAL_MS = 5 * 60 * 1000; // fallback 5 minutes
 
 let mainWindow = null;
 let tray = null;
 let screenshotTimer = null;
 let sessionId = null;
+let screenshotIntervalMs = DEFAULT_SCREENSHOT_INTERVAL_MS;
 
 // ── Activity tracking state ───────────────────────────────────────────────────
 let activityToken = null;
@@ -177,20 +178,33 @@ ipcMain.handle('clock-in', async () => {
   const token = store.get('auth_token');
   const axios = require('axios');
 
-  // Start monitoring session
+  // Fetch screenshot interval from admin settings
+  try {
+    const settingsRes = await axios.get(`${API_BASE}/settings/system/public`);
+    const mins = parseInt(settingsRes.data?.payload?.screenshot_interval_minutes, 10);
+    screenshotIntervalMs = (!isNaN(mins) && mins > 0) ? mins * 60 * 1000 : DEFAULT_SCREENSHOT_INTERVAL_MS;
+  } catch (_) {
+    screenshotIntervalMs = DEFAULT_SCREENSHOT_INTERVAL_MS;
+  }
+
+  // Start monitoring session (non-fatal if it fails)
   try {
     const sessRes = await axios.post(`${API_BASE}/monitoring/session/start`, {
       agent_version: app.getVersion(),
       os_platform: process.platform,
     }, { headers: { Authorization: `Bearer ${token}` } });
     sessionId = sessRes.data.payload.id;
-  } catch (_) {}
+  } catch (err) {
+    console.error('[session-start]', err.message);
+    sessionId = null; // screenshots will still be taken and upload attempted
+  }
 
   const res = await axios.post(`${API_BASE}/timesheet/clock-in`, { note: '' }, {
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
   });
 
   store.set('clocked_in', true);
+  store.set('screenshot_interval_ms', screenshotIntervalMs);
   updateTrayMenu();
   startScreenshots(token);
   startActivityTracking(token);
@@ -232,7 +246,7 @@ ipcMain.handle('open-dashboard', () => {
 function startScreenshots(token) {
   stopScreenshots();
   takeScreenshot(token); // immediate first capture
-  screenshotTimer = setInterval(() => takeScreenshot(token), SCREENSHOT_INTERVAL_MS);
+  screenshotTimer = setInterval(() => takeScreenshot(token), screenshotIntervalMs);
 }
 
 function stopScreenshots() {
@@ -241,7 +255,6 @@ function stopScreenshots() {
 }
 
 async function takeScreenshot(token) {
-  if (!sessionId) return;
   try {
     const screenshot = require('screenshot-desktop');
     const axios = require('axios');
