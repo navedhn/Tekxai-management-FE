@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Users, ShieldCheck, Clock, UserPlus, Plus, FolderOpen, BarChart2, CalendarCheck, AlertCircle } from 'lucide-react';
+import { Users, ShieldCheck, Clock, Plus, FolderOpen, BarChart2, CalendarCheck, AlertCircle } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
@@ -71,11 +71,10 @@ export default function HRDashboardPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={Users}       color="bg-blue-500"   label="Total Employees"    value={stats.total ?? stats.total_employees}       onClick={() => goToDir()} />
         <StatCard icon={ShieldCheck} color="bg-green-500"  label="Permanent"          value={stats.permanent}                            onClick={() => goToDir('employment_status=PERMANENT')} />
         <StatCard icon={Clock}       color="bg-amber-500"  label="On Leave"           value={stats.on_leave}                             onClick={() => goToDir('status=ON_LEAVE')} />
-        <StatCard icon={UserPlus}    color="bg-purple-500" label="New This Month"     value={stats.new_this_month ?? stats.new_hires}    onClick={() => goToDir('filter=new_this_month')} />
         <StatCard icon={AlertCircle} color="bg-orange-500" label="Probation"          value={stats.probation}                            onClick={() => goToDir('employment_status=PROBATION')} />
       </div>
 
