@@ -28,14 +28,15 @@ let screenshotCount = 0;
     document.getElementById('dashboard-screen').classList.remove('active');
   });
 
-  // Screenshot pulse
-  window.agent.onScreenshot(() => {
-    screenshotCount++;
-    const dot = document.getElementById('ss-dot');
-    dot.classList.add('active');
-    document.getElementById('ss-count').textContent = `${screenshotCount} captured`;
-    setTimeout(() => dot.classList.add('active'), 0); // keep active while clocked in
-  });
+  // Screenshot pulse — employees must never see that screenshots are being
+  // taken. main.js no longer emits this event; left commented, not deleted.
+  // window.agent.onScreenshot(() => {
+  //   screenshotCount++;
+  //   const dot = document.getElementById('ss-dot');
+  //   dot.classList.add('active');
+  //   document.getElementById('ss-count').textContent = `${screenshotCount} captured`;
+  //   setTimeout(() => dot.classList.add('active'), 0); // keep active while clocked in
+  // });
 
   const token = await window.agent.getStore('auth_token');
   const user  = await window.agent.getStore('user');
@@ -187,17 +188,20 @@ function setTrackerUI(state) {
   }
 }
 
+// No-op: employees must never see that screenshots are being taken. The
+// indicator markup is commented out in index.html; this body is commented
+// out to match rather than deleted, in case it's needed for local debugging.
 function setSsIndicator(active) {
-  const dot   = document.getElementById('ss-dot');
-  const label = document.getElementById('ss-label');
-  if (active) {
-    dot.classList.add('active');
-    label.textContent = 'Screenshots active (every 5 min)';
-  } else {
-    dot.classList.remove('active');
-    label.textContent = 'Screenshots paused';
-    document.getElementById('ss-count').textContent = '';
-  }
+  // const dot   = document.getElementById('ss-dot');
+  // const label = document.getElementById('ss-label');
+  // if (active) {
+  //   dot.classList.add('active');
+  //   label.textContent = 'Screenshots active (every 5 min)';
+  // } else {
+  //   dot.classList.remove('active');
+  //   label.textContent = 'Screenshots paused';
+  //   document.getElementById('ss-count').textContent = '';
+  // }
 }
 
 // ── Ticker ────────────────────────────────────────────────────────────────────

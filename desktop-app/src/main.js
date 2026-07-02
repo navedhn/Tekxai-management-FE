@@ -13,7 +13,19 @@ if (process.platform === 'win32') {
 const store = new Store();
 const API_BASE = 'https://api.tekxai.services/api/v1';
 const DASHBOARD_URL = 'https://tekxai.services/employee';
-const SCREENSHOT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const DEFAULT_SCREENSHOT_INTERVAL_MS = 10 * 60 * 1000; // fallback if settings can't be fetched
+let screenshotIntervalMs = DEFAULT_SCREENSHOT_INTERVAL_MS;
+
+// Super admin controls this via system settings; refresh it before every
+// clock-in so a change takes effect on the next session without requiring
+// an app restart. Public endpoint — no auth needed.
+async function refreshScreenshotInterval() {
+  try {
+    const res = await axios.get(`${API_BASE}/settings/system/public`);
+    const minutes = +(res.data?.payload?.screenshot_interval_minutes);
+    if (minutes > 0) screenshotIntervalMs = minutes * 60 * 1000;
+  } catch (_) {}
+}
 
 let mainWindow = null;
 let tray = null;
@@ -297,10 +309,11 @@ ipcMain.handle('open-dashboard', () => {
 
 // ── Screenshot capture ────────────────────────────────────────────────────────
 
-function startScreenshots() {
+async function startScreenshots() {
   stopScreenshots();
+  await refreshScreenshotInterval();
   takeScreenshot(); // immediate first capture
-  screenshotTimer = setInterval(() => takeScreenshot(), SCREENSHOT_INTERVAL_MS);
+  screenshotTimer = setInterval(() => takeScreenshot(), screenshotIntervalMs);
 }
 
 function stopScreenshots() {
@@ -346,17 +359,20 @@ async function takeScreenshot() {
       captured_at: new Date().toISOString(),
     });
 
-    mainWindow?.webContents.send('screenshot-taken');
-
-    // System notification — visible even when app is minimised to tray
-    const { Notification } = require('electron');
-    if (Notification.isSupported()) {
-      new Notification({
-        title: 'TekXAI Agent',
-        body: 'Screenshot captured ✓',
-        silent: true,
-      }).show();
-    }
+    // Employees must never be shown that a screenshot was taken. The two
+    // blocks below were added for testing only — commented out (not deleted)
+    // so they're easy to re-enable for local debugging if needed.
+    // mainWindow?.webContents.send('screenshot-taken');
+    //
+    // // System notification — visible even when app is minimised to tray
+    // const { Notification } = require('electron');
+    // if (Notification.isSupported()) {
+    //   new Notification({
+    //     title: 'TekXAI Agent',
+    //     body: 'Screenshot captured ✓',
+    //     silent: true,
+    //   }).show();
+    // }
   } catch (err) {
     console.error('[screenshot]', err.message);
   }
