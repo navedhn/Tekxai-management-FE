@@ -3,10 +3,11 @@ import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import Select from '@/components/ui/Select';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { useFetchUsersQuery } from '@/services/userService';
 import {
-  useGetPerformanceEmployees,
-  useGetPerformanceConfig,
+  useGetBonusConfig,
   useSavePerformanceMutation,
+  SCORING_CRITERIA,
 } from '@/services/performanceScoringService';
 import {
   EmployeePerformanceRecord,
@@ -15,17 +16,14 @@ import {
 } from '@/types/performanceScoring';
 import {
   EMPTY_SCORES,
-  calculateSuggestedBonus,
   calculateTotalScore,
   clampScore,
-  getBonusRuleLabel,
+  findBonusTier,
   getMaxTotalScore,
   getScoreGrade,
   formatPkrAmount,
-  normalizeScores,
 } from '@/utils/performanceScoring';
 import { cn } from '@/utils/cn';
-import { RotateCcw } from 'lucide-react';
 
 type Props = {
   isOpen: boolean;
@@ -36,17 +34,14 @@ type Props = {
 
 const EmployeePerformanceModal: React.FC<Props> = ({ isOpen, onClose, period, record }) => {
   const toast = useToastContext();
-  const { data: employees = [] } = useGetPerformanceEmployees();
-  const { data: config } = useGetPerformanceConfig();
-  const criteria = config?.criteria ?? [];
-  const bonusRules = config?.bonusRules ?? [];
+  const { data: employees = [] } = useFetchUsersQuery({}, isOpen);
+  const { data: bonusTiers = [] } = useGetBonusConfig();
+  const criteria = SCORING_CRITERIA;
   const maxTotal = getMaxTotalScore(criteria);
   const saveMutation = useSavePerformanceMutation();
 
   const [employeeId, setEmployeeId] = useState('');
   const [scores, setScores] = useState<PerformanceScores>(EMPTY_SCORES);
-  const [bonusAmount, setBonusAmount] = useState(0);
-  const [bonusOverridden, setBonusOverridden] = useState(false);
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
@@ -54,54 +49,25 @@ const EmployeePerformanceModal: React.FC<Props> = ({ isOpen, onClose, period, re
     if (record) {
       setEmployeeId(record.employeeId);
       setScores(record.scores);
-      setBonusAmount(record.bonusAmount);
-      setBonusOverridden(record.bonusOverridden);
       setNotes(record.notes);
     } else {
       setEmployeeId('');
       setScores(EMPTY_SCORES);
-      setBonusAmount(0);
-      setBonusOverridden(false);
       setNotes('');
     }
   }, [isOpen, record]);
 
-  const totalScore = useMemo(
-    () => calculateTotalScore(scores, criteria),
-    [scores, criteria]
-  );
-  const suggestedBonus = useMemo(
-    () => calculateSuggestedBonus(totalScore, bonusRules),
-    [totalScore, bonusRules]
-  );
-  const grade = useMemo(
-    () => getScoreGrade(totalScore, maxTotal || 100),
-    [totalScore, maxTotal]
-  );
+  const totalScore = useMemo(() => calculateTotalScore(scores, criteria), [scores, criteria]);
+  const grade = useMemo(() => getScoreGrade(totalScore, maxTotal || 100), [totalScore, maxTotal]);
+  const suggestedTier = useMemo(() => findBonusTier(totalScore, bonusTiers), [totalScore, bonusTiers]);
 
-  const employeeOptions = employees.map((e) => ({
+  const employeeOptions = employees.map((e: any) => ({
     value: e.id,
-    label: `${e.name} — ${e.department}`,
+    label: `${e.first_name} ${e.last_name}`,
   }));
 
   const updateScore = (key: keyof PerformanceScores, value: number, max: number) => {
     setScores((prev) => ({ ...prev, [key]: clampScore(value, max) }));
-  };
-
-  useEffect(() => {
-    if (!bonusOverridden) {
-      setBonusAmount(suggestedBonus);
-    }
-  }, [suggestedBonus, bonusOverridden]);
-
-  const handleResetBonus = () => {
-    setBonusOverridden(false);
-    setBonusAmount(suggestedBonus);
-  };
-
-  const handleBonusChange = (value: number) => {
-    setBonusAmount(value);
-    setBonusOverridden(value !== suggestedBonus);
   };
 
   const handleSubmit = () => {
@@ -113,9 +79,7 @@ const EmployeePerformanceModal: React.FC<Props> = ({ isOpen, onClose, period, re
     const payload: SavePerformancePayload = {
       employeeId,
       period,
-      scores: normalizeScores(scores, criteria),
-      bonusAmount,
-      bonusOverridden,
+      scores,
       notes,
     };
 
@@ -164,10 +128,6 @@ const EmployeePerformanceModal: React.FC<Props> = ({ isOpen, onClose, period, re
       }
     >
       <div className="space-y-6">
-        {!config ? (
-          <p className="text-sm text-gray-500 py-8 text-center">Loading scoring configuration...</p>
-        ) : (
-          <>
         {!record && (
           <div>
             <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase mb-2 block">
@@ -185,7 +145,7 @@ const EmployeePerformanceModal: React.FC<Props> = ({ isOpen, onClose, period, re
         {record && (
           <div className="rounded-xl bg-[#F8F9FA] p-4">
             <p className="font-black text-gray-900">{record.employeeName}</p>
-            <p className="text-sm text-gray-500">{record.department} · {record.position}</p>
+            {record.department && <p className="text-sm text-gray-500">{record.department}</p>}
           </div>
         )}
 
@@ -232,44 +192,24 @@ const EmployeePerformanceModal: React.FC<Props> = ({ isOpen, onClose, period, re
             </span>
           </div>
 
-          <div className="rounded-xl border border-gray-100 p-5 space-y-3">
-            <p className="text-xs font-black text-gray-400 uppercase tracking-wider">Bonus / Penalty</p>
-            <p className="text-sm text-gray-600">{getBonusRuleLabel(totalScore, bonusRules)}</p>
-            <p className="text-sm">
-              Suggested:{' '}
-              <span className={cn('font-black', suggestedBonus < 0 ? 'text-red-600' : 'text-emerald-700')}>
-                {formatPkrAmount(suggestedBonus)}
-              </span>
+          <div className="rounded-xl border border-gray-100 p-5 space-y-2">
+            <p className="text-xs font-black text-gray-400 uppercase tracking-wider">Bonus Preview</p>
+            {suggestedTier ? (
+              <>
+                <p className="text-sm text-gray-600">{suggestedTier.level_name}</p>
+                <p className="text-sm">
+                  Suggested:{' '}
+                  <span className={cn('font-black', suggestedTier.bonus_amount < 0 ? 'text-red-600' : 'text-emerald-700')}>
+                    {formatPkrAmount(suggestedTier.bonus_amount)}
+                  </span>
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-gray-400">No bonus tier configured for this score.</p>
+            )}
+            <p className="text-[11px] text-gray-400 pt-1">
+              This is a preview only — actual bonus records are calculated and approved separately from the Bonus tab.
             </p>
-
-            <div>
-              <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase mb-2 block">
-                Final Bonus (Editable)
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  step={500}
-                  value={bonusAmount}
-                  onChange={(e) => handleBonusChange(Number(e.target.value))}
-                  className="flex-1 rounded-lg border border-gray-200 px-3 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary-100 outline-none"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="md"
-                  className="gap-2 rounded-xl h-10 font-bold px-4 shrink-0"
-                  onClick={handleResetBonus}
-                  title="Reset to suggested"
-                >
-                  <RotateCcw size={16} />
-                  Reset
-                </Button>
-              </div>
-              {bonusOverridden && (
-                <p className="text-xs text-amber-600 font-semibold mt-2">Manually overridden from suggested amount</p>
-              )}
-            </div>
           </div>
         </div>
 
@@ -285,8 +225,6 @@ const EmployeePerformanceModal: React.FC<Props> = ({ isOpen, onClose, period, re
             className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:ring-2 focus:ring-primary-100 outline-none resize-none"
           />
         </div>
-          </>
-        )}
       </div>
     </Modal>
   );

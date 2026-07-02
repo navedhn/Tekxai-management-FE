@@ -3,7 +3,6 @@ import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Button, { pageActionButtonClass, pageOutlineButtonClass } from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import Badge from '@/components/ui/Badge';
 import Select from '@/components/ui/Select';
 import ActionModal from '@/components/ui/ActionModal';
 import ScoringConfigPanel from '@/components/performance/ScoringConfigPanel';
@@ -12,12 +11,14 @@ import DashboardStatCard from '@/components/ui/DashboardStatCard';
 import {
   useDeletePerformanceMutation,
   useGetPerformanceRecords,
-  useGetPerformanceConfig,
+  useGetBonusConfig,
   getPerformancePeriods,
+  SCORING_CRITERIA,
 } from '@/services/performanceScoringService';
 import { EmployeePerformanceRecord } from '@/types/performanceScoring';
 import {
   formatPkrAmount,
+  findBonusTier,
   getCurrentPeriod,
   getScoreGrade,
   getMaxTotalScore,
@@ -49,9 +50,9 @@ const PerformanceScoringPage: React.FC = () => {
   const { data: allRecords = [], isLoading } = useGetPerformanceRecords();
   const { data: periodRecords = [], isLoading: periodLoading } = useGetPerformanceRecords(period);
   const deleteMutation = useDeletePerformanceMutation();
+  const { data: bonusTiers = [] } = useGetBonusConfig();
 
-  const { data: config } = useGetPerformanceConfig();
-  const criteria = config?.criteria ?? [];
+  const criteria = SCORING_CRITERIA;
   const maxTotal = getMaxTotalScore(criteria) || 100;
 
   const periods = useMemo(() => getPerformancePeriods(allRecords), [allRecords]);
@@ -62,8 +63,7 @@ const PerformanceScoringPage: React.FC = () => {
     return periodRecords.filter(
       (r) =>
         r.employeeName.toLowerCase().includes(q) ||
-        r.department.toLowerCase().includes(q) ||
-        r.employeeEmail.toLowerCase().includes(q)
+        r.department.toLowerCase().includes(q)
     );
   }, [periodRecords, debouncedSearch]);
 
@@ -73,10 +73,11 @@ const PerformanceScoringPage: React.FC = () => {
       scored > 0
         ? Math.round((periodRecords.reduce((s, r) => s + r.totalScore, 0) / scored) * 10) / 10
         : 0;
-    const totalBonus = periodRecords.reduce((s, r) => s + r.bonusAmount, 0);
-    const penalties = periodRecords.filter((r) => r.bonusAmount < 0).length;
+    const bonusAmounts = periodRecords.map((r) => findBonusTier(r.totalScore, bonusTiers)?.bonus_amount ?? 0);
+    const totalBonus = bonusAmounts.reduce((s, b) => s + b, 0);
+    const penalties = bonusAmounts.filter((b) => b < 0).length;
     return { scored, avgScore, totalBonus, penalties };
-  }, [periodRecords]);
+  }, [periodRecords, bonusTiers]);
 
   const handleAdd = () => {
     setEditingRecord(null);
@@ -132,25 +133,25 @@ const PerformanceScoringPage: React.FC = () => {
       },
     },
     {
-      header: 'Bonus / Penalty',
-      key: 'bonusAmount',
-      render: (item) => (
-        <div className="flex flex-col">
-          <span
-            className={cn(
-              'font-black text-sm tabular-nums',
-              item.bonusAmount < 0 ? 'text-red-600' : item.bonusAmount > 0 ? 'text-emerald-700' : 'text-gray-500'
-            )}
-          >
-            {formatPkrAmount(item.bonusAmount)}
-          </span>
-          {item.bonusOverridden && (
-            <Badge variant="info" className="mt-1 w-fit text-[9px] px-1.5 py-0">
-              Edited
-            </Badge>
-          )}
-        </div>
-      ),
+      header: 'Suggested Bonus',
+      key: 'totalScore',
+      render: (item) => {
+        const tier = findBonusTier(item.totalScore, bonusTiers);
+        if (!tier) return <span className="text-xs text-gray-400">—</span>;
+        return (
+          <div className="flex flex-col">
+            <span
+              className={cn(
+                'font-black text-sm tabular-nums',
+                tier.bonus_amount < 0 ? 'text-red-600' : tier.bonus_amount > 0 ? 'text-emerald-700' : 'text-gray-500'
+              )}
+            >
+              {formatPkrAmount(tier.bonus_amount)}
+            </span>
+            <span className="text-[10px] text-gray-400">{tier.level_name}</span>
+          </div>
+        );
+      },
     },
     {
       header: 'Actions',

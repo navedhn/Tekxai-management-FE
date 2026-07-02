@@ -1,17 +1,14 @@
+// These field names match the real backend columns exactly
+// (employee_performance_scores in schema.prisma) — do not rename without
+// also updating the backend.
 export type ScoringCategoryKey =
-  | 'qualityAssurance'
-  | 'projectDelivery'
-  | 'punctualityAttendance'
-  | 'teamCollaboration'
-  | 'dressCode';
+  | 'timely_delivery'
+  | 'quality_score'
+  | 'regularity'
+  | 'punctuality'
+  | 'dress_code';
 
-export interface PerformanceScores {
-  qualityAssurance: number;
-  projectDelivery: number;
-  punctualityAttendance: number;
-  teamCollaboration: number;
-  dressCode: number;
-}
+export type PerformanceScores = Record<ScoringCategoryKey, number>;
 
 export interface EmployeePerformanceRecord {
   id: string;
@@ -19,13 +16,10 @@ export interface EmployeePerformanceRecord {
   employeeName: string;
   employeeEmail: string;
   department: string;
-  position: string;
+  avatar?: string;
   period: string;
   scores: PerformanceScores;
   totalScore: number;
-  suggestedBonus: number;
-  bonusAmount: number;
-  bonusOverridden: boolean;
   notes: string;
   createdAt: string;
   updatedAt: string;
@@ -43,8 +37,6 @@ export type SavePerformancePayload = {
   employeeId: string;
   period: string;
   scores: PerformanceScores;
-  bonusAmount: number;
-  bonusOverridden: boolean;
   notes?: string;
 };
 
@@ -53,18 +45,13 @@ export interface ScoringCriterion {
   label: string;
   shortLabel: string;
   max: number;
-  weight: number;
   description: string;
 }
 
-export interface BonusRule {
+export interface BonusTier {
   id: string;
-  min: number;
-  max: number;
-  bonus: number;
-}
-
-export interface PerformanceConfig {
-  criteria: ScoringCriterion[];
-  bonusRules: BonusRule[];
+  level_name: string;
+  min_score: number;
+  max_score: number;
+  bonus_amount: number;
 }

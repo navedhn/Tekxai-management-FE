@@ -1,220 +1,102 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { API_ENDPOINTS } from '@/services/api/endpoints';
+import { QUERY_KEYS } from '@/services/api/tanstackKeys';
+import { unwrapApiData, unwrapApiList } from '@/utils/apiResponse';
 import {
+  BonusTier,
   EmployeePerformanceRecord,
-  PerformanceEmployee,
-  PerformanceConfig,
+  PerformanceScores,
   SavePerformancePayload,
 } from '@/types/performanceScoring';
-import {
-  calculateSuggestedBonus,
-  calculateTotalScore,
-  getCurrentPeriod,
-  normalizeScores,
-  normalizePerformanceConfig,
-  DEFAULT_SCORING_CRITERIA,
-  DEFAULT_BONUS_RULES,
-} from '@/utils/performanceScoring';
-import { QUERY_KEYS } from '@/services/api/tanstackKeys';
+import { calculateTotalScore, getCurrentPeriod, SCORING_CRITERIA } from '@/utils/performanceScoring';
 
-const STORAGE_KEY = 'tekxai_employee_performance_scores';
-const CONFIG_STORAGE_KEY = 'tekxai_performance_config';
+// Raw shape returned by GET /performance/score (matches employee_performance_scores + user relation)
+interface RawScoreRecord {
+  id: string;
+  user_id: string;
+  period: string;
+  timely_delivery: number;
+  quality_score: number;
+  regularity: number;
+  punctuality: number;
+  dress_code: number;
+  total_score: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  user?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    avatar?: string | null;
+    division?: { id: string; name: string } | null;
+  };
+}
 
-export const getDefaultPerformanceConfig = (): PerformanceConfig => ({
-  criteria: structuredClone(DEFAULT_SCORING_CRITERIA),
-  bonusRules: structuredClone(DEFAULT_BONUS_RULES),
-});
-
-const readConfig = (): PerformanceConfig => {
-  try {
-    const raw = localStorage.getItem(CONFIG_STORAGE_KEY);
-    if (!raw) return getDefaultPerformanceConfig();
-    return normalizePerformanceConfig(JSON.parse(raw));
-  } catch {
-    return getDefaultPerformanceConfig();
-  }
-};
-
-const writeConfig = (config: PerformanceConfig) => {
-  localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(normalizePerformanceConfig(config)));
-};
-
-const MOCK_EMPLOYEES: PerformanceEmployee[] = [
-  { id: 'emp-1', name: 'Arslan Dar', email: 'arslan@tekxai.com', department: 'Engineering', position: 'Senior Developer' },
-  { id: 'emp-2', name: 'Mubbashar Ali', email: 'mubbashar@tekxai.com', department: 'Engineering', position: 'Frontend Developer' },
-  { id: 'emp-3', name: 'Ali Hamza', email: 'ali.hamza@tekxai.com', department: 'Design', position: 'UI/UX Designer' },
-  { id: 'emp-4', name: 'Hammad Khan', email: 'hammad@tekxai.com', department: 'QA', position: 'QA Engineer' },
-  { id: 'emp-5', name: 'Sara Ahmed', email: 'sara@tekxai.com', department: 'Engineering', position: 'Backend Developer' },
-  { id: 'emp-6', name: 'Usman Tariq', email: 'usman@tekxai.com', department: 'DevOps', position: 'DevOps Engineer' },
-];
-
-const seedRecords = (): EmployeePerformanceRecord[] => {
-  const period = getCurrentPeriod();
-  const samples = [
-    { employeeId: 'emp-1', scores: { qualityAssurance: 27, projectDelivery: 28, punctualityAttendance: 18, teamCollaboration: 9, dressCode: 9 } },
-    { employeeId: 'emp-2', scores: { qualityAssurance: 22, projectDelivery: 24, punctualityAttendance: 16, teamCollaboration: 8, dressCode: 8 } },
-    { employeeId: 'emp-3', scores: { qualityAssurance: 25, projectDelivery: 26, punctualityAttendance: 17, teamCollaboration: 9, dressCode: 10 } },
-    { employeeId: 'emp-4', scores: { qualityAssurance: 18, projectDelivery: 20, punctualityAttendance: 14, teamCollaboration: 7, dressCode: 7 } },
-  ];
-
-  return samples.map((s, i) => {
-    const employee = MOCK_EMPLOYEES.find((e) => e.id === s.employeeId)!;
-    const config = readConfig();
-    const scores = normalizeScores(s.scores, config.criteria);
-    const totalScore = calculateTotalScore(scores, config.criteria);
-    const suggestedBonus = calculateSuggestedBonus(totalScore, config.bonusRules);
-    const now = new Date().toISOString();
-    return {
-      id: `perf-seed-${i + 1}`,
-      employeeId: employee.id,
-      employeeName: employee.name,
-      employeeEmail: employee.email,
-      department: employee.department,
-      position: employee.position,
-      period,
-      scores,
-      totalScore,
-      suggestedBonus,
-      bonusAmount: suggestedBonus,
-      bonusOverridden: false,
-      notes: '',
-      createdAt: now,
-      updatedAt: now,
-    };
-  });
-};
-
-const readRecords = (): EmployeePerformanceRecord[] => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      const seeded = seedRecords();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
-      return seeded;
-    }
-    return JSON.parse(raw) as EmployeePerformanceRecord[];
-  } catch {
-    return seedRecords();
-  }
-};
-
-const writeRecords = (records: EmployeePerformanceRecord[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-};
-
-const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
-
-const fetchEmployees = async (): Promise<PerformanceEmployee[]> => {
-  await delay(200);
-  return MOCK_EMPLOYEES;
-};
+function toRecord(r: RawScoreRecord): EmployeePerformanceRecord {
+  return {
+    id: r.id,
+    employeeId: r.user_id,
+    employeeName: r.user ? `${r.user.first_name} ${r.user.last_name}`.trim() : r.user_id,
+    employeeEmail: '',
+    department: r.user?.division?.name || '',
+    avatar: r.user?.avatar || undefined,
+    period: r.period,
+    scores: {
+      timely_delivery: r.timely_delivery,
+      quality_score: r.quality_score,
+      regularity: r.regularity,
+      punctuality: r.punctuality,
+      dress_code: r.dress_code,
+    },
+    totalScore: r.total_score,
+    notes: r.notes || '',
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
 
 const fetchRecords = async (period?: string): Promise<EmployeePerformanceRecord[]> => {
-  await delay(350);
-  const records = readRecords().sort(
-    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-  );
-  if (!period) return records;
-  return records.filter((r) => r.period === period);
+  const url = period ? `${API_ENDPOINTS.PERFORMANCE.SCORES}?period=${encodeURIComponent(period)}` : API_ENDPOINTS.PERFORMANCE.SCORES;
+  const res = await apiRequest<unknown>(url);
+  return unwrapApiList<RawScoreRecord>(res).map(toRecord);
 };
 
 const saveRecord = async (payload: SavePerformancePayload): Promise<EmployeePerformanceRecord> => {
-  await delay(400);
-  const employee = MOCK_EMPLOYEES.find((e) => e.id === payload.employeeId);
-  if (!employee) throw new Error('Employee not found');
-
-  const config = readConfig();
-  const scores = normalizeScores(payload.scores, config.criteria);
-  const totalScore = calculateTotalScore(scores, config.criteria);
-  const suggestedBonus = calculateSuggestedBonus(totalScore, config.bonusRules);
-  const now = new Date().toISOString();
-
-  const records = readRecords();
-  const existingIdx = records.findIndex(
-    (r) => r.employeeId === payload.employeeId && r.period === payload.period
-  );
-
-  const record: EmployeePerformanceRecord = {
-    id: existingIdx >= 0 ? records[existingIdx].id : `perf-${Date.now()}`,
-    employeeId: employee.id,
-    employeeName: employee.name,
-    employeeEmail: employee.email,
-    department: employee.department,
-    position: employee.position,
-    period: payload.period,
-    scores,
-    totalScore,
-    suggestedBonus,
-    bonusAmount: payload.bonusAmount,
-    bonusOverridden: payload.bonusOverridden,
-    notes: payload.notes ?? '',
-    createdAt: existingIdx >= 0 ? records[existingIdx].createdAt : now,
-    updatedAt: now,
-  };
-
-  if (existingIdx >= 0) records[existingIdx] = record;
-  else records.unshift(record);
-
-  writeRecords(records);
-  return record;
+  const res = await apiRequest<unknown>(API_ENDPOINTS.PERFORMANCE.SCORES, {
+    method: 'POST',
+    body: JSON.stringify({
+      user_id: payload.employeeId,
+      period: payload.period,
+      notes: payload.notes,
+      ...payload.scores,
+    }),
+  });
+  return toRecord(unwrapApiData<RawScoreRecord>(res));
 };
 
 const deleteRecord = async (id: string): Promise<void> => {
-  await delay(250);
-  writeRecords(readRecords().filter((r) => r.id !== id));
+  await apiRequest(API_ENDPOINTS.PERFORMANCE.DELETE_SCORE(id), { method: 'DELETE' });
 };
 
-export const useGetPerformanceConfig = () =>
-  useQuery({
-    queryKey: QUERY_KEYS.PERFORMANCE.CONFIG,
-    queryFn: async () => {
-      await delay(150);
-      return readConfig();
-    },
-    staleTime: 60_000,
-  });
-
-export const useSavePerformanceConfigMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (config: PerformanceConfig) => {
-      await delay(300);
-      const normalized = normalizePerformanceConfig(config);
-      writeConfig(normalized);
-      return normalized;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PERFORMANCE.CONFIG });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PERFORMANCE.LIST });
-    },
-  });
+const fetchBonusConfig = async (): Promise<BonusTier[]> => {
+  const res = await apiRequest<unknown>(API_ENDPOINTS.PERFORMANCE.BONUS_CONFIG);
+  return unwrapApiList<BonusTier>(res);
 };
-
-export const useResetPerformanceConfigMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async () => {
-      await delay(200);
-      const defaults = getDefaultPerformanceConfig();
-      writeConfig(defaults);
-      return defaults;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PERFORMANCE.CONFIG });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PERFORMANCE.LIST });
-    },
-  });
-};
-
-export const useGetPerformanceEmployees = () =>
-  useQuery({
-    queryKey: QUERY_KEYS.PERFORMANCE.EMPLOYEES,
-    queryFn: fetchEmployees,
-  });
 
 export const useGetPerformanceRecords = (period?: string) =>
   useQuery({
     queryKey: [...QUERY_KEYS.PERFORMANCE.LIST, period ?? 'all'],
     queryFn: () => fetchRecords(period),
+    staleTime: 30_000,
+  });
+
+export const useGetBonusConfig = () =>
+  useQuery({
+    queryKey: QUERY_KEYS.PERFORMANCE.BONUS_CONFIG,
+    queryFn: fetchBonusConfig,
+    staleTime: 5 * 60_000,
   });
 
 export const useSavePerformanceMutation = () => {
@@ -242,3 +124,6 @@ export const getPerformancePeriods = (records: EmployeePerformanceRecord[]): str
   periods.add(getCurrentPeriod());
   return Array.from(periods).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 };
+
+export { calculateTotalScore, SCORING_CRITERIA };
+export type { PerformanceScores };
