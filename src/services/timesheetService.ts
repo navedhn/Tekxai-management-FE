@@ -27,6 +27,15 @@ export interface TimesheetEntry {
   employee?: string;
 }
 
+export interface RecentActivityEvent {
+  id: string;
+  type: 'CHECK_IN' | 'CHECK_OUT';
+  employee: string;
+  user_id: string;
+  at: string;
+  message: string;
+}
+
 export interface WeeklyTimesheetData {
   week_start: string;
   week_end: string;
@@ -88,6 +97,21 @@ const getWeeklyTimesheetApi = async (params?: Record<string, any>) => {
   const res = await apiRequest<any>(url);
   const payload = res?.payload || res;
   return payload as WeeklyTimesheetData;
+};
+
+const getRecentActivityApi = async () => {
+  const res = await apiRequest<any>(API_ENDPOINTS.TIMESHEET.RECENT_ACTIVITY);
+  const data = res?.payload || res;
+  return (Array.isArray(data) ? data : []) as RecentActivityEvent[];
+};
+
+export const useGetRecentActivityFeed = (enabled = true) => {
+  return useQuery<RecentActivityEvent[]>({
+    queryKey: QUERY_KEYS.TIMESHEET.RECENT_ACTIVITY,
+    queryFn: getRecentActivityApi,
+    enabled,
+    staleTime: 30000,
+  });
 };
 
 const getTimesheetRequestsApi = async () => {

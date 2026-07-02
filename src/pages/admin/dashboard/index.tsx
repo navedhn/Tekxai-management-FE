@@ -1,25 +1,25 @@
 import React, { useState, useMemo } from 'react';
 import {
     useGetDashboardStats,
-    useGetRecentActivity,
     useGetTimesheet,
     TimesheetEntry
 } from '@/services/employeeService';
+import { useGetRecentActivityFeed } from '@/services/timesheetService';
+import { timeAgo } from '@/services/notificationService';
 import { useGetProjects, ProjectDetail } from '@/services/projectService';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
-import { Search, Play, CheckCircle, Briefcase, FileText } from 'lucide-react';
+import { Search, Play, CheckCircle, Briefcase, FileText, LogIn, LogOut } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import ProjectDetailsSlideOver from '@/components/ui/ProjectDetailsSlideOver';
 import { StatSkeleton, CardSkeleton } from '@/components/skeletons';
 import DashboardStatCard from '@/components/ui/DashboardStatCard';
-import RecentActivityCard from '@/components/dashboard/RecentActivityCard';
 
 const Dashboard: React.FC = () => {
     const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
-    const { data: activity, isLoading: activityLoading } = useGetRecentActivity();
+    const { data: activity, isLoading: activityLoading } = useGetRecentActivityFeed();
     const { data: timesheet, isLoading: timesheetLoading } = useGetTimesheet();
     const { data: projects, isLoading: projectsLoading } = useGetProjects();
 
@@ -208,17 +208,28 @@ const Dashboard: React.FC = () => {
                         <h2 className="text-lg font-black text-gray-900 tracking-tight">Recent Activity</h2>
                     </div>
                     {activityLoading ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-3">
                             {Array.from({ length: 4 }).map((_, i) => (
-                                <CardSkeleton key={i} className="!p-0 !bg-transparent !border-0 !shadow-none" />
+                                <CardSkeleton key={i} className="!h-14" />
+                            ))}
+                        </div>
+                    ) : activity && activity.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                            {activity.map((act) => (
+                                <div key={act.id} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
+                                    <div className={cn(
+                                        'shrink-0 h-9 w-9 rounded-full flex items-center justify-center',
+                                        act.type === 'CHECK_IN' ? 'bg-[#ECFDF3] text-[#12B76A]' : 'bg-[#FFF1F3] text-[#F04438]'
+                                    )}>
+                                        {act.type === 'CHECK_IN' ? <LogIn size={16} /> : <LogOut size={16} />}
+                                    </div>
+                                    <span className="flex-1 text-sm font-bold text-gray-900 truncate">{act.message}</span>
+                                    <span className="shrink-0 text-xs text-gray-400 font-medium">{timeAgo(act.at)}</span>
+                                </div>
                             ))}
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {activity?.map((act) => (
-                                <RecentActivityCard key={act.id} activity={act} />
-                            ))}
-                        </div>
+                        <p className="text-sm text-gray-400 font-medium py-6 text-center">No recent activity yet.</p>
                     )}
                 </Card>
             </div>
