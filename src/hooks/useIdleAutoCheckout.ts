@@ -47,6 +47,13 @@ interface UseIdleAutoCheckoutOptions {
 export function useIdleAutoCheckout({ isClockdIn, onAutoCheckout, idleTimeoutMs = DEFAULT_IDLE_TIMEOUT_MS }: UseIdleAutoCheckoutOptions) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didCheckout = useRef(false);
+  // Real wall-clock timestamp of the last known activity. setTimeout does not
+  // fire while the OS is asleep, so on wake we compare against this instead
+  // of blindly restarting the countdown — otherwise a machine that slept for
+  // hours gets a fresh full timeout the instant it wakes up.
+  // Initialized to 0 (pure literal, not Date.now() — that's impure during
+  // render) and set to a real timestamp inside the effect via resetTimer().
+  const lastActivityAt = useRef(0);
 
   useEffect(() => {
     if (!isClockdIn) {
@@ -58,16 +65,23 @@ export function useIdleAutoCheckout({ isClockdIn, onAutoCheckout, idleTimeoutMs 
 
     didCheckout.current = false;
 
+    const checkoutNow = async () => {
+      if (didCheckout.current) return;
+      didCheckout.current = true;
+      setIdleCheckoutFlag();
+      await forceCheckoutApi('IDLE_TIMEOUT');
+      onAutoCheckout?.();
+    };
+
+    const scheduleTimer = (delayMs: number) => {
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(checkoutNow, delayMs);
+    };
+
     const resetTimer = () => {
       if (didCheckout.current) return; // already checked out this session
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(async () => {
-        if (didCheckout.current) return;
-        didCheckout.current = true;
-        setIdleCheckoutFlag();
-        await forceCheckoutApi('IDLE_TIMEOUT');
-        onAutoCheckout?.();
-      }, idleTimeoutMs);
+      lastActivityAt.current = Date.now();
+      scheduleTimer(idleTimeoutMs);
     };
 
     // Start the timer immediately
@@ -76,9 +90,16 @@ export function useIdleAutoCheckout({ isClockdIn, onAutoCheckout, idleTimeoutMs 
     // Reset on any user activity
     ACTIVITY_EVENTS.forEach((ev) => window.addEventListener(ev, resetTimer, { passive: true }));
 
-    // When tab becomes visible again after being hidden, reset the idle timer
+    // When the tab regains visibility (including waking from sleep), check
+    // how much real time actually elapsed rather than assuming it's fine.
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') resetTimer();
+      if (document.visibilityState !== 'visible' || didCheckout.current) return;
+      const elapsed = Date.now() - lastActivityAt.current;
+      if (elapsed >= idleTimeoutMs) {
+        checkoutNow();
+      } else {
+        scheduleTimer(idleTimeoutMs - elapsed);
+      }
     };
     document.addEventListener('visibilitychange', handleVisibility);
 
