@@ -3,24 +3,29 @@
 let clockedIn = false;
 let clockedOut = false;
 let startEpoch = 0;
+let todayBaseSeconds = 0; // seconds already logged today from earlier sessions
 let tickInterval = null;
 let screenshotCount = 0;
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 (async () => {
-  const token = await window.agent.getStore('auth_token');
-  const user  = await window.agent.getStore('user');
-
-  if (token && user) {
-    showDashboard(user);
-    await refreshToday();
-  }
+  // Register listeners before any awaited call that could trigger them
+  // (e.g. refreshToday() below can itself cause a force-logout on a 401).
 
   // Tray triggered clock toggle
   window.agent.onToggleClock(() => {
     if (clockedIn) doClock('out');
     else doClock('in');
+  });
+
+  // Refresh token itself expired/invalid — main process already cleared the
+  // session; reflect that here so the user sees the login screen, not a stuck UI.
+  window.agent.onForceLogout(() => {
+    stopTick();
+    clockedIn = false; clockedOut = false; startEpoch = 0; todayBaseSeconds = 0; screenshotCount = 0;
+    document.getElementById('login-screen').classList.add('active');
+    document.getElementById('dashboard-screen').classList.remove('active');
   });
 
   // Screenshot pulse
@@ -31,6 +36,14 @@ let screenshotCount = 0;
     document.getElementById('ss-count').textContent = `${screenshotCount} captured`;
     setTimeout(() => dot.classList.add('active'), 0); // keep active while clocked in
   });
+
+  const token = await window.agent.getStore('auth_token');
+  const user  = await window.agent.getStore('user');
+
+  if (token && user) {
+    showDashboard(user);
+    await refreshToday();
+  }
 })();
 
 // ── Login ─────────────────────────────────────────────────────────────────────
@@ -71,7 +84,7 @@ document.addEventListener('keydown', (e) => {
 async function doLogout() {
   stopTick();
   await window.agent.logout();
-  clockedIn = false; clockedOut = false; startEpoch = 0; screenshotCount = 0;
+  clockedIn = false; clockedOut = false; startEpoch = 0; todayBaseSeconds = 0; screenshotCount = 0;
   document.getElementById('login-screen').classList.add('active');
   document.getElementById('dashboard-screen').classList.remove('active');
   document.getElementById('email').value = '';
@@ -95,12 +108,18 @@ function showDashboard(user) {
 async function refreshToday() {
   try {
     const data = await window.agent.getToday();
-    if (!data) return;
+    if (!data || !data.entry) {
+      clockedIn = false; clockedOut = false; todayBaseSeconds = 0;
+      stopTick();
+      setTrackerUI('idle');
+      return;
+    }
 
     if (data.clocked_in && !data.clocked_out) {
-      // Active session — restore elapsed time
+      // Active session — resume ticking from prior sessions today + elapsed
       const checkIn = new Date(data.entry.check_in).getTime();
       startEpoch = checkIn;
+      todayBaseSeconds = data.entry.prior_seconds || 0;
       clockedIn = true; clockedOut = false;
       setTrackerUI('active');
       startTick();
@@ -108,13 +127,16 @@ async function refreshToday() {
 
       const checkinTime = new Date(data.entry.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       document.getElementById('stat-checkin').textContent = checkinTime;
-      document.getElementById('stat-today').textContent = fmtDuration(data.entry.duration_seconds || 0);
     } else if (data.clocked_in && data.clocked_out) {
+      // Not currently clocked in — show today's cumulative total, allow clocking in again
       clockedIn = false; clockedOut = true;
-      setTrackerUI('done');
+      stopTick();
       const dur = data.entry.duration_seconds || 0;
+      todayBaseSeconds = dur;
       document.getElementById('tracker-time').textContent = fmtHms(dur);
       document.getElementById('stat-today').textContent = fmtDuration(dur);
+      setTrackerUI('idle');
+      setSsIndicator(false);
       const checkinTime = new Date(data.entry.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       document.getElementById('stat-checkin').textContent = checkinTime;
     }
@@ -124,31 +146,18 @@ async function refreshToday() {
 // ── Clock in / out ────────────────────────────────────────────────────────────
 
 async function doClock(action) {
-  const btnIn  = document.getElementById('btn-clock-in');
   const actRow = document.getElementById('tracker-actions');
 
   try {
     if (action === 'in') {
       actRow.innerHTML = '<button class="btn btn-outline" disabled>Clocking in…</button>';
-      const entry = await window.agent.clockIn();
-      startEpoch = new Date(entry.check_in || Date.now()).getTime();
-      clockedIn = true; clockedOut = false;
+      await window.agent.clockIn();
       screenshotCount = 0;
-      setTrackerUI('active');
-      startTick();
-      setSsIndicator(true);
-      const checkinTime = new Date(startEpoch).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      document.getElementById('stat-checkin').textContent = checkinTime;
+      await refreshToday();
     } else {
       actRow.innerHTML = '<button class="btn btn-outline" disabled>Clocking out…</button>';
-      const entry = await window.agent.clockOut();
-      clockedIn = false; clockedOut = true;
-      stopTick();
-      const dur = entry.duration_sec || entry.duration_seconds || 0;
-      document.getElementById('tracker-time').textContent = fmtHms(dur);
-      document.getElementById('stat-today').textContent = fmtDuration(dur);
-      setTrackerUI('done');
-      setSsIndicator(false);
+      await window.agent.clockOut();
+      await refreshToday();
     }
   } catch (e) {
     setTrackerUI(clockedIn ? 'active' : 'idle');
@@ -175,10 +184,6 @@ function setTrackerUI(state) {
     actRow.innerHTML = `
       <button class="btn btn-red"    onclick="doClock('out')">■ Clock Out</button>
     `;
-  } else if (state === 'done') {
-    statusEl.classList.add('status-idle');
-    textEl.textContent = 'Clocked out for today';
-    actRow.innerHTML = '<button class="btn btn-outline" disabled>Done for today</button>';
   }
 }
 
@@ -187,10 +192,7 @@ function setSsIndicator(active) {
   const label = document.getElementById('ss-label');
   if (active) {
     dot.classList.add('active');
-    window.agent.getStore('screenshot_interval_ms').then(intervalMs => {
-      const mins = Math.round((intervalMs || 5 * 60 * 1000) / 60000);
-      label.textContent = `Screenshots active (every ${mins} min)`;
-    }).catch(() => { label.textContent = 'Screenshots active'; });
+    label.textContent = 'Screenshots active (every 5 min)';
   } else {
     dot.classList.remove('active');
     label.textContent = 'Screenshots paused';
@@ -203,7 +205,7 @@ function setSsIndicator(active) {
 function startTick() {
   stopTick();
   tickInterval = setInterval(() => {
-    const elapsed = Math.floor((Date.now() - startEpoch) / 1000);
+    const elapsed = todayBaseSeconds + Math.floor((Date.now() - startEpoch) / 1000);
     document.getElementById('tracker-time').textContent = fmtHms(elapsed);
     document.getElementById('stat-today').textContent   = fmtDuration(elapsed);
   }, 1000);

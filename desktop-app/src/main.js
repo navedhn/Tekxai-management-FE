@@ -2,20 +2,81 @@ const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, powerMonito
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const Store = require('electron-store');
+const axios = require('axios');
+
+// Required on Windows for Notification.show() to actually display a toast —
+// without it, notifications silently no-op for unpacked/non-Store apps.
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.tekxai.agent');
+}
 
 const store = new Store();
 const API_BASE = 'https://api.tekxai.services/api/v1';
 const DASHBOARD_URL = 'https://tekxai.services/employee';
-const DEFAULT_SCREENSHOT_INTERVAL_MS = 5 * 60 * 1000; // fallback 5 minutes
+const SCREENSHOT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 let mainWindow = null;
 let tray = null;
 let screenshotTimer = null;
 let sessionId = null;
-let screenshotIntervalMs = DEFAULT_SCREENSHOT_INTERVAL_MS;
+
+// ── API client — access tokens are short-lived (15m); this transparently
+// refreshes via the stored refresh_token on 401 and retries once, so the
+// clock-in-once-a-day background timers keep working for a whole shift. ───────
+
+const apiClient = axios.create({ baseURL: API_BASE });
+
+apiClient.interceptors.request.use((config) => {
+  const token = store.get('auth_token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+let refreshPromise = null;
+
+async function refreshAccessToken() {
+  const refresh_token = store.get('refresh_token');
+  if (!refresh_token) throw new Error('No refresh token stored');
+  const res = await axios.post(`${API_BASE}/auth/refresh`, { refresh_token });
+  const payload = res.data?.payload || res.data?.data;
+  const newAccessToken = payload?.access_token || payload?.accessToken;
+  const newRefreshToken = payload?.refresh_token || payload?.refreshToken;
+  if (!newAccessToken) throw new Error('Refresh response missing access token');
+  store.set('auth_token', newAccessToken);
+  if (newRefreshToken) store.set('refresh_token', newRefreshToken);
+  return newAccessToken;
+}
+
+apiClient.interceptors.response.use(
+  (res) => res,
+  async (error) => {
+    const original = error.config;
+    if (error.response?.status === 401 && original && !original._retried) {
+      original._retried = true;
+      try {
+        if (!refreshPromise) {
+          refreshPromise = refreshAccessToken().finally(() => { refreshPromise = null; });
+        }
+        const newToken = await refreshPromise;
+        original.headers.Authorization = `Bearer ${newToken}`;
+        return apiClient(original);
+      } catch (_) {
+        // Refresh token is invalid/expired too — force the user to sign in again.
+        store.delete('auth_token');
+        store.delete('refresh_token');
+        store.delete('user');
+        store.set('clocked_in', false);
+        stopScreenshots();
+        sessionId = null;
+        updateTrayMenu();
+        mainWindow?.webContents.send('force-logout');
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 // ── Activity tracking state ───────────────────────────────────────────────────
-let activityToken = null;
 let activityTimer = null;   // 60s productivity flush
 let appTrackTimer = null;   // 30s app+URL tracking
 let activityPollTimer = null; // 5s idle poll
@@ -54,7 +115,32 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+  resumeSessionIfNeeded();
 });
+
+// sessionId lives in memory only, so it's lost on every app restart (crash,
+// update, reboot). If the user was still clocked in when that happened,
+// re-establish a monitoring session now instead of silently going dark for
+// the rest of the day.
+async function resumeSessionIfNeeded() {
+  if (!store.get('clocked_in') || !store.get('auth_token')) return;
+  try {
+    const todayRes = await apiClient.get('/timesheet/today');
+    const stillOpen = todayRes.data?.payload?.clocked_in && !todayRes.data?.payload?.clocked_out;
+    if (!stillOpen) {
+      store.set('clocked_in', false);
+      updateTrayMenu();
+      return;
+    }
+    const sessRes = await apiClient.post('/monitoring/session/start', {
+      agent_version: app.getVersion(),
+      os_platform: process.platform,
+    });
+    sessionId = sessRes.data.payload.id;
+    startScreenshots();
+    startActivityTracking();
+  } catch (_) {}
+}
 
 app.on('window-all-closed', () => {
   // Keep running in tray on all platforms
@@ -63,15 +149,9 @@ app.on('window-all-closed', () => {
 app.on('before-quit', async () => {
   stopScreenshots();
   if (sessionId) {
-    const token = store.get('auth_token');
-    if (token) {
-      try {
-        const axios = require('axios');
-        await axios.post(`${API_BASE}/monitoring/session/${sessionId}/end`, {}, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } catch (_) {}
-    }
+    try {
+      await apiClient.post(`/monitoring/session/${sessionId}/end`);
+    } catch (_) {}
   }
 });
 
@@ -142,16 +222,16 @@ ipcMain.handle('set-store', (_, key, value) => store.set(key, value));
 ipcMain.handle('del-store', (_, key) => store.delete(key));
 
 ipcMain.handle('login', async (_, { email, password }) => {
-  const axios = require('axios');
-  console.log('[LOGIN] Attempting login for:', email);
-  const res = await axios.post(`${API_BASE}/auth/login`, { email, password }, { timeout: 15000 });
+  const res = await axios.post(`${API_BASE}/auth/login`, { email, password });
   if (!res.data?.success || (!res.data?.payload && !res.data?.data)) {
     throw new Error(res.data?.message || 'Login failed');
   }
   const payload = res.data.payload || res.data.data;
-  const { access_token, refresh_token, user } = payload;
+  const access_token = payload.access_token || payload.accessToken;
+  const refresh_token = payload.refresh_token || payload.refreshToken;
+  const { user } = payload;
   store.set('auth_token', access_token);
-  if (refresh_token) store.set('refresh_token', refresh_token);
+  store.set('refresh_token', refresh_token);
   store.set('user', user);
   updateTrayMenu();
   return { user };
@@ -160,6 +240,7 @@ ipcMain.handle('login', async (_, { email, password }) => {
 ipcMain.handle('logout', async () => {
   stopScreenshots();
   store.delete('auth_token');
+  store.delete('refresh_token');
   store.delete('user');
   store.set('clocked_in', false);
   sessionId = null;
@@ -167,75 +248,40 @@ ipcMain.handle('logout', async () => {
 });
 
 ipcMain.handle('get-today', async () => {
-  const token = store.get('auth_token');
-  if (!token) return null;
-  const axios = require('axios');
-  const res = await axios.get(`${API_BASE}/timesheet/today`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  if (!store.get('auth_token')) return null;
+  const res = await apiClient.get('/timesheet/today');
   return res.data.payload;
 });
 
 ipcMain.handle('clock-in', async () => {
-  const token = store.get('auth_token');
-  const axios = require('axios');
-
-  // Fetch screenshot interval from admin settings
-  console.log('[CLOCK-IN] Fetching screenshot interval from settings...');
+  // Start monitoring session
   try {
-    const settingsRes = await axios.get(`${API_BASE}/settings/system/public`, { timeout: 10000 });
-    const mins = parseInt(settingsRes.data?.payload?.screenshot_interval_minutes, 10);
-    screenshotIntervalMs = (!isNaN(mins) && mins > 0) ? mins * 60 * 1000 : DEFAULT_SCREENSHOT_INTERVAL_MS;
-    console.log(`[CLOCK-IN] Screenshot interval: ${screenshotIntervalMs / 1000}s (${mins} min from settings)`);
-  } catch (e) {
-    screenshotIntervalMs = DEFAULT_SCREENSHOT_INTERVAL_MS;
-    console.warn('[CLOCK-IN] Could not fetch settings, using default 5 min:', e.message);
-  }
-
-  // Start monitoring session (non-fatal if it fails)
-  console.log('[CLOCK-IN] Starting monitoring session...');
-  try {
-    const sessRes = await axios.post(`${API_BASE}/monitoring/session/start`, {
+    const sessRes = await apiClient.post('/monitoring/session/start', {
       agent_version: app.getVersion(),
       os_platform: process.platform,
-    }, { headers: { Authorization: `Bearer ${token}` } });
+    });
     sessionId = sessRes.data.payload.id;
-    console.log(`[CLOCK-IN] Monitoring session created — id: ${sessionId}`);
-  } catch (err) {
-    console.error('[CLOCK-IN] Monitoring session FAILED (non-fatal):', err.message);
-    if (err.response) console.error('[CLOCK-IN] Session response:', err.response.status, JSON.stringify(err.response.data));
-    sessionId = null;
-  }
+  } catch (_) {}
 
-  const res = await axios.post(`${API_BASE}/timesheet/clock-in`, { note: '' }, {
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-  });
+  const res = await apiClient.post('/timesheet/clock-in', { note: '' });
 
   store.set('clocked_in', true);
-  store.set('screenshot_interval_ms', screenshotIntervalMs);
   updateTrayMenu();
   startScreenshots();
-  startActivityTracking(token);
+  startActivityTracking();
   return res.data.payload;
 });
 
 ipcMain.handle('clock-out', async () => {
-  const token = store.get('auth_token');
-  const axios = require('axios');
-
   stopScreenshots();
   stopActivityTracking();
 
-  const res = await axios.post(`${API_BASE}/timesheet/clock-out`, { note: '' }, {
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-  });
+  const res = await apiClient.post('/timesheet/clock-out', { note: '' });
 
   // End monitoring session
   if (sessionId) {
     try {
-      await axios.post(`${API_BASE}/monitoring/session/${sessionId}/end`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await apiClient.post(`/monitoring/session/${sessionId}/end`);
     } catch (_) {}
     sessionId = null;
   }
@@ -249,33 +295,12 @@ ipcMain.handle('open-dashboard', () => {
   shell.openExternal(DASHBOARD_URL);
 });
 
-// ── Token refresh ─────────────────────────────────────────────────────────────
-
-async function refreshAccessToken() {
-  const refreshToken = store.get('refresh_token');
-  if (!refreshToken) return null;
-  try {
-    const axios = require('axios');
-    const res = await axios.post(`${API_BASE}/auth/refresh`, { refresh_token: refreshToken });
-    const payload = res.data?.payload || res.data?.data || res.data;
-    const newToken = payload?.access_token || payload?.accessToken;
-    const newRefresh = payload?.refresh_token || payload?.refreshToken;
-    if (newToken) {
-      store.set('auth_token', newToken);
-      if (newRefresh) store.set('refresh_token', newRefresh);
-      return newToken;
-    }
-  } catch (_) {}
-  return null;
-}
-
 // ── Screenshot capture ────────────────────────────────────────────────────────
 
 function startScreenshots() {
   stopScreenshots();
-  const getToken = () => store.get('auth_token');
-  takeScreenshot(getToken());
-  screenshotTimer = setInterval(() => takeScreenshot(getToken()), screenshotIntervalMs);
+  takeScreenshot(); // immediate first capture
+  screenshotTimer = setInterval(() => takeScreenshot(), SCREENSHOT_INTERVAL_MS);
 }
 
 function stopScreenshots() {
@@ -283,117 +308,64 @@ function stopScreenshots() {
   stopActivityTracking();
 }
 
-async function takeScreenshot(token) {
-  const ts = new Date().toISOString();
-  console.log(`\n[SS ${ts}] ── Starting screenshot capture ──`);
-  console.log(`[SS] Session ID: ${sessionId || 'NONE (no monitoring session)'}`);
-
+async function takeScreenshot() {
+  if (!sessionId) return;
   try {
     const screenshot = require('screenshot-desktop');
-    const axios = require('axios');
 
-    // ── Token refresh ──────────────────────────────────────────────────────────
-    try {
-      const parts = token.split('.');
-      const { exp } = JSON.parse(Buffer.from(parts[1], 'base64').toString());
-      const secsLeft = exp - Math.floor(Date.now() / 1000);
-      console.log(`[SS] Token expires in: ${secsLeft}s`);
-      if (secsLeft < 300) {
-        console.log('[SS] Token expiring soon — refreshing...');
-        const fresh = await refreshAccessToken();
-        if (fresh) { token = fresh; console.log('[SS] Token refreshed OK'); }
-        else console.warn('[SS] Token refresh FAILED — continuing with old token');
-      }
-    } catch (e) { console.warn('[SS] Could not decode token:', e.message); }
+    const img = await screenshot({ format: 'png' });
+    const key = `screenshots/${store.get('user')?.id || 'unknown'}/${Date.now()}.png`;
 
-    // ── Capture screen ─────────────────────────────────────────────────────────
-    console.log('[SS] Capturing screen...');
-    let img;
-    try {
-      img = await screenshot({ format: 'png' });
-      console.log(`[SS] Screen captured OK — size: ${img.length} bytes`);
-    } catch (e) {
-      console.error('[SS] FAILED to capture screen:', e.message);
-      throw e;
-    }
-
-    // ── Get presigned S3 URL ───────────────────────────────────────────────────
-    console.log('[SS] Requesting presigned S3 URL...');
+    // Get presigned upload URL from backend
     const fileName = `${Date.now()}.png`;
-    const fallbackKey = `screenshots/${store.get('user')?.id || 'unknown'}/${fileName}`;
-    let fileKey = fallbackKey;
+    let fileKey = key;
     let fileUrl = null;
-    let s3Ok = false;
 
     try {
-      const presignRes = await axios.post(`${API_BASE}/storage/presign`, {
+      const presignRes = await apiClient.post('/storage/presign', {
         file_name: fileName,
         mime_type: 'image/png',
         entity_type: 'screenshot',
-      }, { headers: { Authorization: `Bearer ${token}` } });
+      });
 
       const uploadUrl = presignRes.data?.payload?.upload_url;
-      fileKey = presignRes.data?.payload?.file_key || fallbackKey;
-      console.log(`[SS] Presign OK — file_key: ${fileKey}`);
+      fileKey = presignRes.data?.payload?.file_key || key;
 
-      // ── Upload to S3 ─────────────────────────────────────────────────────────
-      if (uploadUrl) {
-        console.log(`[SS] Uploading to S3: ${uploadUrl.split('?')[0]}`);
-        try {
-          const s3Res = await axios.put(uploadUrl, img, { headers: { 'Content-Type': 'image/png' } });
-          fileUrl = uploadUrl.split('?')[0];
-          s3Ok = true;
-          console.log(`[SS] S3 upload OK — HTTP ${s3Res.status} — url: ${fileUrl}`);
-        } catch (e) {
-          console.error(`[SS] S3 upload FAILED: ${e.message}`);
-          if (e.response) console.error(`[SS] S3 response: HTTP ${e.response.status} — ${JSON.stringify(e.response.data)}`);
-        }
-      } else {
-        console.warn('[SS] No upload_url in presign response');
+      if (uploadUrl && !uploadUrl.includes('localhost')) {
+        // Presigned S3 URL — not an API call, no bearer auth needed/wanted here.
+        await axios.put(uploadUrl, img, { headers: { 'Content-Type': 'image/png' } });
+        fileUrl = uploadUrl.split('?')[0];
       }
-    } catch (e) {
-      console.error(`[SS] Presign request FAILED: ${e.message}`);
-      if (e.response) console.error(`[SS] Presign response: HTTP ${e.response.status} — ${JSON.stringify(e.response.data)}`);
-    }
+    } catch (_) {}
 
-    // ── Save to DB ────────────────────────────────────────────────────────────
-    console.log(`[SS] Saving to DB — session_id: ${sessionId || 'null'}, s3_ok: ${s3Ok}, file_key: ${fileKey}`);
-    try {
-      const dbRes = await axios.post(`${API_BASE}/monitoring/screenshot`, {
-        session_id: sessionId,
-        file_key: fileKey,
-        file_url: fileUrl || `fallback:${img.length}bytes`,
-        captured_at: new Date().toISOString(),
-      }, { headers: { Authorization: `Bearer ${token}` } });
-
-      console.log(`[SS] DB save OK — id: ${dbRes.data?.payload?.id}`);
-    } catch (e) {
-      console.error(`[SS] DB save FAILED: ${e.message}`);
-      if (e.response) console.error(`[SS] DB response: HTTP ${e.response.status} — ${JSON.stringify(e.response.data)}`);
-      throw e;
-    }
+    // Record in backend (with or without S3 URL)
+    await apiClient.post('/monitoring/screenshot', {
+      session_id: sessionId,
+      file_key: fileKey,
+      file_url: fileUrl || `data:image/png;base64,${img.toString('base64').slice(0, 100)}`,
+      captured_at: new Date().toISOString(),
+    });
 
     mainWindow?.webContents.send('screenshot-taken');
-    console.log(`[SS] ✓ Screenshot complete — s3: ${s3Ok ? 'uploaded' : 'SKIPPED'}`);
 
+    // System notification — visible even when app is minimised to tray
     const { Notification } = require('electron');
     if (Notification.isSupported()) {
       new Notification({
         title: 'TekXAI Agent',
-        body: `Screenshot captured ✓ ${s3Ok ? '(S3)' : '(no S3)'}`,
+        body: 'Screenshot captured ✓',
         silent: true,
       }).show();
     }
   } catch (err) {
-    console.error(`[SS] ✗ Screenshot FAILED: ${err.message}`);
+    console.error('[screenshot]', err.message);
   }
 }
 
 // ── Activity tracking ─────────────────────────────────────────────────────────
 
-function startActivityTracking(token) {
+function startActivityTracking() {
   stopActivityTracking();
-  activityToken = token;
   mouseEvents = 0;
   keyboardEvents = 0;
   lastIdleTime = 0;
@@ -429,12 +401,10 @@ function stopActivityTracking() {
   if (activityPollTimer) { clearInterval(activityPollTimer); activityPollTimer = null; }
   if (activityTimer) { clearInterval(activityTimer); activityTimer = null; }
   if (appTrackTimer) { clearInterval(appTrackTimer); appTrackTimer = null; }
-  activityToken = null;
 }
 
 async function flushProductivity() {
-  if (!activityToken || !sessionId) return;
-  const axios = require('axios');
+  if (!sessionId) return;
   const idleTime = powerMonitor.getSystemIdleTime();
   const isIdle = idleTime >= ACTIVITY_IDLE_THRESHOLD;
   const active_seconds = isIdle ? 0 : 60;
@@ -444,13 +414,13 @@ async function flushProductivity() {
   keyboardEvents = 0;
 
   try {
-    await axios.post(`${API_BASE}/monitoring/productivity`, {
+    await apiClient.post('/monitoring/productivity', {
       date: new Date().toISOString().slice(0, 10),
       active_seconds,
       idle_seconds,
       mouse_events: snap.mouse,
       keyboard_events: snap.keyboard,
-    }, { headers: { Authorization: `Bearer ${activityToken}` } });
+    });
   } catch (_) {}
 }
 
@@ -513,8 +483,7 @@ function getActiveBrowserUrl() {
 }
 
 async function trackAppAndUrl() {
-  if (!activityToken || !sessionId) return;
-  const axios = require('axios');
+  if (!sessionId) return;
 
   const app_name = getActiveAppName();
   if (!app_name) return;
@@ -522,13 +491,13 @@ async function trackAppAndUrl() {
   const url = getActiveBrowserUrl();
 
   try {
-    await axios.post(`${API_BASE}/monitoring/app-usage`, {
+    await apiClient.post('/monitoring/app-usage', {
       session_id: sessionId,
       app_name,
       window_title: '',
       url: url || null,
       duration_seconds: 30,
       captured_at: new Date().toISOString(),
-    }, { headers: { Authorization: `Bearer ${activityToken}` } });
+    });
   } catch (_) {}
 }

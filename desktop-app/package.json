@@ -17,6 +17,9 @@
       "src/**/*",
       "assets/**/*"
     ],
+    "asarUnpack": [
+      "node_modules/screenshot-desktop/**/*"
+    ],
     "win": {
       "target": "nsis",
       "artifactName": "TekXAI-Agent-Setup.exe"
