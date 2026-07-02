@@ -1,122 +1,74 @@
-import type { PerformanceScores, ScoringCategoryKey, ScoringCriterion, BonusRule } from '@/types/performanceScoring';
+import type { PerformanceScores, ScoringCriterion, BonusTier } from '@/types/performanceScoring';
 
-export type { ScoringCriterion, BonusRule };
+export type { ScoringCriterion, BonusTier };
 
-export const DEFAULT_SCORING_CRITERIA: ScoringCriterion[] = [
+// Fixed to match the real backend columns (employee_performance_scores) —
+// these aren't admin-editable since the columns themselves are fixed.
+export const SCORING_CRITERIA: ScoringCriterion[] = [
   {
-    key: 'qualityAssurance',
-    label: 'Quality Assurance (QA)',
-    shortLabel: 'QA',
+    key: 'quality_score',
+    label: 'Quality Score',
+    shortLabel: 'Quality',
     max: 30,
-    weight: 30,
     description: 'Code quality, bugs, testing, client feedback, and rework.',
   },
   {
-    key: 'projectDelivery',
-    label: 'Project Delivery',
+    key: 'timely_delivery',
+    label: 'Timely Delivery',
     shortLabel: 'Delivery',
     max: 30,
-    weight: 30,
     description: 'Meeting deadlines, completing assigned tasks, and delivery quality.',
   },
   {
-    key: 'punctualityAttendance',
-    label: 'Punctuality & Attendance',
-    shortLabel: 'Attendance',
-    max: 20,
-    weight: 20,
-    description: 'Login time, attendance, leaves, and meeting punctuality.',
+    key: 'regularity',
+    label: 'Regularity',
+    shortLabel: 'Regularity',
+    max: 15,
+    description: 'Attendance and consistency showing up for work.',
   },
   {
-    key: 'teamCollaboration',
-    label: 'Team Collaboration & Communication',
-    shortLabel: 'Teamwork',
-    max: 10,
-    weight: 10,
-    description: 'Teamwork, communication, and helping team members.',
+    key: 'punctuality',
+    label: 'Punctuality',
+    shortLabel: 'Punctuality',
+    max: 15,
+    description: 'On-time login, meetings, and task check-ins.',
   },
   {
-    key: 'dressCode',
+    key: 'dress_code',
     label: 'Dress Code',
     shortLabel: 'Dress Code',
     max: 10,
-    weight: 10,
     description: 'Professional appearance and adherence to dress code policy.',
   },
 ];
 
-export const DEFAULT_BONUS_RULES: BonusRule[] = [
-  { id: 'r1', min: 90, max: 100, bonus: 20_000 },
-  { id: 'r2', min: 80, max: 89.99, bonus: 15_000 },
-  { id: 'r3', min: 70, max: 79.99, bonus: 10_000 },
-  { id: 'r4', min: 60, max: 69.99, bonus: 5_000 },
-  { id: 'r5', min: 50, max: 59.99, bonus: 5_000 },
-  { id: 'r6', min: 40, max: 49.99, bonus: 0 },
-  { id: 'r7', min: 0, max: 39.99, bonus: -5_000 },
-];
-
-/** @deprecated Use DEFAULT_SCORING_CRITERIA or loaded config */
-export const SCORING_CRITERIA = DEFAULT_SCORING_CRITERIA;
-
 export const EMPTY_SCORES: PerformanceScores = {
-  qualityAssurance: 0,
-  projectDelivery: 0,
-  punctualityAttendance: 0,
-  teamCollaboration: 0,
-  dressCode: 0,
+  quality_score: 0,
+  timely_delivery: 0,
+  regularity: 0,
+  punctuality: 0,
+  dress_code: 0,
 };
 
 export const clampScore = (value: number, max: number): number =>
   Math.min(max, Math.max(0, Number.isFinite(value) ? value : 0));
 
-export const getMaxTotalScore = (criteria: ScoringCriterion[]): number =>
+export const getMaxTotalScore = (criteria: ScoringCriterion[] = SCORING_CRITERIA): number =>
   criteria.reduce((sum, c) => sum + (Number.isFinite(c.max) ? Math.max(0, c.max) : 0), 0);
 
 export const calculateTotalScore = (
   scores: PerformanceScores,
-  criteria: ScoringCriterion[] = DEFAULT_SCORING_CRITERIA
-): number => {
-  const total = criteria.reduce((sum, c) => sum + clampScore(scores[c.key], c.max), 0);
-  return Math.round(total * 100) / 100;
-};
+  criteria: ScoringCriterion[] = SCORING_CRITERIA
+): number => criteria.reduce((sum, c) => sum + clampScore(scores[c.key], c.max), 0);
 
-export const inferBonusRuleType = (bonus: number): 'bonus' | 'penalty' | 'none' => {
-  if (bonus < 0) return 'penalty';
-  if (bonus === 0) return 'none';
-  return 'bonus';
-};
-
-export const formatRuleRangeLabel = (min: number, max: number): string => {
-  if (min <= 0 && max < 40) return 'Below 40';
-  if (Number.isInteger(min) && Number.isInteger(max)) return `${min} – ${max}`;
-  return `${min} – ${max}`;
-};
-
-export const calculateSuggestedBonus = (
-  totalScore: number,
-  rules: BonusRule[] = DEFAULT_BONUS_RULES
-): number => {
-  const sorted = [...rules].sort((a, b) => b.min - a.min);
-  for (const rule of sorted) {
-    if (totalScore >= rule.min && totalScore <= rule.max) return rule.bonus;
-  }
-  return 0;
-};
-
-export const getBonusRuleLabel = (
-  totalScore: number,
-  rules: BonusRule[] = DEFAULT_BONUS_RULES
-): string => {
-  const bonus = calculateSuggestedBonus(totalScore, rules);
-  const range = formatRuleRangeLabel(
-    rules.find((r) => totalScore >= r.min && totalScore <= r.max)?.min ?? 0,
-    rules.find((r) => totalScore >= r.min && totalScore <= r.max)?.max ?? 0
+export const normalizeScores = (
+  scores: PerformanceScores,
+  criteria: ScoringCriterion[] = SCORING_CRITERIA
+): PerformanceScores =>
+  criteria.reduce(
+    (acc, c) => ({ ...acc, [c.key]: clampScore(scores[c.key], c.max) }),
+    {} as PerformanceScores
   );
-
-  if (bonus > 0) return `Score ${range} — ${formatPkrAmount(bonus)} bonus`;
-  if (bonus < 0) return `Score ${range} — ${formatPkrAmount(bonus)} penalty`;
-  return `Score ${range} — No bonus applied`;
-};
 
 export const getScoreGrade = (totalScore: number, maxTotal = 100): { label: string; color: string } => {
   const pct = maxTotal > 0 ? (totalScore / maxTotal) * 100 : 0;
@@ -128,43 +80,15 @@ export const getScoreGrade = (totalScore: number, maxTotal = 100): { label: stri
   return { label: 'Critical', color: 'text-red-700 bg-red-50 border-red-200' };
 };
 
+/** Look up the matching tier for a score, e.g. for a "suggested bonus" preview
+ * while entering scores. Actual bonus records are calculated/approved/paid
+ * server-side via the separate /performance/bonus endpoints. */
+export const findBonusTier = (totalScore: number, tiers: BonusTier[]): BonusTier | null =>
+  tiers.find((t) => totalScore >= t.min_score && totalScore <= t.max_score) || null;
+
 export const formatPkrAmount = (amount: number): string => {
   const prefix = amount < 0 ? '- PKR ' : 'PKR ';
   return `${prefix}${Math.abs(amount).toLocaleString('en-PK')}`;
-};
-
-export const normalizeScores = (
-  scores: PerformanceScores,
-  criteria: ScoringCriterion[] = DEFAULT_SCORING_CRITERIA
-): PerformanceScores =>
-  criteria.reduce(
-    (acc, c) => ({ ...acc, [c.key]: clampScore(scores[c.key], c.max) }),
-    {} as PerformanceScores
-  );
-
-export const normalizePerformanceConfig = (config: {
-  criteria: ScoringCriterion[];
-  bonusRules: BonusRule[];
-}): { criteria: ScoringCriterion[]; bonusRules: BonusRule[] } => {
-  const criteria = config.criteria.map((c) => ({
-    ...c,
-    max: Math.max(0, Number(c.max) || 0),
-    weight: Math.max(0, Number(c.weight) || 0),
-    label: c.label.trim() || c.key,
-    shortLabel: c.shortLabel.trim() || c.label.trim() || c.key,
-    description: c.description.trim(),
-  }));
-
-  const bonusRules = config.bonusRules
-    .map((r, i) => ({
-      id: r.id || `rule-${i + 1}`,
-      min: Math.max(0, Math.min(100, Number(r.min) || 0)),
-      max: Math.max(0, Math.min(100, Number(r.max) || 0)),
-      bonus: Number(r.bonus) || 0,
-    }))
-    .sort((a, b) => b.min - a.min);
-
-  return { criteria, bonusRules };
 };
 
 export const getCurrentPeriod = (): string => {

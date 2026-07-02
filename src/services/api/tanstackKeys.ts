@@ -71,10 +71,11 @@ export const QUERY_KEYS = {
     VENDORS:    ['asset', 'vendors'],
   },
   PERFORMANCE: {
-    LIST:    ['performance'],
-    REPORTS: ['performance', 'reports'],
-    SCORES:  ['performance', 'scores'],
-    BONUS:   ['performance', 'bonus'],
+    LIST:         ['performance'],
+    REPORTS:      ['performance', 'reports'],
+    SCORES:       ['performance', 'scores'],
+    BONUS:        ['performance', 'bonus'],
+    BONUS_CONFIG: ['performance', 'bonus-config'],
   },
   MARKETING: {
     DEALS:          ['marketing', 'deals'],

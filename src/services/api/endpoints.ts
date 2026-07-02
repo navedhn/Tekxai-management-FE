@@ -157,6 +157,8 @@ export const API_ENDPOINTS = {
     DAILY_REPORT:  (id: string | number) => `${v1}/performance/daily-report/${id}`,
     SCORES:        `${v1}/performance/score`,
     SCORE_BY_EMP:  (empId: string) => `${v1}/performance/score/${empId}`,
+    DELETE_SCORE:  (id: string | number) => `${v1}/performance/score/${id}`,
+    BONUS_CONFIG:  `${v1}/performance/bonus-config`,
     BONUS:         `${v1}/performance/bonus`,
     CALC_BONUS:    `${v1}/performance/bonus/calculate`,
     APPROVE_BONUS: (id: string | number) => `${v1}/performance/bonus/${id}/approve`,
