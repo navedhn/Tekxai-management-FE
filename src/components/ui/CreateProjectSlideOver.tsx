@@ -197,7 +197,10 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       end_date: endDate,
       total_hours: Number(totalHours),
       owner_id: projectOwners[0]?.id || '',
-      leader_id: teamLeaders[0]?.id || '',
+      // leader_id is optional — omit it (not '') when no leader is picked, since
+      // it's a foreign key and an empty string fails the DB constraint, silently
+      // rolling back the whole project creation.
+      leader_id: teamLeaders[0]?.id || undefined,
       member_ids: teamMembers.map(m => m.id),
     };
 
