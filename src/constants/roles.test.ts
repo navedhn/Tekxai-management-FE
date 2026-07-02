@@ -9,8 +9,11 @@ describe('roles', () => {
 
   it('validates known roles', () => {
     expect(isUserRole('ADMIN')).toBe(true);
+    // Both spellings are valid — EMPLLOYEE is a legacy typo variant kept
+    // in USER_ROLES for backward compat, not something isUserRole rejects.
     expect(isUserRole('EMPLLOYEE')).toBe(true);
-    expect(isUserRole('EMPLOYEE')).toBe(false);
+    expect(isUserRole('EMPLOYEE')).toBe(true);
+    expect(isUserRole('NOT_A_ROLE')).toBe(false);
     expect(isUserRole(null)).toBe(false);
   });
 

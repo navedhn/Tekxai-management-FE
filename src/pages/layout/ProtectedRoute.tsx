@@ -2,7 +2,6 @@ import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import type { UserRole } from '@/constants/roles';
-import { getRoleHomePath } from '@/constants/roles';
 import { useMyPermissions } from '@/services/permissionsService';
 
 const ProtectedRoute: React.FC<{ roles?: UserRole[]; permission?: string }> = ({ roles, permission }) => {
@@ -23,7 +22,7 @@ const ProtectedRoute: React.FC<{ roles?: UserRole[]; permission?: string }> = ({
     if (hasPermission) return <Outlet />;
   }
 
-  return <Navigate to={getRoleHomePath(role)} replace />;
+  return <Navigate to="/403" replace />;
 };
 
 export default ProtectedRoute;
