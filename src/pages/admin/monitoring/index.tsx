@@ -4,7 +4,7 @@ import Table, { Column } from '@/components/ui/Table';
 import Tabs from '@/components/ui/Tabs';
 import Select from '@/components/ui/Select';
 import Badge from '@/components/ui/Badge';
-import { Monitor, Activity, Camera, Clock, Cpu } from 'lucide-react';
+import { Activity, Camera, Clock, Cpu } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useFetchUsersQuery } from '@/services/userService';
 import { useGetScreenshots, useGetProductivity, useGetAppUsage, type Screenshot, type ProductivitySession } from '@/services/monitoringService';
@@ -158,7 +158,6 @@ const MonitoringPage: React.FC = () => {
           month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
         }),
     },
-    { header: 'Monitor', key: 'monitor_index', render: (r) => `Monitor ${r.monitor_index + 1}` },
     {
       header: 'Preview',
       key: 'file_url',

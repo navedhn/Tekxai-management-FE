@@ -19,26 +19,33 @@ export function useTimeTracker() {
   const [loading, setLoading] = useState(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Restore state from backend on mount
-  useEffect(() => {
-    apiRequest<any>(API_ENDPOINTS.TIMESHEET.TODAY)
+  // Restore state from backend
+  const refreshToday = useCallback(() => {
+    return apiRequest<any>(API_ENDPOINTS.TIMESHEET.TODAY)
       .then((res) => {
         const data = res?.payload || res;
         if (data?.clocked_in && !data?.clocked_out) {
-          // Active session — calculate elapsed seconds from check_in
+          // Active session — resume ticking from prior sessions today + elapsed
           const checkIn = new Date(data.entry?.check_in).getTime();
           const elapsed = Math.floor((Date.now() - checkIn) / 1000);
-          setSeconds(elapsed > 0 ? elapsed : 0);
+          const priorSeconds = data.entry?.prior_seconds || 0;
+          setSeconds(priorSeconds + (elapsed > 0 ? elapsed : 0));
           setTrackerState('tracking');
         } else if (data?.clocked_in && data?.clocked_out) {
-          // Already checked out today
+          // Not currently clocked in — show today's cumulative total
           setSeconds(data.entry?.duration_seconds || 0);
+          setTrackerState('idle');
+        } else {
+          setSeconds(0);
           setTrackerState('idle');
         }
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    refreshToday().finally(() => setLoading(false));
+  }, [refreshToday]);
 
   // Tick while tracking
   useEffect(() => {
@@ -53,13 +60,12 @@ export function useTimeTracker() {
   const handleCheckIn = useCallback(async () => {
     try {
       await apiRequest(API_ENDPOINTS.TIMESHEET.CLOCK_IN, { method: 'POST', body: JSON.stringify({}) });
-      setSeconds(0);
-      setTrackerState('tracking');
+      await refreshToday();
       toast.success("Checked in — time tracking started.");
     } catch (e: any) {
       toast.error(e?.message || 'Failed to check in');
     }
-  }, [toast]);
+  }, [toast, refreshToday]);
 
   const handleBreak = useCallback(() => {
     setTrackerState('paused');
@@ -74,12 +80,12 @@ export function useTimeTracker() {
   const handleCheckOut = useCallback(async () => {
     try {
       await apiRequest(API_ENDPOINTS.TIMESHEET.CLOCK_OUT, { method: 'POST', body: JSON.stringify({}) });
-      setTrackerState('idle');
+      await refreshToday();
       toast.info('Checked out successfully.');
     } catch (e: any) {
       toast.error(e?.message || 'Failed to check out');
     }
-  }, [toast]);
+  }, [toast, refreshToday]);
 
   return {
     trackerState,
