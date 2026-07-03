@@ -440,7 +440,6 @@ const Setting: React.FC = () => {
                 options={[
                     { label: 'General & Security', value: 'security' },
                     { label: 'Member Invites', value: 'invites' },
-                    ...(isSuperAdmin ? [{ label: 'Monitoring', value: 'monitoring' }] : []),
                 ]}
                 value={activeTab}
                 onChange={setActiveTab}
@@ -553,13 +552,6 @@ const Setting: React.FC = () => {
                                 </div>
                             </Card>
                         </div>
-                    </div>
-                )}
-
-                {activeTab === 'monitoring' && isSuperAdmin && (
-                    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                        <h2 className="text-2xl font-black text-gray-900 tracking-tight">Monitoring Settings</h2>
-                        <MonitoringSettings />
                     </div>
                 )}
 
