@@ -41,7 +41,7 @@ function QuickLedgerAccess() {
         {filtered.slice(0, 20).map((u: any) => (
           <button
             key={u.id}
-            onClick={() => navigate(`/admin/expenses/${u.id}`)}
+            onClick={() => navigate(`/admin/expenses/${u.employee_id || u.id}`)}
             className="flex items-center gap-1.5 px-3 h-8 bg-gray-50 hover:bg-primary-50 border border-gray-200 hover:border-primary-300 text-gray-700 hover:text-primary-700 rounded-lg text-xs font-semibold transition-colors"
           >
             {u.first_name} {u.last_name}
@@ -209,7 +209,7 @@ export default function ExpensesPage() {
                   <td className="py-3 px-2 text-purple-600 font-semibold text-xs">{pkr(acc.ce_spent)}</td>
                   <td className="py-3 px-2 text-orange-600 font-semibold text-xs">{pkr(acc.tekxai_spent)}</td>
                   <td className="py-3 px-2">
-                    <button onClick={() => navigate(`/admin/expenses/${acc.user?.id}`)}
+                    <button onClick={() => navigate(`/admin/expenses/${acc.user?.employee_id || acc.user?.id}`)}
                       className="flex items-center gap-1.5 px-3 h-7 bg-primary-600 text-white rounded-lg text-xs font-semibold hover:bg-primary-700 transition-colors">
                       <Eye size={12} />Ledger
                     </button>
