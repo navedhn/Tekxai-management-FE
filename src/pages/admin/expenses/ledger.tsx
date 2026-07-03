@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Plus, Pencil, Trash2, X } from 'lucide-react';
@@ -53,10 +53,45 @@ function TransactionModal({
     reader.readAsDataURL(file);
   };
 
-  const { data: categories } = useQuery({
+  const { data: categories, refetch: refetchCategories } = useQuery({
     queryKey: ['expense-categories'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.EXPENSES.CATEGORIES),
     select: (r: any) => r?.payload?.records || [],
+  });
+
+  // Title autocomplete
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestRef = useRef<HTMLDivElement>(null);
+
+  const fetchSuggestions = async (q: string) => {
+    if (q.length < 2) { setSuggestions([]); return; }
+    try {
+      const r = await apiRequest<any>(`api/v1/expenses/title-suggestions?q=${encodeURIComponent(q)}`);
+      setSuggestions(r?.payload?.records || []);
+      setShowSuggestions(true);
+    } catch { setSuggestions([]); }
+  };
+
+  const applySuggestion = (s: any) => {
+    setForm(p => ({ ...p, title: s.title, category_id: s.category_id || p.category_id }));
+    setShowSuggestions(false);
+  };
+
+  // Add category inline
+  const [showAddCat, setShowAddCat] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatType, setNewCatType] = useState<'MARKETING' | 'OPERATIONS' | 'BOTH'>('BOTH');
+  const addCatMutation = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.EXPENSES.CATEGORIES, {
+      method: 'POST', body: JSON.stringify({ name: newCatName, expense_type: newCatType }),
+    }),
+    onSuccess: (r: any) => {
+      refetchCategories();
+      set('category_id', r?.payload?.id || '');
+      setShowAddCat(false);
+      setNewCatName('');
+    },
   });
 
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
@@ -142,18 +177,76 @@ function TransactionModal({
               <input className={inputCls} type="number" value={form.total_amount} onChange={e => handleTotalChange(e.target.value)} placeholder="0" />
             </div>
           </div>
-          <div>
+          <div className="relative">
             <label className="text-xs font-semibold text-gray-500 block mb-1.5">Title / Details *</label>
-            <input className={inputCls} value={form.title} onChange={e => set('title', e.target.value)} placeholder="e.g. Rent JT, Office Supplies…" />
+            <input
+              className={inputCls}
+              value={form.title}
+              onChange={e => { set('title', e.target.value); fetchSuggestions(e.target.value); }}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              onFocus={() => form.title.length >= 2 && suggestions.length > 0 && setShowSuggestions(true)}
+              placeholder="e.g. Rent JT, Office Supplies…"
+            />
+            {showSuggestions && suggestions.length > 0 && (
+              <div ref={suggestRef} className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                {suggestions.map((s: any, i: number) => (
+                  <button key={i} type="button" onMouseDown={() => applySuggestion(s)}
+                    className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary-50 text-left transition-colors">
+                    <span className="text-sm font-medium text-gray-800">{s.title}</span>
+                    {s.category && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 ml-2 shrink-0">{s.category.name}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {type === 'expense' && (
             <>
               <div>
-                <label className="text-xs font-semibold text-gray-500 block mb-1.5">Category</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-gray-500">Category</label>
+                  <button type="button" onClick={() => setShowAddCat(v => !v)}
+                    className="text-[10px] font-bold text-primary-600 hover:text-primary-700 flex items-center gap-0.5">
+                    <Plus size={11} /> Add new
+                  </button>
+                </div>
+                {showAddCat && (
+                  <div className="mb-2 p-3 bg-gray-50 rounded-xl border border-gray-200 flex flex-col gap-2">
+                    <input
+                      className={inputCls}
+                      placeholder="Category name…"
+                      value={newCatName}
+                      onChange={e => setNewCatName(e.target.value)}
+                    />
+                    <div className="flex gap-2">
+                      {(['MARKETING', 'OPERATIONS', 'BOTH'] as const).map(t => (
+                        <button key={t} type="button" onClick={() => setNewCatType(t)}
+                          className={cn('flex-1 h-7 rounded-lg text-[10px] font-bold border transition-colors',
+                            newCatType === t ? 'bg-primary-600 text-white border-primary-600' : 'border-gray-200 text-gray-500')}>
+                          {t === 'BOTH' ? 'Mutual' : t[0] + t.slice(1).toLowerCase()}
+                        </button>
+                      ))}
+                    </div>
+                    <button type="button" onClick={() => newCatName && addCatMutation.mutate()}
+                      disabled={!newCatName || addCatMutation.isPending}
+                      className="h-8 bg-primary-600 text-white rounded-lg text-xs font-bold disabled:opacity-40">
+                      {addCatMutation.isPending ? 'Saving…' : 'Save Category'}
+                    </button>
+                  </div>
+                )}
                 <select className={inputCls} value={form.category_id} onChange={e => set('category_id', e.target.value)}>
                   <option value="">Select category</option>
-                  {(categories || []).map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {(['MARKETING', 'OPERATIONS', 'BOTH'] as const).map(type => {
+                    const group = (categories || []).filter((c: any) => c.expense_type === type);
+                    if (!group.length) return null;
+                    return (
+                      <optgroup key={type} label={type === 'BOTH' ? 'Mutual (Marketing + Operations)' : type[0] + type.slice(1).toLowerCase()}>
+                        {group.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </optgroup>
+                    );
+                  })}
                 </select>
               </div>
               <div>
