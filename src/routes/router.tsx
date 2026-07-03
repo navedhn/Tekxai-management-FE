@@ -63,6 +63,7 @@ const AdminExpenses          = lazy(() => import('@/pages/admin/expenses'));
 const AdminExpenseLedger     = lazy(() => import('@/pages/admin/expenses/ledger'));
 const AdminPerformanceScoring = lazy(() => import('@/pages/admin/performance-scoring'));
 const AdminFinancialReports  = lazy(() => import('@/pages/admin/financial-reports'));
+const EmailLogsPage          = lazy(() => import('@/pages/admin/email-logs'));
 const PayrollPage            = lazy(() => import('@/pages/admin/payroll'));
 const WebhooksPage           = lazy(() => import('@/pages/admin/webhooks'));
 const ReportBuilderPage      = lazy(() => import('@/pages/admin/report-builder'));
@@ -180,6 +181,7 @@ const routes: RouteObject[] = [
           { path: '/admin/expenses/:userId',    element: <AdminExpenseLedger /> },
           { path: '/admin/performance-scoring', element: <AdminPerformanceScoring /> },
           { path: '/admin/financial-reports',   element: <AdminFinancialReports /> },
+          { path: '/admin/email-logs',          element: <EmailLogsPage /> },
           { path: '/admin/payroll',            element: <PayrollPage /> },
           { path: '/admin/webhooks',           element: <WebhooksPage /> },
           { path: '/admin/report-builder',     element: <ReportBuilderPage /> },
