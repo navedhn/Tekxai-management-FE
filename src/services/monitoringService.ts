@@ -35,7 +35,7 @@ export const useGetScreenshots = (params?: Record<string, string>) =>
       const r = await apiRequest<any>(`${v1}/monitoring/screenshots${qs}`);
       return r?.payload || { records: [], total: 0 };
     },
-    staleTime: 30000,
+    staleTime: 0,
   });
 
 export const useGetProductivity = (params?: Record<string, string>) =>
