@@ -32,6 +32,13 @@ export interface ProjectDto {
   member_ids?: string[];
 }
 
+export interface Milestone {
+  id: string;
+  title: string;
+  due_date: string | null;
+  completed: boolean;
+}
+
 export interface ProjectDetail {
   id: string;
   title: string;
@@ -46,6 +53,8 @@ export interface ProjectDetail {
   all_members?: ProjectMember[];
   owner?: ProjectMember;
   team_leader?: ProjectMember | null;
+  milestones?: Milestone[];
+  current_milestone?: Milestone | null;
   created_at: string;
   updated_at: string;
   is_saved: boolean;
