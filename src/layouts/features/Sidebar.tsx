@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home, Users2, Settings, FolderCheck, Clock, Star, Monitor, LogOut, X,
   BarChart3, Shield, ClipboardCheck, Ticket, Receipt, Banknote, Webhook,
-  MessageSquare, Wrench, FileText, Package,
+  MessageSquare, FileText, Package,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/services/permissionsService';
@@ -84,8 +84,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { section: 'Delivery', to: '/admin/projects',     label: 'Projects',        icon: <FolderCheck size={18} strokeWidth={SW} /> },
       {                       to: '/admin/team',         label: 'Teams',           icon: <Users2 size={18} strokeWidth={SW} /> },
       {                       to: '/admin/timesheet',    label: 'Timesheet',       icon: <Clock size={18} strokeWidth={SW} /> },
-      {                       to: '/admin/operations',   label: 'Operations',      icon: <Wrench size={18} strokeWidth={SW} /> },
-      {                       to: '/admin/monitoring',   label: 'Monitoring',      icon: <Monitor size={18} strokeWidth={SW} /> },
+{                       to: '/admin/monitoring',   label: 'Monitoring',      icon: <Monitor size={18} strokeWidth={SW} /> },
       {                       to: '/admin/reports',      label: 'Reports',         icon: <BarChart3 size={18} strokeWidth={SW} /> },
       { section: 'Shared',   to: '/admin/starred',      label: 'Starred',         icon: <Star size={18} strokeWidth={SW} /> },
       {                       to: '/chat',               label: 'Messages',        icon: <MessageSquare size={18} strokeWidth={SW} /> },
