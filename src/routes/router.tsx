@@ -35,7 +35,6 @@ const AdminTickets           = lazy(() => import('@/pages/admin/tickets'));
 const AdminUsers             = lazy(() => import('@/pages/admin/users'));
 const AdminMonitoring        = lazy(() => import('@/pages/admin/monitoring'));
 const AdminReports           = lazy(() => import('@/pages/admin/reports'));
-const AdminOperations        = lazy(() => import('@/pages/admin/operations'));
 const AdminEstimator         = lazy(() => import('@/pages/admin/estimator'));
 const AdminEmployeeProfile   = lazy(() => import('@/pages/admin/employee-profile'));
 const AdminPermissions       = lazy(() => import('@/pages/admin/permissions'));
@@ -157,7 +156,6 @@ const routes: RouteObject[] = [
           { path: '/admin/notifications',        element: <SharedNotifications /> },
           { path: '/admin/project-detail',       element: <ProjectDetailPage /> },
           { path: '/admin/profile/:memberId?',   element: <ProfilePage /> },
-          { path: '/admin/operations',           element: <AdminOperations /> },
           { path: '/admin/monitoring',           element: <AdminMonitoring /> },
           { path: '/admin/reports',              element: <AdminReports /> },
           { path: '/admin/estimator',            element: <AdminEstimator /> },
