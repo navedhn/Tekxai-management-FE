@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { ChevronRight, ChevronLeft, Check, User, Briefcase, MapPin, FileText, ClipboardList, Save, X, Plus, Trash2, RotateCcw, Upload, ExternalLink } from 'lucide-react';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, BASE_URL } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 
@@ -455,7 +455,7 @@ function StepDocuments({ docFiles, setDocFiles }: { docFiles: DocFile[]; setDocF
       const fd = new FormData();
       fd.append('file', file);
       const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token') || '';
-      const res = await fetch(`/${API_ENDPOINTS.STORAGE.UPLOAD}`, {
+      const res = await fetch(`${BASE_URL}${API_ENDPOINTS.STORAGE.UPLOAD}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
@@ -465,7 +465,7 @@ function StepDocuments({ docFiles, setDocFiles }: { docFiles: DocFile[]; setDocF
         updateRow(idx, 'file_url', json.payload.file_url);
         if (!docFiles[idx].title) updateRow(idx, 'title', file.name.replace(/\.[^.]+$/, ''));
       }
-    } catch {}
+    } catch (e) { console.error('Upload failed', e); }
     setUploading(p => ({ ...p, [idx]: false }));
   };
 
