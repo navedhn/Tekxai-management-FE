@@ -1,10 +1,10 @@
 {
   "name": "tekxai-agent",
   "version": "1.0.0",
-  "description": "TekXAI Desktop Agent — time tracking & screenshot monitoring",
+  "description": "TekXAI Desktop Agent \u2014 time tracking & screenshot monitoring",
   "main": "src/main.js",
   "scripts": {
-    "start": "electron .",
+    "start": "node api.js && electron .",
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux"
