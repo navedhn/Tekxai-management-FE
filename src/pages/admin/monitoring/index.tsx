@@ -7,7 +7,7 @@ import Badge from '@/components/ui/Badge';
 import { Activity, Camera, Clock, Cpu, Trash2 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useFetchUsersQuery } from '@/services/userService';
-import { useGetScreenshots, useGetProductivity, useGetAppUsage, useDeleteScreenshot, type Screenshot, type ProductivitySession } from '@/services/monitoringService';
+import { useGetScreenshots, useGetProductivity, useGetAppUsage, useDeleteScreenshot, useBulkDeleteScreenshots, type Screenshot, type ProductivitySession } from '@/services/monitoringService';
 import { useAuthStore } from '@/stores/authStore';
 import { StatSkeleton } from '@/components/skeletons';
 
@@ -60,10 +60,13 @@ const MonitoringPage: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   const { user } = useAuthStore();
   const isSuperAdmin = (user as any)?.roles?.includes('SUPER_ADMIN') || (user as any)?.role_name === 'SUPER_ADMIN';
   const { mutate: deleteScreenshot } = useDeleteScreenshot();
+  const { mutate: bulkDelete } = useBulkDeleteScreenshots();
 
   const { data: users = [] } = useFetchUsersQuery({});
 
@@ -146,7 +149,54 @@ const MonitoringPage: React.FC = () => {
     },
   ];
 
+  const allSelected = screenshots.length > 0 && screenshots.every((s) => selectedIds.has(s.id));
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(screenshots.map((s) => s.id)));
+    }
+  };
+  const toggleOne = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+  const handleBulkDelete = () => {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+    if (!window.confirm(`Delete ${ids.length} screenshot(s)? They will also be removed from S3.`)) return;
+    setIsBulkDeleting(true);
+    bulkDelete(ids, {
+      onSettled: () => {
+        setIsBulkDeleting(false);
+        setSelectedIds(new Set());
+      },
+    });
+  };
+
   const ssCols: Column<Screenshot>[] = [
+    ...(isSuperAdmin ? [{
+      header: (
+        <input
+          type="checkbox"
+          checked={allSelected}
+          onChange={toggleAll}
+          className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+        />
+      ) as any,
+      key: '__select__' as keyof Screenshot,
+      render: (r: Screenshot) => (
+        <input
+          type="checkbox"
+          checked={selectedIds.has(r.id)}
+          onChange={() => toggleOne(r.id)}
+          className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+        />
+      ),
+    }] : []),
     {
       header: 'Employee',
       key: 'user_id',
@@ -336,10 +386,22 @@ const MonitoringPage: React.FC = () => {
 
       {activeTab === 'Screenshot History' && (
         <Card className="border-none shadow-sm">
-          <p className="text-sm font-medium text-gray-400 mb-4">
-            Total screenshots: <strong className="text-gray-700">{(ssData as any)?.total || 0}</strong>
-            <span className="ml-2 text-xs">(Screenshots captured by desktop agent)</span>
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm font-medium text-gray-400">
+              Total screenshots: <strong className="text-gray-700">{(ssData as any)?.total || 0}</strong>
+              <span className="ml-2 text-xs">(Screenshots captured by desktop agent)</span>
+            </p>
+            {isSuperAdmin && selectedIds.size > 0 && (
+              <button
+                onClick={handleBulkDelete}
+                disabled={isBulkDeleting}
+                className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white text-sm font-bold rounded-xl hover:bg-red-600 disabled:opacity-50 transition-colors"
+              >
+                <Trash2 size={14} />
+                {isBulkDeleting ? 'Deleting…' : `Delete Selected (${selectedIds.size})`}
+              </button>
+            )}
+          </div>
           <Table
             columns={ssCols}
             data={screenshots}

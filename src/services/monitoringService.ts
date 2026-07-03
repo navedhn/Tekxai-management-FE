@@ -101,3 +101,15 @@ export const useDeleteScreenshot = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['screenshots'] }),
   });
 };
+
+export const useBulkDeleteScreenshots = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) =>
+      apiRequest(`${v1}/monitoring/screenshots/bulk`, {
+        method: 'DELETE',
+        body: JSON.stringify({ ids }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['screenshots'] }),
+  });
+};
