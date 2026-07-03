@@ -1,0 +1,21 @@
+{
+  "default_branch": "main",
+  "branches": [
+    "feature/api",
+    "main",
+    "master",
+    "zia/hr-modules-clean"
+  ],
+  "parent": {
+    "feature/api": "main",
+    "main": null,
+    "master": "main",
+    "zia/hr-modules-clean": "main"
+  },
+  "order": [
+    "main",
+    "feature/api",
+    "master",
+    "zia/hr-modules-clean"
+  ]
+}
