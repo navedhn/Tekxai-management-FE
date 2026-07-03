@@ -92,3 +92,12 @@ export const useUploadScreenshot = () =>
     mutationFn: (data: { session_id: string; file_key: string; file_url?: string; monitor_index?: number }) =>
       apiRequest(`${v1}/monitoring/screenshot`, { method: 'POST', body: JSON.stringify(data) }),
   });
+
+export const useDeleteScreenshot = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiRequest(`${v1}/monitoring/screenshot/${id}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['screenshots'] }),
+  });
+};

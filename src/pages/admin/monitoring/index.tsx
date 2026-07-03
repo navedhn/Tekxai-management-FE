@@ -4,10 +4,11 @@ import Table, { Column } from '@/components/ui/Table';
 import Tabs from '@/components/ui/Tabs';
 import Select from '@/components/ui/Select';
 import Badge from '@/components/ui/Badge';
-import { Activity, Camera, Clock, Cpu } from 'lucide-react';
+import { Activity, Camera, Clock, Cpu, Trash2 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useFetchUsersQuery } from '@/services/userService';
-import { useGetScreenshots, useGetProductivity, useGetAppUsage, type Screenshot, type ProductivitySession } from '@/services/monitoringService';
+import { useGetScreenshots, useGetProductivity, useGetAppUsage, useDeleteScreenshot, type Screenshot, type ProductivitySession } from '@/services/monitoringService';
+import { useAuthStore } from '@/stores/authStore';
 import { StatSkeleton } from '@/components/skeletons';
 
 const TABS = ['Productivity Overview', 'Screenshot History'];
@@ -58,6 +59,11 @@ const MonitoringPage: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const { user } = useAuthStore();
+  const isSuperAdmin = (user as any)?.roles?.includes('SUPER_ADMIN') || (user as any)?.role_name === 'SUPER_ADMIN';
+  const { mutate: deleteScreenshot } = useDeleteScreenshot();
 
   const { data: users = [] } = useFetchUsersQuery({});
 
@@ -175,6 +181,24 @@ const MonitoringPage: React.FC = () => {
           <span className="text-xs text-gray-400 font-medium font-mono">{r.file_key.split('/').pop()}</span>
         ),
     },
+    ...(isSuperAdmin ? [{
+      header: '',
+      key: 'id' as keyof Screenshot,
+      render: (r: Screenshot) => (
+        <button
+          onClick={() => {
+            if (!window.confirm('Delete this screenshot? It will also be removed from S3.')) return;
+            setDeletingId(r.id);
+            deleteScreenshot(r.id, { onSettled: () => setDeletingId(null) });
+          }}
+          disabled={deletingId === r.id}
+          className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+          title="Delete screenshot"
+        >
+          <Trash2 size={15} />
+        </button>
+      ),
+    }] : []),
   ];
 
   return (
