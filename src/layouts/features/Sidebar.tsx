@@ -2,7 +2,7 @@ import React, { useMemo, memo } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home, Users2, Settings, FolderCheck, Clock, Star, Monitor, LogOut, X,
-  BarChart3, Shield, ClipboardCheck, Ticket, Receipt, Banknote, Webhook,
+  BarChart3, Shield, ClipboardCheck, Ticket, Receipt, Banknote, Webhook, Mail,
   MessageSquare, FileText, Package,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -98,6 +98,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       ...(isSuperAdmin ? [
         { to: '/admin/permissions',       label: 'Access Control',    icon: <Shield size={18} strokeWidth={SW} /> },
         { to: '/admin/financial-reports', label: 'Financial Reports', icon: <BarChart3 size={18} strokeWidth={SW} /> },
+        { to: '/admin/email-logs',        label: 'Email Logs',        icon: <Mail size={18} strokeWidth={SW} /> },
         { to: '/admin/system-settings',   label: 'System Settings',   icon: <Settings size={18} strokeWidth={SW} /> },
       ] : []),
     ];
