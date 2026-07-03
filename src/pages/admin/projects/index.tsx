@@ -173,7 +173,26 @@ const ProjectManagement: React.FC = () => {
         );
       }
     },
-    { header: 'Due Date', key: 'end_date', render: (item) => item.end_date ? new Date(item.end_date).toLocaleDateString() : 'N/A' },
+    {
+      header: 'Current Milestone',
+      key: 'current_milestone',
+      render: (item) => {
+        const m = item.current_milestone;
+        if (!m) return <span className="text-xs text-gray-400 italic">No milestone</span>;
+        const isOverdue = m.due_date && new Date(m.due_date) < new Date();
+        return (
+          <div className="flex flex-col gap-0.5 min-w-[140px]">
+            <span className="text-xs font-bold text-gray-800 leading-tight">{m.title}</span>
+            {m.due_date && (
+              <span className={`text-[10px] font-medium ${isOverdue ? 'text-red-500' : 'text-gray-400'}`}>
+                Due {new Date(m.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </span>
+            )}
+          </div>
+        );
+      }
+    },
+    { header: 'Project Due Date', key: 'end_date', render: (item) => item.end_date ? new Date(item.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A' },
     {
       header: 'Actions',
       key: 'actions',
