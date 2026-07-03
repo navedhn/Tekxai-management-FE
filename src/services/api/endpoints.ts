@@ -285,6 +285,7 @@ export const API_ENDPOINTS = {
     REPORTS:       `${v1}/reporting`,
     REPORT:        (id: string) => `${v1}/reporting/${id}`,
   },
+  EMAIL_LOGS: `${v1}/email-logs`,
   MONITORING: {
     SCREENSHOTS:  `${v1}/monitoring/screenshots`,
     PRODUCTIVITY: `${v1}/monitoring/productivity`,
