@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button';
 import Select from '@/components/ui/Select';
 import { Download, BarChart3, Users, Clock, TrendingUp } from 'lucide-react';
 import { useAttendanceReport, useLeaveReport, usePerformanceReport, useProjectsReport, download_report } from '@/services/reportService';
+import { useFetchUsersQuery } from '@/services/userService';
 
 const TABS = ['Attendance', 'Leave', 'Performance', 'Projects'];
 
@@ -13,11 +14,25 @@ const ReportsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('Attendance');
   const [dateRange, setDateRange] = useState({ from: '', to: '' });
   const [period, setPeriod] = useState('June 2026');
+  const [selectedUser, setSelectedUser] = useState('');
 
-  const params = dateRange.from ? { from: dateRange.from, to: dateRange.to } : undefined;
+  const { data: users = [] } = useFetchUsersQuery({});
+  const userOptions = [
+    { value: '', label: 'All Employees' },
+    ...(users as any[]).map((u: any) => ({ value: u.id, label: `${u.first_name} ${u.last_name}` })),
+  ];
+
+  const buildParams = (extra?: Record<string, string>) => {
+    const p: Record<string, string> = {};
+    if (dateRange.from) { p.from = dateRange.from; p.to = dateRange.to; }
+    if (selectedUser) p.user_id = selectedUser;
+    return { ...p, ...extra };
+  };
+
+  const params = Object.keys(buildParams()).length ? buildParams() : undefined;
   const { data: attendance = [], isLoading: attLoading } = useAttendanceReport(params);
   const { data: leave = [], isLoading: leaveLoading } = useLeaveReport(params);
-  const { data: performance = [], isLoading: perfLoading } = usePerformanceReport({ period });
+  const { data: performance = [], isLoading: perfLoading } = usePerformanceReport(buildParams({ period }));
   const { data: projects = [], isLoading: projLoading } = useProjectsReport();
 
   const attendanceCols: Column<any>[] = [
@@ -64,10 +79,10 @@ const ReportsPage: React.FC = () => {
 
   const handleExport = () => {
     const type = activeTab.toLowerCase();
-    const params: Record<string,string> = {};
-    if (dateRange.from) { params.from = dateRange.from; params.to = dateRange.to || new Date().toISOString().split('T')[0]; }
-    if (activeTab === 'Performance') params.period = period;
-    download_report(type === 'attendance' ? 'attendance' : type === 'leave' ? 'leave' : type === 'performance' ? 'performance' : 'projects', params);
+    const p = buildParams();
+    if (activeTab === 'Performance') p.period = period;
+    if (!p.from && dateRange.from) { p.from = dateRange.from; p.to = dateRange.to || new Date().toISOString().split('T')[0]; }
+    download_report(type === 'attendance' ? 'attendance' : type === 'leave' ? 'leave' : type === 'performance' ? 'performance' : 'projects', { ...p, format: 'csv' });
   };
 
   return (
@@ -82,8 +97,16 @@ const ReportsPage: React.FC = () => {
         </Button>
       </div>
 
-      {/* Date filters */}
+      {/* Filters */}
       <div className="flex items-center gap-4 flex-wrap">
+        <div className="w-52">
+          <Select
+            options={userOptions}
+            value={selectedUser}
+            onChange={(v) => setSelectedUser(v as string)}
+            className="h-9 !rounded-xl text-sm"
+          />
+        </div>
         <div className="flex items-center gap-2">
           <label className="text-xs font-bold text-gray-500">FROM</label>
           <input type="date" value={dateRange.from} onChange={(e) => setDateRange(p => ({ ...p, from: e.target.value }))}
