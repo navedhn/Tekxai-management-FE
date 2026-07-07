@@ -74,6 +74,37 @@ export function useUpdateTask(projectId: string | null | undefined) {
   });
 }
 
+export function useCreateTask(projectId: string | null | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { title: string; description?: string; assigned_to?: string; milestone_id?: string | null; due_date?: string }) => {
+      if (!projectId) throw new Error('No projectId');
+      return apiRequest<any>(API_ENDPOINTS.TASK.CREATE(projectId), {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['kanban-tasks', projectId] });
+      qc.invalidateQueries({ queryKey: ['milestones', projectId] });
+    },
+  });
+}
+
+export function useDeleteTask(projectId: string | null | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (taskId: string) => {
+      if (!projectId) throw new Error('No projectId');
+      return apiRequest<any>(API_ENDPOINTS.TASK.DELETE(projectId, taskId), { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['kanban-tasks', projectId] });
+      qc.invalidateQueries({ queryKey: ['milestones', projectId] });
+    },
+  });
+}
+
 export function useSubTasks(taskId: string | null | undefined) {
   return useQuery<SubTask[]>({
     queryKey: ['sub-tasks', taskId],

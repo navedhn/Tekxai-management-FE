@@ -4,11 +4,13 @@ import {Clock, X, Plus, Search, User ,Loader2, ArrowRight } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import Button from './Button';
 import Input from './Input';
+import Select from './Select';
 import Textarea from './Textarea';
 import DatePicker from './DatePicker';
 import { ProjectDetail, ProjectDto, useCreateProjectMutation, useUpdateProjectMutation } from '@/services/projectService';
 import { useFetchUsersQuery } from '@/services/userService';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { PROJECT_STATUS_OPTIONS } from '@/utils/projectStatus';
 
 interface TeamMember {
   id: string;
@@ -143,6 +145,9 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [totalHours, setTotalHours] = useState('0');
+  const [clientName, setClientName] = useState('');
+  const [devStatus, setDevStatus] = useState('');
+  const [status, setStatus] = useState('PLANNING');
 
   const [projectOwners, setProjectOwners] = useState<TeamMember[]>([]);
   const [teamLeaders, setTeamLeaders] = useState<TeamMember[]>([]);
@@ -162,6 +167,9 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       setStartDate(project.start_date);
       setEndDate(project.end_date);
       setTotalHours(String(project.total_hours));
+      setClientName(project.client_name || '');
+      setDevStatus(project.dev_status || '');
+      setStatus(project.status || 'PLANNING');
       // In a real app we'd fetch full user objects for these IDs
       // For now we rely on the state being populated or handle it if we have access to user data
     } else {
@@ -170,6 +178,9 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       setStartDate('');
       setEndDate('');
       setTotalHours('0');
+      setClientName('');
+      setDevStatus('');
+      setStatus('PLANNING');
       setProjectOwners([]);
       setTeamLeaders([]);
       setTeamMembers([]);
@@ -196,6 +207,9 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       start_date: startDate,
       end_date: endDate,
       total_hours: Number(totalHours),
+      client_name: clientName.trim() || undefined,
+      dev_status: devStatus.trim() || undefined,
+      status,
       owner_id: projectOwners[0]?.id || '',
       // leader_id is optional — omit it (not '') when no leader is picked, since
       // it's a foreign key and an empty string fails the DB constraint, silently
@@ -271,6 +285,31 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
                   rows={4}
                   className="min-h-[140px]"
                 />
+
+                <Input
+                  label="Client"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                  placeholder="Client name"
+                  className="h-12 rounded-xl"
+                />
+
+                <Input
+                  label="Dev Status"
+                  value={devStatus}
+                  onChange={(e) => setDevStatus(e.target.value)}
+                  placeholder="e.g. Waiting on client feedback"
+                  className="h-12 rounded-xl"
+                />
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Status</label>
+                  <Select
+                    options={PROJECT_STATUS_OPTIONS.map((o) => ({ label: o.label, value: o.value }))}
+                    value={status}
+                    onChange={(v) => setStatus(String(v))}
+                  />
+                </div>
               </div>
 
               <div className="flex flex-col gap-4">

@@ -6,15 +6,17 @@ import Textarea from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { Plus } from 'lucide-react';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { useCreateTask } from '@/services/tasksService';
 
 interface AddTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
+  projectId: string | null;
   milestoneId: string | number | null;
   members: any[];
 }
 
-const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, milestoneId, members }) => {
+const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, projectId, milestoneId, members }) => {
   const [formData, setFormData] = useState({
     title: '',
     assignee: '',
@@ -23,6 +25,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, milestoneI
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const toast = useToastContext();
+  const { mutate, isPending } = useCreateTask(projectId);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -35,7 +38,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, milestoneI
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validation
     const newErrors: Record<string, string> = {};
     if (!formData.title.trim()) newErrors.title = 'Task title is required';
@@ -47,13 +50,22 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, milestoneI
       return;
     }
 
-    // Since there's no API yet, we'll just mock the success
-    console.log('Adding Task to milestone:', milestoneId, formData);
-    toast.success('Task added successfully (Mock)');
-    
-    // Reset form and close
-    setFormData({ title: '', assignee: '', description: '' });
-    onClose();
+    mutate(
+      {
+        title: formData.title,
+        description: formData.description || undefined,
+        assigned_to: formData.assignee,
+        milestone_id: milestoneId ? String(milestoneId) : null,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Task added successfully');
+          setFormData({ title: '', assignee: '', description: '' });
+          onClose();
+        },
+        onError: (e: any) => toast.error(e?.message || 'Failed to add task'),
+      }
+    );
   };
 
   const memberOptions: SelectOption[] = members.map(m => ({
@@ -117,10 +129,11 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, milestoneI
           <Button
             type="submit"
             variant="primary"
-            className="flex-1 h-12 w-full rounded-xl font-bold shadow-lg shadow-primary-100"
+            disabled={isPending}
+            className="flex-1 h-12 w-full rounded-xl font-bold shadow-lg shadow-primary-100 disabled:opacity-50"
             leftIcon={Plus}
           >
-            Add Task
+            {isPending ? 'Adding…' : 'Add Task'}
           </Button>
         </div>
       </form>

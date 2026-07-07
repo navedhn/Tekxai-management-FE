@@ -8,7 +8,18 @@ import Button from './Button';
 import RequestExtensionModal from './RequestExtensionModal';
 import CreateMilestoneModal from '../modals/CreateMilestoneModal';
 import AddTaskModal from '../modals/AddTaskModal';
-import { useGetProjectDetails } from '@/services/projectService';
+import DevopsAccessPanel from './DevopsAccessPanel';
+import WeeklyUpdatesPanel from './WeeklyUpdatesPanel';
+import ProjectDocumentsPanel from './ProjectDocumentsPanel';
+import CommunicationTimeline from './CommunicationTimeline';
+import ActionModal from './ActionModal';
+import StatusDropdown from './StatusDropdown';
+import { useGetProjectDetails, useUpdateProjectMutation } from '@/services/projectService';
+import { useMilestones, useDeleteMilestone } from '@/services/milestonesService';
+import { useUpdateTask, useDeleteTask } from '@/services/tasksService';
+import { useToastContext } from '@/components/toast/ToastProvider';
+import { useAuth } from '@/hooks/useAuth';
+import { PROJECT_STATUS_OPTIONS, getProjectStatusStyle, getProjectStatusLabel } from '@/utils/projectStatus';
 import Loader from './Loader';
 
 interface SlideOverProps {
@@ -18,57 +29,50 @@ interface SlideOverProps {
   routePrefix?: string;
 }
 
-const mockChecklists = [
-  {
-    id: 'c1',
-    title: 'Backend Stuff (User Journey)',
-    completed: 3,
-    total: 7,
-    items: [
-      { id: 'i1', text: '1. Database Redesign', isDone: true, comments: 7, avatar: 'https://i.pravatar.cc/150?u=12' },
-      { id: 'i2', text: '2. Setup Locations & Devices', isDone: true, comments: 7, avatar: 'https://i.pravatar.cc/150?u=13' },
-      { id: 'i3', text: '3. Ads Duration 15 and 30 seconds', isDone: true, comments: 7, avatar: 'https://i.pravatar.cc/150?u=14' },
-      { id: 'i4', text: '4. Cron job of creating video daily...', isDone: false, comments: 7, avatar: 'https://i.pravatar.cc/150?u=15' },
-      { id: 'i5', text: '5. Limitation of images and videos...', isDone: false, comments: 7, avatar: 'https://i.pravatar.cc/150?u=16' },
-      { id: 'i6', text: '6. Create playlist of ads and assign...', isDone: false, comments: 7, avatar: 'https://i.pravatar.cc/150?u=17' },
-      { id: 'i7', text: '7. Limitation of images and videos...', isDone: false, comments: 7, avatar: 'https://i.pravatar.cc/150?u=18' },
-    ]
-  },
-  {
-    id: 'c2',
-    title: 'Device End Stuff',
-    completed: 0,
-    total: 4,
-    items: [
-      { id: 'i8', text: '1. Database Redesign', isDone: false, comments: 7, avatar: 'https://i.pravatar.cc/150?u=12' },
-      { id: 'i9', text: '2. Setup Configuration', isDone: false, comments: 2, avatar: 'https://i.pravatar.cc/150?u=13' },
-    ]
-  }
-];
-
 const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, projectId, routePrefix = '/admin' }) => {
   const navigate = useNavigate();
+  const toast = useToastContext();
+  const { user, role } = useAuth();
   const { data: project, isLoading } = useGetProjectDetails(projectId);
-  const [lists, setLists] = useState(mockChecklists);
+  const { data: milestones = [], isLoading: milestonesLoading } = useMilestones(projectId);
+  const deleteMilestoneMutation = useDeleteMilestone(projectId);
+  const updateTaskMutation = useUpdateTask(projectId);
+  const deleteTaskMutation = useDeleteTask(projectId);
+  const updateProjectMutation = useUpdateProjectMutation();
+
+  const projectOwnerId = project?.owner_id ? String(project.owner_id) : project?.owner?.id;
+  const projectLeaderId = project?.leader_id ? String(project.leader_id) : project?.team_leader?.id;
+  const canEditProject = role === 'ADMIN' || role === 'SUPER_ADMIN' || user?.id === projectOwnerId || user?.id === projectLeaderId;
   const [showRequestModel, setShowRequestModael] = useState(false);
   const [showCreateMilestone, setShowCreateMilestone] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
   const [activeMilestoneId, setActiveMilestoneId] = useState<string | number | null>(null);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({ 'c1': true, 'c2': true });
-
-  const deleteItem = (listId: string, itemId: string) => {
-    setLists(prev => prev.map(list => {
-      if (list.id === listId) {
-        return {
-          ...list,
-          items: list.items.filter(item => item.id !== itemId)
-        };
-      }
-      return list;
-    }));
-  };
+  const [milestoneToDelete, setMilestoneToDelete] = useState<{ id: string; title: string } | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const toggleExpand = (id: string) => setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
+
+  const handleToggleTask = (taskId: string, currentStatus: string) => {
+    updateTaskMutation.mutate(
+      { taskId, updates: { status: currentStatus === 'DONE' ? 'TODO' : 'DONE' } },
+      { onError: (e: any) => toast.error(e?.message || 'Failed to update task') }
+    );
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    deleteTaskMutation.mutate(taskId, {
+      onSuccess: () => toast.success('Task deleted'),
+      onError: (e: any) => toast.error(e?.message || 'Failed to delete task'),
+    });
+  };
+
+  const handleConfirmDeleteMilestone = () => {
+    if (!milestoneToDelete) return;
+    deleteMilestoneMutation.mutate(milestoneToDelete.id, {
+      onSuccess: () => { toast.success('Milestone deleted'); setMilestoneToDelete(null); },
+      onError: (e: any) => { toast.error(e?.message || 'Failed to delete milestone'); setMilestoneToDelete(null); },
+    });
+  };
 
   return (
     <AnimatePresence>
@@ -162,9 +166,11 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                           <CalendarIcon size={14} className="text-gray-400" />
                           {project.end_date ? new Date(project.end_date).toLocaleDateString() : 'N/A'}
                         </span>
-                        {project.end_date && new Date(project.end_date) < new Date() && project.status !== 'COMPLETED' && (
+                        {project.is_overdue ? (
                           <Badge variant="warning" className="bg-[#FFEB3B] text-yellow-900 border-none font-bold shadow-sm">Overdue</Badge>
-                        )}
+                        ) : typeof project.days_remaining === 'number' && project.days_remaining >= 0 ? (
+                          <span className="text-[10px] font-bold text-gray-400 whitespace-nowrap">{project.days_remaining}d left</span>
+                        ) : null}
                       </div>
                     </div>
 
@@ -179,12 +185,20 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
 
                     <div className="flex flex-col gap-2">
                       <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Status</span>
-                      <Badge variant="info" className={cn(
-                        "px-6 py-2 text-white font-black text-sm rounded-xl tracking-wide shadow-lg border-none",
-                        project.status === 'COMPLETED' ? 'bg-[#00A36C] shadow-[#00A36C22]' : 'bg-[#005CDA] shadow-[#005CDA22]'
-                      )}>
-                        {project.status || 'PENDING'}
-                      </Badge>
+                      {canEditProject ? (
+                        <StatusDropdown
+                          value={project.status || 'PENDING'}
+                          options={PROJECT_STATUS_OPTIONS.map((o) => ({ label: o.label, value: o.value, colorClassName: o.className }))}
+                          onChange={(v) => updateProjectMutation.mutate(
+                            { id: project.id, data: { status: v as string } },
+                            { onError: (e: any) => toast.error(e?.message || 'Failed to update status') }
+                          )}
+                        />
+                      ) : (
+                        <Badge variant="info" className={cn("px-4 py-2 font-black text-xs rounded-xl tracking-wide border w-fit", getProjectStatusStyle(project.status))}>
+                          {getProjectStatusLabel(project.status)}
+                        </Badge>
+                      )}
                     </div>
                   </div>
 
@@ -216,11 +230,22 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                   <AddTaskModal
                     isOpen={showAddTask}
                     onClose={() => setShowAddTask(false)}
+                    projectId={projectId}
                     milestoneId={activeMilestoneId}
                     members={project?.all_members || project?.members || []}
                   />
+                  <ActionModal
+                    isOpen={!!milestoneToDelete}
+                    onClose={() => setMilestoneToDelete(null)}
+                    onConfirm={handleConfirmDeleteMilestone}
+                    title="Delete Milestone"
+                    description={`Are you sure you want to delete "${milestoneToDelete?.title}"? This will not delete its tasks.`}
+                    confirmText="Delete Milestone"
+                    loading={deleteMilestoneMutation.isPending}
+                    icon="delete"
+                  />
 
-                  {/* Dynamic Checklist Accordions */}
+                  {/* Milestones + Tasks */}
                   <div className="flex flex-col gap-6 w-full">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-black text-gray-900 tracking-tight">Project Milestones</h3>
@@ -232,86 +257,137 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                         Create Milestone
                       </Button>
                     </div>
-                    {lists.map((list) => (
-                      <div key={list.id} className="flex flex-col bg-white border border-gray-100 rounded-[2rem] shadow-sm overflow-hidden">
+
+                    {milestonesLoading && (
+                      <div className="flex items-center justify-center p-10">
+                        <Loader size={32} />
+                      </div>
+                    )}
+
+                    {!milestonesLoading && milestones.length === 0 && (
+                      <div className="bg-white border border-gray-100 rounded-[2rem] p-10 text-center text-gray-400 font-semibold text-sm">
+                        No milestones yet for this project.
+                      </div>
+                    )}
+
+                    {milestones.map((milestone) => {
+                      const tasks = milestone.tasks || [];
+                      const totalTasks = tasks.length;
+                      const doneTasks = tasks.filter((t) => t.status === 'DONE').length;
+                      const pct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+                      return (
+                      <div key={milestone.id} className="flex flex-col bg-white border border-gray-100 rounded-[2rem] shadow-sm overflow-hidden">
                         <button
-                          onClick={() => toggleExpand(list.id)}
+                          onClick={() => toggleExpand(milestone.id)}
                           className="w-full flex items-center justify-between p-6 hover:bg-gray-50/50 transition-colors border-b border-transparent data-[expanded=true]:border-gray-100"
-                          data-expanded={expanded[list.id]}
+                          data-expanded={expanded[milestone.id]}
                         >
                           <div className="flex items-center gap-3">
-                            <CheckCircle2 size={18} strokeWidth={2.5} className="text-primary-500" />
-                            <h3 className="font-black text-gray-900 tracking-tight text-[15px]">{list.title}</h3>
+                            <CheckCircle2 size={18} strokeWidth={2.5} className={milestone.completed ? "text-[#005CDA]" : "text-gray-300"} />
+                            <h3 className="font-black text-gray-900 tracking-tight text-[15px]">{milestone.title}</h3>
                           </div>
                           <div className="flex items-center gap-4">
                             <div className="flex items-center gap-3 w-48">
                               <div className="h-1.5 flex-1 bg-gray-100 rounded-full overflow-hidden">
-                                <div className="h-full bg-[#005CDA] rounded-full transition-all" style={{ width: `${(list.completed / list.total) * 100}%` }} />
+                                <div className="h-full bg-[#005CDA] rounded-full transition-all" style={{ width: `${pct}%` }} />
                               </div>
-                              <span className="text-[11px] font-bold text-gray-500 whitespace-nowrap">{list.completed}/{list.total} Done</span>
+                              <span className="text-[11px] font-bold text-gray-500 whitespace-nowrap">{doneTasks}/{totalTasks} Done</span>
                             </div>
-                            <ChevronDown size={20} className={cn("text-gray-400 transition-transform duration-300", expanded[list.id] && "rotate-180")} />
+                            <ChevronDown size={20} className={cn("text-gray-400 transition-transform duration-300", expanded[milestone.id] && "rotate-180")} />
                           </div>
                         </button>
 
                         <AnimatePresence initial={false}>
-                          {expanded[list.id] && (
+                          {expanded[milestone.id] && (
                             <motion.div
                               initial={{ height: 0, opacity: 0 }}
                               animate={{ height: 'auto', opacity: 1 }}
                               exit={{ height: 0, opacity: 0 }}
                               className="flex flex-col p-4 overflow-hidden bg-white"
                             >
+                              {tasks.length === 0 && (
+                                <div className="px-3 py-4 text-sm text-gray-400 font-medium">No tasks in this milestone yet.</div>
+                              )}
                               <AnimatePresence>
-                                {list.items.map((item) => (
+                                {tasks.map((task) => {
+                                  const isDone = task.status === 'DONE';
+                                  return (
                                   <motion.div
-                                    key={item.id}
+                                    key={task.id}
                                     layout
                                     initial={{ opacity: 0, scale: 0.95 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0, scale: 0.95, x: -10 }}
                                     className="group flex flex-col sm:flex-row sm:items-center justify-between p-3 hover:bg-gray-50 rounded-2xl transition-all"
                                   >
-                                    <div className="flex items-start sm:items-center gap-3">
-                                      {item.isDone ? (
+                                    <button
+                                      onClick={() => handleToggleTask(task.id, task.status)}
+                                      className="flex items-start sm:items-center gap-3 text-left"
+                                    >
+                                      {isDone ? (
                                         <CheckCircle2 size={24} className="text-[#005CDA] fill-[#005CDA]" color="white" />
                                       ) : (
                                         <Circle size={24} className="text-gray-200" />
                                       )}
-                                      <span className={cn("text-[14px] font-bold tracking-tight", item.isDone ? "text-gray-400 line-through" : "text-gray-700")}>{item.text}</span>
-                                    </div>
+                                      <span className={cn("text-[14px] font-bold tracking-tight", isDone ? "text-gray-400 line-through" : "text-gray-700")}>{task.title}</span>
+                                    </button>
 
                                     <div className="flex items-center gap-4 mt-2 sm:mt-0 justify-end opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <div className="flex items-center gap-1.5 text-gray-400 font-bold text-[10px] uppercase tracking-tighter bg-white border border-gray-100 px-2.5 py-1 rounded-lg">
-                                        <MessageSquare size={13} /> {item.comments} Comments
-                                      </div>
-                                      <button onClick={() => deleteItem(list.id, item.id)} className="h-8 w-8 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
+                                      {task.assignee && (
+                                        <div className="flex items-center gap-1.5 text-gray-400 font-bold text-[10px] uppercase tracking-tighter bg-white border border-gray-100 px-2.5 py-1 rounded-lg">
+                                          {task.assignee.first_name} {task.assignee.last_name}
+                                        </div>
+                                      )}
+                                      <button onClick={() => handleDeleteTask(task.id)} className="h-8 w-8 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
                                         <Trash2 size={16} strokeWidth={2.5} />
                                       </button>
                                     </div>
                                   </motion.div>
-                                ))}
+                                  );
+                                })}
                               </AnimatePresence>
 
                               <div className="flex items-center justify-between p-4 border-t border-gray-50 mt-4">
                                 <Button
                                   leftIcon={Plus}
                                   onClick={() => {
-                                    setActiveMilestoneId(list.id);
+                                    setActiveMilestoneId(milestone.id);
                                     setShowAddTask(true);
                                   }}
                                   className="bg-primary-50 border-none font-black h-10 px-6 rounded-xl text-xs gap-2"
                                 >
                                   Add task
                                 </Button>
-                                <button className="flex items-center gap-2 text-red-500 font-black hover:bg-red-50 px-4 py-2 rounded-xl transition-all text-xs uppercase tracking-widest">Delete milestone</button>
+                                <button
+                                  onClick={() => setMilestoneToDelete({ id: milestone.id, title: milestone.title })}
+                                  className="flex items-center gap-2 text-red-500 font-black hover:bg-red-50 px-4 py-2 rounded-xl transition-all text-xs uppercase tracking-widest"
+                                >
+                                  Delete milestone
+                                </button>
                               </div>
                             </motion.div>
                           )}
                         </AnimatePresence>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
+
+                  {projectId && (
+                    <>
+                      <DevopsAccessPanel
+                        projectId={projectId}
+                        ownerId={projectOwnerId}
+                        leaderId={projectLeaderId}
+                        accessScore={project.access_completion_score}
+                        healthScore={project.health_score}
+                        healthStatus={project.health_status}
+                      />
+                      <WeeklyUpdatesPanel projectId={projectId} canEdit={canEditProject} />
+                      <ProjectDocumentsPanel projectId={projectId} canEdit={canEditProject} />
+                      <CommunicationTimeline projectId={projectId} />
+                    </>
+                  )}
                 </div>
 
                 {/* Right Side Sidebar Widget */}

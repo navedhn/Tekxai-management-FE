@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import DatePicker from '@/components/ui/DatePicker';
@@ -6,6 +7,9 @@ import Textarea from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { Plus } from 'lucide-react';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { apiRequest } from '@/lib/queryClient';
+import { API_ENDPOINTS } from '@/services/api/endpoints';
+import { QUERY_KEYS } from '@/services/api/tanstackKeys';
 
 interface CreateMilestoneModalProps {
   isOpen: boolean;
@@ -22,6 +26,22 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const toast = useToastContext();
+  const queryClient = useQueryClient();
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.MILESTONE.CREATE(String(projectId)), {
+      method: 'POST',
+      body: JSON.stringify(formData),
+    }),
+    onSuccess: () => {
+      toast.success('Milestone created successfully');
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PROJECT.DETAIL(projectId || '') });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MILESTONE.LIST(String(projectId)) });
+      setFormData({ title: '', due_date: '', description: '' });
+      onClose();
+    },
+    onError: (e: any) => toast.error(e?.message || 'Failed to create milestone'),
+  });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -46,13 +66,7 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
       return;
     }
 
-    // Since there's no API yet, we'll just mock the success
-    console.log('Creating Milestone for project:', projectId, formData);
-    toast.success('Milestone created successfully (Mock)');
-
-    // Reset form and close
-    setFormData({ title: '', due_date: '', description: '' });
-    onClose();
+    mutate();
   };
 
   return (
@@ -103,10 +117,11 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
           <Button
             type="submit"
             variant="primary"
-            className="flex-1 h-12 w-full rounded-xl font-bold shadow-lg shadow-primary-100"
+            disabled={isPending}
+            className="flex-1 h-12 w-full rounded-xl font-bold shadow-lg shadow-primary-100 disabled:opacity-50"
             leftIcon={Plus}
           >
-            Create Milestone
+            {isPending ? 'Creating…' : 'Create Milestone'}
           </Button>
         </div>
       </form>
