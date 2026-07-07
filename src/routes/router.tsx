@@ -26,6 +26,7 @@ const AcceptInvite           = lazy(() => import('@/pages/auth/AcceptInvite'));
 // Admin / ERP core
 const AdminDashboard         = lazy(() => import('@/pages/admin/dashboard'));
 const AdminProjects          = lazy(() => import('@/pages/admin/projects'));
+const AdminProjectTimeline   = lazy(() => import('@/pages/admin/project-timeline'));
 const AdminTimesheet         = lazy(() => import('@/pages/admin/timesheet'));
 const AdminSaved             = lazy(() => import('@/pages/admin/saved'));
 const AdminTeam              = lazy(() => import('@/pages/admin/team'));
@@ -148,6 +149,7 @@ const routes: RouteObject[] = [
         children: [
           { path: '/admin',                      element: <AdminDashboard /> },
           { path: '/admin/projects',             element: <AdminProjects /> },
+          { path: '/admin/project-timeline',     element: <AdminProjectTimeline /> },
           { path: '/admin/timesheet',            element: <AdminTimesheet /> },
           { path: '/admin/starred',              element: <AdminSaved /> },
           { path: '/admin/team',                 element: <AdminTeam /> },

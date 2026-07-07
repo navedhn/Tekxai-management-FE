@@ -30,6 +30,11 @@ export interface ProjectDto {
   owner_id?: string;
   leader_id?: string;
   member_ids?: string[];
+  client_name?: string;
+  dev_status?: string;
+  status?: string;
+  progress?: number;
+  progress_mode?: 'MANUAL' | 'AUTO';
 }
 
 export interface Milestone {
@@ -39,15 +44,44 @@ export interface Milestone {
   completed: boolean;
 }
 
+export interface MilestoneBreakdown {
+  completed: number;
+  remaining: number;
+  blocked: number;
+  overdue: number;
+  current: Milestone | null;
+}
+
+export interface AccessCompletionScore {
+  granted: number;
+  total: number;
+  percent: number;
+}
+
+export interface ClientPortalInfo {
+  enabled: boolean;
+  portal_user: string | null;
+  status: string | null;
+  access_level: string | null;
+}
+
+export type ProjectStatus =
+  | 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'OVERDUE'
+  | 'PLANNING' | 'DESIGN' | 'FRONTEND' | 'BACKEND' | 'QA' | 'CLIENT_REVIEW'
+  | 'DEPLOYMENT' | 'SUPPORT' | 'DELIVERED' | 'BLOCKED' | 'ARCHIVED' | string;
+
 export interface ProjectDetail {
   id: string;
   title: string;
-  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'OVERDUE' | string;
+  status: ProjectStatus;
   progress: number;
+  progress_mode?: 'MANUAL' | 'AUTO';
   total_hours: number;
   due_date: string | null;
   start_date: string;
   end_date: string;
+  is_overdue?: boolean;
+  days_remaining?: number | null;
   member_count: number;
   members: ProjectMember[];
   all_members?: ProjectMember[];
@@ -55,12 +89,20 @@ export interface ProjectDetail {
   team_leader?: ProjectMember | null;
   milestones?: Milestone[];
   current_milestone?: Milestone | null;
+  pending_milestones_count?: number;
+  milestone_breakdown?: MilestoneBreakdown;
+  access_completion_score?: AccessCompletionScore;
+  client_portal?: ClientPortalInfo;
+  health_score?: number;
+  health_status?: 'HEALTHY' | 'WARNING' | 'CRITICAL';
   created_at: string;
   updated_at: string;
   is_saved: boolean;
   description?: string;
   owner_id?: string | number;
   leader_id?: string | number;
+  client_name?: string | null;
+  dev_status?: string | null;
 }
 
 // --- API Functions ---

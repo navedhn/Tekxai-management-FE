@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import Button from './Button';
+import { PROJECT_STATUS_OPTIONS } from '@/utils/projectStatus';
 
 export interface FilterState {
   search: string;
@@ -13,7 +14,20 @@ export interface FilterState {
   lastYear: boolean;
   starredOnly: boolean;
   hasDescription: boolean;
+  // Project Management advanced filters
+  clientName?: string;
+  ownerName?: string;
+  status?: string;
+  devStatus?: string;
+  overdueOnly?: boolean;
 }
+
+export const DEFAULT_FILTER_STATE: FilterState = {
+  search: '', sortByLatest: false, last24Hours: false,
+  lastWeek: false, lastMonth: false, lastYear: false,
+  starredOnly: false, hasDescription: false,
+  clientName: '', ownerName: '', status: '', devStatus: '', overdueOnly: false,
+};
 
 interface FilterDropdownProps {
   isOpen: boolean;
@@ -134,20 +148,64 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
             </div>
 
             {/* Project Description */}
-            <div className="mb-2">
+            <div className="mb-4">
               <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-1">Project Description</p>
               <CheckRow checked={filters.hasDescription} onChange={(v) => set('hasDescription', v)} label="Only show projects with description" />
+            </div>
+
+            {/* Advanced: Project Management filters */}
+            <div className="mb-4">
+              <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-1">Client</p>
+              <input
+                value={filters.clientName || ''}
+                onChange={(e) => set('clientName', e.target.value)}
+                placeholder="Filter by client name"
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-primary-400"
+              />
+            </div>
+
+            <div className="mb-4">
+              <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-1">Project Owner</p>
+              <input
+                value={filters.ownerName || ''}
+                onChange={(e) => set('ownerName', e.target.value)}
+                placeholder="Filter by owner name"
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-primary-400"
+              />
+            </div>
+
+            <div className="mb-4">
+              <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-1">Status</p>
+              <select
+                value={filters.status || ''}
+                onChange={(e) => set('status', e.target.value)}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none focus:border-primary-400"
+              >
+                <option value="">All Statuses</option>
+                {PROJECT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-1">Dev Status</p>
+              <input
+                value={filters.devStatus || ''}
+                onChange={(e) => set('devStatus', e.target.value)}
+                placeholder="Filter by dev status text"
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-primary-400"
+              />
+            </div>
+
+            <div className="mb-2">
+              <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-1">Delivery</p>
+              <CheckRow checked={!!filters.overdueOnly} onChange={(v) => set('overdueOnly', v)} label="Overdue projects only" />
             </div>
           </div>
 
           {/* Footer Actions */}
           <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between gap-3">
             <button
-              onClick={() => onChange({
-                search: '', sortByLatest: false, last24Hours: false,
-                lastWeek: false, lastMonth: false, lastYear: false,
-                starredOnly: false, hasDescription: false
-              })}
+              onClick={() => onChange({ ...DEFAULT_FILTER_STATE })}
               className="text-sm font-bold text-gray-500 hover:text-gray-700 transition-colors px-4 py-2 rounded-xl hover:bg-gray-50"
             >
               Clear All

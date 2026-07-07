@@ -59,15 +59,36 @@ export const API_ENDPOINTS = {
     BULK_DELETE:  `${v1}/user/bulk-delete`,
   },
   PROJECT: {
-    LIST:   `${v1}/project`,
-    CREATE: `${v1}/project`,
-    SAVED:  `${v1}/project/saved`,
+    LIST:      `${v1}/project`,
+    CREATE:    `${v1}/project`,
+    SAVED:     `${v1}/project/saved`,
+    DASHBOARD: `${v1}/project/dashboard`,
     DETAIL: (id: string | number) => `${v1}/project/${id}`,
     UPDATE: (id: string | number) => `${v1}/project/${id}`,
     DELETE: (id: string | number) => `${v1}/project/${id}`,
     SAVE:      (id: string | number) => `${v1}/project/${id}/save`,
     UNSAVE:    (id: string | number) => `${v1}/project/${id}/save`,
     EXTENSION: (id: string | number) => `${v1}/project/${id}/extension`,
+  },
+  TRACKING_LINKS: {
+    LIST:   (projectId: string) => `${v1}/project/${projectId}/tracking-links`,
+    CREATE: (projectId: string) => `${v1}/project/${projectId}/tracking-links`,
+    DELETE: (projectId: string, linkId: string) => `${v1}/project/${projectId}/tracking-links/${linkId}`,
+  },
+  WEEKLY_UPDATES: {
+    LIST:   (projectId: string) => `${v1}/project/${projectId}/weekly-updates`,
+    LATEST: (projectId: string) => `${v1}/project/${projectId}/weekly-updates/latest`,
+    CREATE: (projectId: string) => `${v1}/project/${projectId}/weekly-updates`,
+    DELETE: (projectId: string, updateId: string) => `${v1}/project/${projectId}/weekly-updates/${updateId}`,
+  },
+  PROJECT_DOCUMENTS: {
+    TYPES:  (projectId: string) => `${v1}/project/${projectId}/documents/types`,
+    LIST:   (projectId: string) => `${v1}/project/${projectId}/documents`,
+    CREATE: (projectId: string) => `${v1}/project/${projectId}/documents`,
+    DELETE: (projectId: string, docId: string) => `${v1}/project/${projectId}/documents/${docId}`,
+  },
+  PROJECT_TIMELINE: {
+    LIST: (projectId: string) => `${v1}/project/${projectId}/timeline`,
   },
   TIMESHEET: {
     WEEKLY:          `${v1}/timesheet/weekly`,
@@ -181,6 +202,11 @@ export const API_ENDPOINTS = {
     DETAIL: (projectId: string, milestoneId: string) => `${v1}/project/${projectId}/milestones/${milestoneId}`,
     UPDATE: (projectId: string, milestoneId: string) => `${v1}/project/${projectId}/milestones/${milestoneId}`,
     DELETE: (projectId: string, milestoneId: string) => `${v1}/project/${projectId}/milestones/${milestoneId}`,
+  },
+  // DevOps/client handoff access tracking, nested under projects: /project/:projectId/devops-access
+  DEVOPS_ACCESS: {
+    GET:    (projectId: string) => `${v1}/project/${projectId}/devops-access`,
+    UPDATE: (projectId: string) => `${v1}/project/${projectId}/devops-access`,
   },
   HR_PROFILE: {
     DESIGNATIONS:  `${v1}/hr-profile/designations`,

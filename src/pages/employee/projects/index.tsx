@@ -8,6 +8,7 @@ import Input from '@/components/ui/Input';
 import Loader from '@/components/ui/Loader';
 import { Search, Filter, MoreVertical } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { getProjectStatusStyle, getProjectStatusLabel } from '@/utils/projectStatus';
 import ProjectDetailsSlideOver from '@/components/ui/ProjectDetailsSlideOver';
 import FilterDropdown, { FilterState } from '@/components/ui/FilterDropdown';
 
@@ -77,6 +78,29 @@ const EmployeeProjects: React.FC = () => {
       )
     },
     {
+      header: 'Client',
+      key: 'clientName',
+      render: (item) => item.clientName
+        ? <span className="text-sm font-bold text-gray-700">{item.clientName}</span>
+        : <span className="text-xs text-gray-400 italic">—</span>
+    },
+    {
+      header: 'Dev Status',
+      key: 'devStatus',
+      render: (item) => item.devStatus
+        ? <span className="text-xs font-medium text-gray-600 max-w-[200px] block truncate" title={item.devStatus}>{item.devStatus}</span>
+        : <span className="text-xs text-gray-400 italic">—</span>
+    },
+    {
+      header: 'Pending Milestones',
+      key: 'pendingMilestonesCount',
+      render: (item) => {
+        const count = item.pendingMilestonesCount || 0;
+        if (count === 0) return <span className="text-xs text-gray-400 italic">None</span>;
+        return <span className="text-xs font-black text-gray-800">{count === 1 ? 'Last' : count}</span>;
+      }
+    },
+    {
       header: 'Member',
       key: 'members',
       render: (item) => (
@@ -113,25 +137,25 @@ const EmployeeProjects: React.FC = () => {
     {
       header: 'Status',
       key: 'status',
-      render: (item) => {
-        const statusStyles: Record<string, string> = {
-          'In Progress': 'bg-[#EFF8FF] text-[#175CD3] border-[#B2DDFF]',
-          'Overdue': 'bg-[#FFF1F3] text-[#C01048] border-[#FEB3B3]',
-          'Pending': 'bg-[#FFF6ED] text-[#C4320A] border-[#FFD6AE]',
-          'Completed': 'bg-[#ECFDF3] text-[#027A48] border-[#ABEFC6]'
-        };
-        const style = statusStyles[item.status] || '';
-        return (
-          <Badge variant="info" className={cn("rounded-lg px-3 py-1 text-[10px] font-black tracking-tight border shadow-none", style)}>
-            {item.status}
-          </Badge>
-        );
-      }
+      render: (item) => (
+        <Badge variant="info" className={cn("rounded-lg px-3 py-1 text-[10px] font-black tracking-tight border shadow-none", getProjectStatusStyle(item.status))}>
+          {getProjectStatusLabel(item.status)}
+        </Badge>
+      )
     },
     {
-      header: 'Due Date',
+      header: 'Delivery',
       key: 'dueDate',
-      render: (item) => <span className="font-bold text-gray-500">{item.dueDate}</span>
+      render: (item) => (
+        <div className="flex flex-col gap-1">
+          <span className="font-bold text-gray-500">{item.dueDate}</span>
+          {item.isOverdue ? (
+            <Badge variant="warning" className="bg-[#FFF1F3] text-[#C01048] border-[#FEB3B3] w-fit rounded-md px-2 py-0.5 text-[9px] font-black border">Overdue</Badge>
+          ) : typeof item.daysRemaining === 'number' && item.daysRemaining >= 0 ? (
+            <span className="text-[10px] font-bold text-gray-400">{item.daysRemaining}d left</span>
+          ) : null}
+        </div>
+      )
     },
     {
       header: '',

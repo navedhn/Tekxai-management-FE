@@ -40,9 +40,29 @@ export const QUERY_KEYS = {
     DELETE: ['user', 'delete'],
   },
   PROJECT: {
-    LIST:   ['project', 'list'],
-    DETAIL: (id: string | number) => ['project', 'detail', id],
-    SAVED:  ['project', 'saved'],
+    LIST:      ['project', 'list'],
+    DETAIL:    (id: string | number) => ['project', 'detail', id],
+    SAVED:     ['project', 'saved'],
+    DASHBOARD: ['project', 'dashboard'],
+  },
+  MILESTONE: {
+    LIST: (projectId: string) => ['project', projectId, 'milestones'],
+  },
+  DEVOPS_ACCESS: {
+    DETAIL: (projectId: string) => ['project', projectId, 'devops-access'],
+  },
+  TRACKING_LINKS: {
+    LIST: (projectId: string) => ['project', projectId, 'tracking-links'],
+  },
+  WEEKLY_UPDATES: {
+    LIST: (projectId: string) => ['project', projectId, 'weekly-updates'],
+  },
+  PROJECT_DOCUMENTS: {
+    LIST:  (projectId: string) => ['project', projectId, 'documents'],
+    TYPES: (projectId: string) => ['project', projectId, 'document-types'],
+  },
+  PROJECT_TIMELINE: {
+    LIST: (projectId: string) => ['project', projectId, 'timeline'],
   },
   STARRED: {
     QUERIES: ['starred', 'queries'],

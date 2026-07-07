@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home, Users2, Settings, FolderCheck, Clock, Star, Monitor, LogOut, X,
   BarChart3, Shield, ClipboardCheck, Ticket, Receipt, Banknote, Webhook, Mail,
-  MessageSquare, FileText, Package,
+  MessageSquare, FileText, Package, CalendarDays,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/services/permissionsService';
@@ -82,6 +82,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
     return [
       { section: 'Overview', to: '/admin',              label: 'ERP Dashboard',   icon: <Home size={18} strokeWidth={SW} />,           end: true },
       { section: 'Delivery', to: '/admin/projects',     label: 'Projects',        icon: <FolderCheck size={18} strokeWidth={SW} /> },
+      {                       to: '/admin/project-timeline', label: 'Timeline',    icon: <CalendarDays size={18} strokeWidth={SW} /> },
       {                       to: '/admin/team',         label: 'Teams',           icon: <Users2 size={18} strokeWidth={SW} /> },
       {                       to: '/admin/timesheet',    label: 'Timesheet',       icon: <Clock size={18} strokeWidth={SW} /> },
 {                       to: '/admin/monitoring',   label: 'Monitoring',      icon: <Monitor size={18} strokeWidth={SW} /> },

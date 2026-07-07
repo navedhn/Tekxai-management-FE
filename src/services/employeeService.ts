@@ -43,8 +43,13 @@ export interface ProjectSummary {
   members: string[];
   hours: number;
   progress: number;
-  status: 'In Progress' | 'Pending' | 'Overdue' | 'Completed';
+  status: string;
   dueDate: string;
+  isOverdue: boolean;
+  daysRemaining: number | null;
+  clientName: string | null;
+  devStatus: string | null;
+  pendingMilestonesCount: number;
 }
 
 export interface MemberProfile {
@@ -132,7 +137,9 @@ async function fetchTimesheet(): Promise<TimesheetEntry[]> {
 
 async function fetchProjects(): Promise<ProjectSummary[]> {
   try {
-    const res = await apiRequest<any>(API_ENDPOINTS.PROJECT.LIST + '?limit=20');
+    // limit: 1000 — the projects page paginates client-side over the full list,
+    // so all assigned projects must be loaded up front (not just the first 20).
+    const res = await apiRequest<any>(API_ENDPOINTS.PROJECT.LIST + '?limit=1000');
     const records = res?.payload?.records || res?.payload || [];
     return (Array.isArray(records) ? records : []).map((p: any) => ({
       id: p.id,
@@ -140,22 +147,17 @@ async function fetchProjects(): Promise<ProjectSummary[]> {
       members: (p.members || []).map((m: any) => m.first_name?.[0] || 'U'),
       hours: p.total_hours || 0,
       progress: p.progress || 0,
-      status: normalize_status(p.status),
+      status: p.status || 'PENDING',
       dueDate: p.end_date ? new Date(p.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'TBD',
+      isOverdue: !!p.is_overdue,
+      daysRemaining: typeof p.days_remaining === 'number' ? p.days_remaining : null,
+      clientName: p.client_name || null,
+      devStatus: p.dev_status || null,
+      pendingMilestonesCount: p.pending_milestones_count || 0,
     }));
   } catch {
     return [];
   }
-}
-
-function normalize_status(status: string): ProjectSummary['status'] {
-  const map: Record<string, ProjectSummary['status']> = {
-    IN_PROGRESS: 'In Progress',
-    PENDING: 'Pending',
-    OVERDUE: 'Overdue',
-    COMPLETED: 'Completed',
-  };
-  return map[status?.toUpperCase()] || 'Pending';
 }
 
 // ── Hooks ─────────────────────────────────────────────────────────────────────

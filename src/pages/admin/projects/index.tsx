@@ -9,22 +9,23 @@ import Tabs from '@/components/ui/Tabs';
 import Loader from '@/components/ui/Loader';
 import { Search, Filter, Plus, Edit2, Trash2, MoreVertical, Star } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { getProjectStatusStyle, getProjectStatusLabel } from '@/utils/projectStatus';
 import ProjectDetailsSlideOver from '@/components/ui/ProjectDetailsSlideOver';
-import FilterDropdown, { FilterState } from '@/components/ui/FilterDropdown';
+import FilterDropdown, { FilterState, DEFAULT_FILTER_STATE } from '@/components/ui/FilterDropdown';
 import CreateProjectSlideOver from '@/components/ui/CreateProjectSlideOver';
 import ActionModal from '@/components/ui/ActionModal';
 import { useToastContext } from '@/components/toast/ToastProvider';
-
-const defaultFilters: FilterState = {
-  search: '', sortByLatest: false, last24Hours: false,
-  lastWeek: false, lastMonth: false, lastYear: false,
-  starredOnly: false, hasDescription: false
-};
+import { useProjectDashboardStats } from '@/services/projectDashboardService';
+import ProjectDashboardKpis from '@/components/ui/ProjectDashboardKpis';
 
 const ProjectManagement: React.FC = () => {
   const toast = useToastContext();
-  const { data: projects, isLoading } = useGetProjects();
+  // limit: 1000 — the table paginates client-side over `filteredData`, so the full
+  // set must be loaded up front; the server default (20) was silently hiding every
+  // project past the first page, which client-side "Page 2/3" pagination never surfaced.
+  const { data: projects, isLoading } = useGetProjects({ limit: 1000 });
   const deleteMutation = useDeleteProjectMutation();
+  const { data: dashboardStats } = useProjectDashboardStats();
 
   const [activeTab, setActiveTab] = useState('UI/UX Design');
   const [searchTerm, setSearchTerm] = useState('');
@@ -35,7 +36,8 @@ const ProjectManagement: React.FC = () => {
   const [editingProject, setEditingProject] = useState<ProjectDetail | null>(null);
   const [projectToDelete, setProjectToDelete] = useState<ProjectDetail | null>(null);
   const [projectToToggleSave, setProjectToToggleSave] = useState<{ project: ProjectDetail, action: 'save' | 'unsave' } | null>(null);
-  const [filters, setFilters] = useState<FilterState>(defaultFilters);
+  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTER_STATE);
+  const [kpiFilter, setKpiFilter] = useState<string | null>(null);
   const filterBtnRef = useRef<HTMLButtonElement>(null);
   const itemsPerPage = 8;
 
@@ -50,11 +52,33 @@ const ProjectManagement: React.FC = () => {
     if (filters.search) {
       data = data.filter(p => p.title.toLowerCase().includes(filters.search.toLowerCase()));
     }
+    if (filters.clientName) {
+      data = data.filter(p => (p.client_name || '').toLowerCase().includes(filters.clientName!.toLowerCase()));
+    }
+    if (filters.ownerName) {
+      data = data.filter(p => `${p.owner?.first_name || ''} ${p.owner?.last_name || ''}`.toLowerCase().includes(filters.ownerName!.toLowerCase()));
+    }
+    if (filters.status) {
+      data = data.filter(p => p.status === filters.status);
+    }
+    if (filters.devStatus) {
+      data = data.filter(p => (p.dev_status || '').toLowerCase().includes(filters.devStatus!.toLowerCase()));
+    }
+    if (filters.overdueOnly) {
+      data = data.filter(p => p.is_overdue);
+    }
+    if (kpiFilter === 'overdue') data = data.filter(p => p.is_overdue);
+    else if (kpiFilter === 'blocked') data = data.filter(p => p.status === 'BLOCKED' || (p.milestone_breakdown?.blocked || 0) > 0);
+    else if (kpiFilter === 'delivered') data = data.filter(p => p.status === 'DELIVERED' || p.status === 'COMPLETED');
+    else if (kpiFilter === 'needs_qa') data = data.filter(p => p.status === 'QA');
+    else if (kpiFilter === 'waiting_on_client') data = data.filter(p => p.status === 'CLIENT_REVIEW');
+    else if (kpiFilter === 'access_incomplete') data = data.filter(p => (p.access_completion_score?.percent || 0) < 100);
+    else if (kpiFilter === 'at_risk') data = data.filter(p => p.health_status && p.health_status !== 'HEALTHY');
     if (filters.sortByLatest) {
       data = [...data].sort((a, b) => Number(b.id) - Number(a.id));
     }
     return data;
-  }, [projects, searchTerm, filters]);
+  }, [projects, searchTerm, filters, kpiFilter]);
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -113,6 +137,29 @@ const ProjectManagement: React.FC = () => {
       )
     },
     {
+      header: 'Client',
+      key: 'client_name',
+      render: (item) => item.client_name
+        ? <span className="text-sm font-bold text-gray-700">{item.client_name}</span>
+        : <span className="text-xs text-gray-400 italic">—</span>
+    },
+    {
+      header: 'Dev Status',
+      key: 'dev_status',
+      render: (item) => item.dev_status
+        ? <span className="text-xs font-medium text-gray-600 max-w-[200px] block truncate" title={item.dev_status}>{item.dev_status}</span>
+        : <span className="text-xs text-gray-400 italic">—</span>
+    },
+    {
+      header: 'Pending Milestones',
+      key: 'pending_milestones_count',
+      render: (item) => {
+        const count = item.pending_milestones_count || 0;
+        if (count === 0) return <span className="text-xs text-gray-400 italic">None</span>;
+        return <span className="text-xs font-black text-gray-800">{count === 1 ? 'Last' : count}</span>;
+      }
+    },
+    {
       header: 'Member',
       key: 'members',
       render: (item) => (
@@ -158,20 +205,11 @@ const ProjectManagement: React.FC = () => {
     {
       header: 'Status',
       key: 'status',
-      render: (item) => {
-        const statusStyles: Record<string, string> = {
-          'IN_PROGRESS': 'bg-[#EFF8FF] text-[#175CD3] border-[#B2DDFF]',
-          'OVERDUE': 'bg-[#FFF1F3] text-[#C01048] border-[#FEB3B3]',
-          'PENDING': 'bg-[#FFF6ED] text-[#C4320A] border-[#FFD6AE]',
-          'COMPLETED': 'bg-[#ECFDF3] text-[#027A48] border-[#ABEFC6]'
-        };
-        const style = statusStyles[item.status] || 'bg-gray-50 text-gray-500 border-gray-100';
-        return (
-          <Badge variant="info" className={cn("rounded-lg px-3 py-1 text-[10px] font-black tracking-tight border", style)}>
-            {item.status || 'Pending'}
-          </Badge>
-        );
-      }
+      render: (item) => (
+        <Badge variant="info" className={cn("rounded-lg px-3 py-1 text-[10px] font-black tracking-tight border", getProjectStatusStyle(item.status))}>
+          {getProjectStatusLabel(item.status)}
+        </Badge>
+      )
     },
     {
       header: 'Current Milestone',
@@ -192,7 +230,22 @@ const ProjectManagement: React.FC = () => {
         );
       }
     },
-    { header: 'Project Due Date', key: 'end_date', render: (item) => item.end_date ? new Date(item.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A' },
+    {
+      header: 'Delivery',
+      key: 'end_date',
+      render: (item) => (
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-bold text-gray-700">
+            {item.end_date ? new Date(item.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+          </span>
+          {item.is_overdue ? (
+            <Badge variant="warning" className="bg-[#FFF1F3] text-[#C01048] border-[#FEB3B3] w-fit rounded-md px-2 py-0.5 text-[9px] font-black border">Overdue</Badge>
+          ) : typeof item.days_remaining === 'number' && item.days_remaining >= 0 ? (
+            <span className="text-[10px] font-bold text-gray-400">{item.days_remaining}d left</span>
+          ) : null}
+        </div>
+      )
+    },
     {
       header: 'Actions',
       key: 'actions',
@@ -269,6 +322,8 @@ const ProjectManagement: React.FC = () => {
         <h1 className="text-2xl font-black text-gray-900 tracking-tight">All Projects</h1>
         <p className="text-sm text-gray-500 font-medium">Manage and track all your ongoing projects in one place.</p>
       </div>
+
+      <ProjectDashboardKpis stats={dashboardStats} activeFilter={kpiFilter} onFilterChange={(f) => { setKpiFilter(f); setCurrentPage(1); }} />
 
       <Card isLoading={isLoading} className="flex flex-col gap-8 shadow-2xl border-none">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
