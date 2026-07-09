@@ -14,24 +14,17 @@ const STATUS_STYLE: Record<string, string> = {
   ACTIVE:      'bg-green-100 text-green-700',
   INACTIVE:    'bg-gray-100 text-gray-500',
   ON_LEAVE:    'bg-amber-100 text-amber-700',
-  PROBATION:   'bg-blue-100 text-blue-700',
+  SUSPENDED:   'bg-blue-100 text-blue-700',
   TERMINATED:  'bg-red-100 text-red-600',
+  DECEASED:    'bg-gray-200 text-gray-600',
 };
 
-const EMP_STATUS_STYLE: Record<string, string> = {
-  PERMANENT:   'bg-emerald-100 text-emerald-700',
-  PROBATION:   'bg-blue-100 text-blue-700',
-  CONTRACT:    'bg-indigo-100 text-indigo-700',
-  INTERN:      'bg-purple-100 text-purple-700',
-  RESIGNED:    'bg-orange-100 text-orange-700',
-  TERMINATED:  'bg-red-100 text-red-600',
-  INACTIVE:    'bg-gray-100 text-gray-500',
-};
+// Employment Status shares the same 6-value vocabulary as users.status.
+const EMP_STATUS_STYLE: Record<string, string> = STATUS_STYLE;
 
 const EMP_STATUS_LABEL: Record<string, string> = {
-  PERMANENT: 'Permanent', PROBATION: 'Probation', CONTRACT: 'Contract',
-  INTERN: 'Intern', RESIGNED: 'Resigned', TERMINATED: 'Terminated',
-  INACTIVE: 'Inactive', ACTIVE: 'Active',
+  ACTIVE: 'Active', INACTIVE: 'Inactive', ON_LEAVE: 'On Leave',
+  SUSPENDED: 'Suspended', TERMINATED: 'Terminated', DECEASED: 'Deceased',
 };
 
 function StatCard({ icon: Icon, color, label, value }: any) {
@@ -282,7 +275,7 @@ export default function EmployeeDirectory() {
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={Users}       color="bg-blue-500"   label="Total Employees"    value={stats.total_employees} />
-        <StatCard icon={CheckCircle} color="bg-green-500"  label="Permanent"          value={stats.permanent} />
+        <StatCard icon={CheckCircle} color="bg-green-500"  label="Active"             value={stats.active} />
         <StatCard icon={Clock}       color="bg-amber-500"  label="On Leave"           value={stats.on_leave} />
         <StatCard icon={UserX}       color="bg-gray-400"   label="Inactive"           value={stats.inactive} />
       </div>
@@ -305,16 +298,19 @@ export default function EmployeeDirectory() {
             <option value="ACTIVE">Active</option>
             <option value="INACTIVE">Inactive</option>
             <option value="ON_LEAVE">On Leave</option>
+            <option value="SUSPENDED">Suspended</option>
+            <option value="TERMINATED">Terminated</option>
+            <option value="DECEASED">Deceased</option>
           </select>
           <select value={employmentStatus} onChange={e => { setEmpStatus(e.target.value); setPage(1); }}
             className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[150px] text-gray-600">
             <option value="">All Employment Status</option>
-            <option value="PERMANENT">Permanent</option>
-            <option value="PROBATION">Probation</option>
-            <option value="CONTRACT">Contract</option>
-            <option value="INTERN">Intern</option>
-            <option value="RESIGNED">Resigned</option>
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
+            <option value="ON_LEAVE">On Leave</option>
+            <option value="SUSPENDED">Suspended</option>
             <option value="TERMINATED">Terminated</option>
+            <option value="DECEASED">Deceased</option>
           </select>
           {activeFilterCount > 0 && (
             <button onClick={clearFilters} className="h-10 px-3 text-sm text-gray-400 hover:text-gray-600 underline">

@@ -115,7 +115,7 @@ const initPersonal = {
 
 const initEmployment = {
   employee_id: '', hire_date: '', confirmation_date: '',
-  employment_type: '', employment_status: 'PERMANENT',
+  employment_type: '', employment_status: 'ACTIVE',
   probation_start: '', probation_end: '',
   notice_period_days: '30', work_email: '',
   department_id: '', team_id: '', designation: '', designation_id: '',
@@ -246,13 +246,12 @@ function StepEmployment({ data, onChange, departments, teams, users }: any) {
           </Field>
           <Field label="Employment Status">
             <select className={selectCls} value={data.employment_status} onChange={e => onChange('employment_status', e.target.value)}>
-              <option value="PERMANENT">Permanent</option>
-              <option value="PROBATION">Probation</option>
-              <option value="CONTRACT">Contract</option>
-              <option value="INTERN">Intern</option>
-              <option value="RESIGNED">Resigned</option>
-              <option value="TERMINATED">Terminated</option>
+              <option value="ACTIVE">Active</option>
               <option value="INACTIVE">Inactive</option>
+              <option value="ON_LEAVE">On Leave</option>
+              <option value="SUSPENDED">Suspended</option>
+              <option value="TERMINATED">Terminated</option>
+              <option value="DECEASED">Deceased</option>
             </select>
           </Field>
           <Field label="Notice Period">
@@ -594,8 +593,8 @@ function StepDocuments({ docFiles, setDocFiles }: { docFiles: DocFile[]; setDocF
 // ── Step 5: Review & Save ────────────────────────────────────────────────────
 function StepReview({ personal, employment, work }: any) {
   const STATUS_LABELS: Record<string, string> = {
-    PERMANENT: 'Permanent', PROBATION: 'Probation', CONTRACT: 'Contract',
-    INTERN: 'Intern', RESIGNED: 'Resigned', TERMINATED: 'Terminated', INACTIVE: 'Inactive',
+    ACTIVE: 'Active', INACTIVE: 'Inactive', ON_LEAVE: 'On Leave',
+    SUSPENDED: 'Suspended', TERMINATED: 'Terminated', DECEASED: 'Deceased',
   };
   const sections = [
     { label: 'Personal Information', data: {
