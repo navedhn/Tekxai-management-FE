@@ -38,6 +38,27 @@ const STATUS_COLORS: Record<string, string> = {
   DECEASED: 'bg-gray-100 text-gray-600 border-gray-200',
 };
 
+// Employee Lifecycle — a separate concept from Employment Status above
+// (journey stage vs. operational state). Distinct color family so the two
+// badges are never visually confused.
+const LIFECYCLE_COLORS: Record<string, string> = {
+  ONBOARDING: 'bg-blue-50 text-blue-700 border-blue-100',
+  PROBATION: 'bg-purple-50 text-purple-700 border-purple-100',
+  ACTIVE_EMPLOYMENT: 'bg-teal-50 text-teal-700 border-teal-100',
+  NOTICE_PERIOD: 'bg-orange-50 text-orange-700 border-orange-100',
+  EXIT_CLEARANCE: 'bg-rose-50 text-rose-700 border-rose-100',
+  ARCHIVED: 'bg-gray-100 text-gray-500 border-gray-200',
+};
+
+const LIFECYCLE_LABELS: Record<string, string> = {
+  ONBOARDING: 'Onboarding',
+  PROBATION: 'Probation',
+  ACTIVE_EMPLOYMENT: 'Active Employment',
+  NOTICE_PERIOD: 'Notice Period',
+  EXIT_CLEARANCE: 'Exit Clearance',
+  ARCHIVED: 'Archived',
+};
+
 const DOC_TYPE_COLORS: Record<string, string> = {
   CNIC: 'bg-blue-50 text-blue-700',
   RESUME: 'bg-purple-50 text-purple-700',
@@ -166,6 +187,11 @@ const EmployeeProfilePage: React.FC = () => {
             <Badge className={cn('border text-xs font-bold px-2 py-0.5 rounded-full', STATUS_COLORS[user.status] || STATUS_COLORS.INACTIVE)}>
               {user.status}
             </Badge>
+            {profile?.lifecycle_stage && (
+              <Badge className={cn('border text-xs font-bold px-2 py-0.5 rounded-full', LIFECYCLE_COLORS[profile.lifecycle_stage] || LIFECYCLE_COLORS.ONBOARDING)}>
+                {LIFECYCLE_LABELS[profile.lifecycle_stage] || profile.lifecycle_stage}
+              </Badge>
+            )}
             <span className="text-xs text-gray-400 font-medium">{user.email}</span>
             {user.employee_id && <span className="text-xs text-gray-400 font-medium">ID: {user.employee_id}</span>}
           </div>
