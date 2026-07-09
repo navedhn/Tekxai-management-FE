@@ -32,9 +32,10 @@ const InfoRow: React.FC<{ label: string; value?: string | null }> = ({ label, va
 const STATUS_COLORS: Record<string, string> = {
   ACTIVE: 'bg-green-50 text-green-700 border-green-100',
   INACTIVE: 'bg-gray-50 text-gray-500 border-gray-200',
-  PROBATION: 'bg-yellow-50 text-yellow-700 border-yellow-100',
-  RESIGNED: 'bg-orange-50 text-orange-700 border-orange-100',
+  ON_LEAVE: 'bg-amber-50 text-amber-700 border-amber-100',
+  SUSPENDED: 'bg-yellow-50 text-yellow-700 border-yellow-100',
   TERMINATED: 'bg-red-50 text-red-700 border-red-100',
+  DECEASED: 'bg-gray-100 text-gray-600 border-gray-200',
 };
 
 const DOC_TYPE_COLORS: Record<string, string> = {
