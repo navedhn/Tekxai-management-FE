@@ -41,15 +41,13 @@ const AttendancePage: React.FC = () => {
   const violationCols: Column<any>[] = [
     { header: 'Employee', key: 'user_id', render: (item) => <span className="font-bold">{item.user?.first_name} {item.user?.last_name}</span> },
     { header: 'Date', key: 'date', render: (item) => new Date(item.date).toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) },
-    { header: 'Expected', key: 'expected_check_in', render: (item) => item.expected_check_in ? new Date(item.expected_check_in).toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' }) : '—' },
-    { header: 'Actual', key: 'actual_check_in', render: (item) => item.actual_check_in ? new Date(item.actual_check_in).toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' }) : '—' },
-    { header: 'Late (mins)', key: 'late_minutes', render: (item) => <span className="font-black text-red-500">{item.late_minutes || 0}</span> },
+    { header: 'Late (mins)', key: 'late_mins', render: (item) => <span className="font-black text-red-500">{item.late_mins || 0}</span> },
     { header: 'Type', key: 'violation_type', render: (item) => (
       <Badge variant="info" className={cn('text-[10px] font-bold border rounded-lg px-2 py-0.5', VIOLATION_COLORS[item.violation_type] || '')}>
         {item.violation_type}
       </Badge>
     )},
-    { header: 'Excused', key: 'is_excused', render: (item) => item.is_excused ? <span className="text-green-500 font-bold text-xs">Yes</span> : <span className="text-gray-300 text-xs">No</span> },
+    { header: 'Remarks', key: 'remarks', render: (item) => <span className="text-gray-500">{item.remarks || '—'}</span> },
   ];
 
   const openEditShift = (shift: any) => {
