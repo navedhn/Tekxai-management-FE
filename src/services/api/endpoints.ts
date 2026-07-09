@@ -196,6 +196,10 @@ export const API_ENDPOINTS = {
     ASSIGN:      (id: string | number) => `${v1}/asset/${id}/assign`,
     RETURN:      (id: string | number) => `${v1}/asset/${id}/return`,
     MAINTENANCE: (id: string | number) => `${v1}/asset/${id}/maintenance`,
+    REQUESTS:         `${v1}/asset/requests`,
+    REQUEST_APPROVE:  (id: string | number) => `${v1}/asset/requests/${id}/approve`,
+    REQUEST_REJECT:   (id: string | number) => `${v1}/asset/requests/${id}/reject`,
+    DISPOSALS:        `${v1}/asset/disposals`,
   },
   PERFORMANCE: {
     DAILY_REPORTS: `${v1}/performance/daily-report`,

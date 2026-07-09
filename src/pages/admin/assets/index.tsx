@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Monitor, CheckCircle, Package, Wrench, Filter, X, Plus, Search, RotateCcw } from 'lucide-react';
+import { Monitor, CheckCircle, Package, Wrench, Filter, X, Plus, Search, RotateCcw, ClipboardList, Trash2 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
@@ -12,6 +12,12 @@ const STATUS_STYLE: Record<string, string> = {
   MAINTENANCE: 'bg-amber-100 text-amber-700',
   RETIRED:     'bg-gray-100 text-gray-500',
   LOST:        'bg-red-100 text-red-700',
+};
+
+const REQUEST_STATUS_STYLE: Record<string, string> = {
+  PENDING:  'bg-amber-100 text-amber-700',
+  APPROVED: 'bg-green-100 text-green-700',
+  REJECTED: 'bg-red-100 text-red-700',
 };
 
 const CONDITION_STYLE: Record<string, string> = {
@@ -438,15 +444,278 @@ function ReturnModal({ asset, onClose }: { asset: any; onClose: () => void }) {
   );
 }
 
+// ─── Dispose Modal ────────────────────────────────────────────────────────────
+
+function DisposeModal({ asset, onClose }: { asset: any; onClose: () => void }) {
+  const qc = useQueryClient();
+  const { showToast } = useToastContext();
+  const [reason, setReason] = useState('');
+  const [disposalDate, setDisposalDate] = useState('');
+  const [notes, setNotes] = useState('');
+  const [err, setErr] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.DISPOSALS, {
+      method: 'POST',
+      body: JSON.stringify({ asset_id: asset.id, reason, disposal_date: disposalDate || undefined, notes }),
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['assets-list'] });
+      qc.invalidateQueries({ queryKey: ['asset-disposals'] });
+      showToast('Asset disposed successfully', 'success');
+      onClose();
+    },
+    onError: (e: any) => setErr(e?.message || 'Failed to dispose asset'),
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-black text-gray-900">Dispose Asset</h2>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">Disposing: <span className="font-semibold text-gray-900">{asset.name}</span></p>
+        <div className="space-y-3">
+          <div>
+            <label className={labelCls}>Reason <span className="text-red-500">*</span></label>
+            <input className={inputCls} value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. Beyond repair, end of life" />
+          </div>
+          <div>
+            <label className={labelCls}>Disposal Date</label>
+            <input className={inputCls} type="date" value={disposalDate} onChange={e => setDisposalDate(e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Notes</label>
+            <textarea rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
+              value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any additional notes…" />
+          </div>
+        </div>
+        {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
+        <div className="flex gap-3 mt-5">
+          <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
+          <button onClick={() => mutation.mutate()} disabled={!reason.trim() || mutation.isPending}
+            className="flex-1 h-10 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 disabled:opacity-40">
+            {mutation.isPending ? 'Disposing…' : 'Confirm Disposal'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Create Asset Request Modal ───────────────────────────────────────────────
+
+function CreateRequestModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const { showToast } = useToastContext();
+  const [categoryId, setCategoryId] = useState('');
+  const [forUserId, setForUserId] = useState('');
+  const [reason, setReason] = useState('');
+  const [err, setErr] = useState('');
+
+  const { data: categories } = useQuery({
+    queryKey: ['asset-categories'],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.CATEGORIES),
+    select: (r: any) => r?.payload || [],
+  });
+
+  const { data: users } = useQuery({
+    queryKey: ['user-list-brief'],
+    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200&status=ACTIVE`),
+    select: (r: any) => r?.payload?.records || [],
+  });
+
+  const mutation = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.REQUESTS, {
+      method: 'POST',
+      body: JSON.stringify({
+        asset_category_id: categoryId,
+        requested_for_user_id: forUserId || undefined,
+        reason: reason || undefined,
+      }),
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['asset-requests'] });
+      showToast('Asset request submitted', 'success');
+      onClose();
+    },
+    onError: (e: any) => setErr(e?.message || 'Failed to submit request'),
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-black text-gray-900">Request an Asset</h2>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <label className={labelCls}>Category <span className="text-red-500">*</span></label>
+            <select className={inputCls} value={categoryId} onChange={e => setCategoryId(e.target.value)}>
+              <option value="">Select category</option>
+              {(categories || []).map((c: any) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Requesting For</label>
+            <select className={inputCls} value={forUserId} onChange={e => setForUserId(e.target.value)}>
+              <option value="">Myself</option>
+              {(users || []).map((u: any) => (
+                <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Reason</label>
+            <textarea rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
+              value={reason} onChange={e => setReason(e.target.value)} placeholder="Why do you need this asset?" />
+          </div>
+        </div>
+        {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
+        <div className="flex gap-3 mt-5">
+          <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
+          <button onClick={() => mutation.mutate()} disabled={!categoryId || mutation.isPending}
+            className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40">
+            {mutation.isPending ? 'Submitting…' : 'Submit Request'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Approve Request Modal ─────────────────────────────────────────────────────
+
+function ApproveRequestModal({ request, onClose }: { request: any; onClose: () => void }) {
+  const qc = useQueryClient();
+  const { showToast } = useToastContext();
+  const [assetId, setAssetId] = useState('');
+  const [err, setErr] = useState('');
+
+  const { data: assetsData } = useQuery({
+    queryKey: ['assets-list', 'AVAILABLE', request.asset_category_id],
+    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.ASSET.LIST}?status=AVAILABLE&category_id=${request.asset_category_id}&limit=200`),
+    select: (r: any) => r?.payload?.records || [],
+  });
+
+  const mutation = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.REQUEST_APPROVE(request.id), {
+      method: 'POST',
+      body: JSON.stringify({ asset_id: assetId }),
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['asset-requests'] });
+      qc.invalidateQueries({ queryKey: ['assets-list'] });
+      showToast('Request approved and asset assigned', 'success');
+      onClose();
+    },
+    onError: (e: any) => setErr(e?.message || 'Failed to approve request'),
+  });
+
+  const requester = request.requested_for || request.requester;
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-black text-gray-900">Approve Request</h2>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+        </div>
+        <p className="text-sm text-gray-500 mb-1">Category: <span className="font-semibold text-gray-900">{request.category?.name}</span></p>
+        <p className="text-sm text-gray-500 mb-4">For: <span className="font-semibold text-gray-900">{requester?.first_name} {requester?.last_name}</span></p>
+        <div>
+          <label className={labelCls}>Select Asset to Assign <span className="text-red-500">*</span></label>
+          <select className={inputCls} value={assetId} onChange={e => setAssetId(e.target.value)}>
+            <option value="">Select an available asset</option>
+            {(assetsData || []).map((a: any) => (
+              <option key={a.id} value={a.id}>{a.name} ({a.asset_tag})</option>
+            ))}
+          </select>
+          {(assetsData || []).length === 0 && (
+            <p className="text-xs text-amber-600 mt-1.5">No available assets in this category.</p>
+          )}
+        </div>
+        {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
+        <div className="flex gap-3 mt-5">
+          <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
+          <button onClick={() => mutation.mutate()} disabled={!assetId || mutation.isPending}
+            className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40">
+            {mutation.isPending ? 'Approving…' : 'Approve & Assign'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Reject Request Modal ───────────────────────────────────────────────────────
+
+function RejectRequestModal({ request, onClose }: { request: any; onClose: () => void }) {
+  const qc = useQueryClient();
+  const { showToast } = useToastContext();
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [err, setErr] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.REQUEST_REJECT(request.id), {
+      method: 'POST',
+      body: JSON.stringify({ rejection_reason: rejectionReason || undefined }),
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['asset-requests'] });
+      showToast('Request rejected', 'success');
+      onClose();
+    },
+    onError: (e: any) => setErr(e?.message || 'Failed to reject request'),
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-black text-gray-900">Reject Request</h2>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">Category: <span className="font-semibold text-gray-900">{request.category?.name}</span></p>
+        <div>
+          <label className={labelCls}>Rejection Reason</label>
+          <textarea rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
+            value={rejectionReason} onChange={e => setRejectionReason(e.target.value)} placeholder="Explain why this request is rejected…" />
+        </div>
+        {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
+        <div className="flex gap-3 mt-5">
+          <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
+          <button onClick={() => mutation.mutate()} disabled={mutation.isPending}
+            className="flex-1 h-10 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 disabled:opacity-40">
+            {mutation.isPending ? 'Rejecting…' : 'Confirm Rejection'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AssetsPage() {
+  const [tab, setTab] = useState<'assets' | 'requests' | 'disposals'>('assets');
+
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
   const [assignTarget, setAssignTarget] = useState<any>(null);
   const [returnTarget, setReturnTarget] = useState<any>(null);
+  const [disposeTarget, setDisposeTarget] = useState<any>(null);
   const [showCreate, setShowCreate] = useState(false);
+
+  const [requestStatusFilter, setRequestStatusFilter] = useState('');
+  const [showCreateRequest, setShowCreateRequest] = useState(false);
+  const [approveTarget, setApproveTarget] = useState<any>(null);
+  const [rejectTarget, setRejectTarget] = useState<any>(null);
 
   const { data: assetsData, isLoading } = useQuery({
     queryKey: ['assets-list', categoryFilter, statusFilter, search],
@@ -466,11 +735,32 @@ export default function AssetsPage() {
     select: (r: any) => r?.payload || [],
   });
 
+  const { data: requestsData, isLoading: requestsLoading } = useQuery({
+    queryKey: ['asset-requests', requestStatusFilter],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (requestStatusFilter) params.set('status', requestStatusFilter);
+      return apiRequest<any>(`${API_ENDPOINTS.ASSET.REQUESTS}?${params}`);
+    },
+    select: (r: any) => r?.payload,
+    enabled: tab === 'requests',
+  });
+
+  const { data: disposalsData, isLoading: disposalsLoading } = useQuery({
+    queryKey: ['asset-disposals'],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.DISPOSALS),
+    select: (r: any) => r?.payload,
+    enabled: tab === 'disposals',
+  });
+
   const assets: any[] = assetsData?.records || [];
   const total = assetsData?.total ?? assets.length;
   const assigned = assets.filter((a: any) => a.status === 'ASSIGNED').length;
   const available = assets.filter((a: any) => a.status === 'AVAILABLE').length;
   const maintenance = assets.filter((a: any) => a.status === 'MAINTENANCE').length;
+
+  const requests: any[] = requestsData?.records || [];
+  const disposals: any[] = disposalsData?.records || [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -480,144 +770,298 @@ export default function AssetsPage() {
           <h1 className="text-2xl font-black text-gray-900">Assets</h1>
           <p className="text-sm text-gray-400 mt-0.5">Track and manage company assets</p>
         </div>
-        <button onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-4 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition-colors">
-          <Plus size={16} />Add Asset
-        </button>
+        {tab === 'assets' && (
+          <button onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 px-4 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition-colors">
+            <Plus size={16} />Add Asset
+          </button>
+        )}
+        {tab === 'requests' && (
+          <button onClick={() => setShowCreateRequest(true)}
+            className="flex items-center gap-2 px-4 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition-colors">
+            <Plus size={16} />New Request
+          </button>
+        )}
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Tabs */}
+      <div className="flex items-center gap-1 border-b border-gray-100">
         {[
-          { icon: Package,     color: 'bg-blue-500',   label: 'Total Assets',  value: total },
-          { icon: CheckCircle, color: 'bg-blue-400',   label: 'Assigned',      value: assigned },
-          { icon: Monitor,     color: 'bg-green-500',  label: 'Available',     value: available },
-          { icon: Wrench,      color: 'bg-amber-500',  label: 'Maintenance',   value: maintenance },
-        ].map(s => (
-          <div key={s.label} className="flex items-center gap-4 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', s.color)}>
-              <s.icon size={22} className="text-white" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">{s.label}</p>
-              <p className="text-2xl font-black text-gray-900 leading-tight">{s.value ?? '—'}</p>
-            </div>
-          </div>
+          { key: 'assets',    label: 'Assets',    icon: Package },
+          { key: 'requests',  label: 'Requests',  icon: ClipboardList },
+          { key: 'disposals', label: 'Disposals', icon: Trash2 },
+        ].map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key as any)}
+            className={cn(
+              'flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors',
+              tab === t.key ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-400 hover:text-gray-600'
+            )}
+          >
+            <t.icon size={14} />{t.label}
+          </button>
         ))}
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        {/* Filters */}
-        <div className="flex flex-wrap gap-3 mb-4">
-          <div className="flex items-center gap-2 text-gray-400">
-            <Filter size={15} />
-            <span className="text-xs font-semibold">Filter:</span>
-          </div>
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              className="h-10 pl-8 pr-3 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:border-primary-400 w-48"
-              placeholder="Search assets…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
-          <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
-            className="h-10 px-3 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:border-primary-400">
-            <option value="">All Categories</option>
-            {(categories as any[] || []).map((c: any) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+      {tab === 'assets' && (
+        <>
+          {/* Stats */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { icon: Package,     color: 'bg-blue-500',   label: 'Total Assets',  value: total },
+              { icon: CheckCircle, color: 'bg-blue-400',   label: 'Assigned',      value: assigned },
+              { icon: Monitor,     color: 'bg-green-500',  label: 'Available',     value: available },
+              { icon: Wrench,      color: 'bg-amber-500',  label: 'Maintenance',   value: maintenance },
+            ].map(s => (
+              <div key={s.label} className="flex items-center gap-4 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', s.color)}>
+                  <s.icon size={22} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">{s.label}</p>
+                  <p className="text-2xl font-black text-gray-900 leading-tight">{s.value ?? '—'}</p>
+                </div>
+              </div>
             ))}
-          </select>
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-            className="h-10 px-3 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:border-primary-400">
-            <option value="">All Status</option>
-            <option value="AVAILABLE">Available</option>
-            <option value="ASSIGNED">Assigned</option>
-            <option value="MAINTENANCE">Maintenance</option>
-            <option value="RETIRED">Retired</option>
-          </select>
-          {(categoryFilter || statusFilter || search) && (
-            <button onClick={() => { setCategoryFilter(''); setStatusFilter(''); setSearch(''); }}
-              className="h-10 px-3 text-xs text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 flex items-center gap-1">
-              <X size={12} /> Clear
-            </button>
-          )}
-        </div>
+          </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100">
-                {['Asset', 'Category', 'Brand / Model', 'Serial No.', 'Assigned To', 'Condition', 'Status', 'Actions'].map(h => (
-                  <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
+          {/* Table */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            {/* Filters */}
+            <div className="flex flex-wrap gap-3 mb-4">
+              <div className="flex items-center gap-2 text-gray-400">
+                <Filter size={15} />
+                <span className="text-xs font-semibold">Filter:</span>
+              </div>
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  className="h-10 pl-8 pr-3 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:border-primary-400 w-48"
+                  placeholder="Search assets…"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                />
+              </div>
+              <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
+                className="h-10 px-3 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:border-primary-400">
+                <option value="">All Categories</option>
+                {(categories as any[] || []).map((c: any) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}><td colSpan={8} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
-                ))
-              ) : assets.length === 0 ? (
-                <tr><td colSpan={8} className="py-12 text-center text-gray-400 text-sm">No assets found</td></tr>
-              ) : assets.map((asset: any) => {
-                const assignedUser = asset.assignments?.[0]?.user;
-                return (
-                  <tr key={asset.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="py-3 px-2">
-                      <p className="font-semibold text-gray-900">{asset.name}</p>
-                      <p className="text-xs text-gray-400 font-mono">{asset.asset_tag}</p>
-                    </td>
-                    <td className="py-3 px-2 text-gray-500 whitespace-nowrap">{asset.category?.name || '—'}</td>
-                    <td className="py-3 px-2 text-gray-600">
-                      <p>{asset.brand || '—'}</p>
-                      {asset.model && <p className="text-xs text-gray-400">{asset.model}</p>}
-                    </td>
-                    <td className="py-3 px-2 font-mono text-xs text-gray-500">{asset.serial_number || '—'}</td>
-                    <td className="py-3 px-2 text-gray-700 whitespace-nowrap">
-                      {assignedUser ? `${assignedUser.first_name} ${assignedUser.last_name || ''}`.trim() : '—'}
-                    </td>
-                    <td className="py-3 px-2">
-                      {asset.condition ? (
-                        <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full', CONDITION_STYLE[asset.condition] || 'bg-gray-100 text-gray-500')}>
-                          {asset.condition}
-                        </span>
-                      ) : '—'}
-                    </td>
-                    <td className="py-3 px-2">
-                      <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full', STATUS_STYLE[asset.status] || 'bg-gray-100 text-gray-500')}>
-                        {asset.status || '—'}
-                      </span>
-                    </td>
-                    <td className="py-3 px-2">
-                      <div className="flex items-center gap-1.5">
-                        {asset.status === 'AVAILABLE' && (
-                          <button onClick={() => setAssignTarget(asset)}
-                            className="px-3 h-7 bg-primary-600 text-white rounded-lg text-xs font-semibold hover:bg-primary-700 transition-colors">
-                            Assign
-                          </button>
-                        )}
-                        {asset.status === 'ASSIGNED' && (
-                          <button onClick={() => setReturnTarget(asset)}
-                            className="flex items-center gap-1 px-3 h-7 bg-amber-100 text-amber-700 rounded-lg text-xs font-semibold hover:bg-amber-200 transition-colors">
-                            <RotateCcw size={11} />Return
-                          </button>
-                        )}
-                      </div>
-                    </td>
+              </select>
+              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+                className="h-10 px-3 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:border-primary-400">
+                <option value="">All Status</option>
+                <option value="AVAILABLE">Available</option>
+                <option value="ASSIGNED">Assigned</option>
+                <option value="MAINTENANCE">Maintenance</option>
+                <option value="RETIRED">Retired</option>
+              </select>
+              {(categoryFilter || statusFilter || search) && (
+                <button onClick={() => { setCategoryFilter(''); setStatusFilter(''); setSearch(''); }}
+                  className="h-10 px-3 text-xs text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 flex items-center gap-1">
+                  <X size={12} /> Clear
+                </button>
+              )}
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    {['Asset', 'Category', 'Brand / Model', 'Serial No.', 'Assigned To', 'Condition', 'Status', 'Actions'].map(h => (
+                      <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
+                    ))}
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {isLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i}><td colSpan={8} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                    ))
+                  ) : assets.length === 0 ? (
+                    <tr><td colSpan={8} className="py-12 text-center text-gray-400 text-sm">No assets found</td></tr>
+                  ) : assets.map((asset: any) => {
+                    const assignedUser = asset.assignments?.[0]?.user;
+                    return (
+                      <tr key={asset.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="py-3 px-2">
+                          <p className="font-semibold text-gray-900">{asset.name}</p>
+                          <p className="text-xs text-gray-400 font-mono">{asset.asset_tag}</p>
+                        </td>
+                        <td className="py-3 px-2 text-gray-500 whitespace-nowrap">{asset.category?.name || '—'}</td>
+                        <td className="py-3 px-2 text-gray-600">
+                          <p>{asset.brand || '—'}</p>
+                          {asset.model && <p className="text-xs text-gray-400">{asset.model}</p>}
+                        </td>
+                        <td className="py-3 px-2 font-mono text-xs text-gray-500">{asset.serial_number || '—'}</td>
+                        <td className="py-3 px-2 text-gray-700 whitespace-nowrap">
+                          {assignedUser ? `${assignedUser.first_name} ${assignedUser.last_name || ''}`.trim() : '—'}
+                        </td>
+                        <td className="py-3 px-2">
+                          {asset.condition ? (
+                            <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full', CONDITION_STYLE[asset.condition] || 'bg-gray-100 text-gray-500')}>
+                              {asset.condition}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td className="py-3 px-2">
+                          <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full', STATUS_STYLE[asset.status] || 'bg-gray-100 text-gray-500')}>
+                            {asset.status || '—'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-2">
+                          <div className="flex items-center gap-1.5">
+                            {asset.status === 'AVAILABLE' && (
+                              <button onClick={() => setAssignTarget(asset)}
+                                className="px-3 h-7 bg-primary-600 text-white rounded-lg text-xs font-semibold hover:bg-primary-700 transition-colors">
+                                Assign
+                              </button>
+                            )}
+                            {asset.status === 'ASSIGNED' && (
+                              <button onClick={() => setReturnTarget(asset)}
+                                className="flex items-center gap-1 px-3 h-7 bg-amber-100 text-amber-700 rounded-lg text-xs font-semibold hover:bg-amber-200 transition-colors">
+                                <RotateCcw size={11} />Return
+                              </button>
+                            )}
+                            {asset.status !== 'RETIRED' && (
+                              <button onClick={() => setDisposeTarget(asset)}
+                                className="flex items-center gap-1 px-3 h-7 bg-red-100 text-red-700 rounded-lg text-xs font-semibold hover:bg-red-200 transition-colors">
+                                <Trash2 size={11} />Dispose
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {tab === 'requests' && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="flex flex-wrap gap-3 mb-4">
+            <div className="flex items-center gap-2 text-gray-400">
+              <Filter size={15} />
+              <span className="text-xs font-semibold">Filter:</span>
+            </div>
+            <select value={requestStatusFilter} onChange={e => setRequestStatusFilter(e.target.value)}
+              className="h-10 px-3 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:border-primary-400">
+              <option value="">All Status</option>
+              <option value="PENDING">Pending</option>
+              <option value="APPROVED">Approved</option>
+              <option value="REJECTED">Rejected</option>
+            </select>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  {['Requested For', 'Category', 'Reason', 'Requested By', 'Status', 'Reviewed By', 'Actions'].map(h => (
+                    <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {requestsLoading ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <tr key={i}><td colSpan={7} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                  ))
+                ) : requests.length === 0 ? (
+                  <tr><td colSpan={7} className="py-12 text-center text-gray-400 text-sm">No asset requests found</td></tr>
+                ) : requests.map((req: any) => {
+                  const forUser = req.requested_for || req.requester;
+                  return (
+                    <tr key={req.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="py-3 px-2 text-gray-700 whitespace-nowrap">
+                        {forUser ? `${forUser.first_name} ${forUser.last_name || ''}`.trim() : '—'}
+                      </td>
+                      <td className="py-3 px-2 text-gray-500 whitespace-nowrap">{req.category?.name || '—'}</td>
+                      <td className="py-3 px-2 text-gray-600 max-w-xs truncate">{req.reason || '—'}</td>
+                      <td className="py-3 px-2 text-gray-500 whitespace-nowrap">
+                        {req.requester ? `${req.requester.first_name} ${req.requester.last_name || ''}`.trim() : '—'}
+                      </td>
+                      <td className="py-3 px-2">
+                        <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full', REQUEST_STATUS_STYLE[req.status] || 'bg-gray-100 text-gray-500')}>
+                          {req.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-2 text-gray-500 whitespace-nowrap">
+                        {req.reviewer ? `${req.reviewer.first_name} ${req.reviewer.last_name || ''}`.trim() : '—'}
+                      </td>
+                      <td className="py-3 px-2">
+                        {req.status === 'PENDING' && (
+                          <div className="flex items-center gap-1.5">
+                            <button onClick={() => setApproveTarget(req)}
+                              className="px-3 h-7 bg-primary-600 text-white rounded-lg text-xs font-semibold hover:bg-primary-700 transition-colors">
+                              Approve
+                            </button>
+                            <button onClick={() => setRejectTarget(req)}
+                              className="px-3 h-7 bg-red-100 text-red-700 rounded-lg text-xs font-semibold hover:bg-red-200 transition-colors">
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
+
+      {tab === 'disposals' && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  {['Asset', 'Reason', 'Disposal Date', 'Notes'].map(h => (
+                    <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {disposalsLoading ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <tr key={i}><td colSpan={4} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                  ))
+                ) : disposals.length === 0 ? (
+                  <tr><td colSpan={4} className="py-12 text-center text-gray-400 text-sm">No disposal records found</td></tr>
+                ) : disposals.map((d: any) => (
+                  <tr key={d.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="py-3 px-2">
+                      <p className="font-semibold text-gray-900">{d.asset?.name || '—'}</p>
+                      <p className="text-xs text-gray-400 font-mono">{d.asset?.asset_tag}</p>
+                    </td>
+                    <td className="py-3 px-2 text-gray-600">{d.reason || '—'}</td>
+                    <td className="py-3 px-2 text-gray-500 whitespace-nowrap">
+                      {d.disposal_date ? new Date(d.disposal_date).toLocaleDateString() : '—'}
+                    </td>
+                    <td className="py-3 px-2 text-gray-500 max-w-xs truncate">{d.notes || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {showCreate && <CreateAssetModal onClose={() => setShowCreate(false)} />}
       {assignTarget && <AssignModal asset={assignTarget} onClose={() => setAssignTarget(null)} />}
       {returnTarget && <ReturnModal asset={returnTarget} onClose={() => setReturnTarget(null)} />}
+      {disposeTarget && <DisposeModal asset={disposeTarget} onClose={() => setDisposeTarget(null)} />}
+      {showCreateRequest && <CreateRequestModal onClose={() => setShowCreateRequest(false)} />}
+      {approveTarget && <ApproveRequestModal request={approveTarget} onClose={() => setApproveTarget(null)} />}
+      {rejectTarget && <RejectRequestModal request={rejectTarget} onClose={() => setRejectTarget(null)} />}
     </div>
   );
 }
