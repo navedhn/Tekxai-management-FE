@@ -200,6 +200,8 @@ export const API_ENDPOINTS = {
     REQUEST_APPROVE:  (id: string | number) => `${v1}/asset/requests/${id}/approve`,
     REQUEST_REJECT:   (id: string | number) => `${v1}/asset/requests/${id}/reject`,
     DISPOSALS:        `${v1}/asset/disposals`,
+    REPORT_DEPRECIATION: `${v1}/asset/reports/depreciation`,
+    REPORT_INVENTORY:    `${v1}/asset/reports/inventory`,
   },
   PERFORMANCE: {
     DAILY_REPORTS: `${v1}/performance/daily-report`,

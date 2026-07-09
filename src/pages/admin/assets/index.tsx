@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Monitor, CheckCircle, Package, Wrench, Filter, X, Plus, Search, RotateCcw, ClipboardList, Trash2 } from 'lucide-react';
+import { Monitor, CheckCircle, Package, Wrench, Filter, X, Plus, Search, RotateCcw, ClipboardList, Trash2, BarChart3, TrendingDown, AlertTriangle, Clock } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
@@ -702,7 +702,7 @@ function RejectRequestModal({ request, onClose }: { request: any; onClose: () =>
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AssetsPage() {
-  const [tab, setTab] = useState<'assets' | 'requests' | 'disposals'>('assets');
+  const [tab, setTab] = useState<'assets' | 'requests' | 'disposals' | 'reports'>('assets');
 
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -753,6 +753,20 @@ export default function AssetsPage() {
     enabled: tab === 'disposals',
   });
 
+  const { data: depreciationData, isLoading: depreciationLoading } = useQuery({
+    queryKey: ['asset-report-depreciation'],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.REPORT_DEPRECIATION),
+    select: (r: any) => r?.payload,
+    enabled: tab === 'reports',
+  });
+
+  const { data: inventoryData, isLoading: inventoryLoading } = useQuery({
+    queryKey: ['asset-report-inventory'],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.REPORT_INVENTORY),
+    select: (r: any) => r?.payload,
+    enabled: tab === 'reports',
+  });
+
   const assets: any[] = assetsData?.records || [];
   const total = assetsData?.total ?? assets.length;
   const assigned = assets.filter((a: any) => a.status === 'ASSIGNED').length;
@@ -761,6 +775,10 @@ export default function AssetsPage() {
 
   const requests: any[] = requestsData?.records || [];
   const disposals: any[] = disposalsData?.records || [];
+  const depreciationRecords: any[] = depreciationData?.records || [];
+  const inventoryByStatus: any[] = inventoryData?.by_status || [];
+  const inventoryByCategory: any[] = inventoryData?.by_category || [];
+  const warrantyAlerts: any[] = inventoryData?.warranty_alerts || [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -790,6 +808,7 @@ export default function AssetsPage() {
           { key: 'assets',    label: 'Assets',    icon: Package },
           { key: 'requests',  label: 'Requests',  icon: ClipboardList },
           { key: 'disposals', label: 'Disposals', icon: Trash2 },
+          { key: 'reports',   label: 'Reports',   icon: BarChart3 },
         ].map(t => (
           <button
             key={t.key}
@@ -1053,6 +1072,165 @@ export default function AssetsPage() {
             </table>
           </div>
         </div>
+      )}
+
+      {tab === 'reports' && (
+        <>
+          {/* Inventory summary tiles */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { icon: Package,      color: 'bg-blue-500',   label: 'Total Value (Original)', value: depreciationData ? `PKR ${depreciationData.total_purchase_cost?.toLocaleString?.() ?? depreciationData.total_purchase_cost}` : '—' },
+              { icon: TrendingDown, color: 'bg-amber-500',  label: 'Total Depreciation',      value: depreciationData ? `PKR ${depreciationData.total_depreciation?.toLocaleString?.() ?? depreciationData.total_depreciation}` : '—' },
+              { icon: CheckCircle,  color: 'bg-green-500',  label: 'Current Book Value',      value: depreciationData ? `PKR ${depreciationData.total_current_value?.toLocaleString?.() ?? depreciationData.total_current_value}` : '—' },
+              { icon: Clock,        color: 'bg-purple-500', label: 'Avg. Time Assigned (days)', value: inventoryData?.average_time_in_assignment_days ?? '—' },
+            ].map(s => (
+              <div key={s.label} className="flex items-center gap-4 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', s.color)}>
+                  <s.icon size={22} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">{s.label}</p>
+                  <p className="text-2xl font-black text-gray-900 leading-tight">{s.value ?? '—'}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Counts by status / category */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Assets by Status</p>
+              {inventoryLoading ? (
+                <div className="h-4 bg-gray-100 rounded animate-pulse" />
+              ) : inventoryByStatus.length === 0 ? (
+                <p className="text-sm text-gray-400">No data</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {inventoryByStatus.map((s: any) => (
+                    <span key={s.status} className={cn('text-xs font-semibold px-2.5 py-1 rounded-full', STATUS_STYLE[s.status] || 'bg-gray-100 text-gray-500')}>
+                      {s.status}: {s.count}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Assets by Category</p>
+              {inventoryLoading ? (
+                <div className="h-4 bg-gray-100 rounded animate-pulse" />
+              ) : inventoryByCategory.length === 0 ? (
+                <p className="text-sm text-gray-400">No data</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {inventoryByCategory.map((c: any) => (
+                    <span key={c.category_id} className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
+                      {c.category_name}: {c.count}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Warranty expiry alerts */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle size={15} className="text-amber-500" />
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Warranty Expiring Soon / Expired (within 90 days)</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    {['Asset', 'Category', 'Status', 'Warranty Expiry', 'Days Until Expiry'].map(h => (
+                      <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {inventoryLoading ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <tr key={i}><td colSpan={5} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                    ))
+                  ) : warrantyAlerts.length === 0 ? (
+                    <tr><td colSpan={5} className="py-8 text-center text-gray-400 text-sm">No warranties expiring soon</td></tr>
+                  ) : warrantyAlerts.map((a: any) => (
+                    <tr key={a.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="py-3 px-2">
+                        <p className="font-semibold text-gray-900">{a.name}</p>
+                        <p className="text-xs text-gray-400 font-mono">{a.asset_tag}</p>
+                      </td>
+                      <td className="py-3 px-2 text-gray-500 whitespace-nowrap">{a.category?.name || '—'}</td>
+                      <td className="py-3 px-2">
+                        <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full', STATUS_STYLE[a.status] || 'bg-gray-100 text-gray-500')}>
+                          {a.status || '—'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-2 text-gray-500 whitespace-nowrap">
+                        {a.warranty_expiry ? new Date(a.warranty_expiry).toLocaleDateString() : '—'}
+                      </td>
+                      <td className="py-3 px-2">
+                        <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full', a.is_expired ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700')}>
+                          {a.is_expired ? 'Expired' : `${a.days_until_expiry}d`}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Depreciation table */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingDown size={15} className="text-gray-400" />
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                Depreciation (straight-line, {depreciationData?.useful_life_months ?? 36}-month useful life)
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    {['Asset', 'Category', 'Purchase Date', 'Purchase Cost', 'Current Value', 'Depreciation to Date'].map(h => (
+                      <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {depreciationLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i}><td colSpan={6} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                    ))
+                  ) : depreciationRecords.length === 0 ? (
+                    <tr><td colSpan={6} className="py-12 text-center text-gray-400 text-sm">No assets with purchase data found</td></tr>
+                  ) : depreciationRecords.map((r: any) => (
+                    <tr key={r.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="py-3 px-2">
+                        <p className="font-semibold text-gray-900">{r.name}</p>
+                        <p className="text-xs text-gray-400 font-mono">{r.asset_tag}</p>
+                      </td>
+                      <td className="py-3 px-2 text-gray-500 whitespace-nowrap">{r.category?.name || '—'}</td>
+                      <td className="py-3 px-2 text-gray-500 whitespace-nowrap">
+                        {r.purchase_date ? new Date(r.purchase_date).toLocaleDateString() : '—'}
+                      </td>
+                      <td className="py-3 px-2 text-gray-600 whitespace-nowrap">
+                        {r.purchase_cost != null ? `PKR ${r.purchase_cost.toLocaleString?.() ?? r.purchase_cost}` : '—'}
+                      </td>
+                      <td className="py-3 px-2 text-gray-900 font-semibold whitespace-nowrap">
+                        {r.current_value != null ? `PKR ${r.current_value.toLocaleString?.() ?? r.current_value}` : '—'}
+                      </td>
+                      <td className="py-3 px-2 text-amber-600 whitespace-nowrap">
+                        {r.depreciation_to_date != null ? `PKR ${r.depreciation_to_date.toLocaleString?.() ?? r.depreciation_to_date}` : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
 
       {showCreate && <CreateAssetModal onClose={() => setShowCreate(false)} />}
