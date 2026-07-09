@@ -4,10 +4,11 @@ import Table, { Column } from '@/components/ui/Table';
 import Button, { pageActionButtonClass } from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
-import { Search, Plus, Edit2, Trash2, Users } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, Users, UserPlus } from 'lucide-react';
 import { useGetTeamsQuery, useDeleteTeamMutation } from '@/services/adminService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import TeamFormModal from '@/components/ui/TeamFormModal';
+import TeamMembersModal from '@/components/ui/TeamMembersModal';
 import Badge from '@/components/ui/Badge';
 import ActionModal from '@/components/ui/ActionModal';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -26,6 +27,7 @@ const TeamManagement: React.FC = () => {
     const [filterType, setFilterType] = useState('ALL');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
     const [selectedTeam, setSelectedTeam] = useState<any>(null);
     const [teamToDelete, setTeamToDelete] = useState<any>(null);
     const debouncedSearch = useDebounce(searchQuery, 500);
@@ -57,6 +59,11 @@ const TeamManagement: React.FC = () => {
     const handleEditTeam = (team: any) => {
         setSelectedTeam(team);
         setIsModalOpen(true);
+    };
+
+    const handleManageMembers = (team: any) => {
+        setSelectedTeam(team);
+        setIsMembersModalOpen(true);
     };
 
     const handleDeleteTeam = (team: any) => {
@@ -121,6 +128,13 @@ const TeamManagement: React.FC = () => {
             align: 'right',
             render: (item) => (
                 <div className="flex items-center justify-end gap-2">
+                    <button
+                        onClick={() => handleManageMembers(item)}
+                        className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-xl transition-all"
+                        title="Manage members"
+                    >
+                        <UserPlus size={18} />
+                    </button>
                     <button
                         onClick={() => handleEditTeam(item)}
                         className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-xl transition-all"
@@ -191,6 +205,12 @@ const TeamManagement: React.FC = () => {
             <TeamFormModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
+                team={selectedTeam}
+            />
+
+            <TeamMembersModal
+                isOpen={isMembersModalOpen}
+                onClose={() => setIsMembersModalOpen(false)}
                 team={selectedTeam}
             />
 

@@ -1,9 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
+import Select from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { useCreateTeamMutation, useUpdateTeamMutation } from '@/services/adminService';
+import { useGetDepartmentsQuery, useGetDivisionsQuery } from '@/services/departmentService';
+import { apiRequest } from '@/lib/queryClient';
+import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { ChevronDown, Plus } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -33,7 +38,10 @@ function saveCustomType(val: string) {
 interface Props { isOpen: boolean; onClose: () => void; team?: any; }
 
 const TeamFormModal: React.FC<Props> = ({ isOpen, onClose, team }) => {
-  const [formData, setFormData] = useState({ name: '', type: 'DEVELOPMENT', description: '' });
+  const [formData, setFormData] = useState({
+    name: '', type: 'DEVELOPMENT', description: '',
+    department_id: '', division_id: '', manager_id: '',
+  });
   const [errors, setErrors]     = useState<Record<string, string>>({});
   const [dropOpen, setDropOpen] = useState(false);
   const [customInput, setCustomInput] = useState('');
@@ -53,8 +61,11 @@ const TeamFormModal: React.FC<Props> = ({ isOpen, onClose, team }) => {
   useEffect(() => {
     if (isOpen) {
       setFormData(team
-        ? { name: team.name || '', type: team.type || 'DEVELOPMENT', description: team.description || '' }
-        : { name: '', type: 'DEVELOPMENT', description: '' }
+        ? {
+            name: team.name || '', type: team.type || 'DEVELOPMENT', description: team.description || '',
+            department_id: team.department_id || '', division_id: team.division_id || '', manager_id: team.manager_id || '',
+          }
+        : { name: '', type: 'DEVELOPMENT', description: '', department_id: '', division_id: '', manager_id: '' }
       );
       setErrors({});
       setDropOpen(false);
@@ -62,6 +73,15 @@ const TeamFormModal: React.FC<Props> = ({ isOpen, onClose, team }) => {
       setCustomInput('');
     }
   }, [team, isOpen]);
+
+  const { data: departments } = useGetDepartmentsQuery();
+  const { data: divisions } = useGetDivisionsQuery(formData.department_id || undefined);
+  const { data: users } = useQuery({
+    queryKey: ['user-list-brief'],
+    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200&status=ACTIVE`),
+    select: (r: any) => r?.payload?.records || r?.payload || [],
+    staleTime: 300000,
+  });
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -108,12 +128,19 @@ const TeamFormModal: React.FC<Props> = ({ isOpen, onClose, team }) => {
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
 
+    const payload = {
+      ...formData,
+      department_id: formData.department_id || null,
+      division_id: formData.division_id || null,
+      manager_id: formData.manager_id || null,
+    };
+
     const mutation = isEdit
-      ? updateTeam.mutate({ id: team.id, data: formData }, {
+      ? updateTeam.mutate({ id: team.id, data: payload }, {
           onSuccess: () => { toast.success('Team updated successfully'); onClose(); },
           onError: (e: any) => toast.error(e.message || 'Failed to update team'),
         })
-      : createTeam.mutate(formData, {
+      : createTeam.mutate(payload, {
           onSuccess: () => { toast.success('Team created successfully'); onClose(); },
           onError: (e: any) => toast.error(e.message || 'Failed to create team'),
         });
@@ -201,6 +228,28 @@ const TeamFormModal: React.FC<Props> = ({ isOpen, onClose, team }) => {
           </div>
           {errors.type && <p className="text-xs text-red-500 mt-0.5">{errors.type}</p>}
         </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Select
+            label="Department"
+            options={[{ label: 'None', value: '' }, ...(departments || []).map((d: any) => ({ label: d.name, value: d.id }))]}
+            value={formData.department_id}
+            onChange={(v) => setFormData(p => ({ ...p, department_id: String(v), division_id: '' }))}
+          />
+          <Select
+            label="Division"
+            options={[{ label: 'None', value: '' }, ...(divisions || []).map((d: any) => ({ label: d.name, value: d.id }))]}
+            value={formData.division_id}
+            onChange={(v) => setFormData(p => ({ ...p, division_id: String(v) }))}
+          />
+        </div>
+
+        <Select
+          label="Team Manager"
+          options={[{ label: 'No manager assigned', value: '' }, ...(users || []).map((u: any) => ({ label: `${u.first_name} ${u.last_name}`, value: u.id }))]}
+          value={formData.manager_id}
+          onChange={(v) => setFormData(p => ({ ...p, manager_id: String(v) }))}
+        />
 
         <Textarea
           label="Description"

@@ -64,6 +64,9 @@ export const QUERY_KEYS = {
   PROJECT_TIMELINE: {
     LIST: (projectId: string) => ['project', projectId, 'timeline'],
   },
+  EXTENSION_REQUESTS: {
+    LIST: (projectId: string) => ['project', projectId, 'extension-requests'],
+  },
   STARRED: {
     QUERIES: ['starred', 'queries'],
   },

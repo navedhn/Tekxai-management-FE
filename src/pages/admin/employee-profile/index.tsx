@@ -11,9 +11,14 @@ import Loader from '@/components/ui/Loader';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import {
-  useGetEmployeeFullRecord, useUpsertHRProfile,
+  useGetEmployeeFullRecord, useUpsertHRProfile, useUpdateUserOrg,
   useGetEmployeeDocs, useGetDocTypes, useCreateEmployeeDoc, useDeleteEmployeeDoc,
 } from '@/services/hrService';
+import { useGetDesignationsQuery } from '@/services/designationService';
+import { useGetGradesQuery } from '@/services/gradeService';
+import { apiRequest } from '@/lib/queryClient';
+import { API_ENDPOINTS } from '@/services/api/endpoints';
+import { useQuery } from '@tanstack/react-query';
 
 const TABS = ['Overview', 'Employment', 'Compensation', 'Documents', 'History'];
 
@@ -69,6 +74,8 @@ const EmployeeProfilePage: React.FC = () => {
   const [hrEditing, setHrEditing] = useState(false);
   const [newDoc, setNewDoc] = useState({ title: '', document_type: 'OTHER', file_url: '', notes: '' });
   const [showAddDoc, setShowAddDoc] = useState(false);
+  const [orgEditing, setOrgEditing] = useState(false);
+  const [orgForm, setOrgForm] = useState<{ designation_id: string; grade_id: string; supervisor_id: string }>({ designation_id: '', grade_id: '', supervisor_id: '' });
 
   const { data: record, isLoading } = useGetEmployeeFullRecord(employeeId);
   const { data: docs = [] } = useGetEmployeeDocs(employeeId);
@@ -76,6 +83,15 @@ const EmployeeProfilePage: React.FC = () => {
   const upsertProfile = useUpsertHRProfile(employeeId!);
   const createDoc = useCreateEmployeeDoc(employeeId!);
   const deleteDoc = useDeleteEmployeeDoc(employeeId!);
+  const updateOrg = useUpdateUserOrg(employeeId!);
+  const { data: designations } = useGetDesignationsQuery(record?.user?.department?.id);
+  const { data: grades } = useGetGradesQuery();
+  const { data: managers } = useQuery({
+    queryKey: ['user-list-brief'],
+    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200&status=ACTIVE`),
+    select: (r: any) => r?.payload?.records || r?.payload || [],
+    staleTime: 300000,
+  });
 
   if (isLoading) return <Loader fullPage size={48} />;
   if (!record) return <div className="p-10 text-center text-gray-500 font-bold">Employee not found</div>;
@@ -88,6 +104,26 @@ const EmployeeProfilePage: React.FC = () => {
     setHrForm({ ...profile });
     setHrEditing(true);
     setActiveTab('Employment');
+  };
+
+  const handleEditOrg = () => {
+    setOrgForm({
+      designation_id: user.designation_ref?.id || '',
+      grade_id: user.grade?.id || '',
+      supervisor_id: user.supervisor?.id || '',
+    });
+    setOrgEditing(true);
+  };
+
+  const handleSaveOrg = () => {
+    updateOrg.mutate({
+      designation_id: orgForm.designation_id || null,
+      grade_id: orgForm.grade_id || null,
+      supervisor_id: orgForm.supervisor_id || null,
+    }, {
+      onSuccess: () => { toast.success('Organization details updated'); setOrgEditing(false); },
+      onError: (e: any) => toast.error(e?.message || 'Failed to update'),
+    });
   };
 
   const handleSaveProfile = () => {
@@ -213,6 +249,54 @@ const EmployeeProfilePage: React.FC = () => {
       {/* ── Employment Tab ── */}
       {activeTab === 'Employment' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-black text-gray-900 flex items-center gap-2"><Briefcase size={16} />Organization</h3>
+              {!orgEditing ? (
+                <Button variant="outline" onClick={handleEditOrg} className="h-8 rounded-lg text-xs font-bold px-3">Edit</Button>
+              ) : (
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setOrgEditing(false)} className="h-8 rounded-lg text-xs font-bold px-3">Cancel</Button>
+                  <Button variant="primary" onClick={handleSaveOrg} disabled={updateOrg.isPending} className="h-8 rounded-lg text-xs font-bold px-3">
+                    {updateOrg.isPending ? 'Saving…' : 'Save'}
+                  </Button>
+                </div>
+              )}
+            </div>
+            {orgEditing ? (
+              <div className="grid grid-cols-1 gap-3">
+                <Select
+                  label="Designation"
+                  options={[{ label: 'None', value: '' }, ...(designations || []).map((d: any) => ({ label: d.name, value: d.id }))]}
+                  value={orgForm.designation_id}
+                  onChange={v => setOrgForm(p => ({ ...p, designation_id: String(v) }))}
+                  className="h-10 !rounded-xl"
+                />
+                <Select
+                  label="Grade"
+                  options={[{ label: 'None', value: '' }, ...(grades || []).map((g: any) => ({ label: g.name, value: g.id }))]}
+                  value={orgForm.grade_id}
+                  onChange={v => setOrgForm(p => ({ ...p, grade_id: String(v) }))}
+                  className="h-10 !rounded-xl"
+                />
+                <Select
+                  label="Reporting Manager"
+                  options={[{ label: 'None', value: '' }, ...(managers || []).filter((m: any) => m.id !== employeeId).map((m: any) => ({ label: `${m.first_name} ${m.last_name}`, value: m.id }))]}
+                  value={orgForm.supervisor_id}
+                  onChange={v => setOrgForm(p => ({ ...p, supervisor_id: String(v) }))}
+                  className="h-10 !rounded-xl"
+                />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <InfoRow label="Designation" value={user.designation_ref?.name || user.designation} />
+                <InfoRow label="Grade" value={user.grade?.name} />
+                <InfoRow label="Department" value={user.department?.name} />
+                <InfoRow label="Reporting Manager" value={user.supervisor ? `${user.supervisor.first_name} ${user.supervisor.last_name}` : null} />
+              </div>
+            )}
+          </Card>
+
           <Card>
             <h3 className="text-base font-black text-gray-900 mb-4 flex items-center gap-2"><Briefcase size={16} />Employment Details</h3>
             {hrEditing ? (

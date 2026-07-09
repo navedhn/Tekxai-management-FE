@@ -35,6 +35,14 @@ export interface ProjectDto {
   status?: string;
   progress?: number;
   progress_mode?: 'MANUAL' | 'AUTO';
+  budget?: number | null;
+  budget_currency?: string;
+}
+
+export interface BudgetUpdatePayload {
+  budget?: number | null;
+  budget_currency?: string;
+  budget_spent?: number;
 }
 
 export interface Milestone {
@@ -103,6 +111,9 @@ export interface ProjectDetail {
   leader_id?: string | number;
   client_name?: string | null;
   dev_status?: string | null;
+  budget?: number | null;
+  budget_currency?: string;
+  budget_spent?: number;
 }
 
 // --- API Functions ---
@@ -197,6 +208,14 @@ const updateProjectApi = async ({ id, data }: { id: string | number; data: Parti
   return unwrapApiData<ProjectDetail>(res);
 };
 
+const updateBudgetApi = async ({ id, data }: { id: string | number; data: BudgetUpdatePayload }) => {
+  const res = await apiRequest<unknown>(API_ENDPOINTS.PROJECT.BUDGET(id), {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  return unwrapApiData<ProjectDetail>(res);
+};
+
 const deleteProjectApi = async (id: string | number) => {
   return apiRequest(API_ENDPOINTS.PROJECT.DELETE(id), {
     method: 'DELETE',
@@ -256,6 +275,17 @@ export const useUpdateProjectMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: updateProjectApi,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PROJECT.LIST });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PROJECT.DETAIL(data.id) });
+    },
+  });
+};
+
+export const useUpdateBudgetMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateBudgetApi,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PROJECT.LIST });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PROJECT.DETAIL(data.id) });

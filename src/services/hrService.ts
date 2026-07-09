@@ -32,6 +32,19 @@ export const useUpsertHRProfile = (userId: string) => {
   });
 };
 
+// Updates users-table org-structure fields (designation_id, grade_id, supervisor_id) —
+// distinct from the employee_profiles fields above, per Document 4 ownership (People/users module).
+export const useUpdateUserOrg = (userId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { designation_id?: string | null; grade_id?: string | null; supervisor_id?: string | null }) =>
+      apiRequest<any>(API_ENDPOINTS.USER.UPDATE(userId), { method: 'PUT', body: JSON.stringify(data) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['employee-full', userId] });
+    },
+  });
+};
+
 // ── Employee Documents ─────────────────────────────────────────────────────────
 
 export const useGetEmployeeDocs = (userId?: string) =>

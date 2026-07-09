@@ -87,6 +87,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       {                       to: '/admin/timesheet',    label: 'Timesheet',       icon: <Clock size={18} strokeWidth={SW} /> },
 {                       to: '/admin/monitoring',   label: 'Monitoring',      icon: <Monitor size={18} strokeWidth={SW} /> },
       {                       to: '/admin/reports',      label: 'Reports',         icon: <BarChart3 size={18} strokeWidth={SW} /> },
+      {                       to: '/admin/project-report', label: 'Project Report', icon: <BarChart3 size={18} strokeWidth={SW} /> },
       { section: 'Shared',   to: '/admin/starred',      label: 'Starred',         icon: <Star size={18} strokeWidth={SW} /> },
       {                       to: '/chat',               label: 'Messages',        icon: <MessageSquare size={18} strokeWidth={SW} /> },
       {                       to: '/admin/settings',     label: 'Settings',        icon: <Settings size={18} strokeWidth={SW} /> },
