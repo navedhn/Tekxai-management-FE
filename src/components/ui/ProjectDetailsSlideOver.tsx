@@ -12,6 +12,8 @@ import DevopsAccessPanel from './DevopsAccessPanel';
 import WeeklyUpdatesPanel from './WeeklyUpdatesPanel';
 import ProjectDocumentsPanel from './ProjectDocumentsPanel';
 import CommunicationTimeline from './CommunicationTimeline';
+import BudgetPanel from './BudgetPanel';
+import ExtensionRequestsPanel from './ExtensionRequestsPanel';
 import ActionModal from './ActionModal';
 import StatusDropdown from './StatusDropdown';
 import { useGetProjectDetails, useUpdateProjectMutation } from '@/services/projectService';
@@ -217,7 +219,7 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                   {showRequestModel && projectId && (
                     <RequestExtensionModal
                       projectId={projectId}
-                      projectName={project?.name || ''}
+                      projectName={project?.title || ''}
                       currentDeadline={project?.end_date}
                       onClose={() => setShowRequestModael(false)}
                     />
@@ -385,6 +387,14 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                       />
                       <WeeklyUpdatesPanel projectId={projectId} canEdit={canEditProject} />
                       <ProjectDocumentsPanel projectId={projectId} canEdit={canEditProject} />
+                      <BudgetPanel
+                        projectId={projectId}
+                        budget={project.budget}
+                        budgetCurrency={project.budget_currency}
+                        budgetSpent={project.budget_spent}
+                        canEdit={canEditProject}
+                      />
+                      <ExtensionRequestsPanel projectId={projectId} canReview={canEditProject} />
                       <CommunicationTimeline projectId={projectId} />
                     </>
                   )}

@@ -4,6 +4,7 @@ import {
   Home, Users, Building2, Clock, Package, TrendingUp, FileText,
   UserPlus, ShieldCheck, Briefcase, Heart, LogOut, X, Star,
   BarChart3, AlarmClock, UserSearch, PlusCircle, Monitor,
+  Layers, Tag, Network,
 } from 'lucide-react';
 import tekxaiLogo from '@/assets/icons/tekxai-logo.svg';
 import { useLogoutMutation } from '@/services/authService';
@@ -34,6 +35,10 @@ const HRSidebar: React.FC<HRSidebarProps> = memo(({ isOpen, onClose }) => {
     { section: 'People', to: '/hr/employee-directory', label: 'Employee Directory', icon: UserSearch },
     { to: '/hr/add-employee', label: 'Add Employee', icon: PlusCircle },
     { to: '/hr/departments', label: 'Departments', icon: Building2 },
+    { to: '/hr/divisions', label: 'Divisions', icon: Layers },
+    { to: '/hr/designations', label: 'Designations', icon: Tag },
+    { to: '/hr/grades', label: 'Grades', icon: TrendingUp },
+    { to: '/hr/org-chart', label: 'Org Chart', icon: Network },
     { section: 'Time & Attendance', to: '/hr/attendance', label: 'Attendance', icon: Clock },
     { to: '/hr/timesheet', label: 'Timesheets', icon: Clock },
     { to: '/hr/overtime', label: 'Overtime', icon: AlarmClock },

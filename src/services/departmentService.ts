@@ -47,3 +47,42 @@ export const useDeleteDepartment = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['departments'] }),
   });
 };
+
+// --- Divisions (org-structure sibling of Departments) ---
+
+export const useGetDivisionsQuery = (departmentId?: string) =>
+  useQuery({
+    queryKey: ['divisions', departmentId || 'all'],
+    queryFn: async () => {
+      const qs = departmentId ? `?department_id=${departmentId}` : '';
+      const r = await apiRequest<any>(`${API_ENDPOINTS.DIVISION.LIST}${qs}`);
+      return r?.payload || [];
+    },
+  });
+
+export const useCreateDivision = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ department_id, ...data }: any) =>
+      apiRequest<any>(API_ENDPOINTS.DEPARTMENT.DIVISIONS(department_id), { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['divisions'] }),
+  });
+};
+
+export const useUpdateDivision = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: any) =>
+      apiRequest<any>(API_ENDPOINTS.DIVISION.UPDATE(id), { method: 'PUT', body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['divisions'] }),
+  });
+};
+
+export const useDeleteDivision = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiRequest<any>(API_ENDPOINTS.DIVISION.DELETE(id), { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['divisions'] }),
+  });
+};

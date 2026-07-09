@@ -36,6 +36,7 @@ const AdminTickets           = lazy(() => import('@/pages/admin/tickets'));
 const AdminUsers             = lazy(() => import('@/pages/admin/users'));
 const AdminMonitoring        = lazy(() => import('@/pages/admin/monitoring'));
 const AdminReports           = lazy(() => import('@/pages/admin/reports'));
+const AdminProjectReport     = lazy(() => import('@/pages/admin/project-report'));
 const AdminEstimator         = lazy(() => import('@/pages/admin/estimator'));
 const AdminEmployeeProfile   = lazy(() => import('@/pages/admin/employee-profile'));
 const AdminPermissions       = lazy(() => import('@/pages/admin/permissions'));
@@ -51,6 +52,10 @@ const AdminJobDescriptions   = lazy(() => import('@/pages/admin/job-descriptions
 const AdminAssets            = lazy(() => import('@/pages/admin/assets'));
 const AdminPerformance       = lazy(() => import('@/pages/admin/performance'));
 const AdminDepartments       = lazy(() => import('@/pages/admin/departments'));
+const AdminDivisions         = lazy(() => import('@/pages/admin/divisions'));
+const AdminDesignations      = lazy(() => import('@/pages/admin/designations'));
+const AdminGrades            = lazy(() => import('@/pages/admin/grades'));
+const AdminOrgChart          = lazy(() => import('@/pages/admin/org-chart'));
 const AdminHRDashboard       = lazy(() => import('@/pages/admin/hr-dashboard'));
 const AdminRequisitions      = lazy(() => import('@/pages/admin/requisitions'));
 
@@ -161,12 +166,17 @@ const routes: RouteObject[] = [
           { path: '/admin/profile/:memberId?',   element: <ProfilePage /> },
           { path: '/admin/monitoring',           element: <AdminMonitoring /> },
           { path: '/admin/reports',              element: <AdminReports /> },
+          { path: '/admin/project-report',       element: <AdminProjectReport /> },
           { path: '/admin/estimator',            element: <AdminEstimator /> },
           { path: '/admin/employee/:employeeId', element: <AdminEmployeeProfile /> },
           // Legacy admin HR routes (still accessible)
           { path: '/admin/assets',              element: <AdminAssets /> },
           { path: '/admin/performance',         element: <AdminPerformance /> },
           { path: '/admin/departments',         element: <AdminDepartments /> },
+          { path: '/admin/divisions',           element: <AdminDivisions /> },
+          { path: '/admin/designations',        element: <AdminDesignations /> },
+          { path: '/admin/grades',              element: <AdminGrades /> },
+          { path: '/admin/org-chart',           element: <AdminOrgChart /> },
           { path: '/admin/hr',                  element: <AdminHRDashboard /> },
           { path: '/admin/attendance',          element: <AdminAttendance /> },
           { path: '/admin/job-descriptions',    element: <AdminJobDescriptions /> },
@@ -241,6 +251,10 @@ const routes: RouteObject[] = [
           { path: '/hr',                          element: <AdminHRDashboard /> },
           { path: '/hr/employees',                element: <Navigate to="/hr/employee-directory" replace /> },
           { path: '/hr/departments',              element: <AdminDepartments /> },
+          { path: '/hr/divisions',                element: <AdminDivisions /> },
+          { path: '/hr/designations',             element: <AdminDesignations /> },
+          { path: '/hr/grades',                   element: <AdminGrades /> },
+          { path: '/hr/org-chart',                element: <AdminOrgChart /> },
           { path: '/hr/attendance',               element: <AdminAttendance /> },
           { path: '/hr/timesheet',                element: <AdminTimesheet /> },
           { path: '/hr/performance',              element: <AdminPerformance /> },

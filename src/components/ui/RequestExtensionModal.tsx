@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
 import { X, CalendarClock } from 'lucide-react';
-import { apiRequest } from '@/lib/queryClient';
-import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { useCreateExtensionRequest } from '@/services/extensionRequestsService';
 
 interface Props {
   projectId: string | number;
@@ -18,11 +16,8 @@ const RequestExtensionModal: React.FC<Props> = ({ projectId, projectName, curren
   const [reason, setReason] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const { mutate, isPending } = useMutation({
-    mutationFn: () => apiRequest<any>(API_ENDPOINTS.PROJECT.EXTENSION(projectId), {
-      method: 'POST',
-      body: JSON.stringify({ proposed_deadline: proposedDeadline, reason }),
-    }),
+  const { mutate, isPending } = useCreateExtensionRequest(String(projectId));
+  const submit = () => mutate({ proposed_deadline: proposedDeadline, reason }, {
     onSuccess: () => {
       toast.success('Extension request submitted');
       onClose();
@@ -37,7 +32,7 @@ const RequestExtensionModal: React.FC<Props> = ({ projectId, projectName, curren
     if (!reason.trim()) newErrors.reason = 'Reason is required';
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
-    mutate();
+    submit();
   };
 
   const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white';

@@ -148,6 +148,8 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
   const [clientName, setClientName] = useState('');
   const [devStatus, setDevStatus] = useState('');
   const [status, setStatus] = useState('PLANNING');
+  const [budget, setBudget] = useState('');
+  const [budgetCurrency, setBudgetCurrency] = useState('PKR');
 
   const [projectOwners, setProjectOwners] = useState<TeamMember[]>([]);
   const [teamLeaders, setTeamLeaders] = useState<TeamMember[]>([]);
@@ -170,6 +172,8 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       setClientName(project.client_name || '');
       setDevStatus(project.dev_status || '');
       setStatus(project.status || 'PLANNING');
+      setBudget(project.budget != null ? String(project.budget) : '');
+      setBudgetCurrency(project.budget_currency || 'PKR');
       // In a real app we'd fetch full user objects for these IDs
       // For now we rely on the state being populated or handle it if we have access to user data
     } else {
@@ -181,6 +185,8 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       setClientName('');
       setDevStatus('');
       setStatus('PLANNING');
+      setBudget('');
+      setBudgetCurrency('PKR');
       setProjectOwners([]);
       setTeamLeaders([]);
       setTeamMembers([]);
@@ -194,6 +200,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
     if (!startDate) newErrors.startDate = 'Start date is required';
     if (!endDate) newErrors.endDate = 'End date is required';
     if (projectOwners.length === 0) newErrors.owner = 'At least one project owner is required';
+    if (budget !== '' && Number(budget) < 0) newErrors.budget = 'Budget cannot be negative';
 
     setErrors(newErrors);
 
@@ -210,6 +217,8 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       client_name: clientName.trim() || undefined,
       dev_status: devStatus.trim() || undefined,
       status,
+      budget: budget !== '' ? Number(budget) : null,
+      budget_currency: budgetCurrency,
       owner_id: projectOwners[0]?.id || '',
       // leader_id is optional — omit it (not '') when no leader is picked, since
       // it's a foreign key and an empty string fails the DB constraint, silently
@@ -337,6 +346,32 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
                       value={totalHours}
                       onChange={(e) => setTotalHours(e.target.value)}
                       className={cn(inputClass, 'pl-11')}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  <Input
+                    label="Budget"
+                    type="number"
+                    min={0}
+                    value={budget}
+                    onChange={(e) => setBudget(e.target.value)}
+                    error={errors.budget}
+                    placeholder="0.00"
+                    className="h-12 rounded-xl"
+                  />
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Currency</label>
+                    <Select
+                      options={[
+                        { label: 'PKR', value: 'PKR' },
+                        { label: 'USD', value: 'USD' },
+                        { label: 'EUR', value: 'EUR' },
+                        { label: 'GBP', value: 'GBP' },
+                      ]}
+                      value={budgetCurrency}
+                      onChange={(v) => setBudgetCurrency(String(v))}
                     />
                   </div>
                 </div>

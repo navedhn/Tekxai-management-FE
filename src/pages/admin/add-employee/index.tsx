@@ -118,8 +118,8 @@ const initEmployment = {
   employment_type: '', employment_status: 'PERMANENT',
   probation_start: '', probation_end: '',
   notice_period_days: '30', work_email: '',
-  department_id: '', team_id: '', designation: '',
-  grade: '', supervisor_id: '',
+  department_id: '', team_id: '', designation: '', designation_id: '',
+  grade: '', grade_id: '', supervisor_id: '',
   base_salary: '', salary_currency: 'PKR', pay_frequency: 'MONTHLY',
   effective_salary_date: '',
 };
@@ -287,10 +287,32 @@ function StepEmployment({ data, onChange, departments, teams, users }: any) {
             </select>
           </Field>
           <Field label="Designation" required>
-            <input className={inputCls} value={data.designation} onChange={e => onChange('designation', e.target.value)} placeholder="Software Engineer" />
+            <select
+              className={selectCls}
+              value={data.designation_id}
+              onChange={e => {
+                const chosen = (designations || []).find((d: any) => d.id === e.target.value);
+                onChange('designation_id', e.target.value);
+                onChange('designation', chosen?.name || '');
+              }}
+            >
+              <option value="">Select designation</option>
+              {(designations || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
           </Field>
           <Field label="Grade">
-            <input className={inputCls} value={data.grade} onChange={e => onChange('grade', e.target.value)} placeholder="L2, Senior, etc." />
+            <select
+              className={selectCls}
+              value={data.grade_id}
+              onChange={e => {
+                const chosen = (grades || []).find((g: any) => g.id === e.target.value);
+                onChange('grade_id', e.target.value);
+                onChange('grade', chosen?.name || '');
+              }}
+            >
+              <option value="">Select grade</option>
+              {(grades || []).map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
           </Field>
           <Field label="Reporting Manager">
             <select className={selectCls} value={data.supervisor_id} onChange={e => onChange('supervisor_id', e.target.value)}>
@@ -687,6 +709,22 @@ export default function AddEmployee() {
     staleTime: 300000,
   });
 
+  const { data: designations } = useQuery({
+    queryKey: ['designations', employment.department_id || 'all'],
+    queryFn: () => apiRequest<any>(
+      employment.department_id ? `${API_ENDPOINTS.DESIGNATION.LIST}?department_id=${employment.department_id}` : API_ENDPOINTS.DESIGNATION.LIST
+    ),
+    select: (r: any) => r?.payload || [],
+    staleTime: 300000,
+  });
+
+  const { data: grades } = useQuery({
+    queryKey: ['grades'],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.GRADE.LIST),
+    select: (r: any) => r?.payload || [],
+    staleTime: 300000,
+  });
+
   const { data: users } = useQuery({
     queryKey: ['user-list-brief'],
     queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200&status=ACTIVE`),
@@ -728,6 +766,8 @@ export default function AddEmployee() {
           employee_id:   employment.employee_id || undefined,
           hire_date:     employment.hire_date || undefined,
           designation:   employment.designation || undefined,
+          designation_id: employment.designation_id || undefined,
+          grade_id:      employment.grade_id || undefined,
           department_id: employment.department_id || undefined,
           supervisor_id: employment.supervisor_id || undefined,
           business_unit: 'ERP',

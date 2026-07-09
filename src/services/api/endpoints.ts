@@ -24,6 +24,8 @@ export const API_ENDPOINTS = {
     DETAIL:      (id: string | number) => `${v1}/team/${id}`,
     UPDATE:      (id: string | number) => `${v1}/team/${id}`,
     DELETE:      (id: string | number) => `${v1}/team/${id}`,
+    MEMBERS:     (id: string | number) => `${v1}/team/${id}/members`,
+    MEMBER:      (id: string | number, userId: string) => `${v1}/team/${id}/members/${userId}`,
   },
   DEPARTMENT: {
     LIST:      `${v1}/department`,
@@ -32,6 +34,26 @@ export const API_ENDPOINTS = {
     UPDATE:    (id: string | number) => `${v1}/department/${id}`,
     DELETE:    (id: string | number) => `${v1}/department/${id}`,
     DIVISIONS: (id: string | number) => `${v1}/department/${id}/divisions`,
+  },
+  DIVISION: {
+    LIST:   `${v1}/divisions`,
+    DETAIL: (id: string | number) => `${v1}/divisions/${id}`,
+    UPDATE: (id: string | number) => `${v1}/divisions/${id}`,
+    DELETE: (id: string | number) => `${v1}/divisions/${id}`,
+  },
+  DESIGNATION: {
+    LIST:   `${v1}/designations`,
+    CREATE: `${v1}/designations`,
+    DETAIL: (id: string | number) => `${v1}/designations/${id}`,
+    UPDATE: (id: string | number) => `${v1}/designations/${id}`,
+    DELETE: (id: string | number) => `${v1}/designations/${id}`,
+  },
+  GRADE: {
+    LIST:   `${v1}/grades`,
+    CREATE: `${v1}/grades`,
+    DETAIL: (id: string | number) => `${v1}/grades/${id}`,
+    UPDATE: (id: string | number) => `${v1}/grades/${id}`,
+    DELETE: (id: string | number) => `${v1}/grades/${id}`,
   },
   ROLE: {
     LIST: `${v1}/user/roles`,
@@ -68,7 +90,9 @@ export const API_ENDPOINTS = {
     DELETE: (id: string | number) => `${v1}/project/${id}`,
     SAVE:      (id: string | number) => `${v1}/project/${id}/save`,
     UNSAVE:    (id: string | number) => `${v1}/project/${id}/save`,
+    BUDGET:    (id: string | number) => `${v1}/project/${id}/budget`,
     EXTENSION: (id: string | number) => `${v1}/project/${id}/extension`,
+    EXTENSION_REVIEW: (id: string | number, requestId: string) => `${v1}/project/${id}/extension/${requestId}`,
   },
   TRACKING_LINKS: {
     LIST:   (projectId: string) => `${v1}/project/${projectId}/tracking-links`,
