@@ -298,6 +298,12 @@ export const API_ENDPOINTS = {
     UPDATE: (userId: string, id: string) => `${v1}/employment-history/${userId}/${id}`,
     DELETE: (userId: string, id: string) => `${v1}/employment-history/${userId}/${id}`,
   },
+  EMERGENCY_CONTACTS: {
+    LIST:   (userId: string) => `${v1}/emergency-contacts/${userId}`,
+    CREATE: (userId: string) => `${v1}/emergency-contacts/${userId}`,
+    UPDATE: (id: string) => `${v1}/emergency-contacts/${id}`,
+    DELETE: (id: string) => `${v1}/emergency-contacts/${id}`,
+  },
   INCREMENT: {
     LIST:      `${v1}/increment`,
     CALCULATE: (userId: string) => `${v1}/increment/calculate/${userId}`,
