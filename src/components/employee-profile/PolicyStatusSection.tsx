@@ -17,13 +17,13 @@ export interface PolicyStatusSectionProps {
   policy_acknowledgements: any[];
 }
 
-const PolicyStatusSection: React.FC<PolicyStatusSectionProps> = ({ policy_acknowledgements }) => {
+const PolicyStatusSection: React.FC<PolicyStatusSectionProps> = ({ policy_acknowledgements: policyAcknowledgements }) => {
   const { data: policies = [], isLoading } = useGetPolicies();
 
   const mandatoryPolicies = (policies as any[]).filter((p: any) => p.is_mandatory && p.is_published);
 
   const ackByPolicyId = new Map<string, any>();
-  (policy_acknowledgements || []).forEach((pa: any) => {
+  (policyAcknowledgements || []).forEach((pa: any) => {
     const policyId = pa.policy?.id ?? pa.policy_id;
     if (policyId) ackByPolicyId.set(policyId, pa);
   });

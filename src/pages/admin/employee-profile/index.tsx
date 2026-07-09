@@ -19,6 +19,9 @@ import { useGetGradesQuery } from '@/services/gradeService';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useQuery } from '@tanstack/react-query';
+import EmergencyContactsSection from '@/components/employee-profile/EmergencyContactsSection';
+import PolicyStatusSection from '@/components/employee-profile/PolicyStatusSection';
+import EducationExperienceSection from '@/components/employee-profile/EducationExperienceSection';
 
 const InfoRow: React.FC<{ label: string; value?: string | null }> = ({ label, value }) => (
   <div>
@@ -90,11 +93,12 @@ const PROBATION_STATUSES = [
 // here — all state and mutations stay owned by EmployeeProfilePage and are
 // passed in as props, matching the pattern already used by InfoRow.
 
-const OverviewSection: React.FC<{ user: any; profile: any; onboarding_tasks: any[]; asset_assignments: any[]; leave_balances: any[] }> = ({
+const OverviewSection: React.FC<{ user: any; profile: any; onboarding_tasks: any[]; asset_assignments: any[]; leave_balances: any[]; employeeId?: string }> = ({
   user, profile,
   onboarding_tasks: onboardingTasks,
   asset_assignments: assetAssignments,
   leave_balances: leaveBalances,
+  employeeId,
 }) => (
   <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
     <Card>
@@ -113,20 +117,16 @@ const OverviewSection: React.FC<{ user: any; profile: any; onboarding_tasks: any
     </Card>
 
     <Card>
-      <h3 className="text-base font-black text-gray-900 mb-4">Address & Emergency Contact</h3>
+      <h3 className="text-base font-black text-gray-900 mb-4">Address</h3>
       <div className="grid grid-cols-1 gap-4">
         <InfoRow label="Current Address" value={profile?.current_address} />
         <InfoRow label="Permanent Address" value={profile?.permanent_address} />
-        <div className="border-t border-gray-100 pt-3 mt-1">
-          <p className="text-xs font-black text-gray-400 uppercase tracking-wide mb-3">Emergency Contact</p>
-          <div className="grid grid-cols-2 gap-3">
-            <InfoRow label="Name" value={profile?.emergency_contact_name} />
-            <InfoRow label="Relation" value={profile?.emergency_contact_relation} />
-            <InfoRow label="Phone" value={profile?.emergency_contact_phone} />
-          </div>
-        </div>
       </div>
     </Card>
+
+    {/* Emergency Contacts — one-to-many manager (Milestone 4), replacing the
+        old single flat-field, display-only contact previously shown here. */}
+    {employeeId && <EmergencyContactsSection userId={employeeId} />}
 
     <Card>
       <h3 className="text-base font-black text-gray-900 mb-4">Quick Stats</h3>
@@ -477,22 +477,10 @@ const HistorySection: React.FC<{ user: any; profile: any; asset_assignments: any
       </div>
     </Card>
 
-    {/* Policy Acknowledgements — extracted into its own read-only card
-        (Milestone 3). Same data, same fields; previously buried as inline
-        entries inside the Timeline card above. */}
-    <Card>
-      <h3 className="text-base font-black text-gray-900 mb-4">Policy Acknowledgements</h3>
-      {policyAcknowledgements?.length > 0 ? (
-        <div className="space-y-2">
-          {policyAcknowledgements.map((pa: any) => (
-            <div key={pa.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-              <p className="text-sm font-semibold text-gray-800">{pa.policy?.title}</p>
-              <span className="text-xs text-gray-400">{new Date(pa.acknowledged_at).toLocaleDateString()}</span>
-            </div>
-          ))}
-        </div>
-      ) : <p className="text-sm text-gray-400">No policies acknowledged yet</p>}
-    </Card>
+    {/* Policy Status — Outstanding vs. Acknowledged against all mandatory
+        published policies (Milestone 5), replacing the Milestone 3 card that
+        only ever listed what was already acknowledged. */}
+    <PolicyStatusSection policy_acknowledgements={policyAcknowledgements} />
 
     {/* Assigned Assets — single source of truth (Milestone 3 removed the
         duplicate rendering that previously also appeared inline above). */}
@@ -606,6 +594,7 @@ const EmployeeProfilePage: React.FC = () => {
         <OverviewSection
           user={user} profile={profile} onboarding_tasks={onboarding_tasks}
           asset_assignments={asset_assignments} leave_balances={leave_balances}
+          employeeId={employeeId}
         />
       ),
     },
@@ -643,6 +632,13 @@ const EmployeeProfilePage: React.FC = () => {
           docs={docs} docTypes={docTypes} showAddDoc={showAddDoc} setShowAddDoc={setShowAddDoc}
           newDoc={newDoc} setNewDoc={setNewDoc} createDoc={createDoc} deleteDoc={deleteDoc} handleAddDoc={handleAddDoc}
         />
+      ),
+    },
+    {
+      id: 'Education',
+      label: 'Education & Experience',
+      render: () => (
+        employeeId ? <EducationExperienceSection userId={employeeId} /> : null
       ),
     },
     {
