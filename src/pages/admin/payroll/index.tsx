@@ -43,6 +43,9 @@ interface PayrollEntry {
   tax_amount: number;
   deductions: number;
   net_amount: number;
+  calculated_net_amount: number;
+  validation_status: 'PASSED' | 'FAILED';
+  validation_reason: string | null;
   status: string;
   user?: { id: string; first_name: string; last_name: string; email: string };
   run?: { period_month: number; period_year: number };
@@ -65,11 +68,13 @@ function printPayslip(entry: PayrollEntry) {
       h1{color:#005CDA}table{width:100%;border-collapse:collapse;margin:16px 0}
       td,th{padding:8px 12px;border:1px solid #e5e7eb;text-align:left}
       th{background:#f9fafb;font-weight:600}.total{font-weight:700;background:#eff6ff}
+      .validation-warning{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;padding:12px 16px;border-radius:8px;font-size:13px;margin:16px 0}
     </style></head><body>
       <h1>TekXAI</h1>
       <h2>Pay Slip — ${entry.run?.period_month}/${entry.run?.period_year}</h2>
       <p><strong>Employee:</strong> ${entry.user?.first_name} ${entry.user?.last_name}</p>
       <p><strong>Email:</strong> ${entry.user?.email}</p>
+      ${entry.validation_status === 'FAILED' ? `<div class="validation-warning"><strong>Validation Failed:</strong> ${entry.validation_reason || 'Negative net pay.'}</div>` : ''}
       <table>
         <tr><th>Component</th><th>Amount (PKR)</th></tr>
         <tr><td>Base Salary</td><td>${entry.base_salary.toLocaleString()}</td></tr>
@@ -262,7 +267,21 @@ const PayrollPage: React.FC = () => {
     { header: 'Bonus', key: 'bonus_amount', render: (r) => fmt(r.bonus_amount) },
     { header: 'Gross', key: 'gross_amount', render: (r) => <span className="font-bold">{fmt(r.gross_amount)}</span> },
     { header: 'Deductions', key: 'deductions', render: (r) => <span className="text-red-500 font-bold">({fmt(r.deductions)})</span> },
-    { header: 'Net Pay', key: 'net_amount', render: (r) => <span className="font-black text-green-600">{fmt(r.net_amount)}</span> },
+    {
+      header: 'Net Pay', key: 'net_amount',
+      render: (r) => (
+        <div className="flex flex-col gap-0.5">
+          <span className={cn('font-black', r.validation_status === 'FAILED' ? 'text-red-600' : 'text-green-600')}>
+            {fmt(r.net_amount)}
+          </span>
+          {r.validation_status === 'FAILED' && (
+            <span className="text-[10px] font-bold text-red-500 max-w-[220px]" title={r.validation_reason || ''}>
+              Validation failed — calculated {fmt(r.calculated_net_amount)}
+            </span>
+          )}
+        </div>
+      ),
+    },
     {
       header: 'Status', key: 'status',
       render: (r) => <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-600">{r.status}</span>,
