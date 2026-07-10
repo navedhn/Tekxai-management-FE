@@ -4,6 +4,7 @@ import DatePicker from './DatePicker';
 import Textarea from './Textarea';
 import Button from './Button';
 import { useGetTimeOffPolicies, useCreateTimeOffRequestMutation } from '@/services/timesheetService';
+import { useGetMyLeaveBalances } from '@/services/leaveBalanceService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 
 interface RequestTimeOffModalProps {
@@ -21,6 +22,10 @@ const RequestTimeOffModal: React.FC<RequestTimeOffModalProps> = ({ isOpen, onClo
 
   const { data: policiesData } = useGetTimeOffPolicies(isOpen);
   const policies = policiesData || [];
+
+  const { data: balances } = useGetMyLeaveBalances();
+  const selectedPolicyId = policyId || policies[0]?.id || '';
+  const selectedBalance = (balances || []).find((b: any) => b.policy_id === selectedPolicyId);
 
   const { mutate: createRequest, isPending } = useCreateTimeOffRequestMutation();
 
@@ -72,6 +77,14 @@ const RequestTimeOffModal: React.FC<RequestTimeOffModalProps> = ({ isOpen, onClo
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
+            {selectedBalance && (
+              <p className="text-xs font-semibold text-gray-500">
+                Remaining: <span className="text-gray-900 font-black">{selectedBalance.remaining_days}</span> of {selectedBalance.total_days} days
+                {selectedBalance.pending_days > 0 && (
+                  <span> &middot; {selectedBalance.pending_days} pending</span>
+                )}
+              </p>
+            )}
           </div>
         )}
         {policies.length === 0 && (

@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Calendar, MoreVertical } from 'lucide-react'
 import { cn } from '@/utils/cn';
 import RequestTimeOffModal from '@/components/ui/RequestTimeOffModal';
 import { useGetTimeOffRequests, useGetWeeklyTimesheet, TimesheetEntry } from '@/services/timesheetService';
+import { useGetMyShiftQuery, useGetMyAttendanceSummary } from '@/services/attendanceService';
 import { CardSkeleton } from '@/components/skeletons';
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
@@ -85,6 +86,9 @@ const EmployeeTimesheet: React.FC = () => {
     activeTab === 'My Requests'
   );
 
+  const { data: myShift } = useGetMyShiftQuery();
+  const { data: mySummary } = useGetMyAttendanceSummary();
+
   // For monthly: accumulate multiple weeks
   const monthWeeks = (() => {
     if (activeTab !== 'Monthly') return null;
@@ -146,6 +150,29 @@ const EmployeeTimesheet: React.FC = () => {
           <p className="text-sm text-gray-400 font-bold">View and manage your time entries</p>
         </div>
       </div>
+
+      {/* My Shift + This Month's Summary */}
+      <Card className="flex flex-wrap items-center gap-8 shadow-xl border-none bg-white">
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">My Shift</span>
+          <span className="text-sm font-black text-gray-900">
+            {myShift ? `${myShift.name} · ${myShift.start_time}–${myShift.end_time}` : 'No shift assigned'}
+          </span>
+        </div>
+        <div className="h-8 w-px bg-gray-100" />
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Working Days (This Month)</span>
+          <span className="text-sm font-black text-gray-900">{mySummary?.total_working_days ?? '—'}</span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Late Count</span>
+          <span className="text-sm font-black text-gray-900">{mySummary?.late_count ?? '—'}</span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Total Late Minutes</span>
+          <span className="text-sm font-black text-gray-900">{mySummary?.total_late_minutes ?? '—'}</span>
+        </div>
+      </Card>
 
       <Tabs options={VIEW_TABS} value={activeTab} onChange={setActiveTab} />
 
