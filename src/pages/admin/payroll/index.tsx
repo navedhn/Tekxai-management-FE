@@ -31,6 +31,12 @@ interface PayrollEntry {
   base_salary: number;
   present_days: number;
   working_days: number;
+  paid_leave_days: number;
+  unpaid_leave_days: number;
+  absent_days: number;
+  late_violation_count: number;
+  late_deduction: number;
+  absence_penalty: number;
   overtime_amount: number;
   bonus_amount: number;
   gross_amount: number;
@@ -68,10 +74,15 @@ function printPayslip(entry: PayrollEntry) {
         <tr><th>Component</th><th>Amount (PKR)</th></tr>
         <tr><td>Base Salary</td><td>${entry.base_salary.toLocaleString()}</td></tr>
         <tr><td>Present Days</td><td>${entry.present_days} / ${entry.working_days}</td></tr>
+        <tr><td>Paid Leave Days</td><td>${entry.paid_leave_days ?? 0}</td></tr>
+        <tr><td>Unpaid Leave Days</td><td>${entry.unpaid_leave_days ?? 0}</td></tr>
+        <tr><td>Absent Days</td><td>${entry.absent_days ?? 0}</td></tr>
         <tr><td>Overtime</td><td>${entry.overtime_amount.toLocaleString()}</td></tr>
         <tr><td>Bonus</td><td>${entry.bonus_amount.toLocaleString()}</td></tr>
         <tr><td>Gross Earnings</td><td>${entry.gross_amount.toLocaleString()}</td></tr>
         <tr><td>Tax Deduction</td><td>(${entry.tax_amount.toLocaleString()})</td></tr>
+        <tr><td>Late Deduction${entry.late_violation_count ? ` (${entry.late_violation_count} occurrence${entry.late_violation_count === 1 ? '' : 's'})` : ''}</td><td>(${(entry.late_deduction ?? 0).toLocaleString()})</td></tr>
+        <tr><td>Absence Penalty</td><td>(${(entry.absence_penalty ?? 0).toLocaleString()})</td></tr>
         <tr><td>Total Deductions</td><td>(${entry.deductions.toLocaleString()})</td></tr>
         <tr class="total"><td>Net Pay</td><td>${entry.net_amount.toLocaleString()}</td></tr>
       </table>
@@ -237,6 +248,15 @@ const PayrollPage: React.FC = () => {
     {
       header: 'Attendance', key: 'present_days',
       render: (r) => <span className="font-bold">{r.present_days} / {r.working_days}</span>,
+    },
+    {
+      header: 'Leave / Absent', key: 'paid_leave_days',
+      render: (r) => (
+        <span className="text-xs font-bold text-gray-500">
+          {r.paid_leave_days || 0} paid · {r.unpaid_leave_days || 0} unpaid
+          {(r.absent_days || 0) > 0 && <span className="text-red-500"> · {r.absent_days} absent</span>}
+        </span>
+      ),
     },
     { header: 'Overtime', key: 'overtime_amount', render: (r) => fmt(r.overtime_amount) },
     { header: 'Bonus', key: 'bonus_amount', render: (r) => fmt(r.bonus_amount) },
