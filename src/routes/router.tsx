@@ -76,14 +76,17 @@ const ReportBuilderPage      = lazy(() => import('@/pages/admin/report-builder')
 
 // CRM workspace pages
 const CRMDashboard           = lazy(() => import('@/pages/crm/dashboard'));
-const CRMPipeline            = lazy(() => import('@/pages/crm/pipeline'));
 const CRMHandoffs            = lazy(() => import('@/pages/crm/handoffs'));
 const CRMInvoices            = lazy(() => import('@/pages/crm/invoices'));
 const CRMTeamPage            = lazy(() => import('@/pages/crm/team'));
-const MarketingWonDeals      = lazy(() => import('@/pages/marketing/won-deals'));
-const MarketingUpwork        = lazy(() => import('@/pages/marketing/upwork'));
-const MarketingLinkedIn      = lazy(() => import('@/pages/marketing/linkedin'));
-const MarketingEmailLeads    = lazy(() => import('@/pages/marketing/email-leads'));
+// Sales CRM pages — retained for the future standalone Sales CRM app (shares this
+// backend/DB), but no longer routed/navigable from the ERP CRM workspace.
+// See Tekxai-Operations-OS/08-Master-Gap-Analysis.md §5.
+// const CRMPipeline            = lazy(() => import('@/pages/crm/pipeline'));
+// const MarketingWonDeals      = lazy(() => import('@/pages/marketing/won-deals'));
+// const MarketingUpwork        = lazy(() => import('@/pages/marketing/upwork'));
+// const MarketingLinkedIn      = lazy(() => import('@/pages/marketing/linkedin'));
+// const MarketingEmailLeads    = lazy(() => import('@/pages/marketing/email-leads'));
 const MarketingDeposits      = lazy(() => import('@/pages/marketing/deposits'));
 const MarketingTargets       = lazy(() => import('@/pages/marketing/targets'));
 const MarketingMyReport      = lazy(() => import('@/pages/marketing/my-report'));
@@ -210,15 +213,13 @@ const routes: RouteObject[] = [
         element: <ProtectedRoute roles={crmRoles} />,
         children: [
           { path: '/crm',                             element: <CRMDashboard /> },
-          { path: '/crm/upwork',                      element: <MarketingUpwork /> },
-          { path: '/crm/linkedin',                    element: <MarketingLinkedIn /> },
-          { path: '/crm/email-leads',                 element: <MarketingEmailLeads /> },
-          { path: '/crm/won-deals',                   element: <MarketingWonDeals /> },
+          // Sales CRM routes (Pipeline/All Leads, Upwork Bids, LinkedIn Leads, Email
+          // Leads, Won/Marketing Deals) are intentionally not registered here — see
+          // Tekxai-Operations-OS/08-Master-Gap-Analysis.md §5. Backend untouched.
           { path: '/crm/deposits',                    element: <MarketingDeposits /> },
           { path: '/crm/targets',                     element: <MarketingTargets /> },
           { path: '/crm/my-report',                   element: <MarketingMyReport /> },
           { path: '/crm/my-salaries',                 element: <MarketingMySalaries /> },
-          { path: '/crm/pipeline',                    element: <CRMPipeline /> },
           { path: '/crm/handoffs',                    element: <CRMHandoffs /> },
           { path: '/crm/notifications',               element: <SharedNotifications /> },
           { path: '/crm/profile/:memberId?',          element: <ProfilePage /> },

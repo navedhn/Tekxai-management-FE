@@ -1,9 +1,9 @@
 import React, { memo, useCallback } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, Trophy, Briefcase, Linkedin, Mail, Wallet, Target,
+  LayoutDashboard, Wallet, Target,
   FileBarChart, DollarSign, BarChart2, Archive, Building2, Calculator,
-  Users, LogOut, X, FileText, ArrowRight, GitBranch, Receipt,
+  Users, LogOut, X, FileText, ArrowRight, Receipt,
 } from 'lucide-react';
 import { useLogoutMutation } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
@@ -48,14 +48,12 @@ const CRMSidebar: React.FC<CRMSidebarProps> = memo(({ isOpen, onClose }) => {
     financeOnly?: boolean;
   };
 
+  // Sales CRM nav (Pipeline/All Leads, Upwork Bids, LinkedIn Leads, Email Leads,
+  // Won Deals) intentionally removed from this sidebar — those pages will move to
+  // a standalone Sales CRM app sharing this backend/DB. See
+  // Tekxai-Operations-OS/08-Master-Gap-Analysis.md §5. Backend/routes untouched.
   const links: NavEntry[] = [
     { section: 'Overview',    to: '/crm',            label: 'CRM Dashboard',        icon: LayoutDashboard, end: true },
-    { section: 'Pipeline',    to: '/crm/pipeline',   label: 'Pipeline / All Leads', icon: GitBranch },
-    {                         to: '/crm/upwork',      label: 'Upwork Bids',          icon: Briefcase },
-    {                         to: '/crm/linkedin',    label: 'LinkedIn Leads',       icon: Linkedin },
-    {                         to: '/crm/email-leads', label: 'Email Leads',          icon: Mail },
-    { section: 'Deals',       to: '/crm/won-deals',  label: 'Won Deals – Intern',   icon: Trophy, team: 'intern' },
-    {                         to: '/crm/won-deals',  label: 'Won Deals – Sales',    icon: Trophy, team: 'sales' },
     // Finance / admin — only visible to Admin/Super Admin
     {                         to: '/crm/deposits',   label: 'Deposits',             icon: Wallet,     financeOnly: true },
     { section: 'Accounts',    to: '/crm/clients',    label: 'Client Accounts',      icon: Building2,  financeOnly: true },
