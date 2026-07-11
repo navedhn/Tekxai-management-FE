@@ -4,9 +4,9 @@ import Card from '@/components/ui/Card';
 import DashboardStatCard from '@/components/ui/DashboardStatCard';
 import { cn } from '@/utils/cn';
 import {
-  Building2, FolderKanban, Clock, CheckCircle2, AlertTriangle, CalendarClock,
-  ShieldAlert, Ban, Users, Milestone, UserX, MessageSquareWarning,
-  CalendarDays, CalendarX2, Activity, UserCheck, UserMinus, Layers, Smile,
+  Building2, FolderKanban, Clock, AlertTriangle, CalendarClock, ShieldAlert,
+  Ban, Users, Milestone, UserX, MessageSquareWarning,
+  CalendarDays, CalendarX2, CheckCircle2, UserCheck, UserMinus, Layers, Smile,
 } from 'lucide-react';
 
 const fmt_date = (d: string | null) =>
@@ -97,21 +97,20 @@ const CRMDashboard: React.FC = () => {
           <DashboardStatCard icon={<Building2 size={20} className="text-blue-600" />} iconClassName="bg-blue-50" value={top_kpis.active_clients} label="Active Clients" showDivider />
           <DashboardStatCard icon={<FolderKanban size={20} className="text-indigo-600" />} iconClassName="bg-indigo-50" value={top_kpis.active_projects} label="Active Projects" showDivider />
           <DashboardStatCard icon={<Clock size={20} className="text-gray-500" />} iconClassName="bg-gray-100" value={top_kpis.queued_projects} label="Queued Projects" showDivider />
-          <DashboardStatCard icon={<CheckCircle2 size={20} className="text-green-600" />} iconClassName="bg-green-50" value={top_kpis.completed_projects} label="Completed Projects" showDivider />
           <DashboardStatCard icon={<AlertTriangle size={20} className="text-red-600" />} iconClassName="bg-red-50" value={top_kpis.overdue_projects} label="Overdue Projects" showDivider />
-          <DashboardStatCard icon={<CalendarClock size={20} className="text-orange-600" />} iconClassName="bg-orange-50" value={top_kpis.projects_due_this_week} label="Due This Week" />
+          <DashboardStatCard icon={<CalendarClock size={20} className="text-orange-600" />} iconClassName="bg-orange-50" value={top_kpis.projects_due_this_week} label="Due This Week" showDivider />
+          <DashboardStatCard icon={<ShieldAlert size={20} className="text-rose-600" />} iconClassName="bg-rose-50" value={top_kpis.critical_projects} label="Critical Projects" />
         </div>
       </Card>
 
       {/* Project Health */}
       <SectionCard title="Project Health">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <HealthTile icon={<ShieldAlert size={16} className="text-red-600" />} tone="bg-red-50" label="Critical Projects" count={project_health.critical_projects.count} projects={project_health.critical_projects.projects} />
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           <HealthTile icon={<Ban size={16} className="text-gray-600" />} tone="bg-gray-100" label="Blocked Projects" count={project_health.blocked_projects.count} projects={project_health.blocked_projects.projects} />
+          <HealthTile icon={<MessageSquareWarning size={16} className="text-blue-600" />} tone="bg-blue-50" label="Waiting for Client" count={project_health.waiting_for_client.count} projects={project_health.waiting_for_client.projects} />
           <HealthTile icon={<Users size={16} className="text-amber-600" />} tone="bg-amber-50" label="Missing Team Members" count={project_health.missing_team_members.count} projects={project_health.missing_team_members.projects} />
-          <HealthTile icon={<Milestone size={16} className="text-purple-600" />} tone="bg-purple-50" label="Missing Milestones" count={project_health.missing_milestones.count} projects={project_health.missing_milestones.projects} />
           <HealthTile icon={<UserX size={16} className="text-rose-600" />} tone="bg-rose-50" label="Missing Project Manager" count={project_health.missing_project_manager.count} projects={project_health.missing_project_manager.projects} />
-          <HealthTile icon={<MessageSquareWarning size={16} className="text-blue-600" />} tone="bg-blue-50" label="Waiting for Client Response" count={project_health.waiting_for_client_response.count} projects={project_health.waiting_for_client_response.projects} />
+          <HealthTile icon={<Milestone size={16} className="text-purple-600" />} tone="bg-purple-50" label="Missing Milestones" count={project_health.missing_milestones.count} projects={project_health.missing_milestones.projects} />
         </div>
       </SectionCard>
 
@@ -176,16 +175,10 @@ const CRMDashboard: React.FC = () => {
             items={timeline.upcoming_milestones.map((m) => ({ key: m.id, primary: `${m.title} — ${m.project.title}`, secondary: fmt_date(m.due_date) }))}
           />
           <ListPanel
-            icon={<Milestone size={14} className="text-red-500" />}
-            title="Overdue Milestones"
-            empty="No overdue milestones."
-            items={timeline.overdue_milestones.map((m) => ({ key: m.id, primary: `${m.title} — ${m.project.title}`, secondary: fmt_date(m.due_date) }))}
-          />
-          <ListPanel
-            icon={<Activity size={14} className="text-gray-400" />}
-            title="No Activity (7+ Days)"
-            empty="All projects have recent activity."
-            items={timeline.projects_with_no_activity.map((p) => ({ key: p.id, primary: p.title, secondary: fmt_date(p.last_updated) }))}
+            icon={<CheckCircle2 size={14} className="text-green-500" />}
+            title="Recently Completed Projects"
+            empty="No recently completed projects."
+            items={timeline.recently_completed_projects.map((p) => ({ key: p.id, primary: p.title, secondary: fmt_date(p.completed_at) }))}
           />
         </div>
       </SectionCard>
@@ -219,18 +212,14 @@ const CRMDashboard: React.FC = () => {
 
         {/* Client Success */}
         <SectionCard title="Client Success">
-          <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-3 gap-3 mb-4">
             <div className="rounded-xl border border-gray-100 p-3">
-              <div className="text-xl font-black text-gray-900">{client_success.clients_with_active_projects}</div>
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Clients w/ Active Projects</div>
+              <div className="text-xl font-black text-gray-900">{client_success.active_clients}</div>
+              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Active Clients</div>
             </div>
             <div className="rounded-xl border border-gray-100 p-3">
               <div className="text-xl font-black text-blue-600">{client_success.clients_waiting_for_feedback}</div>
               <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Waiting for Feedback</div>
-            </div>
-            <div className="rounded-xl border border-gray-100 p-3">
-              <div className="text-xl font-black text-amber-600">{client_success.projects_waiting_for_client}</div>
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Projects Waiting on Client</div>
             </div>
             <div className="rounded-xl border border-gray-100 p-3 flex items-center gap-2">
               <Smile size={18} className="text-gray-300" />

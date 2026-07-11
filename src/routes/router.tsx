@@ -228,7 +228,8 @@ const routes: RouteObject[] = [
             element: <ProtectedRoute roles={adminRoles} />,
             children: [
               { path: '/crm/clients',                 element: <AdminCRM /> },
-              { path: '/crm/estimator',               element: <AdminEstimator /> },
+              // /crm/estimator removed — zero backend persistence, not a real
+              // feature. /admin/estimator (unrelated page) is untouched below.
               { path: '/crm/contracts',               element: <AdminContracts /> },
               { path: '/crm/invoices',                element: <CRMInvoices /> },
               { path: '/crm/hr-dashboard',            element: <MarketingHRDashboard /> },
