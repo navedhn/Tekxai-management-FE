@@ -2,7 +2,7 @@ import React, { memo, useCallback } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Wallet, Target,
-  FileBarChart, DollarSign, BarChart2, Archive, Building2, Calculator,
+  FileBarChart, DollarSign, BarChart2, Archive, Building2,
   Users, LogOut, X, FileText, ArrowRight, Receipt,
 } from 'lucide-react';
 import { useLogoutMutation } from '@/services/authService';
@@ -59,7 +59,9 @@ const CRMSidebar: React.FC<CRMSidebarProps> = memo(({ isOpen, onClose }) => {
     { section: 'Accounts',    to: '/crm/clients',    label: 'Client Accounts',      icon: Building2,  financeOnly: true },
     {                         to: '/crm/invoices',   label: 'Invoices',             icon: Receipt,    financeOnly: true },
     {                         to: '/crm/contracts',  label: 'Contracts',            icon: FileText,   financeOnly: true },
-    {                         to: '/crm/estimator',  label: 'Estimator',            icon: Calculator, financeOnly: true },
+    // Estimator removed — zero backend persistence, not a real feature (see
+    // Tekxai-Operations-OS/08-Master-Gap-Analysis.md §5). Route de-registered
+    // in router.tsx too; /admin/estimator (a separate, unrelated page) is untouched.
     { section: 'ERP Handoff', to: '/crm/handoffs',   label: 'ERP Handoffs',         icon: ArrowRight },
     { section: 'My Work',     to: '/crm/targets',    label: 'Targets',              icon: Target },
     {                         to: '/crm/my-report',  label: 'My Report',            icon: FileBarChart },

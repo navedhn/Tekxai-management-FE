@@ -63,25 +63,23 @@ export interface PostSalesDashboard {
     active_clients: number;
     active_projects: number;
     queued_projects: number;
-    completed_projects: number;
     overdue_projects: number;
     projects_due_this_week: number;
+    critical_projects: number;
   };
   project_health: {
-    critical_projects: { count: number; projects: ProjectSummary[] };
     blocked_projects: { count: number; projects: ProjectSummary[] };
+    waiting_for_client: { count: number; projects: ProjectSummary[] };
     missing_team_members: { count: number; projects: ProjectSummary[] };
-    missing_milestones: { count: number; projects: ProjectSummary[] };
     missing_project_manager: { count: number; projects: ProjectSummary[] };
-    waiting_for_client_response: { count: number; projects: ProjectSummary[] };
+    missing_milestones: { count: number; projects: ProjectSummary[] };
   };
   status_distribution: Record<string, number>;
   timeline: {
     upcoming_due_dates: ProjectSummary[];
     overdue_due_dates: ProjectSummary[];
     upcoming_milestones: MilestoneSummary[];
-    overdue_milestones: MilestoneSummary[];
-    projects_with_no_activity: (ProjectSummary & { last_updated: string })[];
+    recently_completed_projects: (ProjectSummary & { completed_at: string })[];
   };
   resource_overview: {
     employee_allocation: EmployeeAllocation[];
@@ -91,9 +89,8 @@ export interface PostSalesDashboard {
     team_capacity: { total_employees: number; allocated: number; available: number; overload_threshold: number };
   };
   client_success: {
-    clients_with_active_projects: number;
+    active_clients: number;
     clients_waiting_for_feedback: number;
-    projects_waiting_for_client: number;
     client_satisfaction: number | null;
     recent_client_activity: ClientActivityEntry[];
   };
