@@ -1,9 +1,7 @@
 import React, { memo, useCallback } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, Wallet, Target,
-  FileBarChart, DollarSign, BarChart2, Archive, Building2,
-  Users, LogOut, X, FileText, ArrowRight, Receipt,
+  LayoutDashboard, Building2, LogOut, X, ArrowRight, Receipt,
 } from 'lucide-react';
 import { useLogoutMutation } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
@@ -25,9 +23,8 @@ const CRMSidebar: React.FC<CRMSidebarProps> = memo(({ isOpen, onClose }) => {
   const role = user?.role ?? (user as any)?.role_name ?? '';
   const isAdmin    = role === USER_ROLES.ADMIN || role === USER_ROLES.SUPER_ADMIN;
   const canSwitchWorkspace = isAdmin;
-  const isMarketer = role === USER_ROLES.MARKETING;
   // Admin/SuperAdmin see everything; MARKETING employees get scoped view
-  const canSeeFinance = isAdmin; // Invoices, Client Accounts, Contracts, Estimator, Deposits
+  const canSeeFinance = isAdmin; // Invoices, Client Accounts
 
   const logout = useCallback(async () => {
     await forceCheckoutApi('LOGOUT');
@@ -48,31 +45,21 @@ const CRMSidebar: React.FC<CRMSidebarProps> = memo(({ isOpen, onClose }) => {
     financeOnly?: boolean;
   };
 
-  // Sales CRM nav (Pipeline/All Leads, Upwork Bids, LinkedIn Leads, Email Leads,
-  // Won Deals) intentionally removed from this sidebar — those pages will move to
-  // a standalone Sales CRM app sharing this backend/DB. See
-  // Tekxai-Operations-OS/08-Master-Gap-Analysis.md §5. Backend/routes untouched.
+  // CRM Split Phase 4 (final cleanup): ERP CRM is now strictly Post-Sales — this
+  // sidebar shows only Dashboard, Client Accounts, Invoices, and ERP Handoffs.
+  // Everything else (Pipeline/Leads/Deals, Deposits, Targets, My Report,
+  // My Salaries, Team Hierarchy, HR Overview, Salary History, and Contracts —
+  // which opens the unrelated Employee Contracts module, not a real client-
+  // contracts feature) has been removed from this workspace's navigation.
+  // Backend/routes for all of it remain untouched for reuse by the future
+  // standalone Sales CRM app. See Tekxai-Operations-OS/08-Master-Gap-Analysis.md §5.
   const links: NavEntry[] = [
     { section: 'Overview',    to: '/crm',            label: 'CRM Dashboard',        icon: LayoutDashboard, end: true },
     // Finance / admin — only visible to Admin/Super Admin
-    {                         to: '/crm/deposits',   label: 'Deposits',             icon: Wallet,     financeOnly: true },
     { section: 'Accounts',    to: '/crm/clients',    label: 'Client Accounts',      icon: Building2,  financeOnly: true },
     {                         to: '/crm/invoices',   label: 'Invoices',             icon: Receipt,    financeOnly: true },
-    {                         to: '/crm/contracts',  label: 'Contracts',            icon: FileText,   financeOnly: true },
-    // Estimator removed — zero backend persistence, not a real feature (see
-    // Tekxai-Operations-OS/08-Master-Gap-Analysis.md §5). Route de-registered
-    // in router.tsx too; /admin/estimator (a separate, unrelated page) is untouched.
     { section: 'ERP Handoff', to: '/crm/handoffs',   label: 'ERP Handoffs',         icon: ArrowRight },
-    { section: 'My Work',     to: '/crm/targets',    label: 'Targets',              icon: Target },
-    {                         to: '/crm/my-report',  label: 'My Report',            icon: FileBarChart },
-    {                         to: '/crm/my-salaries',label: 'My Salaries',          icon: DollarSign },
   ];
-
-  if (isAdmin) {
-    links.push({ section: 'Admin', to: '/crm/team',          label: 'Team Hierarchy', icon: Users,     adminOnly: true });
-    links.push({                   to: '/crm/hr-dashboard',   label: 'HR Overview',    icon: BarChart2, adminOnly: true });
-    links.push({                   to: '/crm/salary-history', label: 'Salary History', icon: Archive,   adminOnly: true });
-  }
 
   const visibleLinks = links.filter(link => {
     if (link.financeOnly && !canSeeFinance) return false;
