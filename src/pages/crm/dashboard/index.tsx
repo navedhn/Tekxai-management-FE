@@ -66,15 +66,37 @@ const ListPanel: React.FC<{ icon: React.ReactNode; title: string; items: { key: 
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 const CRMDashboard: React.FC = () => {
-  const { data: d, isLoading } = useGetPostSalesDashboard();
+  const { data: d, isLoading, isError, error, refetch, isFetching } = useGetPostSalesDashboard();
 
-  if (isLoading || !d) {
+  if (isLoading) {
     return (
       <div className="flex flex-col gap-8 animate-pulse">
         <div className="h-8 bg-gray-200 rounded-xl w-64" />
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {[1, 2, 3, 4, 5, 6].map((i) => <div key={i} className="h-24 bg-gray-100 rounded-2xl" />)}
         </div>
+      </div>
+    );
+  }
+
+  // Previously, a failed request (auth hiccup, transient 5xx, network error) left the
+  // page stuck on the loading skeleton forever — isLoading becomes false but `d` stays
+  // undefined, and the old check (`isLoading || !d`) can't tell "still loading" apart
+  // from "failed to load". Surface the failure explicitly instead.
+  if (isError || !d) {
+    const message = (error as any)?.message || (error as any)?.data?.message || 'Failed to load the dashboard.';
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
+        <AlertTriangle size={28} className="text-red-400" />
+        <p className="text-sm font-bold text-gray-700">Couldn't load the Post-Sales Dashboard</p>
+        <p className="text-xs text-gray-500 max-w-sm">{message}</p>
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="mt-1 px-4 py-2 rounded-xl text-xs font-bold bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-60"
+        >
+          {isFetching ? 'Retrying…' : 'Retry'}
+        </button>
       </div>
     );
   }
