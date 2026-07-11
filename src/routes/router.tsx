@@ -78,21 +78,23 @@ const ReportBuilderPage      = lazy(() => import('@/pages/admin/report-builder')
 const CRMDashboard           = lazy(() => import('@/pages/crm/dashboard'));
 const CRMHandoffs            = lazy(() => import('@/pages/crm/handoffs'));
 const CRMInvoices            = lazy(() => import('@/pages/crm/invoices'));
-const CRMTeamPage            = lazy(() => import('@/pages/crm/team'));
 // Sales CRM pages — retained for the future standalone Sales CRM app (shares this
 // backend/DB), but no longer routed/navigable from the ERP CRM workspace.
 // See Tekxai-Operations-OS/08-Master-Gap-Analysis.md §5.
 // const CRMPipeline            = lazy(() => import('@/pages/crm/pipeline'));
+// const CRMTeamPage            = lazy(() => import('@/pages/crm/team'));
 // const MarketingWonDeals      = lazy(() => import('@/pages/marketing/won-deals'));
 // const MarketingUpwork        = lazy(() => import('@/pages/marketing/upwork'));
 // const MarketingLinkedIn      = lazy(() => import('@/pages/marketing/linkedin'));
 // const MarketingEmailLeads    = lazy(() => import('@/pages/marketing/email-leads'));
-const MarketingDeposits      = lazy(() => import('@/pages/marketing/deposits'));
-const MarketingTargets       = lazy(() => import('@/pages/marketing/targets'));
-const MarketingMyReport      = lazy(() => import('@/pages/marketing/my-report'));
+// const MarketingDeposits      = lazy(() => import('@/pages/marketing/deposits'));
+// const MarketingTargets       = lazy(() => import('@/pages/marketing/targets'));
+// const MarketingMyReport      = lazy(() => import('@/pages/marketing/my-report'));
+// const MarketingHRDashboard   = lazy(() => import('@/pages/marketing/hr-dashboard'));
+// const MarketingSalaryHistory = lazy(() => import('@/pages/marketing/salary-history'));
+// MarketingMySalaries and MarketingSalaryBuilder stay imported below — still used
+// by /hr/my-salaries and /marketing/salary-builder/:memberId respectively.
 const MarketingMySalaries    = lazy(() => import('@/pages/marketing/my-salaries'));
-const MarketingHRDashboard   = lazy(() => import('@/pages/marketing/hr-dashboard'));
-const MarketingSalaryHistory = lazy(() => import('@/pages/marketing/salary-history'));
 const MarketingSalaryBuilder = lazy(() => import('@/pages/marketing/salary-builder'));
 const MarketingDashboard     = lazy(() => import('@/pages/marketing/dashboard'));
 
@@ -213,13 +215,13 @@ const routes: RouteObject[] = [
         element: <ProtectedRoute roles={crmRoles} />,
         children: [
           { path: '/crm',                             element: <CRMDashboard /> },
-          // Sales CRM routes (Pipeline/All Leads, Upwork Bids, LinkedIn Leads, Email
-          // Leads, Won/Marketing Deals) are intentionally not registered here — see
-          // Tekxai-Operations-OS/08-Master-Gap-Analysis.md §5. Backend untouched.
-          { path: '/crm/deposits',                    element: <MarketingDeposits /> },
-          { path: '/crm/targets',                     element: <MarketingTargets /> },
-          { path: '/crm/my-report',                   element: <MarketingMyReport /> },
-          { path: '/crm/my-salaries',                 element: <MarketingMySalaries /> },
+          // CRM Split Phase 4 (final cleanup): ERP CRM is now strictly Post-Sales.
+          // Every route below except clients/invoices/handoffs/notifications/profile
+          // is Sales CRM (Deposits, Targets, My Report, My Salaries, Team Hierarchy,
+          // HR Overview, Salary History/Builder) or a mislabeled/broken feature
+          // (Contracts opens the unrelated Employee Contracts module) and has been
+          // de-registered — not deleted. Backend untouched. See
+          // Tekxai-Operations-OS/08-Master-Gap-Analysis.md §5.
           { path: '/crm/handoffs',                    element: <CRMHandoffs /> },
           { path: '/crm/notifications',               element: <SharedNotifications /> },
           { path: '/crm/profile/:memberId?',          element: <ProfilePage /> },
@@ -228,14 +230,7 @@ const routes: RouteObject[] = [
             element: <ProtectedRoute roles={adminRoles} />,
             children: [
               { path: '/crm/clients',                 element: <AdminCRM /> },
-              // /crm/estimator removed — zero backend persistence, not a real
-              // feature. /admin/estimator (unrelated page) is untouched below.
-              { path: '/crm/contracts',               element: <AdminContracts /> },
               { path: '/crm/invoices',                element: <CRMInvoices /> },
-              { path: '/crm/hr-dashboard',            element: <MarketingHRDashboard /> },
-              { path: '/crm/salary-history',          element: <MarketingSalaryHistory /> },
-              { path: '/crm/salary-builder/:memberId',element: <MarketingSalaryBuilder /> },
-              { path: '/crm/team',                    element: <CRMTeamPage /> },
             ],
           },
         ],
