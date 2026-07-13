@@ -9,6 +9,8 @@ import { useDeleteUserMutation, useBulkDeleteUsersMutation } from '@/services/us
 import { useToastContext } from '@/components/toast/ToastProvider';
 import UserFormModal from '@/components/ui/UserFormModal';
 import QuickCreateUserModal from '@/components/ui/QuickCreateUserModal';
+import { useGetDesignationsQuery } from '@/services/designationService';
+import { useGetRolesQuery } from '@/services/roleService';
 import { cn } from '@/utils/cn';
 
 const STATUS_STYLE: Record<string, string> = {
@@ -57,10 +59,22 @@ export default function EmployeeDirectory() {
   const [teamId, setTeam]                 = useState('');
   const [status, setStatus]               = useState(urlStatus);
   const [employmentStatus, setEmpStatus]  = useState(urlEmpStatus);
+  const [employeeIdFilter, setEmployeeIdFilter] = useState('');
+  const [roleFilter, setRoleFilter]             = useState('');
+  const [designationFilter, setDesignationFilter] = useState('');
   const [page, setPage]                   = useState(1);
   const [sortBy, setSortBy]               = useState('hire_date');
   const [sortDir, setSortDir]             = useState<'asc'|'desc'>('desc');
   const limit = 10;
+
+  const { data: rolesData = [] } = useGetRolesQuery();
+  const { data: designationsData = [] } = useGetDesignationsQuery();
+
+  // Employee ID / Role / Designation aren't filterable server-side on
+  // GET /employee, so when any of these is active we fetch the backend's
+  // max page size (100 — comfortably covers the whole org) and filter +
+  // paginate client-side, without touching the backend.
+  const clientFilterActive = !!(employeeIdFilter || roleFilter || designationFilter);
 
   // Selection state
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -85,7 +99,11 @@ export default function EmployeeDirectory() {
   }, [urlStatus, urlEmpStatus]);
 
   // Clear selection when page/filters change
-  useEffect(() => { setSelected(new Set()); }, [page, q, status, employmentStatus]);
+  useEffect(() => { setSelected(new Set()); }, [page, q, status, employmentStatus, employeeIdFilter, roleFilter, designationFilter]);
+  // Employee ID / Role / Designation have no server-side page concept of
+  // their own (client-side filtered below) — always restart at page 1 when
+  // any of them changes so results aren't left mid-list.
+  useEffect(() => { setPage(1); }, [employeeIdFilter, roleFilter, designationFilter]);
 
   const filters = useMemo(() => {
     const f: Record<string, any> = {
@@ -97,21 +115,37 @@ export default function EmployeeDirectory() {
       employment_status: employmentStatus || undefined,
       sort_by: sortBy,
       sort_dir: sortDir,
-      page,
-      limit,
+      page: clientFilterActive ? 1 : page,
+      limit: clientFilterActive ? 100 : limit,
     };
     if (urlFilter === 'new_this_month') {
       const now = new Date();
       f.hire_from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
     }
     return f;
-  }, [q, divisionId, deptId, teamId, status, employmentStatus, urlFilter, sortBy, sortDir, page, limit]);
+  }, [q, divisionId, deptId, teamId, status, employmentStatus, urlFilter, sortBy, sortDir, page, limit, clientFilterActive]);
 
   const { data, isLoading, refetch } = useGetEmployeeDirectory(filters);
-  const records: any[] = data?.records || [];
+  const rawRecords: any[] = data?.records || [];
   const stats = data?.stats || {};
-  const total = data?.total || 0;
-  const pages = data?.pages || 1;
+
+  // Client-side narrowing for the three filters GET /employee doesn't
+  // support server-side, applied over the larger fetched batch above.
+  const clientFiltered = useMemo(() => {
+    if (!clientFilterActive) return rawRecords;
+    return rawRecords.filter((e) => {
+      if (employeeIdFilter && !e.employee_id?.toLowerCase().includes(employeeIdFilter.toLowerCase())) return false;
+      if (roleFilter && e.role !== roleFilter) return false;
+      if (designationFilter && e.designation_id !== designationFilter) return false;
+      return true;
+    });
+  }, [rawRecords, clientFilterActive, employeeIdFilter, roleFilter, designationFilter]);
+
+  const records: any[] = clientFilterActive
+    ? clientFiltered.slice((page - 1) * limit, page * limit)
+    : rawRecords;
+  const total = clientFilterActive ? clientFiltered.length : (data?.total || 0);
+  const pages = clientFilterActive ? Math.max(1, Math.ceil(clientFiltered.length / limit)) : (data?.pages || 1);
 
   const handleExport = () => {
     const headers = ['Name', 'Email', 'Employee ID', 'Department', 'Designation', 'Status', 'Hire Date'];
@@ -142,10 +176,11 @@ export default function EmployeeDirectory() {
   const clearFilters = () => {
     setQ(''); setDiv(''); setDept(''); setTeam('');
     setStatus(''); setEmpStatus(''); setPage(1);
+    setEmployeeIdFilter(''); setRoleFilter(''); setDesignationFilter('');
     navigate('/hr/employee-directory', { replace: true });
   };
 
-  const activeFilterCount = [q, divisionId, deptId, teamId, status, employmentStatus, urlFilter].filter(Boolean).length;
+  const activeFilterCount = [q, divisionId, deptId, teamId, status, employmentStatus, urlFilter, employeeIdFilter, roleFilter, designationFilter].filter(Boolean).length;
 
   const filterLabel = () => {
     if (urlFilter === 'new_this_month') return '  · New This Month';
@@ -325,6 +360,26 @@ export default function EmployeeDirectory() {
             <option value="SUSPENDED">Suspended</option>
             <option value="TERMINATED">Terminated</option>
             <option value="DECEASED">Deceased</option>
+          </select>
+          <input
+            value={employeeIdFilter}
+            onChange={e => setEmployeeIdFilter(e.target.value)}
+            placeholder="Employee ID"
+            className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[130px] text-gray-600 focus:outline-none focus:border-primary-400"
+          />
+          <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
+            className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[130px] text-gray-600">
+            <option value="">All Roles</option>
+            {rolesData.map((r) => (
+              <option key={r.id} value={r.name}>{r.name.replace(/_/g, ' ')}</option>
+            ))}
+          </select>
+          <select value={designationFilter} onChange={e => setDesignationFilter(e.target.value)}
+            className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[160px] text-gray-600">
+            <option value="">All Designations</option>
+            {designationsData.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
           </select>
           {activeFilterCount > 0 && (
             <button onClick={clearFilters} className="h-10 px-3 text-sm text-gray-400 hover:text-gray-600 underline">

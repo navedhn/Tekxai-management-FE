@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
@@ -7,11 +8,15 @@ import { useCreateUserMutation } from '@/services/userService';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetRolesQuery } from '@/services/roleService';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { apiRequest } from '@/lib/queryClient';
+import { API_ENDPOINTS } from '@/services/api/endpoints';
 
 interface QuickCreateUserModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+const EMPTY_FORM = { first_name: '', last_name: '', email: '', designation_id: '', role_id: '', hire_date: '' };
 
 // Lightweight login-account creation — HR/Admin fills in only what's needed
 // to grant access; everything else (education, emergency contacts, salary,
@@ -26,20 +31,19 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
   const { data: designations = [] } = useGetDesignationsQuery();
   const { data: roles = [] } = useGetRolesQuery();
 
-  const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    designation_id: '',
-    role_id: '',
-    hire_date: '',
-  });
+  const [formData, setFormData] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Set after a successful create — switches the modal to a confirmation
+  // view showing the server-assigned Employee ID, with a "Create Another"
+  // option that resets the form without closing the modal.
+  const [created, setCreated] = useState<{ employeeId: string | null; name: string } | null>(null);
+  const [fetchingEmployeeId, setFetchingEmployeeId] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
-    setFormData({ first_name: '', last_name: '', email: '', designation_id: '', role_id: '', hire_date: '' });
+    setFormData(EMPTY_FORM);
     setErrors({});
+    setCreated(null);
   }, [isOpen]);
 
   const designationOptions = designations.map((d) => ({ value: d.id, label: d.name }));
@@ -74,14 +78,63 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
     if (formData.hire_date) payload.hire_date = formData.hire_date;
 
     createUser.mutate(payload, {
-      onSuccess: (res: any) => {
-        const employeeId = res?.payload?.employee_id || res?.employee_id;
-        toast.success(employeeId ? `User created — Employee ID ${employeeId}` : 'User created successfully');
-        onClose();
+      onSuccess: async (res: any) => {
+        const newUser = res?.payload || res;
+        const name = `${payload.first_name} ${payload.last_name}`.trim();
+        toast.success('User created successfully');
+
+        // POST /user doesn't return employee_id (users.repository.js's
+        // USER_SELECT excludes it), but GET /employee/:id — the same
+        // endpoint the Employee Directory already uses — does. Reusing it
+        // here avoids any backend change just to surface the assigned ID.
+        setFetchingEmployeeId(true);
+        try {
+          const detail = await apiRequest<any>(API_ENDPOINTS.EMPLOYEE.DETAIL(newUser.id));
+          setCreated({ employeeId: detail?.payload?.employee_id || null, name });
+        } catch {
+          setCreated({ employeeId: null, name });
+        } finally {
+          setFetchingEmployeeId(false);
+        }
       },
       onError: (err: any) => toast.error(err?.message || 'Failed to create user'),
     });
   };
+
+  const handleCreateAnother = () => {
+    setFormData(EMPTY_FORM);
+    setErrors({});
+    setCreated(null);
+  };
+
+  if (created) {
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} title="Quick Create User" size="lg">
+        <div className="flex flex-col items-center text-center gap-4 p-6">
+          <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
+            <CheckCircle2 size={28} className="text-green-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-black text-gray-900">{created.name} created</h3>
+            <p className="text-sm text-gray-500 mt-1">
+              {created.employeeId
+                ? <>Employee ID <span className="font-mono font-bold text-gray-900">{created.employeeId}</span> was assigned automatically.</>
+                : 'The account was created successfully.'}
+            </p>
+            <p className="text-xs text-gray-400 mt-2">HR can complete the rest of the profile later from Employee Directory.</p>
+          </div>
+          <div className="flex gap-3 w-full mt-2">
+            <Button variant="outline" fullWidth className="h-12 rounded-xl" onClick={handleCreateAnother}>
+              Create Another
+            </Button>
+            <Button variant="primary" fullWidth className="h-12 rounded-xl font-bold" onClick={onClose}>
+              Done
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Quick Create User" size="lg">
@@ -163,7 +216,7 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
           <Button
             variant="primary"
             fullWidth
-            loading={createUser.isPending}
+            loading={createUser.isPending || fetchingEmployeeId}
             className="h-12 rounded-xl font-bold shadow-lg shadow-primary-100"
             onClick={handleSubmit}
           >
