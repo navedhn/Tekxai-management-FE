@@ -4,6 +4,7 @@ import Input from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import Select from '@/components/ui/Select';
 import { useGetTeamsQuery } from '@/services/adminService';
+import { useGetDesignationsQuery } from '@/services/designationService';
 import { useCreateInviteMutation, useUpdateInviteMutation } from '@/services/inviteService';
 import { useAuthStore } from '@/stores/authStore';
 import { useToastContext } from '@/components/toast/ToastProvider';
@@ -22,22 +23,6 @@ const departments = [
   { value: 'TekXAI', label: 'TekXAI' },
   { value: 'CE', label: 'CE' }
 ];
-
-const designationsMap: Record<string, { value: string; label: string }[]> = {
-  'CE': [
-    { value: 'CE', label: 'CE' }
-  ],
-  'TekXAI': [
-    { value: 'UI UX', label: 'UI UX' },
-    { value: 'front-end-developer', label: 'Front End Developer' },
-    { value: 'back-end-developer', label: 'Back End Developer' },
-    { value: 'devops-developer', label: 'DevOps Developer' },
-    { value: 'cms-developer', label: 'CMS Developer' },
-    { value: 'ai-developer', label: 'AI Developer' },
-    { value: 'hr', label: 'Human Resource' },
-    { value: 'team-lead', label: 'Team Lead' }
-  ]
-};
 
 const teamsMap: Record<string, { value: string; label: string }[]> = {
   'CE': [
@@ -73,6 +58,7 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
   const { user } = useAuthStore();
   const toast = useToastContext();
   const { data: teamsData } = useGetTeamsQuery(undefined, isOpen);
+  const { data: designationsData = [] } = useGetDesignationsQuery();
 
   const { mutate: createInvite, isPending: isCreating } = useCreateInviteMutation();
   const { mutate: updateInvite, isPending: isUpdating } = useUpdateInviteMutation();
@@ -103,6 +89,8 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
     : Array.isArray(teamsData)
       ? (teamsData as any).map((t: any) => ({ value: t.id || t.name, label: t.name }))
       : teamsMap[designation] || [];
+
+  const designationOptions = designationsData.map((d) => ({ value: d.name, label: d.name }));
 
   const handleDepartmentChange = (val: string | number) => {
     const dept = val as string;
@@ -247,15 +235,14 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
               containerClassName="w-full"
             />
 
-            {/* Designation */}
+            {/* Designation — loaded from the real Designations API, not a hardcoded list */}
             <Select
               label="DESIGNATION *"
-              options={designationsMap[department] || []}
+              options={designationOptions}
               value={designation}
               onChange={(val) => setDesignation(val as string)}
               error={errors.designation}
-              placeholder={team ? "Select Designation" : "Select Team First"}
-              disabled={!team}
+              placeholder="Select Designation"
               className="h-12 !rounded-xl"
               containerClassName="w-full"
             />
