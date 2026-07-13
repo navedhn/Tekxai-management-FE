@@ -70,12 +70,6 @@ export default function EmployeeDirectory() {
   const { data: rolesData = [] } = useGetRolesQuery();
   const { data: designationsData = [] } = useGetDesignationsQuery();
 
-  // Employee ID / Role / Designation aren't filterable server-side on
-  // GET /employee, so when any of these is active we fetch the backend's
-  // max page size (100 — comfortably covers the whole org) and filter +
-  // paginate client-side, without touching the backend.
-  const clientFilterActive = !!(employeeIdFilter || roleFilter || designationFilter);
-
   // Selection state
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -100,9 +94,7 @@ export default function EmployeeDirectory() {
 
   // Clear selection when page/filters change
   useEffect(() => { setSelected(new Set()); }, [page, q, status, employmentStatus, employeeIdFilter, roleFilter, designationFilter]);
-  // Employee ID / Role / Designation have no server-side page concept of
-  // their own (client-side filtered below) — always restart at page 1 when
-  // any of them changes so results aren't left mid-list.
+  // Restart at page 1 whenever a filter changes so results aren't left mid-list.
   useEffect(() => { setPage(1); }, [employeeIdFilter, roleFilter, designationFilter]);
 
   const filters = useMemo(() => {
@@ -113,39 +105,26 @@ export default function EmployeeDirectory() {
       team_id: teamId || undefined,
       status: status || undefined,
       employment_status: employmentStatus || undefined,
+      employee_id: employeeIdFilter || undefined,
+      role: roleFilter || undefined,
+      designation_id: designationFilter || undefined,
       sort_by: sortBy,
       sort_dir: sortDir,
-      page: clientFilterActive ? 1 : page,
-      limit: clientFilterActive ? 100 : limit,
+      page,
+      limit,
     };
     if (urlFilter === 'new_this_month') {
       const now = new Date();
       f.hire_from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
     }
     return f;
-  }, [q, divisionId, deptId, teamId, status, employmentStatus, urlFilter, sortBy, sortDir, page, limit, clientFilterActive]);
+  }, [q, divisionId, deptId, teamId, status, employmentStatus, employeeIdFilter, roleFilter, designationFilter, urlFilter, sortBy, sortDir, page, limit]);
 
   const { data, isLoading, refetch } = useGetEmployeeDirectory(filters);
-  const rawRecords: any[] = data?.records || [];
+  const records: any[] = data?.records || [];
   const stats = data?.stats || {};
-
-  // Client-side narrowing for the three filters GET /employee doesn't
-  // support server-side, applied over the larger fetched batch above.
-  const clientFiltered = useMemo(() => {
-    if (!clientFilterActive) return rawRecords;
-    return rawRecords.filter((e) => {
-      if (employeeIdFilter && !e.employee_id?.toLowerCase().includes(employeeIdFilter.toLowerCase())) return false;
-      if (roleFilter && e.role !== roleFilter) return false;
-      if (designationFilter && e.designation_id !== designationFilter) return false;
-      return true;
-    });
-  }, [rawRecords, clientFilterActive, employeeIdFilter, roleFilter, designationFilter]);
-
-  const records: any[] = clientFilterActive
-    ? clientFiltered.slice((page - 1) * limit, page * limit)
-    : rawRecords;
-  const total = clientFilterActive ? clientFiltered.length : (data?.total || 0);
-  const pages = clientFilterActive ? Math.max(1, Math.ceil(clientFiltered.length / limit)) : (data?.pages || 1);
+  const total = data?.total || 0;
+  const pages = data?.pages || 1;
 
   const handleExport = () => {
     const headers = ['Name', 'Email', 'Employee ID', 'Department', 'Designation', 'Status', 'Hire Date'];
