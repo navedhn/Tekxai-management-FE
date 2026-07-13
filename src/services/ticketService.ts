@@ -2,12 +2,21 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CreateTicketPayload,
   SupportTicket,
+  TicketCategory,
   TicketRecipient,
   TicketStatus,
 } from '@/types/ticket';
 import { QUERY_KEYS } from '@/services/api/tanstackKeys';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
+
+export const TICKET_CATEGORIES: { label: string; value: TicketCategory }[] = [
+  { label: 'IT',      value: 'IT' },
+  { label: 'HR',      value: 'HR' },
+  { label: 'Finance', value: 'FINANCE' },
+  { label: 'Admin',   value: 'ADMIN' },
+  { label: 'Other',   value: 'OTHER' },
+];
 
 export const TICKET_RECIPIENTS: TicketRecipient[] = [
   { id: 'tl',         role: 'team_lead',  label: 'Team Lead (TL)', name: 'Team Lead'     },
@@ -52,6 +61,8 @@ const createTicket = async (payload: CreateTicketPayload): Promise<SupportTicket
     body: JSON.stringify({
       subject:         payload.subject.trim(),
       description:     payload.description.trim(),
+      category:        payload.category,
+      department_id:   payload.departmentId,
       recipient_role:  recipient.role,
       recipient_label: recipient.label,
       recipient_name:  recipientName,

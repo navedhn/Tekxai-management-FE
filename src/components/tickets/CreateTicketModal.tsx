@@ -5,9 +5,10 @@ import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
 import Select from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
-import { CreateTicketPayload, TicketPriority } from '@/types/ticket';
-import { TICKET_RECIPIENTS, useCreateTicketMutation } from '@/services/ticketService';
+import { CreateTicketPayload, TicketCategory, TicketPriority } from '@/types/ticket';
+import { TICKET_CATEGORIES, TICKET_RECIPIENTS, useCreateTicketMutation } from '@/services/ticketService';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { useGetDepartmentsQuery } from '@/services/departmentService';
 
 interface CreateTicketModalProps {
   isOpen: boolean;
@@ -35,12 +36,15 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
 }) => {
   const toast = useToastContext();
   const createMutation = useCreateTicketMutation();
+  const { data: departments = [] } = useGetDepartmentsQuery();
 
   const [recipientId, setRecipientId] = useState('tl');
   const [customName, setCustomName] = useState('');
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<TicketPriority>('medium');
+  const [category, setCategory] = useState<TicketCategory | ''>('');
+  const [departmentId, setDepartmentId] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
@@ -49,7 +53,14 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
     setSubject('');
     setDescription('');
     setPriority('medium');
+    setCategory('');
+    setDepartmentId('');
   }, [isOpen]);
+
+  const DEPARTMENT_OPTIONS = departments.map((d: { id: string; name: string }) => ({
+    label: d.name,
+    value: d.id,
+  }));
 
   const isOther = recipientId === 'other';
 
@@ -67,6 +78,8 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
     const payload: CreateTicketPayload = {
       subject,
       description,
+      category: category || undefined,
+      departmentId: departmentId || undefined,
       recipientId,
       customRecipientName: isOther ? customName : undefined,
       priority,
@@ -127,6 +140,21 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
             onChange={e => setCustomName(e.target.value)}
           />
         )}
+
+        <div className="grid grid-cols-2 gap-4">
+          <Select
+            label="Category (optional)"
+            options={TICKET_CATEGORIES}
+            value={category}
+            onChange={v => setCategory(v as TicketCategory)}
+          />
+          <Select
+            label="Department (optional)"
+            options={DEPARTMENT_OPTIONS}
+            value={departmentId}
+            onChange={v => setDepartmentId(String(v))}
+          />
+        </div>
 
         <Input
           label="Subject"
