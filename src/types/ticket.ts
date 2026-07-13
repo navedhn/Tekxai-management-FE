@@ -9,6 +9,8 @@ export type TicketRecipientRole =
 
 export type TicketPriority = 'low' | 'medium' | 'high';
 
+export type TicketCategory = 'IT' | 'HR' | 'FINANCE' | 'ADMIN' | 'OTHER';
+
 export interface TicketRecipient {
   id: string;
   role: TicketRecipientRole;
@@ -31,6 +33,9 @@ export interface SupportTicket {
   ticketNumber: string;
   subject: string;
   description: string;
+  category?: TicketCategory;
+  departmentId?: string;
+  department?: { id: string; name: string } | null;
   recipientRole: TicketRecipientRole;
   recipientLabel: string;
   recipientName: string;
@@ -48,6 +53,8 @@ export interface SupportTicket {
 export interface CreateTicketPayload {
   subject: string;
   description: string;
+  category?: TicketCategory;
+  departmentId?: string;
   recipientId: string;
   customRecipientName?: string;
   priority: TicketPriority;
