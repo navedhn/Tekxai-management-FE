@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, Plus, Download, Users, CheckCircle, Clock, UserX, Eye, Edit2, Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { Search, Plus, UserPlus, Download, Users, CheckCircle, Clock, UserX, Eye, Edit2, Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
@@ -8,6 +8,7 @@ import { useGetEmployeeDirectory } from '@/services/employeeService';
 import { useDeleteUserMutation, useBulkDeleteUsersMutation } from '@/services/userService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import UserFormModal from '@/components/ui/UserFormModal';
+import QuickCreateUserModal from '@/components/ui/QuickCreateUserModal';
 import { cn } from '@/utils/cn';
 
 const STATUS_STYLE: Record<string, string> = {
@@ -71,6 +72,7 @@ export default function EmployeeDirectory() {
   };
 
   const [editEmployee, setEditEmployee]   = useState<any>(null);
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget]   = useState<any>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const deleteUser = useDeleteUserMutation();
@@ -207,6 +209,12 @@ export default function EmployeeDirectory() {
         user={editEmployee}
       />
 
+      {/* Quick Create User — lightweight login-only creation, full profile filled in later */}
+      <QuickCreateUserModal
+        isOpen={quickCreateOpen}
+        onClose={() => { setQuickCreateOpen(false); refetch(); }}
+      />
+
       {/* Single delete confirmation */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -262,6 +270,12 @@ export default function EmployeeDirectory() {
         <div className="flex gap-2">
           <button onClick={handleExport} className="flex items-center gap-2 px-4 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer">
             <Download size={16} />Export
+          </button>
+          <button
+            onClick={() => setQuickCreateOpen(true)}
+            className="flex items-center gap-2 px-4 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
+          >
+            <UserPlus size={16} />Quick Create User
           </button>
           <button
             onClick={() => navigate('/hr/add-employee')}
