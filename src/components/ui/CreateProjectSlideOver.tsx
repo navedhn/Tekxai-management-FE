@@ -7,7 +7,7 @@ import Input from './Input';
 import Select from './Select';
 import Textarea from './Textarea';
 import DatePicker from './DatePicker';
-import { ProjectDetail, ProjectDto, useCreateProjectMutation, useUpdateProjectMutation } from '@/services/projectService';
+import { ProjectDetail, ProjectDto, ProjectMemberRole, PROJECT_MEMBER_ROLES, useCreateProjectMutation, useUpdateProjectMutation } from '@/services/projectService';
 import { useFetchUsersQuery } from '@/services/userService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { PROJECT_STATUS_OPTIONS } from '@/utils/projectStatus';
@@ -16,6 +16,7 @@ interface TeamMember {
   id: string;
   name: string;
   avatar: string;
+  role?: ProjectMemberRole;
 }
 
 interface CreateProjectSlideOverProps {
@@ -39,6 +40,37 @@ const AvatarChip: React.FC<{ member: TeamMember; onRemove: () => void }> = ({ me
     />
     <span className="text-[13px] font-bold text-gray-700">{member.name}</span>
     <button onClick={onRemove} className="ml-1 text-gray-400 hover:text-red-400 transition-colors">
+      <X size={13} strokeWidth={2.5} />
+    </button>
+  </motion.div>
+);
+
+// Team member row with a functional-role select — reuses the existing
+// project_members.role column (previously always "MEMBER", never surfaced).
+const MemberRoleRow: React.FC<{ member: TeamMember; onRoleChange: (role: ProjectMemberRole) => void; onRemove: () => void }> = ({ member, onRoleChange, onRemove }) => (
+  <motion.div
+    layout
+    initial={{ opacity: 0, scale: 0.85 }}
+    animate={{ opacity: 1, scale: 1 }}
+    exit={{ opacity: 0, scale: 0.85 }}
+    className="flex items-center gap-2 bg-white border border-gray-100 rounded-full pl-1 pr-2 py-1 shadow-sm"
+  >
+    <img
+      src={member.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=random`}
+      className="w-7 h-7 rounded-full object-cover"
+      alt={member.name}
+    />
+    <span className="text-[13px] font-bold text-gray-700">{member.name}</span>
+    <select
+      value={member.role || 'MEMBER'}
+      onChange={(e) => onRoleChange(e.target.value as ProjectMemberRole)}
+      className="text-[12px] font-semibold text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-2 py-1 focus:outline-none"
+    >
+      {PROJECT_MEMBER_ROLES.map((r) => (
+        <option key={r.value} value={r.value}>{r.label}</option>
+      ))}
+    </select>
+    <button onClick={onRemove} className="text-gray-400 hover:text-red-400 transition-colors">
       <X size={13} strokeWidth={2.5} />
     </button>
   </motion.div>
@@ -174,8 +206,15 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       setStatus(project.status || 'PLANNING');
       setBudget(project.budget != null ? String(project.budget) : '');
       setBudgetCurrency(project.budget_currency || 'PKR');
-      // In a real app we'd fetch full user objects for these IDs
-      // For now we rely on the state being populated or handle it if we have access to user data
+      setTeamMembers((project.members || []).map((m) => ({
+        id: m.id,
+        name: `${m.first_name} ${m.last_name}`.trim(),
+        avatar: m.avatar || '',
+        role: m.role || 'MEMBER',
+      })));
+      // Owner/Team Leader pickers still need a full user object fetched by ID —
+      // out of scope for this change (project.owner/team_leader already carry
+      // enough to prefill these the same way once addressed).
     } else {
       setProjectName('');
       setDescription('');
@@ -224,7 +263,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       // it's a foreign key and an empty string fails the DB constraint, silently
       // rolling back the whole project creation.
       leader_id: teamLeaders[0]?.id || undefined,
-      member_ids: teamMembers.map(m => m.id),
+      members: teamMembers.map(m => ({ user_id: m.id, role: m.role || 'MEMBER' })),
     };
 
     try {
@@ -420,17 +459,22 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
                   </div>
                 </div>
 
-                {/* Team Members */}
+                {/* Team Members — each carries a functional role (Frontend/Backend/QA/etc.) */}
                 <div className="flex flex-col gap-3">
                   <label className="text-[13px] font-bold text-gray-600 ml-1">Team Members</label>
                   <div className="flex flex-wrap gap-2 items-center min-h-[44px] p-3 rounded-2xl border border-dashed border-gray-200 bg-gray-50/50">
                     <AnimatePresence>
                       {teamMembers.map((m) => (
-                        <AvatarChip key={m.id} member={m} onRemove={() => setTeamMembers(prev => prev.filter(p => p.id !== m.id))} />
+                        <MemberRoleRow
+                          key={m.id}
+                          member={m}
+                          onRoleChange={(role) => setTeamMembers(prev => prev.map(p => p.id === m.id ? { ...p, role } : p))}
+                          onRemove={() => setTeamMembers(prev => prev.filter(p => p.id !== m.id))}
+                        />
                       ))}
                     </AnimatePresence>
                     <UserSelectDropdown
-                      onSelect={(u) => setTeamMembers(prev => [...prev, u])}
+                      onSelect={(u) => setTeamMembers(prev => [...prev, { ...u, role: 'MEMBER' }])}
                       excludeIds={teamMembers.map(p => p.id)}
                       placeholder="Add member"
                     />

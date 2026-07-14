@@ -160,31 +160,38 @@ const ProjectManagement: React.FC = () => {
       }
     },
     {
-      header: 'Member',
-      key: 'members',
-      render: (item) => (
-        <div className="flex -space-x-2">
-          {item.members?.slice(0, 3).map((m, i) => (
-            <div key={i} className="h-8 w-8 rounded-full border-2 border-white flex items-center justify-center text-[11px] font-bold text-white shadow-sm ring-1 ring-blue-100 overflow-hidden bg-gray-100">
-              {m.avatar ? (
-                <img src={m.avatar} alt={m.first_name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-600 uppercase">
-                  {m.first_name.charAt(0)}
-                </div>
-              )}
-            </div>
-          ))}
-          {item.member_count > 3 && (
-            <div className="h-8 w-8 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-[11px] font-bold text-gray-500 shadow-sm">
-              +{item.member_count - 3}
-            </div>
-          )}
-          {(!item.members || item.members.length === 0) && (
-            <span className="text-[10px] text-gray-400 font-medium italic">No members</span>
-          )}
-        </div>
-      )
+      header: 'Team',
+      key: 'member_role_counts',
+      // Compact role badges (FE/BE/QA/...) instead of a generic member-count
+      // avatar stack — reuses the same project_members.role column.
+      render: (item) => {
+        const ROLE_BADGE: Record<string, { label: string; className: string }> = {
+          FRONTEND:  { label: 'FE', className: 'bg-blue-50 text-blue-600' },
+          BACKEND:   { label: 'BE', className: 'bg-purple-50 text-purple-600' },
+          TEAM_LEAD: { label: 'TL', className: 'bg-amber-50 text-amber-700' },
+          QA:        { label: 'QA', className: 'bg-green-50 text-green-700' },
+          DEVOPS:    { label: 'DO', className: 'bg-slate-100 text-slate-600' },
+          UI_UX:     { label: 'UX', className: 'bg-pink-50 text-pink-600' },
+          MEMBER:    { label: 'MEM', className: 'bg-gray-100 text-gray-500' },
+        };
+        const counts = item.member_role_counts || {};
+        const roles = Object.keys(counts).filter((r) => counts[r] > 0);
+        if (roles.length === 0) {
+          return <span className="text-[10px] text-gray-400 font-medium italic">No members</span>;
+        }
+        return (
+          <div className="flex flex-wrap gap-1">
+            {roles.map((role) => {
+              const badge = ROLE_BADGE[role] || { label: role.slice(0, 3), className: 'bg-gray-100 text-gray-500' };
+              return (
+                <span key={role} className={`text-[10px] font-black px-2 py-1 rounded-full ${badge.className}`}>
+                  {badge.label}: {counts[role]}
+                </span>
+              );
+            })}
+          </div>
+        );
+      }
     },
     { header: 'Project Hours', key: 'total_hours', render: (item) => `${item.total_hours} Hours` },
     {

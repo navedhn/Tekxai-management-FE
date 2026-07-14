@@ -375,6 +375,47 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                     })}
                   </div>
 
+                  {/* Team by Role — groups project.members by their (reused) project_members.role */}
+                  {(() => {
+                    const ROLE_LABELS: Record<string, string> = {
+                      FRONTEND: 'Frontend Developers',
+                      BACKEND: 'Backend Developers',
+                      TEAM_LEAD: 'Team Lead',
+                      QA: 'QA',
+                      DEVOPS: 'DevOps',
+                      UI_UX: 'UI/UX',
+                      MEMBER: 'Members',
+                    };
+                    const ROLE_ORDER = ['TEAM_LEAD', 'FRONTEND', 'BACKEND', 'QA', 'DEVOPS', 'UI_UX', 'MEMBER'];
+                    const members: any[] = project.all_members || project.members || [];
+                    if (members.length === 0) return null;
+                    const grouped = members.reduce((acc: Record<string, any[]>, m) => {
+                      const role = m.role || 'MEMBER';
+                      (acc[role] = acc[role] || []).push(m);
+                      return acc;
+                    }, {});
+                    const roles = ROLE_ORDER.filter((r) => grouped[r]?.length);
+                    return (
+                      <div className="flex flex-col gap-4 w-full">
+                        <h3 className="text-lg font-black text-gray-900 tracking-tight">Team by Role</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {roles.map((role) => (
+                            <div key={role} className="rounded-2xl border border-gray-100 bg-white p-4">
+                              <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">{ROLE_LABELS[role]}</p>
+                              <div className="flex flex-col gap-1.5">
+                                {grouped[role].map((m: any) => (
+                                  <span key={m.id} className="text-sm font-semibold text-gray-700">
+                                    {`${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {projectId && (
                     <>
                       <DevopsAccessPanel
