@@ -56,6 +56,8 @@ const AdminDepartments       = lazy(() => import('@/pages/admin/departments'));
 const AdminDivisions         = lazy(() => import('@/pages/admin/divisions'));
 const AdminDesignations      = lazy(() => import('@/pages/admin/designations'));
 const AdminGrades            = lazy(() => import('@/pages/admin/grades'));
+const AdminTicketCategories  = lazy(() => import('@/pages/admin/ticket-categories'));
+const AdminTicketTypes       = lazy(() => import('@/pages/admin/ticket-types'));
 const AdminOrgChart          = lazy(() => import('@/pages/admin/org-chart'));
 const AdminHRDashboard       = lazy(() => import('@/pages/admin/hr-dashboard'));
 const AdminRequisitions      = lazy(() => import('@/pages/admin/requisitions'));
@@ -183,6 +185,8 @@ const routes: RouteObject[] = [
           { path: '/admin/divisions',           element: <AdminDivisions /> },
           { path: '/admin/designations',        element: <AdminDesignations /> },
           { path: '/admin/grades',              element: <AdminGrades /> },
+          { path: '/admin/ticket-categories',   element: <AdminTicketCategories /> },
+          { path: '/admin/ticket-types',        element: <AdminTicketTypes /> },
           { path: '/admin/org-chart',           element: <AdminOrgChart /> },
           { path: '/admin/hr',                  element: <AdminHRDashboard /> },
           { path: '/admin/attendance',          element: <AdminAttendance /> },

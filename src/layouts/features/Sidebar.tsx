@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home, Users2, Settings, FolderCheck, Clock, Star, Monitor, LogOut, X,
   BarChart3, Shield, ClipboardCheck, Ticket, Receipt, Banknote, Webhook, Mail,
-  MessageSquare, FileText, Package, CalendarDays, Table2,
+  MessageSquare, FileText, Package, CalendarDays, Table2, Layers,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/services/permissionsService';
@@ -94,6 +94,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       {                       to: '/admin/settings',     label: 'Settings',        icon: <Settings size={18} strokeWidth={SW} /> },
       { section: 'Admin',    to: '/admin/approvals',    label: 'Approvals',       icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
       {                       to: '/admin/tickets',      label: 'Support Tickets', icon: <Ticket size={18} strokeWidth={SW} /> },
+      {                       to: '/admin/ticket-categories', label: 'Ticket Categories', icon: <Layers size={18} strokeWidth={SW} /> },
+      {                       to: '/admin/ticket-types', label: 'Ticket Types',    icon: <Settings size={18} strokeWidth={SW} /> },
       {                       to: '/admin/expenses',     label: 'Expenses',        icon: <Receipt size={18} strokeWidth={SW} /> },
       {                       to: '/admin/payroll',      label: 'Payroll',         icon: <Banknote size={18} strokeWidth={SW} /> },
       {                       to: '/admin/webhooks',     label: 'Webhooks',        icon: <Webhook size={18} strokeWidth={SW} /> },

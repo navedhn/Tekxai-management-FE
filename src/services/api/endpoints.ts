@@ -161,6 +161,21 @@ export const API_ENDPOINTS = {
     UPDATE:      (id: string | number) => `${v1}/ticket/${id}`,
     ATTACHMENTS: (id: string | number) => `${v1}/ticket/${id}/attachments`,
     REPLIES:     (id: string | number) => `${v1}/ticket/${id}/replies`,
+    APPROVALS:   (id: string | number) => `${v1}/ticket/${id}/approvals`,
+  },
+  TICKET_CATEGORY: {
+    LIST:   `${v1}/ticket-categories`,
+    CREATE: `${v1}/ticket-categories`,
+    DETAIL: (id: string | number) => `${v1}/ticket-categories/${id}`,
+    UPDATE: (id: string | number) => `${v1}/ticket-categories/${id}`,
+    ACTIVE: (id: string | number) => `${v1}/ticket-categories/${id}/active`,
+  },
+  TICKET_TYPE: {
+    LIST:   `${v1}/ticket-types`,
+    CREATE: `${v1}/ticket-types`,
+    DETAIL: (id: string | number) => `${v1}/ticket-types/${id}`,
+    UPDATE: (id: string | number) => `${v1}/ticket-types/${id}`,
+    ACTIVE: (id: string | number) => `${v1}/ticket-types/${id}/active`,
   },
   MARKETING: {
     DEALS:              `${v1}/marketing/deals`,
