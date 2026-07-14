@@ -13,12 +13,28 @@ export interface TeamMember {
   avatar: string;
 }
 
+// Reuses the existing project_members.role column (was always "MEMBER" and
+// unused until this feature — see Tekxai-Operations-OS gap audit, Sprint 2
+// Phase 2). No new table.
+export type ProjectMemberRole = 'FRONTEND' | 'BACKEND' | 'TEAM_LEAD' | 'QA' | 'DEVOPS' | 'UI_UX' | 'MEMBER';
+
+export const PROJECT_MEMBER_ROLES: { value: ProjectMemberRole; label: string }[] = [
+  { value: 'FRONTEND',  label: 'Frontend Developer' },
+  { value: 'BACKEND',   label: 'Backend Developer' },
+  { value: 'TEAM_LEAD', label: 'Team Lead' },
+  { value: 'QA',        label: 'QA' },
+  { value: 'DEVOPS',    label: 'DevOps' },
+  { value: 'UI_UX',     label: 'UI/UX' },
+  { value: 'MEMBER',    label: 'Member' },
+];
+
 export interface ProjectMember {
   id: string;
   first_name: string;
   last_name: string;
   email: string;
   avatar: string | null;
+  role?: ProjectMemberRole;
 }
 
 export interface ProjectDto {
@@ -29,7 +45,9 @@ export interface ProjectDto {
   total_hours: number;
   owner_id?: string;
   leader_id?: string;
+  /** @deprecated use `members` — kept for backward compatibility with the backend's legacy param */
   member_ids?: string[];
+  members?: { user_id: string; role: ProjectMemberRole }[];
   client_name?: string;
   dev_status?: string;
   status?: string;
@@ -93,6 +111,8 @@ export interface ProjectDetail {
   member_count: number;
   members: ProjectMember[];
   all_members?: ProjectMember[];
+  /** Compact per-role counts for list-view badges, e.g. { FRONTEND: 2, BACKEND: 3, QA: 1 } */
+  member_role_counts?: Partial<Record<ProjectMemberRole, number>>;
   owner?: ProjectMember;
   team_leader?: ProjectMember | null;
   milestones?: Milestone[];
@@ -100,6 +120,17 @@ export interface ProjectDetail {
   pending_milestones_count?: number;
   milestone_breakdown?: MilestoneBreakdown;
   access_completion_score?: AccessCompletionScore;
+  // Same devops_access row already joined for access_completion_score above —
+  // surfaced directly so list/dashboard views don't need a second call to
+  // GET /project/:id/devops-access. null when the project has no row yet.
+  devops_access?: {
+    point_of_communication: string;
+    progress_shared_status: string;
+    git_access_status: string;
+    server_access_status: string;
+    domain_access_status: string;
+    email_smtp_access_status: string;
+  } | null;
   client_portal?: ClientPortalInfo;
   health_score?: number;
   health_status?: 'HEALTHY' | 'WARNING' | 'CRITICAL';
