@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
+import FormInput from '@/components/form/FormInput';
 import { Button } from '@/components/ui/Button';
 import Select from '@/components/ui/Select';
 import { useGetTeamsQuery } from '@/services/adminService';
@@ -168,9 +169,9 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
           onChange={handleInputChange} error={errors.email} placeholder="user@example.com"
           type="email" className="h-12 rounded-xl" />
 
-        <Input label={isEdit ? 'New Password (Optional)' : 'Password *'} name="password"
+        <FormInput label={isEdit ? 'New Password (Optional)' : 'Password *'} name="password"
           value={formData.password} onChange={handleInputChange} error={errors.password}
-          placeholder="••••••••" type="password" className="h-12 rounded-xl" />
+          placeholder="••••••••" type="password" autoComplete="new-password" />
 
         <div className="grid grid-cols-2 gap-4">
           <Select label="ROLE *" options={roleOptions} value={formData.role_id}

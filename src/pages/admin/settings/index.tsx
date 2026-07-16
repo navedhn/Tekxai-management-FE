@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Card from '@/components/ui/Card';
 import Button, { pageActionButtonClass } from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
+import FormInput from '@/components/form/FormInput';
 import Tabs from '@/components/ui/Tabs';
 import Table, { Column } from '@/components/ui/Table';
 import { Search, Filter, Mail, Calendar, Info, Clock, Plus, Trash2, Edit2, ShieldCheck, Shield, X, Monitor } from 'lucide-react';
@@ -502,25 +502,27 @@ const Setting: React.FC = () => {
 
                             <Card className="flex flex-col gap-8 p-8 shadow-sm border border-gray-100 bg-white rounded-2xl">
                                 <div className="flex flex-col gap-2 md:w-1/2">
-                                    <Input
+                                    <FormInput
+                                        name="old_password"
                                         label='Old Password'
                                         type="password"
                                         placeholder="Enter your old password"
-                                        className="h-14 rounded-xl"
                                         value={oldPassword}
                                         onChange={(e) => setOldPassword(e.target.value)}
+                                        autoComplete="current-password"
                                     />
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div className="flex flex-col gap-2">
-                                        <Input
+                                        <FormInput
+                                            name="new_password"
                                             label='New Password'
                                             type="password"
                                             placeholder="Enter new password"
-                                            className="h-14 rounded-xl"
                                             value={newPassword}
                                             onChange={(e) => setNewPassword(e.target.value)}
+                                            autoComplete="new-password"
                                         />
                                         <div className="flex items-center gap-1.5 mt-1 ml-1 text-gray-500">
                                             <Info size={12} />
@@ -528,13 +530,14 @@ const Setting: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="flex flex-col gap-2">
-                                        <Input
+                                        <FormInput
+                                            name="confirm_new_password"
                                             label='Confirm New Password'
                                             type="password"
                                             placeholder="Confirm new password"
-                                            className="h-14 rounded-xl"
                                             value={confirmNewPassword}
                                             onChange={(e) => setConfirmNewPassword(e.target.value)}
+                                            autoComplete="new-password"
                                         />
                                     </div>
                                 </div>

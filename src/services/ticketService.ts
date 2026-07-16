@@ -3,8 +3,11 @@ import {
   CreateTicketPayload,
   SupportTicket,
   TicketCategory,
+  TicketCategoryRecord,
   TicketRecipient,
   TicketStatus,
+  TicketTimelineEntry,
+  TicketTypeSummary,
 } from '@/types/ticket';
 import { QUERY_KEYS } from '@/services/api/tanstackKeys';
 import { apiRequest } from '@/lib/queryClient';
@@ -42,12 +45,46 @@ export const formatTicketDate = (iso: string) =>
     minute: '2-digit',
   });
 
-const fetchTickets = async (): Promise<SupportTicket[]> => {
-  const res = await apiRequest<any>(API_ENDPOINTS.TICKET.LIST);
+export interface TicketListFilters {
+  search?: string;
+  status?: string;
+  priority?: string;
+  category_id?: string;
+  ticket_type_id?: string;
+  sla?: 'overdue';
+  from?: string;
+  to?: string;
+}
+
+const fetchTickets = async (filters: TicketListFilters = {}): Promise<SupportTicket[]> => {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) params.set(key, String(value));
+  }
+  const qs = params.toString();
+  const res = await apiRequest<any>(`${API_ENDPOINTS.TICKET.LIST}${qs ? `?${qs}` : ''}`);
   return (res?.payload?.records || res?.payload || []) as SupportTicket[];
 };
 
 const createTicket = async (payload: CreateTicketPayload): Promise<SupportTicket> => {
+  // Service Desk path — the backend derives recipient/assignment from the
+  // ticket type's configuration, so only the type-driven fields are sent.
+  if (payload.ticketTypeId) {
+    const res = await apiRequest<any>(API_ENDPOINTS.TICKET.CREATE, {
+      method: 'POST',
+      body: JSON.stringify({
+        subject:        payload.subject.trim(),
+        description:    payload.description.trim(),
+        priority:       payload.priority,
+        severity:       payload.severity,
+        ticket_type_id: payload.ticketTypeId,
+        custom_fields:  payload.customFields || {},
+        project_id:     payload.projectId,
+      }),
+    });
+    return (res?.payload || res) as SupportTicket;
+  }
+
   const recipient = TICKET_RECIPIENTS.find(r => r.id === payload.recipientId);
   if (!recipient) throw new Error('Invalid recipient');
 
@@ -72,10 +109,42 @@ const createTicket = async (payload: CreateTicketPayload): Promise<SupportTicket
   return (res?.payload || res) as SupportTicket;
 };
 
-export const useGetTickets = () =>
+export const useGetTickets = (filters: TicketListFilters = {}) =>
   useQuery({
-    queryKey: QUERY_KEYS.TICKETS.LIST,
-    queryFn: fetchTickets,
+    queryKey: [...QUERY_KEYS.TICKETS.LIST, filters],
+    queryFn: () => fetchTickets(filters),
+  });
+
+// ─── Service Desk configuration (categories + types with field_schema) ──────
+
+export const useTicketCategoriesQuery = () =>
+  useQuery<TicketCategoryRecord[]>({
+    queryKey: ['ticket-categories'],
+    queryFn: async () => {
+      const res = await apiRequest<any>(API_ENDPOINTS.TICKET_CATEGORY.LIST);
+      return (res?.payload || []) as TicketCategoryRecord[];
+    },
+  });
+
+export const useTicketTypesQuery = (categoryId?: string) =>
+  useQuery<TicketTypeSummary[]>({
+    queryKey: ['ticket-types', categoryId || 'all'],
+    queryFn: async () => {
+      const qs = categoryId ? `?category_id=${categoryId}` : '';
+      const res = await apiRequest<any>(`${API_ENDPOINTS.TICKET_TYPE.LIST}${qs}`);
+      return (res?.payload || []) as TicketTypeSummary[];
+    },
+    enabled: categoryId !== '',
+  });
+
+export const useTicketTimelineQuery = (ticketId?: string) =>
+  useQuery<TicketTimelineEntry[]>({
+    queryKey: ['ticket-timeline', ticketId],
+    queryFn: async () => {
+      const res = await apiRequest<any>(API_ENDPOINTS.TICKET.TIMELINE(ticketId!));
+      return (res?.payload?.records || []) as TicketTimelineEntry[];
+    },
+    enabled: !!ticketId,
   });
 
 export const useCreateTicketMutation = () => {
