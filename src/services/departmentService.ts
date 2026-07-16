@@ -48,6 +48,19 @@ export const useDeleteDepartment = () => {
   });
 };
 
+export interface BulkDeleteResult { id: string; success: boolean; message?: string; }
+
+export const useBulkDeleteDepartments = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const r = await apiRequest<any>(API_ENDPOINTS.DEPARTMENT.BULK_DELETE, { method: 'POST', body: JSON.stringify({ ids }) });
+      return (r?.payload?.results || []) as BulkDeleteResult[];
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['departments'] }),
+  });
+};
+
 // --- Divisions (org-structure sibling of Departments) ---
 
 export const useGetDivisionsQuery = (departmentId?: string) =>
@@ -83,6 +96,17 @@ export const useDeleteDivision = () => {
   return useMutation({
     mutationFn: (id: string) =>
       apiRequest<any>(API_ENDPOINTS.DIVISION.DELETE(id), { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['divisions'] }),
+  });
+};
+
+export const useBulkDeleteDivisions = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const r = await apiRequest<any>(API_ENDPOINTS.DIVISION.BULK_DELETE, { method: 'POST', body: JSON.stringify({ ids }) });
+      return (r?.payload?.results || []) as BulkDeleteResult[];
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['divisions'] }),
   });
 };

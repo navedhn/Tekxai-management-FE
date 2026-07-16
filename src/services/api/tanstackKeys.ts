@@ -105,4 +105,16 @@ export const QUERY_KEYS = {
     SALARY_BUILDER: ['marketing', 'salary-builder'],
     SALARY_HISTORY: ['marketing', 'salary-history'],
   },
+  MEETING: {
+    DASHBOARD:     ['meeting', 'dashboard'],
+    ROOM_LIST:     (params?: unknown) => ['meeting', 'room', 'list', params],
+    ROOM_DETAIL:   (id: string) => ['meeting', 'room', 'detail', id],
+    ROOM_TIMELINE: (id: string) => ['meeting', 'room', 'timeline', id],
+    AGENDA_LIST:   (roomId: string, params?: unknown) => ['meeting', 'room', roomId, 'agenda', params],
+    MEETING_LIST:  (params?: unknown) => ['meeting', 'list', params],
+    MEETING_DETAIL: (id: string) => ['meeting', 'detail', id],
+    MEETING_TIMELINE: (id: string) => ['meeting', 'timeline', id],
+    ACTION_ITEM_LIST: (params?: unknown) => ['meeting', 'action-item', 'list', params],
+    ATTACHMENT_LIST: (attachableType: string, attachableId: string) => ['meeting', 'attachment', attachableType, attachableId],
+  },
 } as const;

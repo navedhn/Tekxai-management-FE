@@ -34,6 +34,11 @@ const AdminTeam              = lazy(() => import('@/pages/admin/team'));
 const AdminSettings          = lazy(() => import('@/pages/admin/settings'));
 const SystemSettings         = lazy(() => import('@/pages/admin/system-settings'));
 const AdminTickets           = lazy(() => import('@/pages/admin/tickets'));
+const AdminMeetingDashboard  = lazy(() => import('@/pages/admin/meetings'));
+const AdminMeetingRooms      = lazy(() => import('@/pages/admin/meetings/rooms'));
+const AdminMeetingRoomDetail = lazy(() => import('@/pages/admin/meetings/room-detail'));
+const AdminMeetingDetail     = lazy(() => import('@/pages/admin/meetings/meeting-detail'));
+const AdminMeetingActionItems = lazy(() => import('@/pages/admin/meetings/action-items'));
 const AdminUsers             = lazy(() => import('@/pages/admin/users'));
 const AdminMonitoring        = lazy(() => import('@/pages/admin/monitoring'));
 const AdminReports           = lazy(() => import('@/pages/admin/reports'));
@@ -200,6 +205,11 @@ const routes: RouteObject[] = [
           { path: '/admin/permissions',         element: <AdminPermissions /> },
           { path: '/admin/approvals',           element: <AdminApprovals /> },
           { path: '/admin/tickets',             element: <AdminTickets /> },
+          { path: '/admin/meetings',             element: <AdminMeetingDashboard /> },
+          { path: '/admin/meetings/rooms',        element: <AdminMeetingRooms /> },
+          { path: '/admin/meetings/room/:roomId', element: <AdminMeetingRoomDetail /> },
+          { path: '/admin/meetings/meeting/:meetingId', element: <AdminMeetingDetail /> },
+          { path: '/admin/meetings/action-items', element: <AdminMeetingActionItems /> },
           { path: '/admin/expenses',            element: <AdminExpenses /> },
           { path: '/admin/expenses/:userId',    element: <AdminExpenseLedger /> },
           { path: '/admin/performance-scoring', element: <AdminPerformanceScoring /> },

@@ -117,14 +117,42 @@ export const useGetTickets = (filters: TicketListFilters = {}) =>
 
 // ─── Service Desk configuration (categories + types with field_schema) ──────
 
-export const useTicketCategoriesQuery = () =>
+export const useTicketCategoriesQuery = (includeInactive: boolean = false) =>
   useQuery<TicketCategoryRecord[]>({
-    queryKey: ['ticket-categories'],
+    queryKey: ['ticket-categories', includeInactive ? 'all' : 'active'],
     queryFn: async () => {
-      const res = await apiRequest<any>(API_ENDPOINTS.TICKET_CATEGORY.LIST);
+      const qs = includeInactive ? '?include_inactive=true' : '';
+      const res = await apiRequest<any>(`${API_ENDPOINTS.TICKET_CATEGORY.LIST}${qs}`);
       return (res?.payload || []) as TicketCategoryRecord[];
     },
   });
+
+export const useCreateTicketCategory = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { key: string; label: string; sort_order?: number }) =>
+      apiRequest<any>(API_ENDPOINTS.TICKET_CATEGORY.CREATE, { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['ticket-categories'] }),
+  });
+};
+
+export const useUpdateTicketCategory = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: any) =>
+      apiRequest<any>(API_ENDPOINTS.TICKET_CATEGORY.UPDATE(id), { method: 'PUT', body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['ticket-categories'] }),
+  });
+};
+
+export const useToggleTicketCategoryActive = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) =>
+      apiRequest<any>(API_ENDPOINTS.TICKET_CATEGORY.ACTIVE(id), { method: 'PATCH', body: JSON.stringify({ is_active }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['ticket-categories'] }),
+  });
+};
 
 export const useTicketTypesQuery = (categoryId?: string) =>
   useQuery<TicketTypeSummary[]>({
@@ -152,7 +180,10 @@ export const useCreateTicketMutation = () => {
   return useMutation({
     mutationFn: createTicket,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TICKETS.LIST });
+      // Invalidate the whole 'tickets' key root so both the employee list
+      // (['tickets','list',...]) and the admin list (['tickets','admin-list',...])
+      // refetch after a new ticket is created.
+      queryClient.invalidateQueries({ queryKey: ['tickets'] });
     },
   });
 };

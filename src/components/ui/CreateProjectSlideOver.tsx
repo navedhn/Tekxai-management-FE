@@ -212,9 +212,22 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
         avatar: m.avatar || '',
         role: m.role || 'MEMBER',
       })));
-      // Owner/Team Leader pickers still need a full user object fetched by ID —
-      // out of scope for this change (project.owner/team_leader already carry
-      // enough to prefill these the same way once addressed).
+      // Owner/Team Leader: normalize_project() already includes the full
+      // `owner`/`team_leader` objects (id/first_name/last_name/avatar), so
+      // prefill from those directly — same pattern as teamMembers above.
+      // Without this, editing a project always started from an empty owner
+      // list, which both blocked the required-owner validation on every edit
+      // and silently overwrote owner_id with whatever was re-picked.
+      setProjectOwners(project.owner ? [{
+        id: project.owner.id,
+        name: `${project.owner.first_name} ${project.owner.last_name}`.trim(),
+        avatar: project.owner.avatar || '',
+      }] : []);
+      setTeamLeaders(project.team_leader ? [{
+        id: project.team_leader.id,
+        name: `${project.team_leader.first_name} ${project.team_leader.last_name}`.trim(),
+        avatar: project.team_leader.avatar || '',
+      }] : []);
     } else {
       setProjectName('');
       setDescription('');

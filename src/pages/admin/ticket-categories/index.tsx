@@ -1,12 +1,9 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, Plus, X, Layers } from 'lucide-react';
-import { apiRequest } from '@/lib/queryClient';
-import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
+import { useTicketCategoriesQuery, useCreateTicketCategory, useUpdateTicketCategory, useToggleTicketCategoryActive } from '@/services/ticketService';
 
 function Modal({ category, onClose }: { category?: any; onClose: () => void }) {
-  const qc = useQueryClient();
   const [form, setForm] = useState({
     key: category?.key || '',
     label: category?.label || '',
@@ -15,16 +12,19 @@ function Modal({ category, onClose }: { category?: any; onClose: () => void }) {
   const [err, setErr] = useState('');
   const is_edit = !!category?.id;
 
-  const mutation = useMutation({
-    mutationFn: () => {
-      const payload = is_edit ? { label: form.label, sort_order: form.sort_order } : form;
-      return is_edit
-        ? apiRequest<any>(API_ENDPOINTS.TICKET_CATEGORY.UPDATE(category.id), { method: 'PUT', body: JSON.stringify(payload) })
-        : apiRequest<any>(API_ENDPOINTS.TICKET_CATEGORY.CREATE, { method: 'POST', body: JSON.stringify(payload) });
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['ticket-categories-page'] }); onClose(); },
-    onError: (e: any) => setErr(e?.message || 'Failed to save'),
-  });
+  const createMutation = useCreateTicketCategory();
+  const updateMutation = useUpdateTicketCategory();
+  const mutation = is_edit ? updateMutation : createMutation;
+  const handleSave = () => {
+    setErr('');
+    const payload: any = is_edit
+      ? { id: category.id, label: form.label, sort_order: form.sort_order }
+      : form;
+    mutation.mutate(payload, {
+      onSuccess: () => onClose(),
+      onError: (e: any) => setErr(e?.message || 'Failed to save'),
+    });
+  };
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
@@ -56,7 +56,7 @@ function Modal({ category, onClose }: { category?: any; onClose: () => void }) {
         {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
         <div className="flex gap-3 mt-5">
           <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={() => mutation.mutate()} disabled={!form.label || (!is_edit && !form.key) || mutation.isPending}
+          <button onClick={handleSave} disabled={!form.label || (!is_edit && !form.key) || mutation.isPending}
             className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40">
             {mutation.isPending ? 'Saving…' : 'Save'}
           </button>
@@ -67,21 +67,12 @@ function Modal({ category, onClose }: { category?: any; onClose: () => void }) {
 }
 
 export default function TicketCategoriesPage() {
-  const qc = useQueryClient();
   const [q, setQ] = useState('');
   const [modal, setModal] = useState<any>(null);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['ticket-categories-page'],
-    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.TICKET_CATEGORY.LIST}?include_inactive=true`),
-    select: (r: any) => r?.payload || [],
-  });
+  const { data, isLoading } = useTicketCategoriesQuery(true);
 
-  const toggle_active = useMutation({
-    mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) =>
-      apiRequest<any>(API_ENDPOINTS.TICKET_CATEGORY.ACTIVE(id), { method: 'PATCH', body: JSON.stringify({ is_active }) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['ticket-categories-page'] }),
-  });
+  const toggle_active = useToggleTicketCategoryActive();
 
   const categories: any[] = (data || []).filter((c: any) =>
     !q || c.label?.toLowerCase().includes(q.toLowerCase()) || c.key?.toLowerCase().includes(q.toLowerCase())

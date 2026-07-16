@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import Select from '@/components/ui/Select';
 import { useGetTeamsQuery } from '@/services/adminService';
 import { useGetDesignationsQuery } from '@/services/designationService';
+import { useGetDepartmentsQuery } from '@/services/departmentService';
 import { useCreateInviteMutation, useUpdateInviteMutation } from '@/services/inviteService';
 import { useAuthStore } from '@/stores/authStore';
 import { useToastContext } from '@/components/toast/ToastProvider';
@@ -17,39 +18,14 @@ interface InviteMemberModalProps {
   invite?: any;
 }
 
-// --- Data Mappings ---
-
-const departments = [
-  { value: 'TekXAI', label: 'TekXAI' },
-  { value: 'CE', label: 'CE' }
-];
-
-const teamsMap: Record<string, { value: string; label: string }[]> = {
-  'CE': [
-    { value: 'CE', label: 'CE' }
-  ],
-  'UI UX': [
-    { value: 'UI UX', label: 'UI UX' }
-  ],
-  'Developer': [
-    { value: 'Front End Developer', label: 'Front End Developer' },
-    { value: 'Backend Developer', label: 'Backend Developer' },
-    { value: 'DevOps Developer', label: 'DevOps Developer' },
-    { value: 'CMS Developer', label: 'CMS Developer' },
-    { value: 'AI Developer', label: 'AI Developer' }
-  ],
-  'Office Boy': [
-    { value: 'Office Boy', label: 'Office Boy' }
-  ],
-  'Team Lead': [
-    { value: 'Team Lead', label: 'Team Lead' }
-  ]
-};
-
+// Department/Team/Designation dropdowns are fed live from the same shared
+// services Add Employee uses (departmentService/designationService), not a
+// hardcoded snapshot — a hardcoded list here meant new departments never
+// appeared in the invite form regardless of any cache invalidation elsewhere.
 const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, invite }) => {
   const [email, setEmail] = useState('');
-  const [department, setDepartment] = useState('');
-  const [designation, setDesignation] = useState('');
+  const [department, setDepartment] = useState(''); // department_id
+  const [designation, setDesignation] = useState(''); // designation_id
   const [team, setTeam] = useState('');
   const [invitedUserId, setInvitedUserId] = useState<string | null>(null);
   const [isUserListOpen, setIsUserListOpen] = useState(false);
@@ -58,6 +34,7 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
   const { user } = useAuthStore();
   const toast = useToastContext();
   const { data: teamsData } = useGetTeamsQuery(undefined, isOpen);
+  const { data: departmentsData = [] } = useGetDepartmentsQuery();
   const { data: designationsData = [] } = useGetDesignationsQuery();
 
   const { mutate: createInvite, isPending: isCreating } = useCreateInviteMutation();
@@ -70,9 +47,9 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
   React.useEffect(() => {
     if (invite && isOpen) {
       setEmail(invite.email || '');
-      setDepartment(invite.department || '');
+      setDepartment(invite.department_id || '');
       setTeam(invite.team_id || invite.team?.id || '');
-      setDesignation(invite.designation || '');
+      setDesignation(invite.designation_id || '');
     } else if (!isOpen) {
       // Clear state when modal closes
       setEmail('');
@@ -88,9 +65,10 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
     ? (teamsData as any).payload.records.map((t: any) => ({ value: t.id, label: t.name }))
     : Array.isArray(teamsData)
       ? (teamsData as any).map((t: any) => ({ value: t.id || t.name, label: t.name }))
-      : teamsMap[designation] || [];
+      : [];
 
-  const designationOptions = designationsData.map((d) => ({ value: d.name, label: d.name }));
+  const departmentOptions = departmentsData.map((d: any) => ({ value: d.id, label: d.name }));
+  const designationOptions = designationsData.map((d) => ({ value: d.id, label: d.name }));
 
   const handleDepartmentChange = (val: string | number) => {
     const dept = val as string;
@@ -107,10 +85,10 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
   const handleUserSelect = (selectedUser: any) => {
     setEmail(selectedUser.email || '');
     setInvitedUserId(selectedUser.id || null);
-    setDepartment(selectedUser.department || '');
+    setDepartment(selectedUser.department?.id || selectedUser.department_id || '');
     const userTeamId = selectedUser.team_memberships?.[0]?.team?.id || '';
     setTeam(userTeamId);
-    setDesignation(selectedUser.designation || '');
+    setDesignation(selectedUser.designation_ref?.id || selectedUser.designation_id || '');
     setIsUserListOpen(false);
   };
 
@@ -132,8 +110,8 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
     if (isEdit) {
       const payload = {
         email: email,
-        designation: designation,
-        department: department,
+        designation_id: designation,
+        department_id: department,
         team_id: team,
         expires_in_days: 30
       };
@@ -151,8 +129,8 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
       // Option 1: Create with invited_user_id if available
       const payload: any = {
         email: email,
-        designation: designation,
-        department: department,
+        designation_id: designation,
+        department_id: department,
         team_id: team,
         expires_in_days: 30
       };
@@ -213,7 +191,7 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
             {/* Department */}
             <Select
               label="DEPARTMENT *"
-              options={departments}
+              options={departmentOptions}
               value={department}
               onChange={handleDepartmentChange}
               error={errors.department}

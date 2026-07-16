@@ -7,11 +7,6 @@ import Table, { Column } from '@/components/ui/Table';
 import { Search, Filter, Mail, Calendar, Info, Clock, Plus, Trash2, Edit2, ShieldCheck, Shield, X, Monitor } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { apiRequest } from '@/lib/queryClient';
-const api = {
-  get:    (url: string) => apiRequest<any>(url).then((r: any) => ({ data: { payload: r?.payload ?? r } })),
-  post:   (url: string, body?: any) => apiRequest<any>(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
-  delete: (url: string) => apiRequest<any>(url, { method: 'DELETE' }),
-};
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useGetInvitesQuery, useDeleteInviteMutation } from '@/services/inviteService';
 import { useGetMySettingsQuery, useUpdatePreferencesMutation, useChangePasswordMutation } from '@/services/settingsService';
@@ -217,14 +212,14 @@ const Setting: React.FC = () => {
 
     const { data: calStatus, refetch: refetchCalStatus } = useQuery({
       queryKey: ['calendar-status'],
-      queryFn: () => api.get('/calendar/status').then(r => r.data.payload),
+      queryFn: () => apiRequest<any>('/calendar/status').then((r: any) => r?.payload ?? r),
     });
     const connectCalendar = useMutation({
-      mutationFn: (code: string) => api.post('/calendar/connect', { code }),
+      mutationFn: (code: string) => apiRequest<any>('/calendar/connect', { method: 'POST', body: JSON.stringify({ code }) }),
       onSuccess: () => refetchCalStatus(),
     });
     const disconnectCalendar = useMutation({
-      mutationFn: () => api.delete('/calendar/disconnect'),
+      mutationFn: () => apiRequest<any>('/calendar/disconnect', { method: 'DELETE' }),
       onSuccess: () => refetchCalStatus(),
     });
 
@@ -241,9 +236,10 @@ const Setting: React.FC = () => {
     };
 
     const syncDeadlines = async () => {
-      const { data } = await api.get('/calendar/token');
-      const token = data.payload.access_token;
-      const projects = await api.get('/projects').then(r => r.data.payload?.projects || []);
+      const tokenRes = await apiRequest<any>('/calendar/token');
+      const token = (tokenRes?.payload ?? tokenRes).access_token;
+      const projectsRes = await apiRequest<any>('/projects');
+      const projects = (projectsRes?.payload ?? projectsRes)?.projects || [];
       for (const p of projects) {
         if (!p.deadline) continue;
         await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {

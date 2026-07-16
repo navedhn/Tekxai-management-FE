@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { ChevronRight, ChevronLeft, Check, User, Briefcase, MapPin, FileText, ClipboardList, Save, X, Plus, Trash2, RotateCcw, Upload, ExternalLink } from 'lucide-react';
-import { apiRequest, BASE_URL } from '@/lib/queryClient';
+import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
+import { uploadFile } from '@/lib/upload';
 import { cn } from '@/utils/cn';
+import { EMPLOYMENT_STATUS_OPTIONS, EMPLOYMENT_STATUS_LABELS } from '@/constants/employmentStatus';
 
 const DRAFT_KEY = 'add_employee_draft';
 
@@ -31,6 +33,24 @@ function Field({ label, children, required }: { label: string; children: React.R
 
 const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white';
 const selectCls = `${inputCls} text-gray-700`;
+const errorInputCls = 'border-red-400 focus:border-red-500 ring-1 ring-red-200';
+
+// Generic backend-validation-error routing: maps a field name (as returned
+// by the backend's field_error() contract, e.g. { field: 'email', code:
+// 'DUPLICATE_EMAIL' }) to the wizard step that owns it, so ANY validation
+// error — not just duplicate email — auto-navigates + highlights correctly.
+const FIELD_STEP_MAP: Record<string, number> = {
+  first_name: 1, last_name: 1, email: 1,
+  hire_date: 2, designation_id: 2, employment_status: 2, status: 2,
+};
+const FRIENDLY_ERROR_MESSAGES: Record<string, string> = {
+  DUPLICATE_EMAIL: 'This email is already in use — please use a different address.',
+};
+
+function FieldError({ show, message }: { show: boolean; message?: string | null }) {
+  if (!show || !message) return null;
+  return <p className="text-xs text-red-500 mt-1">{message}</p>;
+}
 
 // ── CNIC formatter ────────────────────────────────────────────────────────────
 function formatCnic(raw: string): string {
@@ -135,19 +155,41 @@ const initWork = {
 };
 
 // ── Step 1: Personal Info ────────────────────────────────────────────────────
-function StepPersonal({ data, onChange }: any) {
+function StepPersonal({ data, onChange, errorField, errorMessage, registerRef }: any) {
   return (
     <div className="space-y-6">
       <h3 className="font-bold text-gray-900">Personal Information</h3>
       <div className="grid grid-cols-2 gap-4">
         <Field label="First Name" required>
-          <input className={inputCls} value={data.first_name} onChange={e => onChange('first_name', e.target.value)} placeholder="First name" />
+          <input
+            ref={(el) => registerRef?.('first_name', el)}
+            className={cn(inputCls, errorField === 'first_name' && errorInputCls)}
+            value={data.first_name}
+            onChange={e => onChange('first_name', e.target.value)}
+            placeholder="First name"
+          />
+          <FieldError show={errorField === 'first_name'} message={errorMessage} />
         </Field>
         <Field label="Last Name" required>
-          <input className={inputCls} value={data.last_name} onChange={e => onChange('last_name', e.target.value)} placeholder="Last name" />
+          <input
+            ref={(el) => registerRef?.('last_name', el)}
+            className={cn(inputCls, errorField === 'last_name' && errorInputCls)}
+            value={data.last_name}
+            onChange={e => onChange('last_name', e.target.value)}
+            placeholder="Last name"
+          />
+          <FieldError show={errorField === 'last_name'} message={errorMessage} />
         </Field>
         <Field label="Email Address" required>
-          <input className={inputCls} type="email" value={data.email} onChange={e => onChange('email', e.target.value)} placeholder="email@company.com" />
+          <input
+            ref={(el) => registerRef?.('email', el)}
+            className={cn(inputCls, errorField === 'email' && errorInputCls)}
+            type="email"
+            value={data.email}
+            onChange={e => onChange('email', e.target.value)}
+            placeholder="email@company.com"
+          />
+          <FieldError show={errorField === 'email'} message={errorMessage} />
         </Field>
         <Field label="Phone Number">
           <PhoneInput value={data.phone} onChange={v => onChange('phone', v)} />
@@ -214,7 +256,7 @@ function StepPersonal({ data, onChange }: any) {
 }
 
 // ── Step 2: Employment Details ───────────────────────────────────────────────
-function StepEmployment({ data, onChange, departments, teams, users }: any) {
+function StepEmployment({ data, onChange, departments, teams, users, designations, grades, errorField, errorMessage, registerRef }: any) {
   return (
     <div className="space-y-6">
       <div>
@@ -229,7 +271,14 @@ function StepEmployment({ data, onChange, departments, teams, users }: any) {
             />
           </Field>
           <Field label="Joining Date" required>
-            <input className={inputCls} type="date" value={data.hire_date} onChange={e => onChange('hire_date', e.target.value)} />
+            <input
+              ref={(el) => registerRef?.('hire_date', el)}
+              className={cn(inputCls, errorField === 'hire_date' && errorInputCls)}
+              type="date"
+              value={data.hire_date}
+              onChange={e => onChange('hire_date', e.target.value)}
+            />
+            <FieldError show={errorField === 'hire_date'} message={errorMessage} />
           </Field>
           <Field label="Confirmation Date">
             <input className={inputCls} type="date" value={data.confirmation_date} onChange={e => onChange('confirmation_date', e.target.value)} />
@@ -245,14 +294,15 @@ function StepEmployment({ data, onChange, departments, teams, users }: any) {
             </select>
           </Field>
           <Field label="Employment Status">
-            <select className={selectCls} value={data.employment_status} onChange={e => onChange('employment_status', e.target.value)}>
-              <option value="ACTIVE">Active</option>
-              <option value="INACTIVE">Inactive</option>
-              <option value="ON_LEAVE">On Leave</option>
-              <option value="SUSPENDED">Suspended</option>
-              <option value="TERMINATED">Terminated</option>
-              <option value="DECEASED">Deceased</option>
+            <select
+              ref={(el) => registerRef?.('employment_status', el)}
+              className={cn(selectCls, (errorField === 'employment_status' || errorField === 'status') && errorInputCls)}
+              value={data.employment_status}
+              onChange={e => onChange('employment_status', e.target.value)}
+            >
+              {EMPLOYMENT_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
+            <FieldError show={errorField === 'employment_status' || errorField === 'status'} message={errorMessage} />
           </Field>
           <Field label="Notice Period">
             <div className="flex items-center h-10 px-3 border border-gray-100 rounded-xl bg-gray-50 text-sm text-gray-500 font-semibold select-none">
@@ -287,7 +337,8 @@ function StepEmployment({ data, onChange, departments, teams, users }: any) {
           </Field>
           <Field label="Designation" required>
             <select
-              className={selectCls}
+              ref={(el) => registerRef?.('designation_id', el)}
+              className={cn(selectCls, errorField === 'designation_id' && errorInputCls)}
               value={data.designation_id}
               onChange={e => {
                 const chosen = (designations || []).find((d: any) => d.id === e.target.value);
@@ -298,6 +349,7 @@ function StepEmployment({ data, onChange, departments, teams, users }: any) {
               <option value="">Select designation</option>
               {(designations || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
+            <FieldError show={errorField === 'designation_id'} message={errorMessage} />
           </Field>
           <Field label="Grade">
             <select
@@ -444,8 +496,14 @@ function StepWork({ data, onChange }: any) {
 }
 
 // ── Step 4: Documents ────────────────────────────────────────────────────────
+// CNIC is split into two explicit, required document types (front/back) —
+// the old generic single 'CNIC' catch-all is removed so a submission can
+// never be missing one side of the ID.
+const CNIC_DOC_TYPES = ['CNIC_FRONT', 'CNIC_BACK'];
+
 const DOC_TYPE_OPTIONS = [
-  { value: 'CNIC',               label: 'CNIC / National ID' },
+  { value: 'CNIC_FRONT',         label: 'CNIC Front' },
+  { value: 'CNIC_BACK',          label: 'CNIC Back' },
   { value: 'RESUME',             label: 'Resume / CV' },
   { value: 'OFFER_LETTER',       label: 'Offer Letter' },
   { value: 'CONTRACT',           label: 'Contract' },
@@ -463,7 +521,16 @@ interface DocFile { title: string; document_type: string; file_url: string; note
 
 const EMPTY_DOC: DocFile = { title: '', document_type: 'OTHER', file_url: '', notes: '' };
 
+// Required upload validation: both CNIC sides must be present (uploaded file
+// or pasted link) before the wizard can proceed past the Documents step.
+export function missingRequiredDocs(docFiles: DocFile[]): string[] {
+  return CNIC_DOC_TYPES.filter(
+    type => !docFiles.some(d => d.document_type === type && d.file_url.trim())
+  ).map(type => DOC_TYPE_OPTIONS.find(o => o.value === type)?.label || type);
+}
+
 function StepDocuments({ docFiles, setDocFiles }: { docFiles: DocFile[]; setDocFiles: React.Dispatch<React.SetStateAction<DocFile[]>> }) {
+  const missing = missingRequiredDocs(docFiles);
   const [uploading, setUploading] = React.useState<Record<number, boolean>>({});
   const addRow = () => setDocFiles(prev => [...prev, { ...EMPTY_DOC }]);
   const removeRow = (idx: number) => setDocFiles(prev => prev.filter((_, i) => i !== idx));
@@ -473,19 +540,9 @@ function StepDocuments({ docFiles, setDocFiles }: { docFiles: DocFile[]; setDocF
   const handleFileUpload = async (idx: number, file: File) => {
     setUploading(p => ({ ...p, [idx]: true }));
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token') || '';
-      const res = await fetch(`${BASE_URL}${API_ENDPOINTS.STORAGE.UPLOAD}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
-      });
-      const json = await res.json();
-      if (json.success) {
-        updateRow(idx, 'file_url', json.payload.file_url);
-        if (!docFiles[idx].title) updateRow(idx, 'title', file.name.replace(/\.[^.]+$/, ''));
-      }
+      const { file_url } = await uploadFile(file);
+      updateRow(idx, 'file_url', file_url);
+      if (!docFiles[idx].title) updateRow(idx, 'title', file.name.replace(/\.[^.]+$/, ''));
     } catch (e) { console.error('Upload failed', e); }
     setUploading(p => ({ ...p, [idx]: false }));
   };
@@ -496,6 +553,12 @@ function StepDocuments({ docFiles, setDocFiles }: { docFiles: DocFile[]; setDocF
         <h3 className="font-bold text-gray-900">Documents</h3>
         <p className="text-xs text-gray-400 mt-0.5">Upload files directly or paste a Google Drive / OneDrive link.</p>
       </div>
+
+      {missing.length > 0 && (
+        <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 text-sm text-red-600 font-semibold">
+          Required before continuing: {missing.join(', ')}
+        </div>
+      )}
 
       {docFiles.length === 0 ? (
         <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center">
@@ -592,10 +655,7 @@ function StepDocuments({ docFiles, setDocFiles }: { docFiles: DocFile[]; setDocF
 
 // ── Step 5: Review & Save ────────────────────────────────────────────────────
 function StepReview({ personal, employment, work }: any) {
-  const STATUS_LABELS: Record<string, string> = {
-    ACTIVE: 'Active', INACTIVE: 'Inactive', ON_LEAVE: 'On Leave',
-    SUSPENDED: 'Suspended', TERMINATED: 'Terminated', DECEASED: 'Deceased',
-  };
+  const STATUS_LABELS = EMPLOYMENT_STATUS_LABELS;
   const sections = [
     { label: 'Personal Information', data: {
       'Name': `${personal.first_name} ${personal.last_name}`,
@@ -655,6 +715,10 @@ export default function AddEmployee() {
   const [work, setWork]             = useState(initWork);
   const [docFiles, setDocFiles]     = useState<DocFile[]>([] as DocFile[]);
   const [draftBanner, setDraftBanner] = useState(false);
+  const [errorField, setErrorField] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const fieldRefs = React.useRef<Record<string, HTMLElement | null>>({});
+  const registerRef = (field: string, el: HTMLElement | null) => { fieldRefs.current[field] = el; };
 
   // ── Draft auto-save / restore ──────────────────────────────────────────────
   useEffect(() => {
@@ -842,15 +906,44 @@ export default function AddEmployee() {
       qc.invalidateQueries({ queryKey: ['employee-directory'] });
       navigate(`/hr/employees`);
     },
+    onError: (err: any) => {
+      // Generic backend-validation-error routing: the backend's field_error()
+      // contract returns { field, code, message } (err.data here, since
+      // apiRequest throws { status, data, message }). ANY field the backend
+      // names — not just email — auto-navigates to its owning step, highlights
+      // the input, focuses it, and shows a message. Entered data is never
+      // reset on error. Falls back to the plain message with no navigation
+      // for errors the backend didn't attach a field to.
+      const field = err?.data?.field;
+      const code = err?.data?.code;
+      const backendMessage = err?.data?.message || err?.message;
+      const step_for_field = field ? FIELD_STEP_MAP[field] : undefined;
+      if (field && step_for_field != null) {
+        setStep(step_for_field);
+        setErrorField(field);
+        setErrorMessage(FRIENDLY_ERROR_MESSAGES[code] || backendMessage || 'Please fix the highlighted field and try again.');
+        setTimeout(() => (fieldRefs.current[field] as any)?.focus?.(), 0);
+      } else {
+        setErrorField(null);
+        setErrorMessage(backendMessage || 'Failed to save employee. Please try again.');
+      }
+    },
   });
 
-  const changePersonal    = (k: string, v: any) => setPersonal(p => ({ ...p, [k]: v }));
-  const changeEmployment  = (k: string, v: any) => setEmployment(p => ({ ...p, [k]: v }));
+  const changePersonal = (k: string, v: any) => {
+    setPersonal(p => ({ ...p, [k]: v }));
+    if (k === errorField) setErrorField(null);
+  };
+  const changeEmployment = (k: string, v: any) => {
+    setEmployment(p => ({ ...p, [k]: v }));
+    if (k === errorField || (k === 'employment_status' && errorField === 'status')) setErrorField(null);
+  };
   const changeWork        = (k: string, v: any) => setWork(p => ({ ...p, [k]: v }));
 
   const canNext = () => {
     if (step === 1) return personal.first_name && personal.last_name && personal.email;
     if (step === 2) return !!employment.hire_date;
+    if (step === 4) return missingRequiredDocs(docFiles).length === 0;
     return true;
   };
 
@@ -910,8 +1003,8 @@ export default function AddEmployee() {
         {/* Right: Step content */}
         <div className="flex-1 min-w-0">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            {step === 1 && <StepPersonal data={personal} onChange={changePersonal} />}
-            {step === 2 && <StepEmployment data={employment} onChange={changeEmployment} departments={departments} teams={teams} users={users} />}
+            {step === 1 && <StepPersonal data={personal} onChange={changePersonal} errorField={errorField} errorMessage={errorMessage} registerRef={registerRef} />}
+            {step === 2 && <StepEmployment data={employment} onChange={changeEmployment} departments={departments} teams={teams} users={users} designations={designations} grades={grades} errorField={errorField} errorMessage={errorMessage} registerRef={registerRef} />}
             {step === 3 && <StepWork data={work} onChange={changeWork} />}
             {step === 4 && <StepDocuments docFiles={docFiles} setDocFiles={setDocFiles} />}
             {step === 5 && <StepReview personal={personal} employment={employment} work={work} />}
@@ -923,6 +1016,12 @@ export default function AddEmployee() {
                 <ChevronLeft size={16} />Previous
               </button>
               <div className="flex items-center gap-3">
+                {/* DECISION (Milestone 1, gap #5): Save as Draft intentionally
+                    bypasses the required-CNIC-documents check (missingRequiredDocs)
+                    and is reachable from any step. A draft exists precisely to let
+                    HR save incomplete progress and finish later — required-document
+                    validation only applies to the final "Save Employee" submission,
+                    which can only be reached via Next once step 4 is satisfied. */}
                 <button
                   onClick={() => createMutation.mutate(true)}
                   disabled={createMutation.isPending}
@@ -947,7 +1046,9 @@ export default function AddEmployee() {
 
             {createMutation.isError && (
               <p className="text-red-500 text-sm mt-3 text-center">
-                {(createMutation.error as Error)?.message || 'Failed to save employee. Please try again.'}
+                {errorField
+                  ? 'Please fix the highlighted field above before saving again.'
+                  : (errorMessage || 'Failed to save employee. Please try again.')}
               </p>
             )}
           </div>

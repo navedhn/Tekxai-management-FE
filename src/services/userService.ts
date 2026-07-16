@@ -69,12 +69,29 @@ export const useLazyFetchUsersQuery = (params?: Record<string, any>) => {
   };
 };
 
+// Employee headcount/roster changes ripple into the HR Dashboard's own ad hoc
+// keys (hr-dashboard/index.tsx) and employeeService's dashboard-stat key —
+// neither is derived from QUERY_KEYS.USER.LIST, so they must be invalidated
+// explicitly alongside the user list itself.
+const invalidateUserAndDependents = (queryClient: ReturnType<typeof useQueryClient>) => {
+  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.USER.LIST });
+  queryClient.invalidateQueries({ queryKey: ['employee-list-hr-dash'] });
+  queryClient.invalidateQueries({ queryKey: ['employee-stats-hr-dash'] });
+  queryClient.invalidateQueries({ queryKey: ['employee-directory'] });
+  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.EMPLOYEE.DASHBOARD_STATS });
+  // 'user-list-brief' backs the Reporting Manager / Team Member pickers in
+  // Add Employee, Employee Profile, TeamFormModal, TeamMembersModal, and
+  // several other admin pages — previously never invalidated by any user
+  // mutation, so those pickers could show stale names/statuses indefinitely.
+  queryClient.invalidateQueries({ queryKey: ['user-list-brief'] });
+};
+
 export const useCreateUserMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: any) => apiRequest(API_ENDPOINTS.USER.CREATE, { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.USER.LIST });
+      invalidateUserAndDependents(queryClient);
     },
   });
 };
@@ -82,10 +99,24 @@ export const useCreateUserMutation = () => {
 export const useUpdateUserMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string | number; data: any }) => 
+    mutationFn: ({ id, data }: { id: string | number; data: any }) =>
       apiRequest(API_ENDPOINTS.USER.UPDATE(id), { method: 'PUT', body: JSON.stringify(data) }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.USER.LIST });
+      invalidateUserAndDependents(queryClient);
+    },
+  });
+};
+
+// Dedicated RBAC action — the only mutation allowed to change a user's role.
+// Deliberately separate from useUpdateUserMutation (generic profile PUT),
+// which the backend now strips role_id from unconditionally.
+export const useChangeUserRoleMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, role_id }: { id: string | number; role_id: string }) =>
+      apiRequest(API_ENDPOINTS.USER.ROLE_CHANGE(id), { method: 'PUT', body: JSON.stringify({ role_id }) }),
+    onSuccess: () => {
+      invalidateUserAndDependents(queryClient);
     },
   });
 };
@@ -95,7 +126,7 @@ export const useDeleteUserMutation = () => {
   return useMutation({
     mutationFn: (id: string | number) => apiRequest(API_ENDPOINTS.USER.DELETE(id), { method: 'DELETE' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.USER.LIST });
+      invalidateUserAndDependents(queryClient);
     },
   });
 };
@@ -105,7 +136,7 @@ export const useBulkUpdateUsersMutation = () => {
   return useMutation({
     mutationFn: (data: any) => apiRequest(API_ENDPOINTS.USER.UPDATE_MANY, { method: 'PUT', body: JSON.stringify(data) }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.USER.LIST });
+      invalidateUserAndDependents(queryClient);
     },
   });
 };
@@ -115,7 +146,7 @@ export const useBulkDeleteUsersMutation = () => {
   return useMutation({
     mutationFn: (ids: string[]) => apiRequest(API_ENDPOINTS.USER.BULK_DELETE, { method: 'POST', body: JSON.stringify({ ids }) }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.USER.LIST });
+      invalidateUserAndDependents(queryClient);
     },
   });
 };

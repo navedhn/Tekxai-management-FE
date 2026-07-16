@@ -22,6 +22,7 @@ import { useQuery } from '@tanstack/react-query';
 import EmergencyContactsSection from '@/components/employee-profile/EmergencyContactsSection';
 import PolicyStatusSection from '@/components/employee-profile/PolicyStatusSection';
 import EducationExperienceSection from '@/components/employee-profile/EducationExperienceSection';
+import { EMPLOYMENT_STATUS_LABELS } from '@/constants/employmentStatus';
 
 const InfoRow: React.FC<{ label: string; value?: string | null }> = ({ label, value }) => (
   <div>
@@ -676,7 +677,7 @@ const EmployeeProfilePage: React.FC = () => {
           <p className="text-sm text-gray-500 font-medium">{user.designation || user.position || '—'} · {user.department?.name || '—'}</p>
           <div className="flex flex-wrap gap-2 mt-2">
             <Badge className={cn('border text-xs font-bold px-2 py-0.5 rounded-full', STATUS_COLORS[user.status] || STATUS_COLORS.INACTIVE)}>
-              {user.status}
+              {EMPLOYMENT_STATUS_LABELS[user.status] || user.status}
             </Badge>
             {profile?.lifecycle_stage && (
               <Badge className={cn('border text-xs font-bold px-2 py-0.5 rounded-full', LIFECYCLE_COLORS[profile.lifecycle_stage] || LIFECYCLE_COLORS.ONBOARDING)}>

@@ -7,6 +7,8 @@ import {
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
+import { useTicketCategoriesQuery } from '@/services/ticketService';
+import { useGetDepartmentsQuery } from '@/services/departmentService';
 
 // ─── Field & Workflow type definitions (mirrors the backend's field_schema /
 // workflow JSON shape exactly — see ticket-types.validation.js on the backend) ──
@@ -358,16 +360,8 @@ export default function TicketTypeEditor({ type, onClose }: { type?: any; onClos
   const [sections, setSections] = useState<SectionDef[]>(type?.field_schema || [{ section: 'Details', fields: [] }]);
   const [workflow, setWorkflow] = useState<WorkflowStep[]>(type?.workflow || [{ key: 'OPEN', label: 'Open' }, { key: 'CLOSED', label: 'Closed' }]);
 
-  const { data: categories } = useQuery({
-    queryKey: ['ticket-categories-for-editor'],
-    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.TICKET_CATEGORY.LIST}?include_inactive=true`),
-    select: (r: any) => r?.payload || [],
-  });
-  const { data: departments } = useQuery({
-    queryKey: ['departments'],
-    queryFn: () => apiRequest<any>(API_ENDPOINTS.DEPARTMENT.LIST),
-    select: (r: any) => r?.payload?.records || r?.payload || [],
-  });
+  const { data: categories } = useTicketCategoriesQuery(true);
+  const { data: departments } = useGetDepartmentsQuery();
   const { data: teams } = useQuery({
     queryKey: ['teams-for-editor'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.TEAM.LIST),

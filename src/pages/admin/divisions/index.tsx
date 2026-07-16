@@ -1,11 +1,20 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Search, Plus, X, Layers, Users } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
+import {
+  useGetDivisionsQuery, useCreateDivision, useUpdateDivision,
+  useDeleteDivision, useBulkDeleteDivisions,
+} from '@/services/departmentService';
+import { useBulkSelection } from '@/hooks/useBulkSelection';
+import { summarizeBulkDelete } from '@/utils/bulkDeleteSummary';
+import ActionModal from '@/components/ui/ActionModal';
+import BulkDeleteBar from '@/components/ui/BulkDeleteBar';
+import { useToastContext } from '@/components/toast/ToastProvider';
+import { cn } from '@/utils/cn';
 
 function Modal({ division, onClose }: { division?: any; onClose: () => void }) {
-  const qc = useQueryClient();
   const [form, setForm] = useState({
     name: division?.name || '',
     description: division?.description || '',
@@ -19,16 +28,19 @@ function Modal({ division, onClose }: { division?: any; onClose: () => void }) {
     select: (r: any) => r?.payload?.records || r?.payload || [],
   });
 
-  const mutation = useMutation({
-    mutationFn: () => {
-      const { department_id, ...rest } = form;
-      return division?.id
-        ? apiRequest<any>(API_ENDPOINTS.DIVISION.UPDATE(division.id), { method: 'PUT', body: JSON.stringify(rest) })
-        : apiRequest<any>(API_ENDPOINTS.DEPARTMENT.DIVISIONS(department_id), { method: 'POST', body: JSON.stringify(rest) });
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['divisions-page'] }); onClose(); },
-    onError: (e: any) => setErr(e?.message || 'Failed to save'),
-  });
+  const createMutation = useCreateDivision();
+  const updateMutation = useUpdateDivision();
+  const mutation = division?.id ? updateMutation : createMutation;
+
+  const handleSave = () => {
+    setErr('');
+    const { department_id, ...rest } = form;
+    const payload = division?.id ? { id: division.id, ...rest } : { department_id, ...rest };
+    mutation.mutate(payload as any, {
+      onSuccess: () => onClose(),
+      onError: (e: any) => setErr(e?.message || 'Failed to save'),
+    });
+  };
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
@@ -64,7 +76,7 @@ function Modal({ division, onClose }: { division?: any; onClose: () => void }) {
         {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
         <div className="flex gap-3 mt-5">
           <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={() => mutation.mutate()} disabled={!form.name || !form.department_id || mutation.isPending}
+          <button onClick={handleSave} disabled={!form.name || !form.department_id || mutation.isPending}
             className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40">
             {mutation.isPending ? 'Saving…' : 'Save'}
           </button>
@@ -75,18 +87,47 @@ function Modal({ division, onClose }: { division?: any; onClose: () => void }) {
 }
 
 export default function DivisionsPage() {
+  const toast = useToastContext();
   const [q, setQ] = useState('');
   const [modal, setModal] = useState<any>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['divisions-page'],
-    queryFn: () => apiRequest<any>(API_ENDPOINTS.DIVISION.LIST),
-    select: (r: any) => r?.payload || [],
-  });
+  const { data, isLoading } = useGetDivisionsQuery();
 
   const divisions: any[] = (data || []).filter((d: any) =>
     !q || d.name?.toLowerCase().includes(q.toLowerCase()) || d.department?.name?.toLowerCase().includes(q.toLowerCase())
   );
+
+  const { selected, allOnPageSelected, toggleAll, toggleOne, clear } =
+    useBulkSelection(divisions.map(d => d.id));
+  useEffect(() => { clear(); }, [q]);
+
+  const deleteMutation = useDeleteDivision();
+  const bulkDelete = useBulkDeleteDivisions();
+
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    deleteMutation.mutate(deleteTarget.id, {
+      onSuccess: () => { toast.success('Division deleted'); setDeleteTarget(null); },
+      onError: (e: any) => toast.error(e?.message || 'Failed to delete division'),
+    });
+  };
+
+  const handleBulkDelete = () => {
+    const ids = Array.from(selected);
+    bulkDelete.mutate(ids, {
+      onSuccess: (results) => {
+        const byId = new Map(divisions.map(d => [d.id, d.name]));
+        const { successMessage, errorMessage } = summarizeBulkDelete(results, 'division', id => byId.get(id) || id);
+        toast.success(successMessage);
+        if (errorMessage) toast.error(errorMessage, 6000);
+        clear();
+        setBulkDeleteOpen(false);
+      },
+      onError: (e: any) => toast.error(e?.message || 'Bulk delete failed'),
+    });
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -108,10 +149,26 @@ export default function DivisionsPage() {
             placeholder="Search divisions…" value={q} onChange={e => setQ(e.target.value)} />
         </div>
 
-        <div className="overflow-x-auto">
+        <BulkDeleteBar
+          count={selected.size}
+          entityLabel="division"
+          onClear={clear}
+          onDelete={() => setBulkDeleteOpen(true)}
+        />
+
+        <div className="overflow-x-auto mt-4">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
+                <th className="py-3 px-2 w-8">
+                  <input
+                    type="checkbox"
+                    checked={allOnPageSelected}
+                    onChange={toggleAll}
+                    className="w-4 h-4 rounded accent-primary-600 cursor-pointer"
+                    title={allOnPageSelected ? 'Deselect all' : 'Select all'}
+                  />
+                </th>
                 {['Division', 'Department', 'Description', 'Employees', 'Actions'].map(h => (
                   <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
                 ))}
@@ -120,42 +177,83 @@ export default function DivisionsPage() {
             <tbody className="divide-y divide-gray-50">
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}><td colSpan={5} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                  <tr key={i}><td colSpan={6} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
                 ))
               ) : divisions.length === 0 ? (
-                <tr><td colSpan={5} className="py-12 text-center text-gray-400 text-sm">No divisions found</td></tr>
-              ) : divisions.map((div: any) => (
-                <tr key={div.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="py-3 px-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
-                        <Layers size={14} className="text-purple-600" />
+                <tr><td colSpan={6} className="py-12 text-center text-gray-400 text-sm">No divisions found</td></tr>
+              ) : divisions.map((div: any) => {
+                const isChecked = selected.has(div.id);
+                return (
+                  <tr key={div.id} className={cn('hover:bg-gray-50 transition-colors', isChecked && 'bg-primary-50')}>
+                    <td className="py-3 px-2">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleOne(div.id)}
+                        className="w-4 h-4 rounded accent-primary-600 cursor-pointer"
+                      />
+                    </td>
+                    <td className="py-3 px-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
+                          <Layers size={14} className="text-purple-600" />
+                        </div>
+                        <span className="font-semibold text-gray-900">{div.name}</span>
                       </div>
-                      <span className="font-semibold text-gray-900">{div.name}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-2 text-gray-700">{div.department?.name || '—'}</td>
-                  <td className="py-3 px-2 text-gray-500 max-w-[240px] truncate">{div.description || '—'}</td>
-                  <td className="py-3 px-2">
-                    <div className="flex items-center gap-1.5 text-gray-600">
-                      <Users size={13} className="text-gray-400" />
-                      {div._count?.users ?? '—'}
-                    </div>
-                  </td>
-                  <td className="py-3 px-2">
-                    <button onClick={() => setModal(div)}
-                      className="px-3 h-7 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
-                      Edit
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="py-3 px-2 text-gray-700">{div.department?.name || '—'}</td>
+                    <td className="py-3 px-2 text-gray-500 max-w-[240px] truncate">{div.description || '—'}</td>
+                    <td className="py-3 px-2">
+                      <div className="flex items-center gap-1.5 text-gray-600">
+                        <Users size={13} className="text-gray-400" />
+                        {div._count?.users ?? '—'}
+                      </div>
+                    </td>
+                    <td className="py-3 px-2">
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setModal(div)}
+                          className="px-3 h-7 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+                          Edit
+                        </button>
+                        <button onClick={() => setDeleteTarget(div)}
+                          className="px-3 h-7 border border-red-200 rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors">
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
 
       {modal !== null && <Modal division={modal?.id ? modal : undefined} onClose={() => setModal(null)} />}
+
+      <ActionModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Delete Division"
+        description={`Are you sure you want to delete "${deleteTarget?.name}"? This cannot be undone. Divisions still referenced by employees or teams cannot be deleted.`}
+        confirmText="Delete"
+        confirmVariant="danger"
+        icon="delete"
+        loading={deleteMutation.isPending}
+      />
+
+      <ActionModal
+        isOpen={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+        onConfirm={handleBulkDelete}
+        title="Delete Divisions"
+        description={`Delete ${selected.size} selected division(s)? Any division still referenced by employees or teams will fail and be reported separately.`}
+        confirmText="Delete"
+        confirmVariant="danger"
+        icon="delete"
+        loading={bulkDelete.isPending}
+      />
     </div>
   );
 }
