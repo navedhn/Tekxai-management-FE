@@ -5,8 +5,9 @@ import { API_ENDPOINTS as ENDPOINTS } from '@/services/api/endpoints';
 import { SupportTicket } from '@/types/ticket';
 import { TicketDetailModal } from '@/components/tickets';
 import { formatTicketDate } from '@/services/ticketService';
-import { Ticket, Search, Filter } from 'lucide-react';
+import { Ticket, Search, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { useDebounce } from '@/hooks/useDebounce';
 
 const STATUS_STYLES: Record<string, string> = {
   pending:     'bg-yellow-100 text-yellow-700',
@@ -24,14 +25,18 @@ export default function AdminTickets() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
+  const [slaOverdueOnly, setSlaOverdueOnly] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
+  const debouncedSearch = useDebounce(search, 350);
 
   const { data, isLoading } = useQuery<{ records: SupportTicket[]; total: number }>({
-    queryKey: ['admin-tickets', statusFilter, priorityFilter],
+    queryKey: ['admin-tickets', statusFilter, priorityFilter, debouncedSearch, slaOverdueOnly],
     queryFn: async () => {
       const params = new URLSearchParams({ limit: '100' });
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (priorityFilter !== 'all') params.set('priority', priorityFilter);
+      if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
+      if (slaOverdueOnly) params.set('sla', 'overdue');
       const res = await apiRequest<any>(`${ENDPOINTS.TICKET.LIST}?${params}`);
       return res?.payload;
     },
@@ -48,15 +53,31 @@ export default function AdminTickets() {
     },
   });
 
-  const tickets = (data?.records ?? []).filter((t) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      t.ticketNumber?.toLowerCase().includes(q) ||
-      t.subject?.toLowerCase().includes(q) ||
-      t.createdBy?.toLowerCase().includes(q)
-    );
+  const approvalMutation = useMutation({
+    mutationFn: async ({ id, action }: { id: string; action: 'APPROVE' | 'REJECT' }) => {
+      const comment = prompt(`${action === 'APPROVE' ? 'Approval' : 'Rejection'} comment (optional):`) || undefined;
+      await apiRequest(ENDPOINTS.TICKET.APPROVALS(id), { method: 'POST', body: JSON.stringify({ action, comment }) });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-tickets'] });
+      if (selectedTicket) qc.invalidateQueries({ queryKey: ['ticket', selectedTicket.id] });
+    },
   });
+
+  // Search is now server-side (subject/description/ticket number) — the list
+  // is exactly what the backend returned.
+  const tickets = data?.records ?? [];
+
+  // A service-desk ticket at an approval-gated workflow step gets
+  // Approve/Reject actions instead of a free status dropdown.
+  const currentStep = (t: SupportTicket) =>
+    t.typeSnapshot?.workflow?.find((s) => s.key === t.status);
+  const nextSteps = (t: SupportTicket) => {
+    const wf = t.typeSnapshot?.workflow;
+    if (!wf) return null; // legacy ticket — free statuses
+    const idx = wf.findIndex((s) => s.key === t.status);
+    return wf.filter((_, i) => i !== idx);
+  };
 
   const stats = {
     pending:     (data?.records ?? []).filter(t => t.status === 'pending').length,
@@ -115,6 +136,19 @@ export default function AdminTickets() {
           <option value="medium">Medium</option>
           <option value="low">Low</option>
         </select>
+        <button
+          type="button"
+          onClick={() => setSlaOverdueOnly((v) => !v)}
+          className={cn(
+            'flex items-center gap-1.5 text-sm font-semibold border rounded-xl px-3 py-2 transition-colors',
+            slaOverdueOnly
+              ? 'bg-red-50 text-red-600 border-red-200'
+              : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300',
+          )}
+        >
+          <Clock size={14} />
+          SLA Overdue
+        </button>
       </div>
 
       {/* Table */}
@@ -154,21 +188,60 @@ export default function AdminTickets() {
                       >
                         View / Reply
                       </button>
-                      {t.status !== 'resolved' && (
-                        <select
-                          defaultValue=""
-                          onChange={(e) => {
-                            if (!e.target.value) return;
-                            const resolution_note = e.target.value === 'resolved' ? prompt('Resolution note (optional):') || undefined : undefined;
-                            updateMutation.mutate({ id: t.id, status: e.target.value, resolution_note });
-                            e.target.value = '';
-                          }}
-                          className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none"
-                        >
-                          <option value="" disabled>Change status</option>
-                          {t.status !== 'in_progress' && <option value="in_progress">Mark In Progress</option>}
-                          <option value="resolved">Mark Resolved</option>
-                        </select>
+                      {currentStep(t)?.requires_approval ? (
+                        // Approval-gated workflow step — status can only move via approve/reject
+                        <>
+                          <button
+                            onClick={() => approvalMutation.mutate({ id: t.id, action: 'APPROVE' })}
+                            disabled={approvalMutation.isPending}
+                            className="flex items-center gap-1 text-xs font-semibold text-green-600 hover:underline disabled:opacity-50"
+                          >
+                            <CheckCircle2 size={12} /> Approve
+                          </button>
+                          <button
+                            onClick={() => approvalMutation.mutate({ id: t.id, action: 'REJECT' })}
+                            disabled={approvalMutation.isPending}
+                            className="flex items-center gap-1 text-xs font-semibold text-red-600 hover:underline disabled:opacity-50"
+                          >
+                            <XCircle size={12} /> Reject
+                          </button>
+                        </>
+                      ) : nextSteps(t) ? (
+                        // Service-desk ticket — statuses come from its workflow snapshot
+                        !t.closedAt && (
+                          <select
+                            defaultValue=""
+                            onChange={(e) => {
+                              if (!e.target.value) return;
+                              updateMutation.mutate({ id: t.id, status: e.target.value });
+                              e.target.value = '';
+                            }}
+                            className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none"
+                          >
+                            <option value="" disabled>Change status</option>
+                            {nextSteps(t)!.map((s) => (
+                              <option key={s.key} value={s.key}>{s.label}</option>
+                            ))}
+                          </select>
+                        )
+                      ) : (
+                        // Legacy ticket — original free-status behavior
+                        t.status !== 'resolved' && (
+                          <select
+                            defaultValue=""
+                            onChange={(e) => {
+                              if (!e.target.value) return;
+                              const resolution_note = e.target.value === 'resolved' ? prompt('Resolution note (optional):') || undefined : undefined;
+                              updateMutation.mutate({ id: t.id, status: e.target.value, resolution_note });
+                              e.target.value = '';
+                            }}
+                            className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none"
+                          >
+                            <option value="" disabled>Change status</option>
+                            {t.status !== 'in_progress' && <option value="in_progress">Mark In Progress</option>}
+                            <option value="resolved">Mark Resolved</option>
+                          </select>
+                        )
                       )}
                     </div>
                   </td>

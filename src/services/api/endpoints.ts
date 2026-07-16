@@ -162,6 +162,7 @@ export const API_ENDPOINTS = {
     ATTACHMENTS: (id: string | number) => `${v1}/ticket/${id}/attachments`,
     REPLIES:     (id: string | number) => `${v1}/ticket/${id}/replies`,
     APPROVALS:   (id: string | number) => `${v1}/ticket/${id}/approvals`,
+    TIMELINE:    (id: string | number) => `${v1}/ticket/${id}/timeline`,
   },
   TICKET_CATEGORY: {
     LIST:   `${v1}/ticket-categories`,

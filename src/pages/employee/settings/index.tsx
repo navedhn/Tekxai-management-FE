@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
+import FormInput from '@/components/form/FormInput';
 import Select from '@/components/ui/Select';
 import { Lock, Globe, User } from 'lucide-react';
 import { useToastContext } from '@/components/toast/ToastProvider';
@@ -90,32 +90,38 @@ const EmployeeSetting: React.FC = () => {
                     <Card className="flex flex-col gap-6 p-6 shadow-sm border border-gray-100 bg-white rounded-xl">
                         <div className="flex flex-col gap-1 md:w-1/2">
                             <span className="text-[14px] font-black text-gray-900 tracking-tight">Old Password</span>
-                            <Input
+                            <FormInput
+                                name="old_password"
                                 type="password"
                                 placeholder="Enter your old password"
                                 value={oldPassword}
                                 onChange={(e) => setOldPassword(e.target.value)}
+                                autoComplete="current-password"
                             />
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="flex flex-col gap-1">
                                 <span className="text-[14px] font-black text-gray-900 tracking-tight">Enter New Password</span>
-                                <Input
+                                <FormInput
+                                    name="new_password"
                                     type="password"
                                     placeholder="Enter new password"
                                     value={newPassword}
                                     onChange={(e) => setNewPassword(e.target.value)}
+                                    autoComplete="new-password"
                                 />
                                 <span className="text-xs text-gray-500 font-medium mt-1">Min 8 characters, 1 Digit & 1 special character</span>
                             </div>
                             <div className="flex flex-col gap-1">
                                 <span className="text-[14px] font-black text-gray-900 tracking-tight">Confirm New Password</span>
-                                <Input
+                                <FormInput
+                                    name="confirm_new_password"
                                     type="password"
                                     placeholder="Confirm new password"
                                     value={confirmNewPassword}
                                     onChange={(e) => setConfirmNewPassword(e.target.value)}
+                                    autoComplete="new-password"
                                 />
                             </div>
                         </div>

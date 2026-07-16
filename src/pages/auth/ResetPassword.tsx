@@ -66,6 +66,7 @@ const ResetPassword: React.FC = () => {
                                 labelClassName="text-[10px] font-black text-gray-400 tracking-widest uppercase mb-1"
                                 error={touched.password && errors.password ? errors.password : undefined}
                                 className="h-14 rounded-2xl"
+                                autoComplete="new-password"
                             />
 
                             <FormInput
@@ -79,6 +80,7 @@ const ResetPassword: React.FC = () => {
                                 labelClassName="text-[10px] font-black text-gray-400 tracking-widest uppercase mb-1"
                                 error={touched.confirmPassword && errors.confirmPassword ? errors.confirmPassword : undefined}
                                 className="h-14 rounded-2xl"
+                                autoComplete="new-password"
                             />
                         </div>
 
