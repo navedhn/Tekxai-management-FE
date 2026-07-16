@@ -1,11 +1,8 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, Plus, X, BarChart3, Users } from 'lucide-react';
-import { apiRequest } from '@/lib/queryClient';
-import { API_ENDPOINTS } from '@/services/api/endpoints';
+import { useGetGradesQuery, useCreateGrade, useUpdateGrade } from '@/services/gradeService';
 
 function Modal({ grade, onClose }: { grade?: any; onClose: () => void }) {
-  const qc = useQueryClient();
   const [form, setForm] = useState({
     name: grade?.name || '',
     level: grade?.level ?? 1,
@@ -13,13 +10,18 @@ function Modal({ grade, onClose }: { grade?: any; onClose: () => void }) {
   });
   const [err, setErr] = useState('');
 
-  const mutation = useMutation({
-    mutationFn: () => grade?.id
-      ? apiRequest<any>(API_ENDPOINTS.GRADE.UPDATE(grade.id), { method: 'PUT', body: JSON.stringify(form) })
-      : apiRequest<any>(API_ENDPOINTS.GRADE.CREATE, { method: 'POST', body: JSON.stringify(form) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['grades-page'] }); onClose(); },
-    onError: (e: any) => setErr(e?.message || 'Failed to save'),
-  });
+  const createMutation = useCreateGrade();
+  const updateMutation = useUpdateGrade();
+  const mutation = grade?.id ? updateMutation : createMutation;
+
+  const handleSave = () => {
+    setErr('');
+    const payload = grade?.id ? { id: grade.id, ...form } : form;
+    mutation.mutate(payload as any, {
+      onSuccess: () => onClose(),
+      onError: (e: any) => setErr(e?.message || 'Failed to save'),
+    });
+  };
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
@@ -49,7 +51,7 @@ function Modal({ grade, onClose }: { grade?: any; onClose: () => void }) {
         {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
         <div className="flex gap-3 mt-5">
           <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={() => mutation.mutate()} disabled={!form.name || mutation.isPending}
+          <button onClick={handleSave} disabled={!form.name || mutation.isPending}
             className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40">
             {mutation.isPending ? 'Saving…' : 'Save'}
           </button>
@@ -63,13 +65,9 @@ export default function GradesPage() {
   const [q, setQ] = useState('');
   const [modal, setModal] = useState<any>(null);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['grades-page'],
-    queryFn: () => apiRequest<any>(API_ENDPOINTS.GRADE.LIST),
-    select: (r: any) => r?.payload || [],
-  });
+  const { data, isLoading } = useGetGradesQuery();
 
-  const grades: any[] = (data || []).filter((g: any) => !q || g.name?.toLowerCase().includes(q.toLowerCase()));
+  const grades: any[] = ((data as any[]) || []).filter((g: any) => !q || g.name?.toLowerCase().includes(q.toLowerCase()));
 
   return (
     <div className="flex flex-col gap-6">

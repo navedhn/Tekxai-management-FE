@@ -28,7 +28,13 @@ function useCreateHandoff() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: any) => apiRequest<any>('api/v1/crm/handoffs', { method: 'POST', body: JSON.stringify(data) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-handoffs'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm-handoffs'] });
+      // A handoff moves a lead from pre-sales pipeline into post-sales —
+      // both dashboards' aggregates change.
+      qc.invalidateQueries({ queryKey: ['crm-dashboard'] });
+      qc.invalidateQueries({ queryKey: ['crm-post-sales-dashboard'] });
+    },
   });
 }
 
@@ -36,7 +42,11 @@ function useUpdateHandoff() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: any) => apiRequest<any>(`api/v1/crm/handoffs/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-handoffs'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm-handoffs'] });
+      qc.invalidateQueries({ queryKey: ['crm-dashboard'] });
+      qc.invalidateQueries({ queryKey: ['crm-post-sales-dashboard'] });
+    },
   });
 }
 

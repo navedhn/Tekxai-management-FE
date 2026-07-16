@@ -5,12 +5,15 @@ import FormInput from '@/components/form/FormInput';
 import { Button } from '@/components/ui/Button';
 import Select from '@/components/ui/Select';
 import { useGetTeamsQuery } from '@/services/adminService';
-import { useCreateUserMutation, useUpdateUserMutation } from '@/services/userService';
+import { useCreateUserMutation, useUpdateUserMutation, useChangeUserRoleMutation } from '@/services/userService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useAuthStore } from '@/stores/authStore';
+import { useGetDepartmentsQuery } from '@/services/departmentService';
+import { useGetDesignationsQuery } from '@/services/designationService';
+import ActionModal from '@/components/ui/ActionModal';
 
 interface UserFormModalProps {
   isOpen: boolean;
@@ -34,17 +37,24 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
     email: '',
     password: '',
     department_id: '',
-    designation: '',
+    designation_id: '',
     team_id: '',
     role_id: '',
     status: 'ACTIVE',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // The role this user actually had when the modal opened — used to detect
+  // whether the operator genuinely changed the role selection, vs. it just
+  // carrying through untouched in the generic profile-save payload (which is
+  // exactly the mechanism that silently demoted a SUPER_ADMIN to EMPLOYEE).
+  const [originalRoleId, setOriginalRoleId] = useState('');
+  const [pendingRoleChange, setPendingRoleChange] = useState<{ id: string; role_id: string; roleName: string } | null>(null);
 
   const toast = useToastContext();
   const { data: teamsData } = useGetTeamsQuery(undefined, true);
   const createUser = useCreateUserMutation();
   const updateUser = useUpdateUserMutation();
+  const changeUserRole = useChangeUserRoleMutation();
 
   const { data: rolesData = [] } = useQuery({
     queryKey: ['roles'],
@@ -55,14 +65,8 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: departmentsData = [] } = useQuery({
-    queryKey: ['departments-list'],
-    queryFn: async () => {
-      const res = await apiRequest<any>(API_ENDPOINTS.DEPARTMENT.LIST);
-      return (res?.payload?.records || res?.payload || res || []) as { id: string; name: string }[];
-    },
-    staleTime: 5 * 60 * 1000,
-  });
+  const { data: departmentsData = [] } = useGetDepartmentsQuery();
+  const { data: designationsData = [] } = useGetDesignationsQuery();
 
   const isSuperAdmin = currentRole === 'SUPER_ADMIN';
   const roleOptions = rolesData
@@ -70,6 +74,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
     .map((r: any) => ({ value: r.id, label: r.name.replace(/_/g, ' ') }));
 
   const departmentOptions = departmentsData.map((d: any) => ({ value: d.id, label: d.name }));
+  const designationOptions = designationsData.map((d: any) => ({ value: d.id, label: d.name }));
 
   const teamsOptions = Array.isArray((teamsData as any)?.payload?.records)
     ? (teamsData as any).payload.records.map((t: any) => ({ value: t.id, label: t.name }))
@@ -82,7 +87,15 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
   useEffect(() => {
     if (!isOpen) return;
     if (user) {
-      const currentRoleId = user.roles?.[0]?.role?.id || user.role_id || defaultRoleId;
+      // RBAC fix: the old chain `user.roles?.[0]?.role?.id || user.role_id`
+      // never matched either backend shape this modal is actually fed
+      // (Users admin page returns `user.role.id`; Employee Directory returns
+      // a bare `user.role_id` after the accompanying backend fix) — it
+      // always fell through to defaultRoleId (EMPLOYEE), silently. Reading
+      // both real shapes here means the dropdown now reflects the user's
+      // TRUE current role instead of defaulting.
+      const currentRoleId = user.role?.id || user.role_id || defaultRoleId;
+      setOriginalRoleId(currentRoleId);
       const deptId = user.department?.id || user.department_id || '';
       setFormData({
         first_name: user.first_name || '',
@@ -90,7 +103,10 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
         email: user.email || '',
         password: '',
         department_id: deptId,
-        designation: user.designation || '',
+        // designation_id is the FK-based single write path (change_user_designation,
+        // same one Employee Profile's Organization card uses) — the legacy
+        // free-text `designation` string column is no longer read/written here.
+        designation_id: user.designation_ref?.id || user.designation_id || '',
         team_id: user.team_memberships?.[0]?.team?.id || user.team_id || '',
         role_id: currentRoleId,
         status: user.status || 'ACTIVE',
@@ -102,7 +118,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
         email: '',
         password: '',
         department_id: '',
-        designation: '',
+        designation_id: '',
         team_id: '',
         role_id: defaultRoleId,
         status: 'ACTIVE',
@@ -135,24 +151,48 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
     if (Object.keys(newErrors).length > 0) return;
 
     const selectedRole = rolesData.find((r: any) => r.id === role_id);
-    const payload: any = {
-      ...formData,
-      role: selectedRole?.name || 'EMPLOYEE',
-      role_id,
-    };
 
     if (isEdit) {
+      // RBAC ISOLATION: the profile-update payload never includes role_id —
+      // this is the fix for the SUPER_ADMIN -> EMPLOYEE corruption bug. Role
+      // changes, if any, are submitted separately below via the dedicated
+      // change-role endpoint, gated behind an explicit confirmation.
+      const { role_id: _omit, ...profileFields } = formData;
+      const payload: any = { ...profileFields };
       if (!password) delete payload.password;
       updateUser.mutate({ id: user.id, data: payload }, {
-        onSuccess: () => { toast.success('User updated successfully'); onClose(); },
+        onSuccess: () => {
+          if (role_id && role_id !== originalRoleId) {
+            setPendingRoleChange({ id: user.id, role_id, roleName: selectedRole?.name || role_id });
+          } else {
+            toast.success('User updated successfully');
+            onClose();
+          }
+        },
         onError: (err: any) => toast.error(err.message || 'Failed to update user'),
       });
     } else {
+      const payload: any = { ...formData, role: selectedRole?.name || 'EMPLOYEE', role_id };
       createUser.mutate(payload, {
         onSuccess: () => { toast.success('User created successfully'); onClose(); },
         onError: (err: any) => toast.error(err.message || 'Failed to create user'),
       });
     }
+  };
+
+  const confirmRoleChange = () => {
+    if (!pendingRoleChange) return;
+    changeUserRole.mutate({ id: pendingRoleChange.id, role_id: pendingRoleChange.role_id }, {
+      onSuccess: () => {
+        toast.success('User updated successfully');
+        setPendingRoleChange(null);
+        onClose();
+      },
+      onError: (err: any) => {
+        toast.error(err.message || 'Failed to change role');
+        setPendingRoleChange(null);
+      },
+    });
   };
 
   return (
@@ -189,9 +229,9 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
           <Select label="TEAM" options={teamsOptions} value={formData.team_id}
             onChange={handleSelectChange('team_id')} placeholder="Select Team"
             className="h-12 !rounded-xl" />
-          <Input label="Designation" name="designation" value={formData.designation}
-            onChange={handleInputChange} placeholder="e.g. Frontend Developer"
-            className="h-12 rounded-xl" />
+          <Select label="DESIGNATION" options={designationOptions} value={formData.designation_id}
+            onChange={handleSelectChange('designation_id')} placeholder="Select Designation"
+            className="h-12 !rounded-xl" />
         </div>
 
         <div className="flex gap-3 mt-4">
@@ -204,6 +244,18 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
           </Button>
         </div>
       </div>
+
+      <ActionModal
+        isOpen={!!pendingRoleChange}
+        onClose={() => setPendingRoleChange(null)}
+        onConfirm={confirmRoleChange}
+        title="Change User Role"
+        description={`Change this user's role to "${pendingRoleChange?.roleName}"? This affects what they can access across the entire system.`}
+        confirmText="Change Role"
+        confirmVariant="warning"
+        icon="warning"
+        loading={changeUserRole.isPending}
+      />
     </Modal>
   );
 };

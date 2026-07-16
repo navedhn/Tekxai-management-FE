@@ -5,10 +5,8 @@ import {
   ChevronDown, ChevronUp, FileText,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
-import { BASE_URL } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
-import { getAccessToken } from '@/utils/tokenMemory';
 import ActionModal from '@/components/ui/ActionModal';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -235,20 +233,13 @@ export default function FinancialReportsPage() {
   // ── mutations ──────────────────────────────────────────────────────────────
 
   const parseMutation = useMutation({
-    mutationFn: async (formData: FormData) => {
-      const token = getAccessToken();
-      const url   = `${BASE_URL}${API_ENDPOINTS.REPORTING.PARSE}`;
-      const res   = await fetch(url, {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body: formData,
-      });
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({ message: 'Parse failed' }));
-        throw new Error(e.message || 'Parse failed');
-      }
-      return res.json();
-    },
+    // Routed through apiRequest (instead of a raw fetch + manually-read token)
+    // so this gets the same 401-refresh-and-retry handling as every other
+    // authenticated call. Kept separate from the generic uploadFile() helper
+    // since this hits a distinct endpoint (REPORTING.PARSE) that returns
+    // parsed report data, not a { file_url } shape.
+    mutationFn: (formData: FormData) =>
+      apiRequest<any>(API_ENDPOINTS.REPORTING.PARSE, { method: 'POST', body: formData }),
     onSuccess: (data: any) => {
       setParsedData(data.payload);
       setErr('');

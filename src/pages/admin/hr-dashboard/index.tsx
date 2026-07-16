@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Users, ShieldCheck, Clock, Plus, FolderOpen, BarChart2, CalendarCheck, AlertCircle } from 'lucide-react';
+import { Users, ShieldCheck, Clock, Plus, FolderOpen, BarChart2, CalendarCheck, AlertCircle, GraduationCap, UserPlus } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
@@ -72,10 +72,15 @@ export default function HRDashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Users}       color="bg-blue-500"   label="Total Employees"    value={stats.total ?? stats.total_employees}       onClick={() => goToDir()} />
-        <StatCard icon={ShieldCheck} color="bg-green-500"  label="Active"             value={stats.active}                               onClick={() => goToDir('status=ACTIVE')} />
+        <StatCard icon={Users}       color="bg-blue-500"   label="Total Employees"      value={stats.total ?? stats.total_employees}  onClick={() => goToDir()} />
+        <StatCard icon={ShieldCheck} color="bg-green-500"  label="Permanent Employees"  value={stats.active}                          onClick={() => goToDir('status=ACTIVE')} />
+        <StatCard icon={GraduationCap} color="bg-purple-500" label="Probation Employees" value={stats.probation}                      onClick={() => goToDir('lifecycle_stage=PROBATION')} />
+        <StatCard icon={UserPlus}    color="bg-teal-500"   label="New This Month"       value={stats.new_this_month}                  onClick={() => goToDir('filter=new_this_month')} />
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={Clock}       color="bg-amber-500"  label="On Leave"           value={stats.on_leave}                             onClick={() => goToDir('status=ON_LEAVE')} />
         <StatCard icon={AlertCircle} color="bg-orange-500" label="Suspended"          value={stats.suspended}                            onClick={() => goToDir('status=SUSPENDED')} />
+        <StatCard icon={Users}       color="bg-gray-400"   label="Pending"            value={stats.pending}                              onClick={() => goToDir('status=PENDING')} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

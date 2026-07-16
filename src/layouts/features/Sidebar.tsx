@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home, Users2, Settings, FolderCheck, Clock, Star, Monitor, LogOut, X,
   BarChart3, Shield, ClipboardCheck, Ticket, Receipt, Banknote, Webhook, Mail,
-  MessageSquare, FileText, Package, CalendarDays, Table2, Layers,
+  MessageSquare, FileText, Package, CalendarDays, Table2, Layers, Video,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/services/permissionsService';
@@ -93,6 +93,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       {                       to: '/chat',               label: 'Messages',        icon: <MessageSquare size={18} strokeWidth={SW} /> },
       {                       to: '/admin/settings',     label: 'Settings',        icon: <Settings size={18} strokeWidth={SW} /> },
       { section: 'Admin',    to: '/admin/approvals',    label: 'Approvals',       icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
+      {                       to: '/admin/meetings',     label: 'Meetings',        icon: <Video size={18} strokeWidth={SW} /> },
       {                       to: '/admin/tickets',      label: 'Support Tickets', icon: <Ticket size={18} strokeWidth={SW} /> },
       {                       to: '/admin/ticket-categories', label: 'Ticket Categories', icon: <Layers size={18} strokeWidth={SW} /> },
       {                       to: '/admin/ticket-types', label: 'Ticket Types',    icon: <Settings size={18} strokeWidth={SW} /> },

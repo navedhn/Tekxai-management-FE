@@ -12,6 +12,7 @@ import QuickCreateUserModal from '@/components/ui/QuickCreateUserModal';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetRolesQuery } from '@/services/roleService';
 import { cn } from '@/utils/cn';
+import { EMPLOYMENT_STATUS_LABELS } from '@/constants/employmentStatus';
 
 const STATUS_STYLE: Record<string, string> = {
   ACTIVE:      'bg-green-100 text-green-700',
@@ -20,15 +21,13 @@ const STATUS_STYLE: Record<string, string> = {
   SUSPENDED:   'bg-blue-100 text-blue-700',
   TERMINATED:  'bg-red-100 text-red-600',
   DECEASED:    'bg-gray-200 text-gray-600',
+  PENDING:     'bg-purple-100 text-purple-700',
 };
 
 // Employment Status shares the same 6-value vocabulary as users.status.
 const EMP_STATUS_STYLE: Record<string, string> = STATUS_STYLE;
 
-const EMP_STATUS_LABEL: Record<string, string> = {
-  ACTIVE: 'Active', INACTIVE: 'Inactive', ON_LEAVE: 'On Leave',
-  SUSPENDED: 'Suspended', TERMINATED: 'Terminated', DECEASED: 'Deceased',
-};
+const EMP_STATUS_LABEL: Record<string, string> = EMPLOYMENT_STATUS_LABELS;
 
 function StatCard({ icon: Icon, color, label, value }: any) {
   return (
@@ -52,6 +51,7 @@ export default function EmployeeDirectory() {
   const urlStatus    = searchParams.get('status') || '';
   const urlEmpStatus = searchParams.get('employment_status') || '';
   const urlFilter    = searchParams.get('filter') || '';
+  const urlLifecycle = searchParams.get('lifecycle_stage') || '';
 
   const [q, setQ]                         = useState('');
   const [divisionId, setDiv]              = useState('');
@@ -108,6 +108,7 @@ export default function EmployeeDirectory() {
       employee_id: employeeIdFilter || undefined,
       role: roleFilter || undefined,
       designation_id: designationFilter || undefined,
+      lifecycle_stage: urlLifecycle || undefined,
       sort_by: sortBy,
       sort_dir: sortDir,
       page,
@@ -118,7 +119,7 @@ export default function EmployeeDirectory() {
       f.hire_from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
     }
     return f;
-  }, [q, divisionId, deptId, teamId, status, employmentStatus, employeeIdFilter, roleFilter, designationFilter, urlFilter, sortBy, sortDir, page, limit]);
+  }, [q, divisionId, deptId, teamId, status, employmentStatus, employeeIdFilter, roleFilter, designationFilter, urlFilter, urlLifecycle, sortBy, sortDir, page, limit]);
 
   const { data, isLoading, refetch } = useGetEmployeeDirectory(filters);
   const records: any[] = data?.records || [];
@@ -159,12 +160,14 @@ export default function EmployeeDirectory() {
     navigate('/hr/employee-directory', { replace: true });
   };
 
-  const activeFilterCount = [q, divisionId, deptId, teamId, status, employmentStatus, urlFilter, employeeIdFilter, roleFilter, designationFilter].filter(Boolean).length;
+  const activeFilterCount = [q, divisionId, deptId, teamId, status, employmentStatus, urlFilter, urlLifecycle, employeeIdFilter, roleFilter, designationFilter].filter(Boolean).length;
 
   const filterLabel = () => {
     if (urlFilter === 'new_this_month') return '  · New This Month';
+    if (urlLifecycle === 'PROBATION') return '  · Probation';
+    if (status === 'PENDING') return '  · Pending';
     if (employmentStatus) return `  · ${EMP_STATUS_LABEL[employmentStatus] || employmentStatus}`;
-    if (status) return `  · ${status.replace(/_/g, ' ')}`;
+    if (status) return `  · ${EMP_STATUS_LABEL[status] || status.replace(/_/g, ' ')}`;
     return '';
   };
 
@@ -301,11 +304,12 @@ export default function EmployeeDirectory() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard icon={Users}       color="bg-blue-500"   label="Total Employees"    value={stats.total_employees} />
-        <StatCard icon={CheckCircle} color="bg-green-500"  label="Active"             value={stats.active} />
+        <StatCard icon={CheckCircle} color="bg-green-500"  label="Permanent"          value={stats.active} />
         <StatCard icon={Clock}       color="bg-amber-500"  label="On Leave"           value={stats.on_leave} />
         <StatCard icon={UserX}       color="bg-gray-400"   label="Inactive"           value={stats.inactive} />
+        <StatCard icon={Users}       color="bg-purple-500" label="Pending"            value={stats.pending} />
       </div>
 
       {/* Filters + Table */}
@@ -323,7 +327,8 @@ export default function EmployeeDirectory() {
           <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}
             className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[130px] text-gray-600">
             <option value="">All Status</option>
-            <option value="ACTIVE">Active</option>
+            <option value="PENDING">Pending</option>
+            <option value="ACTIVE">Permanent</option>
             <option value="INACTIVE">Inactive</option>
             <option value="ON_LEAVE">On Leave</option>
             <option value="SUSPENDED">Suspended</option>
@@ -333,7 +338,7 @@ export default function EmployeeDirectory() {
           <select value={employmentStatus} onChange={e => { setEmpStatus(e.target.value); setPage(1); }}
             className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[150px] text-gray-600">
             <option value="">All Employment Status</option>
-            <option value="ACTIVE">Active</option>
+            <option value="ACTIVE">Permanent</option>
             <option value="INACTIVE">Inactive</option>
             <option value="ON_LEAVE">On Leave</option>
             <option value="SUSPENDED">Suspended</option>
@@ -460,9 +465,6 @@ export default function EmployeeDirectory() {
                         <div>
                           <p className="font-semibold text-gray-900 text-sm leading-tight">{emp.full_name}</p>
                           <p className="text-xs text-gray-400">{emp.email}</p>
-                          {emp.profile_status === 'DRAFT' && (
-                            <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md">Pending</span>
-                          )}
                         </div>
                       </div>
                     </td>
@@ -481,13 +483,17 @@ export default function EmployeeDirectory() {
                       ) : '—'}
                     </td>
                     <td className="py-3 px-2">
-                      {emp.employment_status ? (
+                      {emp.profile_status === 'DRAFT' ? (
+                        <span className={cn('text-xs font-semibold px-2.5 py-1 rounded-full', STATUS_STYLE.PENDING)}>
+                          Pending
+                        </span>
+                      ) : emp.employment_status ? (
                         <span className={cn('text-xs font-semibold px-2.5 py-1 rounded-full', EMP_STATUS_STYLE[emp.employment_status] || 'bg-gray-100 text-gray-500')}>
                           {EMP_STATUS_LABEL[emp.employment_status] || emp.employment_status}
                         </span>
                       ) : (
                         <span className={cn('text-xs font-semibold px-2.5 py-1 rounded-full', STATUS_STYLE[emp.status] || 'bg-gray-100 text-gray-500')}>
-                          {emp.status || '—'}
+                          {EMP_STATUS_LABEL[emp.status] || emp.status || '—'}
                         </span>
                       )}
                     </td>

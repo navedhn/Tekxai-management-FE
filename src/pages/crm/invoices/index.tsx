@@ -28,7 +28,11 @@ function useCreateInvoice() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: any) => apiRequest<any>('api/v1/crm/invoices', { method: 'POST', body: JSON.stringify(data) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-invoices'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm-invoices'] });
+      // Invoice totals feed the post-sales revenue dashboard.
+      qc.invalidateQueries({ queryKey: ['crm-post-sales-dashboard'] });
+    },
   });
 }
 
@@ -36,7 +40,10 @@ function useUpdateInvoice() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: any) => apiRequest<any>(`api/v1/crm/invoices/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-invoices'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm-invoices'] });
+      qc.invalidateQueries({ queryKey: ['crm-post-sales-dashboard'] });
+    },
   });
 }
 

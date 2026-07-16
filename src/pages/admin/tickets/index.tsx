@@ -33,7 +33,7 @@ export default function AdminTickets() {
   const debouncedSearch = useDebounce(search, 350);
 
   const { data, isLoading } = useQuery<{ records: SupportTicket[]; total: number }>({
-    queryKey: ['admin-tickets', statusFilter, priorityFilter, debouncedSearch, slaOverdueOnly],
+    queryKey: ['tickets', 'admin-list', statusFilter, priorityFilter, debouncedSearch, slaOverdueOnly],
     queryFn: async () => {
       const params = new URLSearchParams({ limit: '100' });
       if (statusFilter !== 'all') params.set('status', statusFilter);
@@ -50,9 +50,11 @@ export default function AdminTickets() {
       await apiRequest(ENDPOINTS.TICKET.UPDATE(id), { method: 'PATCH', body: JSON.stringify({ status, resolution_note }) });
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin-tickets'] });
-      qc.invalidateQueries({ queryKey: ['tickets', 'stats'] });
-      if (selectedTicket) qc.invalidateQueries({ queryKey: ['ticket', selectedTicket.id] });
+      qc.invalidateQueries({ queryKey: ['tickets'] });
+      if (selectedTicket) {
+        qc.invalidateQueries({ queryKey: ['ticket', selectedTicket.id] });
+        qc.invalidateQueries({ queryKey: ['ticket-timeline', selectedTicket.id] });
+      }
     },
   });
 
@@ -61,8 +63,11 @@ export default function AdminTickets() {
       await apiRequest(ENDPOINTS.TICKET.APPROVALS(id), { method: 'POST', body: JSON.stringify({ action, comment: comment || undefined }) });
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin-tickets'] });
-      if (selectedTicket) qc.invalidateQueries({ queryKey: ['ticket', selectedTicket.id] });
+      qc.invalidateQueries({ queryKey: ['tickets'] });
+      if (selectedTicket) {
+        qc.invalidateQueries({ queryKey: ['ticket', selectedTicket.id] });
+        qc.invalidateQueries({ queryKey: ['ticket-timeline', selectedTicket.id] });
+      }
     },
   });
 

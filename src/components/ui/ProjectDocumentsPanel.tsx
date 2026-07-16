@@ -5,9 +5,7 @@ import Input from './Input';
 import Button from './Button';
 import Loader from './Loader';
 import { useToastContext } from '@/components/toast/ToastProvider';
-import { BASE_URL } from '@/lib/queryClient';
-import { API_ENDPOINTS } from '@/services/api/endpoints';
-import { getAccessToken } from '@/utils/tokenMemory';
+import { uploadFile } from '@/lib/upload';
 import {
   useProjectDocuments, useDocumentTypes, useCreateProjectDocument, useDeleteProjectDocument,
 } from '@/services/projectDocumentsService';
@@ -34,20 +32,9 @@ const ProjectDocumentsPanel: React.FC<ProjectDocumentsPanelProps> = ({ projectId
     if (!file) return;
     setUploading(true);
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch(`${BASE_URL}${API_ENDPOINTS.STORAGE.UPLOAD}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${getAccessToken() || ''}` },
-        body: fd,
-      });
-      const json = await res.json();
-      if (json.success) {
-        setForm((f) => ({ ...f, file_url: json.payload.file_url, title: f.title || file.name.replace(/\.[^.]+$/, '') }));
-        setShowForm(true);
-      } else {
-        toast.error(json.message || 'Upload failed');
-      }
+      const { file_url } = await uploadFile(file);
+      setForm((f) => ({ ...f, file_url, title: f.title || file.name.replace(/\.[^.]+$/, '') }));
+      setShowForm(true);
     } catch {
       toast.error('Upload failed');
     }

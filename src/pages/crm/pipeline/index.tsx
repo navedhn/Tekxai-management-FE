@@ -39,7 +39,11 @@ function useUpdateStage() {
   return useMutation({
     mutationFn: ({ source, id, pipeline_stage }: { source: string; id: string; pipeline_stage: string }) =>
       apiRequest<any>(`api/v1/crm/leads/${source}/${id}/stage`, { method: 'PATCH', body: JSON.stringify({ pipeline_stage }) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-leads'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm-leads'] });
+      // Stage changes shift pipeline aggregates shown on the CRM dashboard.
+      qc.invalidateQueries({ queryKey: ['crm-dashboard'] });
+    },
   });
 }
 

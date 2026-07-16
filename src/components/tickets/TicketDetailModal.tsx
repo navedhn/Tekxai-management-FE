@@ -58,6 +58,7 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ ticket, onClose, 
     onSuccess: () => {
       setMessage('');
       qc.invalidateQueries({ queryKey: ['ticket', ticket!.id] });
+      qc.invalidateQueries({ queryKey: ['ticket-timeline', ticket!.id] });
       qc.invalidateQueries({ queryKey: ['tickets'] });
     },
   });

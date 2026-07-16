@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
+import { QUERY_KEYS } from '@/services/api/tanstackKeys';
 
 // ── HR Profile ─────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,18 @@ export const useUpdateUserOrg = (userId: string) => {
       apiRequest<any>(API_ENDPOINTS.USER.UPDATE(userId), { method: 'PUT', body: JSON.stringify(data) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['employee-full', userId] });
+      // Designation/grade/supervisor changes here also affect the shared
+      // user list (Employee Directory) and the HR Dashboard's roster/stats —
+      // none of those are derived from ['employee-full', userId].
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.USER.LIST });
+      qc.invalidateQueries({ queryKey: ['employee-list-hr-dash'] });
+      qc.invalidateQueries({ queryKey: ['employee-stats-hr-dash'] });
+      qc.invalidateQueries({ queryKey: ['employee-directory'] });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.EMPLOYEE.DASHBOARD_STATS });
+      // Same orphaned-key gap as userService.ts's invalidateUserAndDependents —
+      // a designation/grade/supervisor change must also refresh manager/team
+      // pickers keyed on 'user-list-brief'.
+      qc.invalidateQueries({ queryKey: ['user-list-brief'] });
     },
   });
 };

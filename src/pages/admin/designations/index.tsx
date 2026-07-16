@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, Plus, X, Tag, Users } from 'lucide-react';
-import { apiRequest } from '@/lib/queryClient';
-import { API_ENDPOINTS } from '@/services/api/endpoints';
+import { useGetDepartmentsQuery } from '@/services/departmentService';
+import { useGetDesignationsQuery, useCreateDesignation, useUpdateDesignation } from '@/services/designationService';
 
 function Modal({ designation, onClose }: { designation?: any; onClose: () => void }) {
-  const qc = useQueryClient();
   const [form, setForm] = useState({
     name: designation?.name || '',
     department_id: designation?.department_id || '',
@@ -13,22 +11,20 @@ function Modal({ designation, onClose }: { designation?: any; onClose: () => voi
   });
   const [err, setErr] = useState('');
 
-  const { data: departments } = useQuery({
-    queryKey: ['departments'],
-    queryFn: () => apiRequest<any>(API_ENDPOINTS.DEPARTMENT.LIST),
-    select: (r: any) => r?.payload?.records || r?.payload || [],
-  });
+  const { data: departments } = useGetDepartmentsQuery();
 
-  const mutation = useMutation({
-    mutationFn: () => {
-      const payload = { ...form, department_id: form.department_id || null };
-      return designation?.id
-        ? apiRequest<any>(API_ENDPOINTS.DESIGNATION.UPDATE(designation.id), { method: 'PUT', body: JSON.stringify(payload) })
-        : apiRequest<any>(API_ENDPOINTS.DESIGNATION.CREATE, { method: 'POST', body: JSON.stringify(payload) });
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['designations-page'] }); onClose(); },
-    onError: (e: any) => setErr(e?.message || 'Failed to save'),
-  });
+  const createMutation = useCreateDesignation();
+  const updateMutation = useUpdateDesignation();
+  const mutation = designation?.id ? updateMutation : createMutation;
+  const handleSave = () => {
+    setErr('');
+    const payload = { ...form, department_id: form.department_id || null };
+    const data = designation?.id ? { id: designation.id, ...payload } : payload;
+    mutation.mutate(data as any, {
+      onSuccess: () => onClose(),
+      onError: (e: any) => setErr(e?.message || 'Failed to save'),
+    });
+  };
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
@@ -60,7 +56,7 @@ function Modal({ designation, onClose }: { designation?: any; onClose: () => voi
         {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
         <div className="flex gap-3 mt-5">
           <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={() => mutation.mutate()} disabled={!form.name || mutation.isPending}
+          <button onClick={handleSave} disabled={!form.name || mutation.isPending}
             className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40">
             {mutation.isPending ? 'Saving…' : 'Save'}
           </button>
@@ -74,11 +70,7 @@ export default function DesignationsPage() {
   const [q, setQ] = useState('');
   const [modal, setModal] = useState<any>(null);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['designations-page'],
-    queryFn: () => apiRequest<any>(API_ENDPOINTS.DESIGNATION.LIST),
-    select: (r: any) => r?.payload || [],
-  });
+  const { data, isLoading } = useGetDesignationsQuery();
 
   const designations: any[] = (data || []).filter((d: any) =>
     !q || d.name?.toLowerCase().includes(q.toLowerCase()) || d.department?.name?.toLowerCase().includes(q.toLowerCase())

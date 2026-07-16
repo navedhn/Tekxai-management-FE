@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search, Plus, X, Building2, Users } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import ActionModal from '@/components/ui/ActionModal';
+import BulkDeleteBar from '@/components/ui/BulkDeleteBar';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { useGetDepartmentsQuery, useCreateDepartment, useUpdateDepartment, useDeleteDepartment, useBulkDeleteDepartments } from '@/services/departmentService';
+import { useBulkSelection } from '@/hooks/useBulkSelection';
+import { summarizeBulkDelete } from '@/utils/bulkDeleteSummary';
+import { cn } from '@/utils/cn';
 
 function Modal({ dept, onClose }: { dept?: any; onClose: () => void }) {
-  const qc = useQueryClient();
   const [form, setForm] = useState({ name: dept?.name || '', description: dept?.description || '', head_user_id: dept?.head_user_id || '' });
   const [err, setErr] = useState('');
 
@@ -17,13 +21,17 @@ function Modal({ dept, onClose }: { dept?: any; onClose: () => void }) {
     select: (r: any) => r?.payload?.records || [],
   });
 
-  const mutation = useMutation({
-    mutationFn: () => dept?.id
-      ? apiRequest<any>(API_ENDPOINTS.DEPARTMENT.UPDATE(dept.id), { method: 'PUT', body: JSON.stringify(form) })
-      : apiRequest<any>(API_ENDPOINTS.DEPARTMENT.CREATE, { method: 'POST', body: JSON.stringify(form) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['departments-page'] }); onClose(); },
-    onError: (e: any) => setErr(e?.message || 'Failed to save'),
-  });
+  const createMutation = useCreateDepartment();
+  const updateMutation = useUpdateDepartment();
+  const mutation = dept?.id ? updateMutation : createMutation;
+  const handleSave = () => {
+    setErr('');
+    const payload = dept?.id ? { id: dept.id, ...form } : form;
+    mutation.mutate(payload as any, {
+      onSuccess: () => onClose(),
+      onError: (e: any) => setErr(e?.message || 'Failed to save'),
+    });
+  };
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
@@ -55,7 +63,7 @@ function Modal({ dept, onClose }: { dept?: any; onClose: () => void }) {
         {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
         <div className="flex gap-3 mt-5">
           <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={() => mutation.mutate()} disabled={!form.name || mutation.isPending}
+          <button onClick={handleSave} disabled={!form.name || mutation.isPending}
             className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40">
             {mutation.isPending ? 'Saving…' : 'Save'}
           </button>
@@ -66,31 +74,49 @@ function Modal({ dept, onClose }: { dept?: any; onClose: () => void }) {
 }
 
 export default function DepartmentsPage() {
-  const qc = useQueryClient();
   const toast = useToastContext();
   const [q, setQ] = useState('');
   const [modal, setModal] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['departments-page'],
-    queryFn: () => apiRequest<any>(API_ENDPOINTS.DEPARTMENT.LIST),
-    select: (r: any) => r?.payload?.records || r?.payload || [],
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest<any>(API_ENDPOINTS.DEPARTMENT.DELETE(id), { method: 'DELETE' }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['departments-page'] });
-      toast.success('Department deleted');
-      setDeleteTarget(null);
-    },
-    onError: (e: any) => toast.error(e?.message || 'Failed to delete department'),
-  });
+  const { data, isLoading } = useGetDepartmentsQuery();
 
   const departments: any[] = (data || []).filter((d: any) =>
     !q || d.name?.toLowerCase().includes(q.toLowerCase()) || d.description?.toLowerCase().includes(q.toLowerCase())
   );
+
+  const { selected, allOnPageSelected, toggleAll, toggleOne, clear } =
+    useBulkSelection(departments.map(d => d.id));
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+
+  const deleteMutation = useDeleteDepartment();
+  const bulkDelete = useBulkDeleteDepartments();
+
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    deleteMutation.mutate(deleteTarget.id, {
+      onSuccess: () => {
+        toast.success('Department deleted');
+        setDeleteTarget(null);
+      },
+      onError: (e: any) => toast.error(e?.message || 'Failed to delete department'),
+    });
+  };
+
+  const handleBulkDelete = () => {
+    const ids = Array.from(selected);
+    bulkDelete.mutate(ids, {
+      onSuccess: (results) => {
+        const byId = new Map(departments.map(d => [d.id, d.name]));
+        const { successMessage, errorMessage } = summarizeBulkDelete(results, 'department', id => byId.get(id) || id);
+        toast.success(successMessage);
+        if (errorMessage) toast.error(errorMessage, 6000);
+        clear();
+        setBulkDeleteOpen(false);
+      },
+      onError: (e: any) => toast.error(e?.message || 'Bulk delete failed'),
+    });
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -112,10 +138,26 @@ export default function DepartmentsPage() {
             placeholder="Search departments…" value={q} onChange={e => setQ(e.target.value)} />
         </div>
 
-        <div className="overflow-x-auto">
+        <BulkDeleteBar
+          count={selected.size}
+          entityLabel="department"
+          onClear={clear}
+          onDelete={() => setBulkDeleteOpen(true)}
+        />
+
+        <div className="overflow-x-auto mt-4">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
+                <th className="py-3 px-2 w-8">
+                  <input
+                    type="checkbox"
+                    checked={allOnPageSelected}
+                    onChange={toggleAll}
+                    className="w-4 h-4 rounded accent-primary-600 cursor-pointer"
+                    title={allOnPageSelected ? 'Deselect all' : 'Select all'}
+                  />
+                </th>
                 {['Department', 'Description', 'Head', 'Employees', 'Actions'].map(h => (
                   <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
                 ))}
@@ -124,12 +166,20 @@ export default function DepartmentsPage() {
             <tbody className="divide-y divide-gray-50">
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}><td colSpan={5} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                  <tr key={i}><td colSpan={6} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
                 ))
               ) : departments.length === 0 ? (
-                <tr><td colSpan={5} className="py-12 text-center text-gray-400 text-sm">No departments found</td></tr>
+                <tr><td colSpan={6} className="py-12 text-center text-gray-400 text-sm">No departments found</td></tr>
               ) : departments.map((dept: any) => (
-                <tr key={dept.id} className="hover:bg-gray-50 transition-colors">
+                <tr key={dept.id} className={cn('hover:bg-gray-50 transition-colors', selected.has(dept.id) && 'bg-primary-50')}>
+                  <td className="py-3 px-2">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(dept.id)}
+                      onChange={() => toggleOne(dept.id)}
+                      className="w-4 h-4 rounded accent-primary-600 cursor-pointer"
+                    />
+                  </td>
                   <td className="py-3 px-2">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center">
@@ -172,13 +222,25 @@ export default function DepartmentsPage() {
       <ActionModal
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
-        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+        onConfirm={handleDelete}
         title="Delete Department"
         description={`Are you sure you want to delete "${deleteTarget?.name}"? This cannot be undone.`}
         confirmText="Delete"
         confirmVariant="danger"
         icon="delete"
         loading={deleteMutation.isPending}
+      />
+
+      <ActionModal
+        isOpen={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+        onConfirm={handleBulkDelete}
+        title="Delete Departments"
+        description={`Delete ${selected.size} selected department(s)? Any department still referenced by divisions or employees will fail and be reported separately.`}
+        confirmText="Delete"
+        confirmVariant="danger"
+        icon="delete"
+        loading={bulkDelete.isPending}
       />
     </div>
   );

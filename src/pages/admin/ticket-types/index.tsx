@@ -4,6 +4,7 @@ import { Search, Plus, Ticket as TicketIcon } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
+import { useTicketCategoriesQuery } from '@/services/ticketService';
 import TicketTypeEditor from './TicketTypeEditor';
 
 export default function TicketTypesPage() {
@@ -12,11 +13,7 @@ export default function TicketTypesPage() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [editor, setEditor] = useState<any>(null);
 
-  const { data: categories } = useQuery({
-    queryKey: ['ticket-categories-for-filter'],
-    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.TICKET_CATEGORY.LIST}?include_inactive=true`),
-    select: (r: any) => r?.payload || [],
-  });
+  const { data: categories } = useTicketCategoriesQuery(true);
 
   const { data, isLoading } = useQuery({
     queryKey: ['ticket-types-page'],
