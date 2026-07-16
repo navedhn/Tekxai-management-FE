@@ -9,6 +9,7 @@ import { BASE_URL } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 import { getAccessToken } from '@/utils/tokenMemory';
+import ActionModal from '@/components/ui/ActionModal';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -192,6 +193,7 @@ export default function FinancialReportsPage() {
   // view state
   const [activeView, setActiveView] = useState<ActiveView>('new');
   const [selectedReport, setSelectedReport] = useState<any>(null);
+  const [reportToDelete, setReportToDelete] = useState<any>(null);
 
   // new report state
   const [reportName, setReportName] = useState('');
@@ -270,7 +272,7 @@ export default function FinancialReportsPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) =>
       apiRequest<any>(API_ENDPOINTS.REPORTING.REPORT(id), { method: 'DELETE' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['reporting-list'] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['reporting-list'] }); setReportToDelete(null); },
   });
 
   // ── handlers ───────────────────────────────────────────────────────────────
@@ -647,7 +649,7 @@ export default function FinancialReportsPage() {
                               <Download size={15} />
                             </button>
                             <button
-                              onClick={() => { if (confirm('Delete this report?')) deleteMutation.mutate(r.id); }}
+                              onClick={() => setReportToDelete(r)}
                               className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                               title="Delete"
                             >
@@ -748,6 +750,18 @@ export default function FinancialReportsPage() {
           </div>
         );
       })()}
+
+      <ActionModal
+        isOpen={!!reportToDelete}
+        onClose={() => setReportToDelete(null)}
+        onConfirm={() => reportToDelete && deleteMutation.mutate(reportToDelete.id)}
+        title="Delete Report"
+        description="Are you sure you want to delete this report? This cannot be undone."
+        confirmText="Delete"
+        confirmVariant="danger"
+        icon="delete"
+        loading={deleteMutation.isPending}
+      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
+import ActionModal from '@/components/ui/ActionModal';
 import { Clock, AlertTriangle, Settings, Plus, Pencil, Trash2 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
@@ -26,6 +27,7 @@ const AttendancePage: React.FC = () => {
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [editingShift, setEditingShift] = useState<any>(null);
+  const [shiftToDelete, setShiftToDelete] = useState<any>(null);
   const [shiftForm, setShiftForm] = useState({ name: '', start_time: '09:00', end_time: '18:00', grace_period_min: 15, is_default: false });
   const [assignForm, setAssignForm] = useState({ user_id: '', shift_id: '' });
 
@@ -56,12 +58,15 @@ const AttendancePage: React.FC = () => {
     setShowShiftModal(true);
   };
 
-  const handleDeleteShift = async (shift: any) => {
-    if (!window.confirm(`Delete shift "${shift.name}"?`)) return;
+  const handleDeleteShift = (shift: any) => setShiftToDelete(shift);
+
+  const confirmDeleteShift = async () => {
+    if (!shiftToDelete) return;
     try {
-      await deleteShift.mutateAsync(shift.id);
+      await deleteShift.mutateAsync(shiftToDelete.id);
       toast.success('Shift deleted');
     } catch { toast.error('Failed to delete shift'); }
+    finally { setShiftToDelete(null); }
   };
 
   const shiftCols: Column<any>[] = [
@@ -190,6 +195,18 @@ const AttendancePage: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      <ActionModal
+        isOpen={!!shiftToDelete}
+        onClose={() => setShiftToDelete(null)}
+        onConfirm={confirmDeleteShift}
+        title="Delete Shift"
+        description={`Are you sure you want to delete shift "${shiftToDelete?.name}"?`}
+        confirmText="Delete"
+        confirmVariant="danger"
+        icon="delete"
+        loading={deleteShift.isPending}
+      />
     </div>
   );
 };

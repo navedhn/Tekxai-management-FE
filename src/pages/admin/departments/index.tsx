@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, Plus, X, Building2, Users } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
+import ActionModal from '@/components/ui/ActionModal';
+import { useToastContext } from '@/components/toast/ToastProvider';
 
 function Modal({ dept, onClose }: { dept?: any; onClose: () => void }) {
   const qc = useQueryClient();
@@ -64,13 +66,26 @@ function Modal({ dept, onClose }: { dept?: any; onClose: () => void }) {
 }
 
 export default function DepartmentsPage() {
+  const qc = useQueryClient();
+  const toast = useToastContext();
   const [q, setQ] = useState('');
   const [modal, setModal] = useState<any>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['departments-page'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.DEPARTMENT.LIST),
     select: (r: any) => r?.payload?.records || r?.payload || [],
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest<any>(API_ENDPOINTS.DEPARTMENT.DELETE(id), { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['departments-page'] });
+      toast.success('Department deleted');
+      setDeleteTarget(null);
+    },
+    onError: (e: any) => toast.error(e?.message || 'Failed to delete department'),
   });
 
   const departments: any[] = (data || []).filter((d: any) =>
@@ -134,10 +149,16 @@ export default function DepartmentsPage() {
                     </div>
                   </td>
                   <td className="py-3 px-2">
-                    <button onClick={() => setModal(dept)}
-                      className="px-3 h-7 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
-                      Edit
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setModal(dept)}
+                        className="px-3 h-7 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+                        Edit
+                      </button>
+                      <button onClick={() => setDeleteTarget(dept)}
+                        className="px-3 h-7 border border-red-200 rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors">
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -147,6 +168,18 @@ export default function DepartmentsPage() {
       </div>
 
       {modal !== null && <Modal dept={modal?.id ? modal : undefined} onClose={() => setModal(null)} />}
+
+      <ActionModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+        title="Delete Department"
+        description={`Are you sure you want to delete "${deleteTarget?.name}"? This cannot be undone.`}
+        confirmText="Delete"
+        confirmVariant="danger"
+        icon="delete"
+        loading={deleteMutation.isPending}
+      />
     </div>
   );
 }
