@@ -252,7 +252,7 @@ const Setting: React.FC = () => {
           body: JSON.stringify({ summary: `Deadline: ${p.title}`, start: { date: p.deadline.split('T')[0] }, end: { date: p.deadline.split('T')[0] } }),
         });
       }
-      alert('Project deadlines synced to Google Calendar!');
+      toast.success('Project deadlines synced to Google Calendar!');
     };
     const [notifications, setNotifications] = useState(true);
     const [oldPassword, setOldPassword] = useState('');

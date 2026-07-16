@@ -6,6 +6,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import ActionModal from '@/components/ui/ActionModal';
 
 const pkr = (v: number) => `PKR ${(v || 0).toLocaleString('en-PK')}`;
 const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white';
@@ -332,6 +333,7 @@ export default function ExpenseLedgerPage() {
   const toast = useToastContext();
   const [showModal, setShowModal] = useState(false);
   const [editTxn, setEditTxn] = useState<any>(null);
+  const [txnToDelete, setTxnToDelete] = useState<any>(null);
   const [typeFilter, setTypeFilter] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -353,7 +355,7 @@ export default function ExpenseLedgerPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest<any>(API_ENDPOINTS.EXPENSES.TRANSACTION(id), { method: 'DELETE' }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['expense-ledger', userId] }); qc.invalidateQueries({ queryKey: ['expense-accounts'] }); toast.success('Deleted'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['expense-ledger', userId] }); qc.invalidateQueries({ queryKey: ['expense-accounts'] }); toast.success('Deleted'); setTxnToDelete(null); },
     onError: () => toast.error('Delete failed'),
   });
 
@@ -461,7 +463,7 @@ export default function ExpenseLedgerPage() {
                           className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
                           <Pencil size={13} />
                         </button>
-                        <button onClick={() => { if (window.confirm('Delete this transaction?')) deleteMutation.mutate(t.id); }}
+                        <button onClick={() => setTxnToDelete(t)}
                           className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                           <Trash2 size={13} />
                         </button>
@@ -482,6 +484,18 @@ export default function ExpenseLedgerPage() {
           onClose={() => { setShowModal(false); setEditTxn(null); }}
         />
       )}
+
+      <ActionModal
+        isOpen={!!txnToDelete}
+        onClose={() => setTxnToDelete(null)}
+        onConfirm={() => txnToDelete && deleteMutation.mutate(txnToDelete.id)}
+        title="Delete Transaction"
+        description="Are you sure you want to delete this transaction? This cannot be undone."
+        confirmText="Delete"
+        confirmVariant="danger"
+        icon="delete"
+        loading={deleteMutation.isPending}
+      />
     </div>
   );
 }

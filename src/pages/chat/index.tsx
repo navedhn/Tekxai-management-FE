@@ -8,6 +8,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 import { useAuthStore } from '@/stores/authStore';
+import ActionModal from '@/components/ui/ActionModal';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -271,6 +272,7 @@ function ChannelSettingsModal({
   const [type, setType] = useState<'PUBLIC' | 'PRIVATE'>(channel.type === 'PRIVATE' ? 'PRIVATE' : 'PUBLIC');
   const canEdit = ['OWNER', 'ADMIN'].includes(currentUserRole || '');
   const canArchive = currentUserRole === 'OWNER';
+  const [confirmArchive, setConfirmArchive] = useState(false);
 
   const updateMutation = useMutation({
     mutationFn: () =>
@@ -354,7 +356,7 @@ function ChannelSettingsModal({
             <div className="border-t border-gray-100 pt-4">
               <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Danger Zone</p>
               <button
-                onClick={() => { if (confirm('Archive this channel? Members will lose access.')) archiveMutation.mutate(); }}
+                onClick={() => setConfirmArchive(true)}
                 disabled={archiveMutation.isPending}
                 className="w-full h-10 border border-red-200 text-red-600 text-sm font-bold rounded-xl hover:bg-red-50 disabled:opacity-40 transition-colors"
               >
@@ -364,6 +366,18 @@ function ChannelSettingsModal({
           )}
         </div>
       </div>
+
+      <ActionModal
+        isOpen={confirmArchive}
+        onClose={() => setConfirmArchive(false)}
+        onConfirm={() => { setConfirmArchive(false); archiveMutation.mutate(); }}
+        title="Archive Channel"
+        description="Members will lose access to this channel. This cannot be undone."
+        confirmText="Archive"
+        confirmVariant="danger"
+        icon="delete"
+        loading={archiveMutation.isPending}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import Table, { Column } from '@/components/ui/Table';
 import Tabs from '@/components/ui/Tabs';
 import Select from '@/components/ui/Select';
 import Badge from '@/components/ui/Badge';
+import ActionModal from '@/components/ui/ActionModal';
 import { Activity, Camera, Clock, Cpu, Trash2 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useFetchUsersQuery } from '@/services/userService';
@@ -62,6 +63,8 @@ const MonitoringPage: React.FC = () => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [screenshotToDelete, setScreenshotToDelete] = useState<Screenshot | null>(null);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 
   const { user } = useAuthStore();
   const isSuperAdmin = (user as any)?.roles?.includes('SUPER_ADMIN') || (user as any)?.role_name === 'SUPER_ADMIN';
@@ -165,9 +168,13 @@ const MonitoringPage: React.FC = () => {
     });
   };
   const handleBulkDelete = () => {
+    if (!selectedIds.size) return;
+    setConfirmBulkDelete(true);
+  };
+
+  const confirmBulkDeleteNow = () => {
     const ids = Array.from(selectedIds);
-    if (!ids.length) return;
-    if (!window.confirm(`Delete ${ids.length} screenshot(s)? They will also be removed from S3.`)) return;
+    setConfirmBulkDelete(false);
     setIsBulkDeleting(true);
     bulkDelete(ids, {
       onSettled: () => {
@@ -236,11 +243,7 @@ const MonitoringPage: React.FC = () => {
       key: 'id' as keyof Screenshot,
       render: (r: Screenshot) => (
         <button
-          onClick={() => {
-            if (!window.confirm('Delete this screenshot? It will also be removed from S3.')) return;
-            setDeletingId(r.id);
-            deleteScreenshot(r.id, { onSettled: () => setDeletingId(null) });
-          }}
+          onClick={() => setScreenshotToDelete(r)}
           disabled={deletingId === r.id}
           className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
           title="Delete screenshot"
@@ -410,6 +413,34 @@ const MonitoringPage: React.FC = () => {
           />
         </Card>
       )}
+
+      <ActionModal
+        isOpen={!!screenshotToDelete}
+        onClose={() => setScreenshotToDelete(null)}
+        onConfirm={() => {
+          if (!screenshotToDelete) return;
+          setDeletingId(screenshotToDelete.id);
+          deleteScreenshot(screenshotToDelete.id, { onSettled: () => setDeletingId(null) });
+          setScreenshotToDelete(null);
+        }}
+        title="Delete Screenshot"
+        description="This screenshot will also be removed from S3. This cannot be undone."
+        confirmText="Delete"
+        confirmVariant="danger"
+        icon="delete"
+      />
+
+      <ActionModal
+        isOpen={confirmBulkDelete}
+        onClose={() => setConfirmBulkDelete(false)}
+        onConfirm={confirmBulkDeleteNow}
+        title="Delete Screenshots"
+        description={`Delete ${selectedIds.size} screenshot(s)? They will also be removed from S3.`}
+        confirmText="Delete"
+        confirmVariant="danger"
+        icon="delete"
+        loading={isBulkDeleting}
+      />
     </div>
   );
 };

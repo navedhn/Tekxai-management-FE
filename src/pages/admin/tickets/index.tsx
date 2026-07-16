@@ -4,6 +4,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS as ENDPOINTS } from '@/services/api/endpoints';
 import { SupportTicket } from '@/types/ticket';
 import { TicketDetailModal } from '@/components/tickets';
+import PromptModal from '@/components/ui/PromptModal';
 import { formatTicketDate } from '@/services/ticketService';
 import { Ticket, Search, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -27,6 +28,8 @@ export default function AdminTickets() {
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [slaOverdueOnly, setSlaOverdueOnly] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
+  const [pendingApproval, setPendingApproval] = useState<{ id: string; action: 'APPROVE' | 'REJECT' } | null>(null);
+  const [pendingResolveId, setPendingResolveId] = useState<string | null>(null);
   const debouncedSearch = useDebounce(search, 350);
 
   const { data, isLoading } = useQuery<{ records: SupportTicket[]; total: number }>({
@@ -54,9 +57,8 @@ export default function AdminTickets() {
   });
 
   const approvalMutation = useMutation({
-    mutationFn: async ({ id, action }: { id: string; action: 'APPROVE' | 'REJECT' }) => {
-      const comment = prompt(`${action === 'APPROVE' ? 'Approval' : 'Rejection'} comment (optional):`) || undefined;
-      await apiRequest(ENDPOINTS.TICKET.APPROVALS(id), { method: 'POST', body: JSON.stringify({ action, comment }) });
+    mutationFn: async ({ id, action, comment }: { id: string; action: 'APPROVE' | 'REJECT'; comment?: string }) => {
+      await apiRequest(ENDPOINTS.TICKET.APPROVALS(id), { method: 'POST', body: JSON.stringify({ action, comment: comment || undefined }) });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-tickets'] });
@@ -192,14 +194,14 @@ export default function AdminTickets() {
                         // Approval-gated workflow step — status can only move via approve/reject
                         <>
                           <button
-                            onClick={() => approvalMutation.mutate({ id: t.id, action: 'APPROVE' })}
+                            onClick={() => setPendingApproval({ id: t.id, action: 'APPROVE' })}
                             disabled={approvalMutation.isPending}
                             className="flex items-center gap-1 text-xs font-semibold text-green-600 hover:underline disabled:opacity-50"
                           >
                             <CheckCircle2 size={12} /> Approve
                           </button>
                           <button
-                            onClick={() => approvalMutation.mutate({ id: t.id, action: 'REJECT' })}
+                            onClick={() => setPendingApproval({ id: t.id, action: 'REJECT' })}
                             disabled={approvalMutation.isPending}
                             className="flex items-center gap-1 text-xs font-semibold text-red-600 hover:underline disabled:opacity-50"
                           >
@@ -231,8 +233,11 @@ export default function AdminTickets() {
                             defaultValue=""
                             onChange={(e) => {
                               if (!e.target.value) return;
-                              const resolution_note = e.target.value === 'resolved' ? prompt('Resolution note (optional):') || undefined : undefined;
-                              updateMutation.mutate({ id: t.id, status: e.target.value, resolution_note });
+                              if (e.target.value === 'resolved') {
+                                setPendingResolveId(t.id);
+                              } else {
+                                updateMutation.mutate({ id: t.id, status: e.target.value });
+                              }
                               e.target.value = '';
                             }}
                             className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none"
@@ -256,6 +261,34 @@ export default function AdminTickets() {
         ticket={selectedTicket}
         onClose={() => setSelectedTicket(null)}
         isAdmin
+      />
+
+      <PromptModal
+        isOpen={!!pendingApproval}
+        onClose={() => setPendingApproval(null)}
+        onConfirm={(comment) => {
+          if (pendingApproval) approvalMutation.mutate({ ...pendingApproval, comment });
+          setPendingApproval(null);
+        }}
+        title={pendingApproval?.action === 'APPROVE' ? 'Approve Ticket' : 'Reject Ticket'}
+        description="Add an optional comment for this decision."
+        placeholder="Comment (optional)…"
+        confirmText={pendingApproval?.action === 'APPROVE' ? 'Approve' : 'Reject'}
+        loading={approvalMutation.isPending}
+      />
+
+      <PromptModal
+        isOpen={!!pendingResolveId}
+        onClose={() => setPendingResolveId(null)}
+        onConfirm={(resolution_note) => {
+          if (pendingResolveId) updateMutation.mutate({ id: pendingResolveId, status: 'resolved', resolution_note: resolution_note || undefined });
+          setPendingResolveId(null);
+        }}
+        title="Mark Resolved"
+        description="Add an optional resolution note."
+        placeholder="Resolution note (optional)…"
+        confirmText="Mark Resolved"
+        loading={updateMutation.isPending}
       />
     </div>
   );
