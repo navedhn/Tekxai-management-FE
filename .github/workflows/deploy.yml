@@ -36,7 +36,7 @@ jobs:
 
           echo "Pulling latest code from git..."
           git fetch origin
-          git reset --hard origin/frontend
+          git reset --hard origin/main
 
           echo "Cleaning up credentials from git config..."
           git remote set-url origin "https://github.com/yodo-dev/Tekxai-management-FE.git"
