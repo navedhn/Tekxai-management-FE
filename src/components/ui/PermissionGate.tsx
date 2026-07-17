@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useMyPermissions } from '@/services/permissionsService';
 
 interface Props {
   permission: string;
@@ -7,9 +7,9 @@ interface Props {
   fallback?: React.ReactNode;
 }
 
-export default function PermissionGate({ children, fallback = null }: Props) {
-  const { role } = useAuth();
-  // SUPER_ADMIN and ADMIN always pass; for others render fallback
-  if (role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'HR') return <>{children}</>;
+export default function PermissionGate({ permission, children, fallback = null }: Props) {
+  const { data: myPerms } = useMyPermissions();
+  const allowed = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes(permission);
+  if (allowed) return <>{children}</>;
   return <>{fallback}</>;
 }

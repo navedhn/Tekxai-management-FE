@@ -7,12 +7,18 @@ import ActionModal from '@/components/ui/ActionModal';
 import BulkDeleteBar from '@/components/ui/BulkDeleteBar';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useGetDepartmentsQuery, useCreateDepartment, useUpdateDepartment, useDeleteDepartment, useBulkDeleteDepartments } from '@/services/departmentService';
+import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
 import { useBulkSelection } from '@/hooks/useBulkSelection';
 import { summarizeBulkDelete } from '@/utils/bulkDeleteSummary';
 import { cn } from '@/utils/cn';
 
 function Modal({ dept, onClose }: { dept?: any; onClose: () => void }) {
-  const [form, setForm] = useState({ name: dept?.name || '', description: dept?.description || '', head_user_id: dept?.head_user_id || '' });
+  const [form, setForm] = useState({
+    name: dept?.name || '',
+    description: dept?.description || '',
+    head_user_id: dept?.head_user_id || '',
+    business_unit_id: dept?.business_unit_id || dept?.business_unit?.id || '',
+  });
   const [err, setErr] = useState('');
 
   const { data: users } = useQuery({
@@ -21,11 +27,14 @@ function Modal({ dept, onClose }: { dept?: any; onClose: () => void }) {
     select: (r: any) => r?.payload?.records || [],
   });
 
+  const { data: businessUnits } = useGetBusinessUnitsQuery();
+
   const createMutation = useCreateDepartment();
   const updateMutation = useUpdateDepartment();
   const mutation = dept?.id ? updateMutation : createMutation;
   const handleSave = () => {
     setErr('');
+    if (!form.business_unit_id) { setErr('Business unit is required'); return; }
     const payload = dept?.id ? { id: dept.id, ...form } : form;
     mutation.mutate(payload as any, {
       onSuccess: () => onClose(),
@@ -41,6 +50,14 @@ function Modal({ dept, onClose }: { dept?: any; onClose: () => void }) {
           <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
         </div>
         <div className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-gray-500 block mb-1.5">Business Unit <span className="text-red-500">*</span></label>
+            <select className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 text-gray-700"
+              value={form.business_unit_id} onChange={e => setForm(p => ({ ...p, business_unit_id: e.target.value }))}>
+              <option value="">Select business unit</option>
+              {(businessUnits || []).map((bu: any) => <option key={bu.id} value={bu.id}>{bu.name}</option>)}
+            </select>
+          </div>
           <div>
             <label className="text-xs font-semibold text-gray-500 block mb-1.5">Department Name <span className="text-red-500">*</span></label>
             <input className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
@@ -63,7 +80,7 @@ function Modal({ dept, onClose }: { dept?: any; onClose: () => void }) {
         {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
         <div className="flex gap-3 mt-5">
           <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={handleSave} disabled={!form.name || mutation.isPending}
+          <button onClick={handleSave} disabled={!form.name || !form.business_unit_id || mutation.isPending}
             className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40">
             {mutation.isPending ? 'Saving…' : 'Save'}
           </button>
@@ -76,13 +93,16 @@ function Modal({ dept, onClose }: { dept?: any; onClose: () => void }) {
 export default function DepartmentsPage() {
   const toast = useToastContext();
   const [q, setQ] = useState('');
+  const [buFilter, setBuFilter] = useState('');
   const [modal, setModal] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
 
   const { data, isLoading } = useGetDepartmentsQuery();
+  const { data: businessUnits } = useGetBusinessUnitsQuery();
 
   const departments: any[] = (data || []).filter((d: any) =>
-    !q || d.name?.toLowerCase().includes(q.toLowerCase()) || d.description?.toLowerCase().includes(q.toLowerCase())
+    (!q || d.name?.toLowerCase().includes(q.toLowerCase()) || d.description?.toLowerCase().includes(q.toLowerCase())) &&
+    (!buFilter || d.business_unit_id === buFilter || d.business_unit?.id === buFilter)
   );
 
   const { selected, allOnPageSelected, toggleAll, toggleOne, clear } =
@@ -132,10 +152,17 @@ export default function DepartmentsPage() {
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        <div className="relative mb-4 max-w-sm">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="w-full h-10 pl-9 pr-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
-            placeholder="Search departments…" value={q} onChange={e => setQ(e.target.value)} />
+        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+          <div className="relative max-w-sm flex-1">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input className="w-full h-10 pl-9 pr-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
+              placeholder="Search departments…" value={q} onChange={e => setQ(e.target.value)} />
+          </div>
+          <select className="h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 text-gray-700 sm:w-56"
+            value={buFilter} onChange={e => setBuFilter(e.target.value)}>
+            <option value="">All Business Units</option>
+            {(businessUnits || []).map((bu: any) => <option key={bu.id} value={bu.id}>{bu.name}</option>)}
+          </select>
         </div>
 
         <BulkDeleteBar
@@ -158,7 +185,7 @@ export default function DepartmentsPage() {
                     title={allOnPageSelected ? 'Deselect all' : 'Select all'}
                   />
                 </th>
-                {['Department', 'Description', 'Head', 'Employees', 'Actions'].map(h => (
+                {['Department', 'Business Unit', 'Description', 'Head', 'Employees', 'Actions'].map(h => (
                   <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -166,10 +193,10 @@ export default function DepartmentsPage() {
             <tbody className="divide-y divide-gray-50">
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}><td colSpan={6} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                  <tr key={i}><td colSpan={7} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
                 ))
               ) : departments.length === 0 ? (
-                <tr><td colSpan={6} className="py-12 text-center text-gray-400 text-sm">No departments found</td></tr>
+                <tr><td colSpan={7} className="py-12 text-center text-gray-400 text-sm">No departments found</td></tr>
               ) : departments.map((dept: any) => (
                 <tr key={dept.id} className={cn('hover:bg-gray-50 transition-colors', selected.has(dept.id) && 'bg-primary-50')}>
                   <td className="py-3 px-2">
@@ -188,6 +215,7 @@ export default function DepartmentsPage() {
                       <span className="font-semibold text-gray-900">{dept.name}</span>
                     </div>
                   </td>
+                  <td className="py-3 px-2 text-gray-600">{dept.business_unit?.name || '—'}</td>
                   <td className="py-3 px-2 text-gray-500 max-w-[240px] truncate">{dept.description || '—'}</td>
                   <td className="py-3 px-2 text-gray-700">
                     {dept.head ? `${dept.head.first_name} ${dept.head.last_name}` : dept.head_name || '—'}

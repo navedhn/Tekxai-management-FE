@@ -25,14 +25,7 @@ const EmployeeDashboard: React.FC = () => {
     const { data: activity, isLoading: activityLoading } = useGetRecentActivity();
     const { data: timesheet, isLoading: timesheetLoading } = useGetTimesheet();
     const { data: projects, isLoading: projectsLoading } = useGetProjects();
-    const {
-        trackerState,
-        seconds,
-        handleCheckIn,
-        handleBreak,
-        handleResume,
-        handleCheckOut,
-    } = useTimeTracker();
+    const { trackerState, seconds } = useTimeTracker();
 
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -211,10 +204,6 @@ const EmployeeDashboard: React.FC = () => {
             <TimeTrackerCard
                 trackerState={trackerState}
                 seconds={seconds}
-                onCheckIn={handleCheckIn}
-                onBreak={handleBreak}
-                onResume={handleResume}
-                onCheckOut={handleCheckOut}
             />
 
             <TicketsSummaryCard />

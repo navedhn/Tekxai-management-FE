@@ -4,13 +4,12 @@ import {
   Home, Users, Building2, Clock, Package, TrendingUp, FileText,
   UserPlus, ShieldCheck, Briefcase, Heart, LogOut, X, Star,
   BarChart3, AlarmClock, UserSearch, PlusCircle, Monitor,
-  Layers, Tag, Network,
+  Layers, Tag, Network, Landmark,
 } from 'lucide-react';
 import tekxaiLogo from '@/assets/icons/tekxai-logo.svg';
 import { useLogoutMutation } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
 import { clearAuthTokens } from '@/utils/tokenMemory';
-import { forceCheckoutApi } from '@/utils/attendanceAutoCheckout';
 
 export type HRSidebarProps = { isOpen: boolean; onClose: () => void };
 
@@ -21,7 +20,6 @@ const HRSidebar: React.FC<HRSidebarProps> = memo(({ isOpen, onClose }) => {
   const logoutMutation = useLogoutMutation();
 
   const logout = useCallback(async () => {
-    await forceCheckoutApi('LOGOUT');
     try { await logoutMutation.mutateAsync(); } catch {}
     clearAuthTokens();
     userLogout();
@@ -34,6 +32,7 @@ const HRSidebar: React.FC<HRSidebarProps> = memo(({ isOpen, onClose }) => {
     { section: 'Overview', to: '/hr', label: 'HR Dashboard', icon: Home, end: true },
     { section: 'People', to: '/hr/employee-directory', label: 'Employee Directory', icon: UserSearch },
     { to: '/hr/add-employee', label: 'Add Employee', icon: PlusCircle },
+    { section: 'Organization', to: '/hr/business-units', label: 'Business Units', icon: Landmark },
     { to: '/hr/departments', label: 'Departments', icon: Building2 },
     { to: '/hr/divisions', label: 'Divisions', icon: Layers },
     { to: '/hr/designations', label: 'Designations', icon: Tag },

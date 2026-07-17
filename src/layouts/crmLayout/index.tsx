@@ -7,46 +7,9 @@ import PageWrapper from '@/components/layout/PageWrapper';
 import { useResponsive } from '@/hooks/useResponsive';
 import { MarketingTeamProvider } from '@/contexts/MarketingTeamContext';
 import { TableSkeleton } from '@/components/skeletons';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
-import { API_ENDPOINTS } from '@/services/api/endpoints';
-import { useAuthStore } from '@/stores/authStore';
-import { useIdleAutoCheckout } from '@/hooks/useIdleAutoCheckout';
-import IdleCheckoutModal from '@/components/ui/IdleCheckoutModal';
 
 const CRMLayout: React.FC = memo(() => {
   const [open, setOpen] = useState(false);
-  const { isLoggedIn } = useAuthStore();
-  const qc = useQueryClient();
-
-  const { data: todayStatus } = useQuery({
-    queryKey: ['timesheet', 'today'],
-    queryFn: async () => {
-      const res = await apiRequest<any>(API_ENDPOINTS.TIMESHEET.TODAY);
-      return res?.payload || { clocked_in: false, clocked_out: false, entry: null };
-    },
-    enabled: isLoggedIn,
-    refetchInterval: 60_000,
-  });
-
-  const isActiveSession = !!(todayStatus?.clocked_in && !todayStatus?.clocked_out);
-
-  const { data: publicSettings } = useQuery({
-    queryKey: ['system-settings-public'],
-    queryFn: () => apiRequest<any>(API_ENDPOINTS.SETTINGS.SYSTEM_PUBLIC).then((r: any) => r?.payload || {}),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const idleTimeoutMs = (Number(publicSettings?.idle_timeout_minutes) || 15) * 60 * 1000;
-
-  useIdleAutoCheckout({
-    isClockdIn: isActiveSession,
-    idleTimeoutMs,
-    onAutoCheckout: () => {
-      qc.invalidateQueries({ queryKey: ['timesheet', 'today'] });
-      qc.invalidateQueries({ queryKey: ['timesheet', 'weekly'] });
-    },
-  });
 
   const toggle = useCallback(() => setOpen(v => !v), []);
   const close = useCallback(() => setOpen(false), []);
@@ -87,7 +50,6 @@ const CRMLayout: React.FC = memo(() => {
             </AnimatePresence>
           </div>
         </main>
-        <IdleCheckoutModal isAuthenticated={isLoggedIn} idleTimeoutMinutes={Number(publicSettings?.idle_timeout_minutes) || 15} />
       </div>
     </MarketingTeamProvider>
   );
