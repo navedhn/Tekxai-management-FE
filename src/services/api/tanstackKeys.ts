@@ -51,6 +51,9 @@ export const QUERY_KEYS = {
   DEVOPS_ACCESS: {
     DETAIL: (projectId: string) => ['project', projectId, 'devops-access'],
   },
+  DEPENDENCIES: {
+    LIST: (projectId: string) => ['project', projectId, 'dependencies'],
+  },
   TRACKING_LINKS: {
     LIST: (projectId: string) => ['project', projectId, 'tracking-links'],
   },
