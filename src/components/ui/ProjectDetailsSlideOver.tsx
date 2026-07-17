@@ -15,6 +15,7 @@ import CommunicationTimeline from './CommunicationTimeline';
 import BudgetPanel from './BudgetPanel';
 import ExtensionRequestsPanel from './ExtensionRequestsPanel';
 import ProjectKanbanPanel from './ProjectKanbanPanel';
+import DependenciesPanel from './DependenciesPanel';
 import ActionModal from './ActionModal';
 import StatusDropdown from './StatusDropdown';
 import { useGetProjectDetails, useUpdateProjectMutation } from '@/services/projectService';
@@ -476,11 +477,9 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                     />
                   )}
 
-                  {/* Dependencies tab — placeholder, built in Milestone 2 */}
-                  {activeTab === 'dependencies' && (
-                    <div className="bg-white border border-gray-100 rounded-[2rem] p-10 text-center text-gray-400 font-semibold text-sm">
-                      Dependency tracking is not yet implemented for this project.
-                    </div>
+                  {/* Dependencies tab */}
+                  {activeTab === 'dependencies' && projectId && (
+                    <DependenciesPanel projectId={projectId} canEdit={canEditProject} />
                   )}
 
                   {/* Team tab — reuses project_members.role grouping */}
