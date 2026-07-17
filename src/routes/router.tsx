@@ -121,7 +121,6 @@ const DownloadApp            = lazy(() => import('@/pages/employee/download-app'
 
 // Shared
 const SharedNotifications    = lazy(() => import('@/pages/shared/notifications'));
-const ProjectDetailPage      = lazy(() => import('@/pages/shared/projectDetail'));
 const ProfilePage            = lazy(() => import('@/pages/shared/profile'));
 
 // Chat
@@ -176,7 +175,6 @@ const routes: RouteObject[] = [
           { path: '/admin/settings',             element: <AdminSettings /> },
           { path: '/admin/users',                element: <AdminUsers /> },
           { path: '/admin/notifications',        element: <SharedNotifications /> },
-          { path: '/admin/project-detail',       element: <ProjectDetailPage /> },
           { path: '/admin/profile/:memberId?',   element: <ProfilePage /> },
           { path: '/admin/monitoring',           element: <AdminMonitoring /> },
           { path: '/admin/reports',              element: <AdminReports /> },
@@ -325,7 +323,6 @@ const routes: RouteObject[] = [
           { path: '/employee/download-app',        element: <DownloadApp /> },
           { path: '/employee/requisitions',        element: <AdminRequisitions /> },
           { path: '/employee/notifications',       element: <SharedNotifications /> },
-          { path: '/employee/project-detail',      element: <ProjectDetailPage /> },
           { path: '/employee/profile/:memberId?',  element: <ProfilePage /> },
         ],
       },

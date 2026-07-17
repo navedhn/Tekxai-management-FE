@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ChevronDown, CheckCircle2, Circle, MessageSquare, Plus, Trash2, ArrowRight as ArrowRightIcon, ArrowLeft, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { ArrowRight, ChevronDown, CheckCircle2, Circle, MessageSquare, Plus, Trash2, ArrowRight as ArrowRightIcon, ArrowLeft, Calendar as CalendarIcon, Clock, LayoutDashboard, ListChecks, KanbanSquare, FileText, Activity as ActivityIcon, MessagesSquare, Server, Link2, Users, Wallet, Settings as SettingsIcon } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import Badge from './Badge';
 import Button from './Button';
@@ -14,6 +14,7 @@ import ProjectDocumentsPanel from './ProjectDocumentsPanel';
 import CommunicationTimeline from './CommunicationTimeline';
 import BudgetPanel from './BudgetPanel';
 import ExtensionRequestsPanel from './ExtensionRequestsPanel';
+import ProjectKanbanPanel from './ProjectKanbanPanel';
 import ActionModal from './ActionModal';
 import StatusDropdown from './StatusDropdown';
 import { useGetProjectDetails, useUpdateProjectMutation } from '@/services/projectService';
@@ -31,12 +32,31 @@ interface SlideOverProps {
   routePrefix?: string;
 }
 
+type WorkspaceTab =
+  | 'overview' | 'tasks' | 'milestones' | 'files' | 'activity'
+  | 'communication' | 'infrastructure' | 'dependencies' | 'team' | 'financial' | 'settings';
+
+const WORKSPACE_TABS: { id: WorkspaceTab; label: string; icon: React.ElementType }[] = [
+  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { id: 'tasks', label: 'Tasks', icon: KanbanSquare },
+  { id: 'milestones', label: 'Milestones', icon: ListChecks },
+  { id: 'files', label: 'Files', icon: FileText },
+  { id: 'activity', label: 'Activity', icon: ActivityIcon },
+  { id: 'communication', label: 'Client Communication', icon: MessagesSquare },
+  { id: 'infrastructure', label: 'Infrastructure', icon: Server },
+  { id: 'dependencies', label: 'Dependencies', icon: Link2 },
+  { id: 'team', label: 'Team', icon: Users },
+  { id: 'financial', label: 'Financial', icon: Wallet },
+  { id: 'settings', label: 'Settings', icon: SettingsIcon },
+];
+
 const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, projectId, routePrefix = '/admin' }) => {
   const navigate = useNavigate();
   const toast = useToastContext();
   const { user, role } = useAuth();
   const { data: project, isLoading } = useGetProjectDetails(projectId);
   const { data: milestones = [], isLoading: milestonesLoading } = useMilestones(projectId);
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>('overview');
   const deleteMilestoneMutation = useDeleteMilestone(projectId);
   const updateTaskMutation = useUpdateTask(projectId);
   const deleteTaskMutation = useDeleteTask(projectId);
@@ -204,15 +224,23 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                     </div>
                   </div>
 
-                  {/* Description Text */}
-                  <div className="flex flex-col gap-4">
-                    <div className="flex items-center gap-2 text-gray-900 font-black">
-                      <MessageSquare size={18} strokeWidth={3} className="text-primary-500" />
-                      <span>Project Description</span>
-                    </div>
-                    <div className="p-6 bg-white border border-gray-100 rounded-[2rem] shadow-sm tracking-tight text-gray-600 font-medium leading-relaxed text-[15px]">
-                      {project.description || 'No description provided for this project.'}
-                    </div>
+                  {/* Workspace tab bar */}
+                  <div className="flex items-center gap-1 overflow-x-auto no-scrollbar border-b border-gray-100 -mb-2">
+                    {WORKSPACE_TABS.map((tab) => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={cn(
+                          'flex items-center gap-2 px-4 h-11 rounded-t-xl text-[13px] font-black whitespace-nowrap transition-all border-b-2 -mb-px',
+                          activeTab === tab.id
+                            ? 'border-[#005CDA] text-[#005CDA] bg-blue-50/40'
+                            : 'border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                        )}
+                      >
+                        <tab.icon size={15} strokeWidth={2.5} />
+                        {tab.label}
+                      </button>
+                    ))}
                   </div>
 
                   {/* Modals placed at root level for visibility */}
@@ -247,7 +275,47 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                     icon="delete"
                   />
 
-                  {/* Milestones + Tasks */}
+                  {/* Overview tab */}
+                  {activeTab === 'overview' && (
+                    <div className="flex flex-col gap-10 w-full">
+                      <div className="flex flex-col gap-4">
+                        <div className="flex items-center gap-2 text-gray-900 font-black">
+                          <MessageSquare size={18} strokeWidth={3} className="text-primary-500" />
+                          <span>Project Description</span>
+                        </div>
+                        <div className="p-6 bg-white border border-gray-100 rounded-[2rem] shadow-sm tracking-tight text-gray-600 font-medium leading-relaxed text-[15px]">
+                          {project.description || 'No description provided for this project.'}
+                        </div>
+                      </div>
+
+                      {(() => {
+                        const members: any[] = project.all_members || project.members || [];
+                        if (members.length === 0) return null;
+                        const grouped = members.reduce((acc: Record<string, any[]>, m) => {
+                          const role = m.role || 'MEMBER';
+                          (acc[role] = acc[role] || []).push(m);
+                          return acc;
+                        }, {});
+                        return (
+                          <div className="flex flex-col gap-4 w-full">
+                            <h3 className="text-lg font-black text-gray-900 tracking-tight">Team Summary</h3>
+                            <div className="flex flex-wrap gap-3">
+                              {Object.entries(grouped).map(([role, list]) => (
+                                <div key={role} className="px-4 py-2 rounded-xl bg-white border border-gray-100 text-xs font-bold text-gray-600">
+                                  {list.length} {role.replace('_', ' ')}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {projectId && <ExtensionRequestsPanel projectId={projectId} canReview={canEditProject} />}
+                    </div>
+                  )}
+
+                  {/* Milestones tab */}
+                  {activeTab === 'milestones' && (
                   <div className="flex flex-col gap-6 w-full">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-black text-gray-900 tracking-tight">Project Milestones</h3>
@@ -374,9 +442,49 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                       );
                     })}
                   </div>
+                  )}
 
-                  {/* Team by Role — groups project.members by their (reused) project_members.role */}
-                  {(() => {
+                  {/* Tasks tab — salvaged Kanban board */}
+                  {activeTab === 'tasks' && projectId && (
+                    <ProjectKanbanPanel projectId={projectId} />
+                  )}
+
+                  {/* Files tab */}
+                  {activeTab === 'files' && projectId && (
+                    <ProjectDocumentsPanel projectId={projectId} canEdit={canEditProject} />
+                  )}
+
+                  {/* Activity tab */}
+                  {activeTab === 'activity' && projectId && (
+                    <CommunicationTimeline projectId={projectId} />
+                  )}
+
+                  {/* Client Communication tab */}
+                  {activeTab === 'communication' && projectId && (
+                    <WeeklyUpdatesPanel projectId={projectId} canEdit={canEditProject} />
+                  )}
+
+                  {/* Infrastructure tab */}
+                  {activeTab === 'infrastructure' && projectId && (
+                    <DevopsAccessPanel
+                      projectId={projectId}
+                      ownerId={projectOwnerId}
+                      leaderId={projectLeaderId}
+                      accessScore={project.access_completion_score}
+                      healthScore={project.health_score}
+                      healthStatus={project.health_status}
+                    />
+                  )}
+
+                  {/* Dependencies tab — placeholder, built in Milestone 2 */}
+                  {activeTab === 'dependencies' && (
+                    <div className="bg-white border border-gray-100 rounded-[2rem] p-10 text-center text-gray-400 font-semibold text-sm">
+                      Dependency tracking is not yet implemented for this project.
+                    </div>
+                  )}
+
+                  {/* Team tab — reuses project_members.role grouping */}
+                  {activeTab === 'team' && (() => {
                     const ROLE_LABELS: Record<string, string> = {
                       FRONTEND: 'Frontend Developers',
                       BACKEND: 'Backend Developers',
@@ -384,11 +492,21 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                       QA: 'QA',
                       DEVOPS: 'DevOps',
                       UI_UX: 'UI/UX',
+                      AI_ENGINEER: 'AI Engineers',
+                      BUSINESS_ANALYST: 'Business Analysts',
+                      SALES: 'Sales',
+                      ESTIMATOR: 'Estimators',
                       MEMBER: 'Members',
                     };
-                    const ROLE_ORDER = ['TEAM_LEAD', 'FRONTEND', 'BACKEND', 'QA', 'DEVOPS', 'UI_UX', 'MEMBER'];
+                    const ROLE_ORDER = ['TEAM_LEAD', 'FRONTEND', 'BACKEND', 'QA', 'DEVOPS', 'UI_UX', 'AI_ENGINEER', 'BUSINESS_ANALYST', 'SALES', 'ESTIMATOR', 'MEMBER'];
                     const members: any[] = project.all_members || project.members || [];
-                    if (members.length === 0) return null;
+                    if (members.length === 0) {
+                      return (
+                        <div className="bg-white border border-gray-100 rounded-[2rem] p-10 text-center text-gray-400 font-semibold text-sm">
+                          No team members assigned to this project yet.
+                        </div>
+                      );
+                    }
                     const grouped = members.reduce((acc: Record<string, any[]>, m) => {
                       const role = m.role || 'MEMBER';
                       (acc[role] = acc[role] || []).push(m);
@@ -401,7 +519,7 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           {roles.map((role) => (
                             <div key={role} className="rounded-2xl border border-gray-100 bg-white p-4">
-                              <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">{ROLE_LABELS[role]}</p>
+                              <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">{ROLE_LABELS[role] || role}</p>
                               <div className="flex flex-col gap-1.5">
                                 {grouped[role].map((m: any) => (
                                   <span key={m.id} className="text-sm font-semibold text-gray-700">
@@ -416,28 +534,40 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                     );
                   })()}
 
-                  {projectId && (
-                    <>
-                      <DevopsAccessPanel
-                        projectId={projectId}
-                        ownerId={projectOwnerId}
-                        leaderId={projectLeaderId}
-                        accessScore={project.access_completion_score}
-                        healthScore={project.health_score}
-                        healthStatus={project.health_status}
-                      />
-                      <WeeklyUpdatesPanel projectId={projectId} canEdit={canEditProject} />
-                      <ProjectDocumentsPanel projectId={projectId} canEdit={canEditProject} />
-                      <BudgetPanel
-                        projectId={projectId}
-                        budget={project.budget}
-                        budgetCurrency={project.budget_currency}
-                        budgetSpent={project.budget_spent}
-                        canEdit={canEditProject}
-                      />
-                      <ExtensionRequestsPanel projectId={projectId} canReview={canEditProject} />
-                      <CommunicationTimeline projectId={projectId} />
-                    </>
+                  {/* Financial tab */}
+                  {activeTab === 'financial' && projectId && (
+                    <BudgetPanel
+                      projectId={projectId}
+                      budget={project.budget}
+                      budgetCurrency={project.budget_currency}
+                      budgetSpent={project.budget_spent}
+                      canEdit={canEditProject}
+                    />
+                  )}
+
+                  {/* Settings tab — real project fields, no mock data */}
+                  {activeTab === 'settings' && (
+                    <div className="flex flex-col gap-4 w-full">
+                      <h3 className="text-lg font-black text-gray-900 tracking-tight">Project Settings</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="rounded-2xl border border-gray-100 bg-white p-4">
+                          <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Project Type</p>
+                          <p className="text-sm font-bold text-gray-700">{project.project_type || 'N/A'}</p>
+                        </div>
+                        <div className="rounded-2xl border border-gray-100 bg-white p-4">
+                          <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Progress Mode</p>
+                          <p className="text-sm font-bold text-gray-700">{project.progress_mode || 'AUTO'}</p>
+                        </div>
+                        <div className="rounded-2xl border border-gray-100 bg-white p-4">
+                          <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Budget Currency</p>
+                          <p className="text-sm font-bold text-gray-700">{project.budget_currency || 'PKR'}</p>
+                        </div>
+                        <div className="rounded-2xl border border-gray-100 bg-white p-4">
+                          <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Client Name</p>
+                          <p className="text-sm font-bold text-gray-700">{project.client_name || 'N/A'}</p>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
 
