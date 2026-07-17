@@ -2,6 +2,10 @@ export type CommChannel = 'EMAIL' | 'CLICKUP' | 'SLACK' | 'TEAMS' | 'WHATSAPP' |
 export type AccessStatus = 'GRANTED' | 'PENDING' | 'NOT_APPLICABLE';
 export type AwsAccessStatus = 'GRANTED' | 'PENDING' | 'LIMITED' | 'NOT_APPLICABLE';
 export type ProgressSharedStatus = 'NOT_SHARED' | 'SHARED' | 'AWAITING_FEEDBACK' | 'CLIENT_APPROVED';
+export type HostingEnvironment = 'PRODUCTION' | 'STAGING' | 'DEVELOPMENT';
+export type DomainSslStatus = 'ACTIVE' | 'EXPIRING' | 'EXPIRED' | 'NOT_CONFIGURED';
+export type DatabaseBackupStatus = 'ENABLED' | 'DISABLED' | 'UNKNOWN';
+export type ApiKeysStatus = 'GRANTED' | 'PENDING' | 'NOT_APPLICABLE';
 
 export interface DevopsAccessTracking {
   id: string | null;
@@ -16,6 +20,34 @@ export interface DevopsAccessTracking {
   email_smtp_access_status: AccessStatus;
   aws_access_status: AwsAccessStatus;
   devops_remarks: string | null;
+
+  git_provider: string | null;
+  git_repo_url: string | null;
+  git_organization: string | null;
+  git_default_branch: string | null;
+
+  hosting_provider: string | null;
+  hosting_environment: HostingEnvironment | null;
+  hosting_server: string | null;
+  hosting_region: string | null;
+
+  domain_name: string | null;
+  domain_dns_provider: string | null;
+  domain_ssl_status: DomainSslStatus | null;
+  domain_expiry_date: string | null;
+
+  database_provider: string | null;
+  database_version: string | null;
+  database_backup_status: DatabaseBackupStatus | null;
+
+  storage_provider: string | null;
+  cdn_provider: string | null;
+  smtp_provider: string | null;
+  third_party_services: string | null;
+  api_keys_status: ApiKeysStatus;
+  point_of_contact: string | null;
+  credentials_verified_date: string | null;
+
   created_at: string | null;
   updated_at: string | null;
 }
@@ -33,6 +65,28 @@ export type DevopsAccessUpdatePayload = Partial<
     | 'email_smtp_access_status'
     | 'aws_access_status'
     | 'devops_remarks'
+    | 'git_provider'
+    | 'git_repo_url'
+    | 'git_organization'
+    | 'git_default_branch'
+    | 'hosting_provider'
+    | 'hosting_environment'
+    | 'hosting_server'
+    | 'hosting_region'
+    | 'domain_name'
+    | 'domain_dns_provider'
+    | 'domain_ssl_status'
+    | 'domain_expiry_date'
+    | 'database_provider'
+    | 'database_version'
+    | 'database_backup_status'
+    | 'storage_provider'
+    | 'cdn_provider'
+    | 'smtp_provider'
+    | 'third_party_services'
+    | 'api_keys_status'
+    | 'point_of_contact'
+    | 'credentials_verified_date'
   >
 >;
 

@@ -11,7 +11,10 @@ import Loader from './Loader';
 import { useAuth } from '@/hooks/useAuth';
 import { useDevopsAccess, useUpdateDevopsAccess } from '@/services/devopsAccessService';
 import { useTrackingLinks, useCreateTrackingLink, useDeleteTrackingLink } from '@/services/trackingLinksService';
-import type { AccessStatus, AwsAccessStatus, CommChannel, ProgressSharedStatus } from '@/types/devopsAccess';
+import type {
+  AccessStatus, ApiKeysStatus, AwsAccessStatus, CommChannel, DatabaseBackupStatus,
+  DevopsAccessUpdatePayload, DomainSslStatus, HostingEnvironment, ProgressSharedStatus,
+} from '@/types/devopsAccess';
 import type { AccessCompletionScore } from '@/services/projectService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { cn } from '@/utils/cn';
@@ -46,6 +49,50 @@ const COMM_CHANNEL_OPTIONS: { label: string; value: CommChannel }[] = [
   { label: 'Zoom', value: 'ZOOM' },
   { label: 'Other Platform', value: 'OTHER' },
 ];
+
+const HOSTING_ENV_OPTIONS: { label: string; value: HostingEnvironment }[] = [
+  { label: 'Production', value: 'PRODUCTION' },
+  { label: 'Staging', value: 'STAGING' },
+  { label: 'Development', value: 'DEVELOPMENT' },
+];
+
+const DOMAIN_SSL_OPTIONS: StatusOption[] = [
+  { label: 'Active', value: 'ACTIVE', colorClassName: 'bg-[#ECFDF3] text-[#027A48] border-[#ABEFC6]' },
+  { label: 'Expiring', value: 'EXPIRING', colorClassName: 'bg-[#FFF6ED] text-[#C4320A] border-[#FFD6AE]' },
+  { label: 'Expired', value: 'EXPIRED', colorClassName: 'bg-[#FFF1F3] text-[#C01048] border-[#FEB3B3]' },
+  { label: 'Not Configured', value: 'NOT_CONFIGURED', colorClassName: 'bg-gray-50 text-gray-500 border-gray-200' },
+];
+
+const DB_BACKUP_OPTIONS: StatusOption[] = [
+  { label: 'Enabled', value: 'ENABLED', colorClassName: 'bg-[#ECFDF3] text-[#027A48] border-[#ABEFC6]' },
+  { label: 'Disabled', value: 'DISABLED', colorClassName: 'bg-[#FFF1F3] text-[#C01048] border-[#FEB3B3]' },
+  { label: 'Unknown', value: 'UNKNOWN', colorClassName: 'bg-gray-50 text-gray-500 border-gray-200' },
+];
+
+const API_KEYS_OPTIONS: StatusOption[] = [
+  { label: 'Granted', value: 'GRANTED', colorClassName: 'bg-[#ECFDF3] text-[#027A48] border-[#ABEFC6]' },
+  { label: 'Pending', value: 'PENDING', colorClassName: 'bg-[#FFF1F3] text-[#C01048] border-[#FEB3B3]' },
+  { label: 'N/A', value: 'NOT_APPLICABLE', colorClassName: 'bg-gray-50 text-gray-500 border-gray-200' },
+];
+
+type InfraFormState = Pick<
+  DevopsAccessUpdatePayload,
+  | 'git_provider' | 'git_repo_url' | 'git_organization' | 'git_default_branch'
+  | 'hosting_provider' | 'hosting_server' | 'hosting_region'
+  | 'domain_name' | 'domain_dns_provider' | 'domain_expiry_date'
+  | 'database_provider' | 'database_version'
+  | 'storage_provider' | 'cdn_provider' | 'smtp_provider' | 'third_party_services'
+  | 'point_of_contact'
+>;
+
+const EMPTY_INFRA_FORM: InfraFormState = {
+  git_provider: '', git_repo_url: '', git_organization: '', git_default_branch: '',
+  hosting_provider: '', hosting_server: '', hosting_region: '',
+  domain_name: '', domain_dns_provider: '', domain_expiry_date: '',
+  database_provider: '', database_version: '',
+  storage_provider: '', cdn_provider: '', smtp_provider: '', third_party_services: '',
+  point_of_contact: '',
+};
 
 const LINK_TYPE_OPTIONS = [
   { label: 'ClickUp', value: 'CLICKUP' },
@@ -87,10 +134,46 @@ const DevopsAccessPanel: React.FC<DevopsAccessPanelProps> = ({ projectId, ownerI
   const canEdit = role === 'ADMIN' || role === 'SUPER_ADMIN' || user?.id === ownerId || user?.id === leaderId;
 
   const [remarks, setRemarks] = useState('');
+  const [infraForm, setInfraForm] = useState<InfraFormState>(EMPTY_INFRA_FORM);
 
   useEffect(() => {
     setRemarks(data?.devops_remarks || '');
   }, [data?.devops_remarks]);
+
+  useEffect(() => {
+    if (!data) return;
+    setInfraForm({
+      git_provider: data.git_provider || '',
+      git_repo_url: data.git_repo_url || '',
+      git_organization: data.git_organization || '',
+      git_default_branch: data.git_default_branch || '',
+      hosting_provider: data.hosting_provider || '',
+      hosting_server: data.hosting_server || '',
+      hosting_region: data.hosting_region || '',
+      domain_name: data.domain_name || '',
+      domain_dns_provider: data.domain_dns_provider || '',
+      domain_expiry_date: data.domain_expiry_date ? data.domain_expiry_date.slice(0, 10) : '',
+      database_provider: data.database_provider || '',
+      database_version: data.database_version || '',
+      storage_provider: data.storage_provider || '',
+      cdn_provider: data.cdn_provider || '',
+      smtp_provider: data.smtp_provider || '',
+      third_party_services: data.third_party_services || '',
+      point_of_contact: data.point_of_contact || '',
+    });
+  }, [data]);
+
+  const infraDirty = data && Object.keys(infraForm).some((key) => {
+    const k = key as keyof InfraFormState;
+    const original = k === 'domain_expiry_date'
+      ? (data.domain_expiry_date ? data.domain_expiry_date.slice(0, 10) : '')
+      : (data[k as keyof typeof data] as string | null) || '';
+    return (infraForm[k] || '') !== original;
+  });
+
+  const handleSaveInfra = () => {
+    update(infraForm);
+  };
 
   if (isLoading) {
     return (
@@ -212,6 +295,117 @@ const DevopsAccessPanel: React.FC<DevopsAccessPanelProps> = ({ projectId, ownerI
               onChange={(v) => update({ aws_access_status: v as AwsAccessStatus })}
             />
           </div>
+        </div>
+
+        <div className="flex flex-col gap-4 pt-4 border-t border-gray-50">
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Git Repository</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <Input placeholder="Provider (e.g. GitHub)" value={infraForm.git_provider || ''} disabled={!canEdit} onChange={(e) => setInfraForm((f) => ({ ...f, git_provider: e.target.value }))} />
+            <Input placeholder="Repository URL" value={infraForm.git_repo_url || ''} disabled={!canEdit} onChange={(e) => setInfraForm((f) => ({ ...f, git_repo_url: e.target.value }))} containerClassName="sm:col-span-2" />
+            <Input placeholder="Organization" value={infraForm.git_organization || ''} disabled={!canEdit} onChange={(e) => setInfraForm((f) => ({ ...f, git_organization: e.target.value }))} />
+            <Input placeholder="Default Branch" value={infraForm.git_default_branch || ''} disabled={!canEdit} onChange={(e) => setInfraForm((f) => ({ ...f, git_default_branch: e.target.value }))} />
+          </div>
+
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Hosting</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <Input placeholder="Provider (e.g. AWS, Vercel)" value={infraForm.hosting_provider || ''} disabled={!canEdit} onChange={(e) => setInfraForm((f) => ({ ...f, hosting_provider: e.target.value }))} />
+            {canEdit ? (
+              <Select options={HOSTING_ENV_OPTIONS} value={data.hosting_environment || ''} onChange={(v) => update({ hosting_environment: v as HostingEnvironment })} placeholder="Environment" />
+            ) : (
+              <span className="text-sm font-bold text-gray-900 self-center">{HOSTING_ENV_OPTIONS.find(o => o.value === data.hosting_environment)?.label || '—'}</span>
+            )}
+            <Input placeholder="Server" value={infraForm.hosting_server || ''} disabled={!canEdit} onChange={(e) => setInfraForm((f) => ({ ...f, hosting_server: e.target.value }))} />
+            <Input placeholder="Region" value={infraForm.hosting_region || ''} disabled={!canEdit} onChange={(e) => setInfraForm((f) => ({ ...f, hosting_region: e.target.value }))} />
+          </div>
+
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Domain</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-center">
+            <Input placeholder="Domain" value={infraForm.domain_name || ''} disabled={!canEdit} onChange={(e) => setInfraForm((f) => ({ ...f, domain_name: e.target.value }))} />
+            <Input placeholder="DNS Provider" value={infraForm.domain_dns_provider || ''} disabled={!canEdit} onChange={(e) => setInfraForm((f) => ({ ...f, domain_dns_provider: e.target.value }))} />
+            {canEdit ? (
+              <StatusDropdown value={data.domain_ssl_status || 'NOT_CONFIGURED'} options={DOMAIN_SSL_OPTIONS} onChange={(v) => update({ domain_ssl_status: v as DomainSslStatus })} />
+            ) : (
+              <span className={cn('inline-flex items-center rounded-lg px-3 py-1 text-[10px] font-black tracking-tight border w-fit', DOMAIN_SSL_OPTIONS.find(o => o.value === data.domain_ssl_status)?.colorClassName || 'bg-gray-50 text-gray-500 border-gray-200')}>
+                {DOMAIN_SSL_OPTIONS.find(o => o.value === data.domain_ssl_status)?.label || 'Not Configured'}
+              </span>
+            )}
+            <Input type="date" placeholder="Expiry Date" value={infraForm.domain_expiry_date || ''} disabled={!canEdit} onChange={(e) => setInfraForm((f) => ({ ...f, domain_expiry_date: e.target.value }))} />
+          </div>
+
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Database</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-center">
+            <Input placeholder="Provider (e.g. PostgreSQL)" value={infraForm.database_provider || ''} disabled={!canEdit} onChange={(e) => setInfraForm((f) => ({ ...f, database_provider: e.target.value }))} />
+            <Input placeholder="Version" value={infraForm.database_version || ''} disabled={!canEdit} onChange={(e) => setInfraForm((f) => ({ ...f, database_version: e.target.value }))} />
+            {canEdit ? (
+              <StatusDropdown value={data.database_backup_status || 'UNKNOWN'} options={DB_BACKUP_OPTIONS} onChange={(v) => update({ database_backup_status: v as DatabaseBackupStatus })} />
+            ) : (
+              <span className={cn('inline-flex items-center rounded-lg px-3 py-1 text-[10px] font-black tracking-tight border w-fit', DB_BACKUP_OPTIONS.find(o => o.value === data.database_backup_status)?.colorClassName || 'bg-gray-50 text-gray-500 border-gray-200')}>
+                {DB_BACKUP_OPTIONS.find(o => o.value === data.database_backup_status)?.label || 'Unknown'}
+              </span>
+            )}
+          </div>
+
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Storage, CDN &amp; SMTP</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <Input placeholder="Storage Provider" value={infraForm.storage_provider || ''} disabled={!canEdit} onChange={(e) => setInfraForm((f) => ({ ...f, storage_provider: e.target.value }))} />
+            <Input placeholder="CDN Provider" value={infraForm.cdn_provider || ''} disabled={!canEdit} onChange={(e) => setInfraForm((f) => ({ ...f, cdn_provider: e.target.value }))} />
+            <Input placeholder="SMTP Provider" value={infraForm.smtp_provider || ''} disabled={!canEdit} onChange={(e) => setInfraForm((f) => ({ ...f, smtp_provider: e.target.value }))} />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Third-party Services</span>
+              <Textarea
+                value={infraForm.third_party_services || ''}
+                disabled={!canEdit}
+                onChange={(e) => setInfraForm((f) => ({ ...f, third_party_services: e.target.value }))}
+                placeholder="Which third-party services are integrated (informational — track granular status in the Dependencies tab)"
+                className="min-h-[60px]"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">API Keys Status</span>
+              {canEdit ? (
+                <StatusDropdown value={data.api_keys_status} options={API_KEYS_OPTIONS} onChange={(v) => update({ api_keys_status: v as ApiKeysStatus })} />
+              ) : (
+                <span className={cn('inline-flex items-center rounded-lg px-3 py-1 text-[10px] font-black tracking-tight border w-fit', API_KEYS_OPTIONS.find(o => o.value === data.api_keys_status)?.colorClassName)}>
+                  {API_KEYS_OPTIONS.find(o => o.value === data.api_keys_status)?.label || data.api_keys_status}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+            <Input label="Point of Contact" placeholder="Who to contact for access issues" value={infraForm.point_of_contact || ''} disabled={!canEdit} onChange={(e) => setInfraForm((f) => ({ ...f, point_of_contact: e.target.value }))} />
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Credentials Verified</span>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-bold text-gray-700">
+                  {data.credentials_verified_date ? new Date(data.credentials_verified_date).toLocaleDateString() : 'Never verified'}
+                </span>
+                {canEdit && (
+                  <button
+                    onClick={() => update({ credentials_verified_date: new Date().toISOString() })}
+                    className="text-[11px] font-black text-primary-500 hover:bg-primary-50 px-2.5 py-1 rounded-lg transition-colors"
+                  >
+                    Mark Verified Today
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {canEdit && (
+            <div className="flex justify-end">
+              <Button
+                onClick={handleSaveInfra}
+                disabled={isPending || !infraDirty}
+                className="bg-[#005CDA11] hover:bg-[#005CDA22] border-none font-black text-[11px] h-9 rounded-xl py-0 px-4 disabled:opacity-50"
+              >
+                {isPending ? 'Saving…' : 'Save Infrastructure Details'}
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5">
