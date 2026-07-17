@@ -268,6 +268,12 @@ export const API_ENDPOINTS = {
     GET:    (projectId: string) => `${v1}/project/${projectId}/devops-access`,
     UPDATE: (projectId: string) => `${v1}/project/${projectId}/devops-access`,
   },
+  DEPENDENCIES: {
+    LIST:   (projectId: string) => `${v1}/project/${projectId}/dependencies`,
+    CREATE: (projectId: string) => `${v1}/project/${projectId}/dependencies`,
+    UPDATE: (projectId: string, dependencyId: string) => `${v1}/project/${projectId}/dependencies/${dependencyId}`,
+    DELETE: (projectId: string, dependencyId: string) => `${v1}/project/${projectId}/dependencies/${dependencyId}`,
+  },
   HR_PROFILE: {
     DESIGNATIONS:  `${v1}/hr-profile/designations`,
     GET:           (userId: string) => `${v1}/hr-profile/${userId}`,
