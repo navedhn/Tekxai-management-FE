@@ -13,6 +13,7 @@ import {
   useMeetingRoom, useAgendaItems, useCreateAgendaItem, useCompleteAgendaItem,
   useCreateMeeting, useSetMeetingRoomStatus, useMeetingRoomTimeline, useMeetingAttachments,
 } from '@/services/meetingService';
+import { useGetProjects } from '@/services/projectService';
 
 const STATUS_BADGE: Record<string, 'success' | 'default' | 'warning'> = { ACTIVE: 'success', CLOSED: 'default', ARCHIVED: 'warning' };
 const AGENDA_BADGE: Record<string, 'success' | 'default' | 'warning'> = { PENDING: 'default', IN_PROGRESS: 'warning', COMPLETED: 'success' };
@@ -26,7 +27,8 @@ export default function MeetingRoomDetailPage() {
   const [agendaOpen, setAgendaOpen] = useState(false);
   const [agendaForm, setAgendaForm] = useState({ title: '', description: '' });
   const [meetingOpen, setMeetingOpen] = useState(false);
-  const [meetingForm, setMeetingForm] = useState({ title: '', scheduled_at: '', previous_meeting_id: '' });
+  const [meetingForm, setMeetingForm] = useState({ title: '', scheduled_at: '', previous_meeting_id: '', project_id: '' });
+  const { data: projects = [] } = useGetProjects();
   const [archiveOpen, setArchiveOpen] = useState(false);
 
   const { data: room, isLoading } = useMeetingRoom(roomId || null);
@@ -60,6 +62,7 @@ export default function MeetingRoomDetailPage() {
         title: meetingForm.title,
         scheduled_at: meetingForm.scheduled_at,
         previous_meeting_id: meetingForm.previous_meeting_id || undefined,
+        project_id: meetingForm.project_id || undefined,
       } as any,
       {
         onSuccess: (m) => { toast.success('Meeting scheduled'); setMeetingOpen(false); navigate(`/admin/meetings/meeting/${m.id}`); },
@@ -245,6 +248,17 @@ export default function MeetingRoomDetailPage() {
         <div className="flex flex-col gap-4">
           <Input label="Title" value={meetingForm.title} onChange={(e) => setMeetingForm((f) => ({ ...f, title: e.target.value }))} />
           <Input type="datetime-local" label="Scheduled At" value={meetingForm.scheduled_at} onChange={(e) => setMeetingForm((f) => ({ ...f, scheduled_at: e.target.value }))} />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-gray-700 ml-1">Link to Project (optional)</label>
+            <select
+              className="h-[46px] rounded-xl border border-gray-200 px-4 text-sm font-medium text-gray-700"
+              value={meetingForm.project_id}
+              onChange={(e) => setMeetingForm((f) => ({ ...f, project_id: e.target.value }))}
+            >
+              <option value="">None</option>
+              {projects.map((p: any) => <option key={p.id} value={p.id}>{p.title}</option>)}
+            </select>
+          </div>
           {(room.meetings || []).length > 0 && (
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-gray-700 ml-1">Follow-up of (optional)</label>
