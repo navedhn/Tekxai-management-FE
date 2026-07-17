@@ -5,11 +5,19 @@ import {
   BarChart3, Shield, ClipboardCheck, Ticket, Receipt, Banknote, Webhook, Mail,
   MessageSquare, FileText, Package, CalendarDays, Table2, Layers, Video,
 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/services/permissionsService';
 import { clearAuthTokens } from '@/utils/tokenMemory';
-import { forceCheckoutApi } from '@/utils/attendanceAutoCheckout';
-import { ADMIN_ROLES } from '@/constants/roles';
+import { USER_ROLES } from '@/constants/roles';
+
+// The ERP workspace's own route guard (router.tsx) only admits SUPER_ADMIN/ADMIN
+// (plus anyone holding the `erp.workspace.access` permission) — ADMIN_ROLES from
+// constants/roles.ts is broader (also includes HR/MARKETING, used for other
+// cross-workspace checks) and must NOT be used here. Using it previously showed
+// the full ERP nav to HR/MARKETING users whose clicks then 403'd against the route
+// guard.
+const ERP_ROLES = [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN];
 import { cn } from '@/utils/cn';
 import tekxaiLogo from '@/assets/icons/tekxai-logo.svg';
 
@@ -56,9 +64,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
   const { role, userLogout } = useAuth();
   const navigate = useNavigate();
   const { data: myPerms } = useMyPermissions();
+  const queryClient = useQueryClient();
 
   const links: SidebarLink[] = useMemo(() => {
-    const isAdmin = ADMIN_ROLES.includes(role as any);
+    const isAdmin = ERP_ROLES.includes(role as any);
     const hasErpAccess = isAdmin || myPerms?.permissions?.includes('erp.workspace.access');
 
     if (!hasErpAccess) {
@@ -110,12 +119,15 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
     ];
   }, [role, myPerms]);
 
-  const isAdmin = ADMIN_ROLES.includes(role as any) || myPerms?.permissions?.includes('erp.workspace.access');
+  const isAdmin = ERP_ROLES.includes(role as any) || myPerms?.permissions?.includes('erp.workspace.access');
 
   const handleLogout = async () => {
-    await forceCheckoutApi('LOGOUT');
     clearAuthTokens();
     userLogout();
+    // Wipe cached permission/user data so it can't be served (stale) to the
+    // next login on this browser/tab — this path bypassed queryClient.clear()
+    // that useLogoutMutation performs elsewhere.
+    queryClient.clear();
     navigate('/login');
   };
 

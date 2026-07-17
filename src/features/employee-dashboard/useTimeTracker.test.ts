@@ -1,44 +1,22 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { formatTrackerTime, useTimeTracker } from './useTimeTracker';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 
-vi.mock('@/components/toast/ToastProvider', () => ({
-  useToastContext: () => ({
-    success: vi.fn(),
-    warning: vi.fn(),
-    info: vi.fn(),
-    error: vi.fn(),
-  }),
-}));
-
-// Tiny fake backend: tracks clocked-in state across calls within a test so
-// refreshToday() (called after every action) reflects the real hook's
-// actual integration behavior rather than a single canned response.
-let fakeClockedIn = false;
-let fakeCheckIn: string | null = null;
+// Attendance policy: Check In / Check Out only happens via the desktop
+// agent. useTimeTracker is READ-ONLY — these tests assert it never calls
+// the clock-in/clock-out endpoints and only reflects whatever status the
+// backend (populated by the desktop agent) reports.
+let fakeToday: any = { clocked_in: false, clocked_out: false, entry: null };
+const apiRequestMock = vi.fn((endpoint: string) => {
+  if (endpoint === API_ENDPOINTS.TIMESHEET.TODAY) {
+    return Promise.resolve({ success: true, payload: fakeToday });
+  }
+  return Promise.resolve({ success: true, payload: {} });
+});
 
 vi.mock('@/lib/queryClient', () => ({
-  apiRequest: vi.fn((endpoint: string) => {
-    if (endpoint === API_ENDPOINTS.TIMESHEET.CLOCK_IN) {
-      fakeClockedIn = true;
-      fakeCheckIn = new Date().toISOString();
-      return Promise.resolve({ success: true, payload: {} });
-    }
-    if (endpoint === API_ENDPOINTS.TIMESHEET.CLOCK_OUT) {
-      fakeClockedIn = false;
-      return Promise.resolve({ success: true, payload: {} });
-    }
-    if (endpoint === API_ENDPOINTS.TIMESHEET.TODAY) {
-      return Promise.resolve({
-        success: true,
-        payload: fakeClockedIn
-          ? { clocked_in: true, clocked_out: false, entry: { check_in: fakeCheckIn, prior_seconds: 0 } }
-          : { clocked_in: false, clocked_out: false, entry: null },
-      });
-    }
-    return Promise.resolve({ success: true, payload: {} });
-  }),
+  apiRequest: (...args: any[]) => (apiRequestMock as any)(...args),
 }));
 
 describe('formatTrackerTime', () => {
@@ -48,39 +26,53 @@ describe('formatTrackerTime', () => {
   });
 });
 
-describe('useTimeTracker', () => {
+describe('useTimeTracker (read-only — no check-in/check-out capability)', () => {
   beforeEach(() => {
-    fakeClockedIn = false;
-    fakeCheckIn = null;
+    apiRequestMock.mockClear();
+    fakeToday = { clocked_in: false, clocked_out: false, entry: null };
   });
 
-  it('starts idle and moves to tracking on check-in', async () => {
+  it('never exposes a check-in or check-out handler', () => {
     const { result } = renderHook(() => useTimeTracker());
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.trackerState).toBe('idle');
-
-    await act(async () => {
-      await result.current.handleCheckIn();
-    });
-
-    expect(result.current.trackerState).toBe('tracking');
+    expect((result.current as any).handleCheckIn).toBeUndefined();
+    expect((result.current as any).handleCheckOut).toBeUndefined();
+    expect((result.current as any).handleBreak).toBeUndefined();
+    expect((result.current as any).handleResume).toBeUndefined();
   });
 
-  it('resets on check-out', async () => {
+  it('shows idle when the desktop agent has not checked the user in', async () => {
     const { result } = renderHook(() => useTimeTracker());
-
     await waitFor(() => expect(result.current.loading).toBe(false));
-
-    await act(async () => {
-      await result.current.handleCheckIn();
-    });
-    expect(result.current.trackerState).toBe('tracking');
-
-    await act(async () => {
-      await result.current.handleCheckOut();
-    });
-
     expect(result.current.trackerState).toBe('idle');
+    expect(result.current.seconds).toBe(0);
+  });
+
+  it('reflects an active session started by the desktop agent (read-only)', async () => {
+    fakeToday = {
+      clocked_in: true,
+      clocked_out: false,
+      entry: { check_in: new Date().toISOString(), prior_seconds: 100 },
+    };
+    const { result } = renderHook(() => useTimeTracker());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.trackerState).toBe('tracking');
+    expect(result.current.seconds).toBeGreaterThanOrEqual(100);
+  });
+
+  it('shows completed total once the desktop agent has checked the user out', async () => {
+    fakeToday = { clocked_in: true, clocked_out: true, entry: { duration_seconds: 28800 } };
+    const { result } = renderHook(() => useTimeTracker());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.trackerState).toBe('idle');
+    expect(result.current.seconds).toBe(28800);
+  });
+
+  it('only ever calls the read-only TIMESHEET.TODAY endpoint, never clock-in/clock-out', async () => {
+    const { result } = renderHook(() => useTimeTracker());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const calledEndpoints = apiRequestMock.mock.calls.map((c) => c[0]);
+    expect(calledEndpoints.every((e) => e === API_ENDPOINTS.TIMESHEET.TODAY)).toBe(true);
+    expect(calledEndpoints).not.toContain(API_ENDPOINTS.TIMESHEET.CLOCK_IN);
+    expect(calledEndpoints).not.toContain(API_ENDPOINTS.TIMESHEET.CLOCK_OUT);
   });
 });

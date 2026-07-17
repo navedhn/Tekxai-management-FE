@@ -6,7 +6,6 @@ import {
 import { useLogoutMutation } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
 import { clearAuthTokens } from '@/utils/tokenMemory';
-import { forceCheckoutApi } from '@/utils/attendanceAutoCheckout';
 import { useMarketingTeam } from '@/contexts/MarketingTeamContext';
 import tekxaiLogo from '@/assets/icons/tekxai-logo.svg';
 import { USER_ROLES } from '@/constants/roles';
@@ -27,7 +26,6 @@ const CRMSidebar: React.FC<CRMSidebarProps> = memo(({ isOpen, onClose }) => {
   const canSeeFinance = isAdmin; // Invoices, Client Accounts
 
   const logout = useCallback(async () => {
-    await forceCheckoutApi('LOGOUT');
     try { await logoutMutation.mutateAsync(); } catch {}
     clearAuthTokens();
     userLogout();

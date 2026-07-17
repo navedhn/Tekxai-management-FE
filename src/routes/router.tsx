@@ -57,6 +57,7 @@ const AdminAttendance        = lazy(() => import('@/pages/admin/attendance'));
 const AdminJobDescriptions   = lazy(() => import('@/pages/admin/job-descriptions'));
 const AdminAssets            = lazy(() => import('@/pages/admin/assets'));
 const AdminPerformance       = lazy(() => import('@/pages/admin/performance'));
+const AdminBusinessUnits     = lazy(() => import('@/pages/admin/business-units'));
 const AdminDepartments       = lazy(() => import('@/pages/admin/departments'));
 const AdminDivisions         = lazy(() => import('@/pages/admin/divisions'));
 const AdminDesignations      = lazy(() => import('@/pages/admin/designations'));
@@ -173,7 +174,6 @@ const routes: RouteObject[] = [
           { path: '/admin/starred',              element: <AdminSaved /> },
           { path: '/admin/team',                 element: <AdminTeam /> },
           { path: '/admin/settings',             element: <AdminSettings /> },
-          { path: '/admin/system-settings',      element: <SystemSettings /> },
           { path: '/admin/users',                element: <AdminUsers /> },
           { path: '/admin/notifications',        element: <SharedNotifications /> },
           { path: '/admin/project-detail',       element: <ProjectDetailPage /> },
@@ -202,7 +202,6 @@ const routes: RouteObject[] = [
           { path: '/admin/onboarding',          element: <AdminOnboarding /> },
           { path: '/admin/policies',            element: <AdminPolicies /> },
           { path: '/admin/requisitions',        element: <AdminRequisitions /> },
-          { path: '/admin/permissions',         element: <AdminPermissions /> },
           { path: '/admin/approvals',           element: <AdminApprovals /> },
           { path: '/admin/tickets',             element: <AdminTickets /> },
           { path: '/admin/meetings',             element: <AdminMeetingDashboard /> },
@@ -213,11 +212,23 @@ const routes: RouteObject[] = [
           { path: '/admin/expenses',            element: <AdminExpenses /> },
           { path: '/admin/expenses/:userId',    element: <AdminExpenseLedger /> },
           { path: '/admin/performance-scoring', element: <AdminPerformanceScoring /> },
-          { path: '/admin/financial-reports',   element: <AdminFinancialReports /> },
-          { path: '/admin/email-logs',          element: <EmailLogsPage /> },
           { path: '/admin/payroll',            element: <PayrollPage /> },
           { path: '/admin/webhooks',           element: <WebhooksPage /> },
           { path: '/admin/report-builder',     element: <ReportBuilderPage /> },
+          // SUPER_ADMIN-only sub-pages: the sidebar already hides these from
+          // plain ADMIN users, but the route itself previously only required
+          // {adminRoles: [SUPER_ADMIN, ADMIN]} + erp.workspace.access — which
+          // an ordinary ADMIN satisfies via role match alone (bypassing the
+          // permission check entirely), letting them reach these by URL.
+          {
+            element: <ProtectedRoute roles={[USER_ROLES.SUPER_ADMIN]} />,
+            children: [
+              { path: '/admin/permissions',         element: <AdminPermissions /> },
+              { path: '/admin/financial-reports',   element: <AdminFinancialReports /> },
+              { path: '/admin/email-logs',          element: <EmailLogsPage /> },
+              { path: '/admin/system-settings',     element: <SystemSettings /> },
+            ],
+          },
         ],
       },
       { path: '/admin/*', element: <NotFound /> },
@@ -263,6 +274,7 @@ const routes: RouteObject[] = [
         children: [
           { path: '/hr',                          element: <AdminHRDashboard /> },
           { path: '/hr/employees',                element: <Navigate to="/hr/employee-directory" replace /> },
+          { path: '/hr/business-units',           element: <AdminBusinessUnits /> },
           { path: '/hr/departments',              element: <AdminDepartments /> },
           { path: '/hr/divisions',                element: <AdminDivisions /> },
           { path: '/hr/designations',             element: <AdminDesignations /> },

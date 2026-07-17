@@ -10,7 +10,18 @@ const ProtectedRoute: React.FC<{ roles?: UserRole[]; permission?: string }> = ({
 
   if (!isLoggedIn) return <Navigate to="/login" replace />;
 
-  const hasRequiredRole = !roles?.length || (role != null && roles.includes(role as UserRole));
+  // authStore.role is a snapshot taken at login and never refreshed — if an
+  // admin changes this user's role server-side, the stale value would let
+  // them keep passing this check indefinitely until they log out manually.
+  // myPerms.roles is fetched live (react-query) and reflects the DB, so once
+  // it has loaded it is treated as the source of truth; the stale store
+  // value is only used as a fallback before the first fetch resolves.
+  const liveRoles = myPerms?.roles;
+  const hasRequiredRole = !roles?.length || (
+    liveRoles
+      ? liveRoles.some((r) => roles.includes(r as UserRole))
+      : (role != null && roles.includes(role as UserRole))
+  );
 
   // If role check passes, allow immediately (no need to wait for permissions)
   if (hasRequiredRole) return <Outlet />;

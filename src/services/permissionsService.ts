@@ -65,8 +65,13 @@ export function useMyPermissions() {
     queryKey: ['permissions', 'me'],
     queryFn: fetchMyPermissions,
     enabled: isLoggedIn,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    // Kept short deliberately: this is the live source of truth ProtectedRoute
+    // and PermissionGate use to detect a server-side role/permission change —
+    // a long staleTime here directly extends how long a demoted/promoted user
+    // keeps acting on stale access.
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
   });
 }
 

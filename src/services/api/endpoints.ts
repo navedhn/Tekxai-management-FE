@@ -27,6 +27,14 @@ export const API_ENDPOINTS = {
     MEMBERS:     (id: string | number) => `${v1}/team/${id}/members`,
     MEMBER:      (id: string | number, userId: string) => `${v1}/team/${id}/members/${userId}`,
   },
+  BUSINESS_UNIT: {
+    LIST:        `${v1}/business-units`,
+    CREATE:      `${v1}/business-units`,
+    DETAIL:      (id: string | number) => `${v1}/business-units/${id}`,
+    UPDATE:      (id: string | number) => `${v1}/business-units/${id}`,
+    DELETE:      (id: string | number) => `${v1}/business-units/${id}`,
+    BULK_DELETE: `${v1}/business-units/bulk-delete`,
+  },
   DEPARTMENT: {
     LIST:        `${v1}/department`,
     CREATE:      `${v1}/department`,

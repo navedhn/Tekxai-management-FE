@@ -131,15 +131,11 @@ export const useDeleteUserMutation = () => {
   });
 };
 
-export const useBulkUpdateUsersMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (data: any) => apiRequest(API_ENDPOINTS.USER.UPDATE_MANY, { method: 'PUT', body: JSON.stringify(data) }),
-    onSuccess: () => {
-      invalidateUserAndDependents(queryClient);
-    },
-  });
-};
+// useBulkUpdateUsersMutation was removed (RBAC security sprint): it posted to
+// PUT /user, a route the backend never implemented, sending an arbitrary
+// client-controlled payload including role_id with none of update_user()'s
+// role-field stripping. It had zero call sites — dead code left as a landmine
+// for whoever eventually added that backend route.
 
 export const useBulkDeleteUsersMutation = () => {
   const queryClient = useQueryClient();
