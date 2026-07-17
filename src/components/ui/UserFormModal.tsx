@@ -41,6 +41,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
     team_id: '',
     role_id: '',
     status: 'ACTIVE',
+    hire_date: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   // The role this user actually had when the modal opened — used to detect
@@ -110,6 +111,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
         team_id: user.team_memberships?.[0]?.team?.id || user.team_id || '',
         role_id: currentRoleId,
         status: user.status || 'ACTIVE',
+        hire_date: user.hire_date ? new Date(user.hire_date).toISOString().slice(0, 10) : '',
       });
     } else {
       setFormData({
@@ -122,6 +124,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
         team_id: '',
         role_id: defaultRoleId,
         status: 'ACTIVE',
+        hire_date: '',
       });
     }
     setErrors({});
@@ -198,6 +201,16 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={isEdit ? 'Edit User' : 'Add New User'} size="lg">
       <div className="flex flex-col gap-5 p-2">
+        {isEdit && (
+          <Input
+            label="Employee ID"
+            value={user?.employee_id || 'Not assigned'}
+            disabled
+            readOnly
+            className="h-12 rounded-xl bg-gray-50 text-gray-400"
+          />
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           <Input label="First Name *" name="first_name" value={formData.first_name}
             onChange={handleInputChange} error={errors.first_name} placeholder="John" className="h-12 rounded-xl" />
@@ -233,6 +246,9 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
             onChange={handleSelectChange('designation_id')} placeholder="Select Designation"
             className="h-12 !rounded-xl" />
         </div>
+
+        <Input label="Hiring Date" name="hire_date" type="date" value={formData.hire_date}
+          onChange={handleInputChange} className="h-12 rounded-xl" />
 
         <div className="flex gap-3 mt-4">
           <Button variant="outline" fullWidth className="h-12 rounded-xl" onClick={onClose}>
