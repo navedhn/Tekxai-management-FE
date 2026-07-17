@@ -119,6 +119,14 @@ export const API_ENDPOINTS = {
     CREATE: (projectId: string) => `${v1}/project/${projectId}/weekly-updates`,
     DELETE: (projectId: string, updateId: string) => `${v1}/project/${projectId}/weekly-updates/${updateId}`,
   },
+  PROJECT_DISCUSSIONS: {
+    LIST:   (projectId: string) => `${v1}/project/${projectId}/discussions`,
+    CREATE: (projectId: string) => `${v1}/project/${projectId}/discussions`,
+    DELETE: (projectId: string, discussionId: string) => `${v1}/project/${projectId}/discussions/${discussionId}`,
+  },
+  COMMUNICATION_TIMELINE: {
+    GET: (projectId: string) => `${v1}/project/${projectId}/communication-timeline`,
+  },
   PROJECT_DOCUMENTS: {
     TYPES:  (projectId: string) => `${v1}/project/${projectId}/documents/types`,
     LIST:   (projectId: string) => `${v1}/project/${projectId}/documents`,

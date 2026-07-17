@@ -60,6 +60,12 @@ export const QUERY_KEYS = {
   WEEKLY_UPDATES: {
     LIST: (projectId: string) => ['project', projectId, 'weekly-updates'],
   },
+  PROJECT_DISCUSSIONS: {
+    LIST: (projectId: string) => ['project', projectId, 'discussions'],
+  },
+  COMMUNICATION_TIMELINE: {
+    GET: (projectId: string) => ['project', projectId, 'communication-timeline'],
+  },
   PROJECT_DOCUMENTS: {
     LIST:  (projectId: string) => ['project', projectId, 'documents'],
     TYPES: (projectId: string) => ['project', projectId, 'document-types'],

@@ -107,6 +107,7 @@ export interface Meeting {
   status: MeetingStatus;
   closed_at: string | null;
   previous_meeting_id: string | null;
+  project_id: string | null;
   created_at: string;
   updated_at: string;
   organizer?: BasicUser;

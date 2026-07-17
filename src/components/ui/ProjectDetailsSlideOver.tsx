@@ -9,7 +9,7 @@ import RequestExtensionModal from './RequestExtensionModal';
 import CreateMilestoneModal from '../modals/CreateMilestoneModal';
 import AddTaskModal from '../modals/AddTaskModal';
 import DevopsAccessPanel from './DevopsAccessPanel';
-import WeeklyUpdatesPanel from './WeeklyUpdatesPanel';
+import ClientCommunicationPanel from './ClientCommunicationPanel';
 import ProjectDocumentsPanel from './ProjectDocumentsPanel';
 import CommunicationTimeline from './CommunicationTimeline';
 import BudgetPanel from './BudgetPanel';
@@ -462,7 +462,7 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
 
                   {/* Client Communication tab */}
                   {activeTab === 'communication' && projectId && (
-                    <WeeklyUpdatesPanel projectId={projectId} canEdit={canEditProject} />
+                    <ClientCommunicationPanel projectId={projectId} canEdit={canEditProject} />
                   )}
 
                   {/* Infrastructure tab */}
