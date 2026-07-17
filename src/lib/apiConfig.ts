@@ -1,1 +1,1 @@
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.0.231:3022/';
+export const BASE_URL =  import.meta.env.VITE_API_BASE_URL || 'https://api.tekxai.services/';
