@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { useCreateUserMutation } from '@/services/userService';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetRolesQuery } from '@/services/roleService';
+import { useGetDepartmentsQuery } from '@/services/departmentService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
@@ -16,7 +17,7 @@ interface QuickCreateUserModalProps {
   onClose: () => void;
 }
 
-const EMPTY_FORM = { first_name: '', last_name: '', email: '', designation_id: '', role_id: '', hire_date: '' };
+const EMPTY_FORM = { first_name: '', last_name: '', email: '', designation_id: '', department_id: '', role_id: '', hire_date: '' };
 
 // Lightweight login-account creation — HR/Admin fills in only what's needed
 // to grant access; everything else (education, emergency contacts, salary,
@@ -30,6 +31,7 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
   const createUser = useCreateUserMutation();
   const { data: designations = [] } = useGetDesignationsQuery();
   const { data: roles = [] } = useGetRolesQuery();
+  const { data: departments = [] } = useGetDepartmentsQuery();
 
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -48,6 +50,7 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
 
   const designationOptions = designations.map((d) => ({ value: d.id, label: d.name }));
   const roleOptions = roles.map((r) => ({ value: r.id, label: r.name.replace(/_/g, ' ') }));
+  const departmentOptions = departments.map((d: any) => ({ value: d.id, label: d.name }));
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -75,6 +78,7 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
       designation_id: formData.designation_id,
       role_id: formData.role_id,
     };
+    if (formData.department_id) payload.department_id = formData.department_id;
     if (formData.hire_date) payload.hire_date = formData.hire_date;
 
     createUser.mutate(payload, {
@@ -199,6 +203,15 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
             className="h-12 !rounded-xl"
           />
         </div>
+
+        <Select
+          label="Department"
+          options={departmentOptions}
+          value={formData.department_id}
+          onChange={handleSelectChange('department_id')}
+          placeholder="Select Department"
+          className="h-12 !rounded-xl"
+        />
 
         <Input
           label="Hiring Date"
