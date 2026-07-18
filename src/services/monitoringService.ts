@@ -44,7 +44,7 @@ export const useGetProductivity = (params?: Record<string, string>) =>
     queryFn: async () => {
       const qs = params ? '?' + new URLSearchParams(params).toString() : '';
       const r = await apiRequest<any>(`${v1}/monitoring/productivity${qs}`);
-      return r?.payload?.records || [];
+      return r?.payload || { records: [], total: 0 };
     },
     staleTime: 30000,
   });

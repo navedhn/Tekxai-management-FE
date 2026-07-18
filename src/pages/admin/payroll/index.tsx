@@ -155,7 +155,7 @@ const NewRunModal: React.FC<{ open: boolean; onClose: () => void; onCreate: (m: 
 const PayrollPage: React.FC = () => {
   const toast = useToastContext();
   const qc    = useQueryClient();
-  const [selectedRun, setSelectedRun] = useState<PayrollRun | null>(null);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [showNewModal, setShowNewModal]  = useState(false);
 
   // Fetch payroll runs
@@ -164,6 +164,10 @@ const PayrollPage: React.FC = () => {
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PAYROLL.LIST).then((r) => r?.payload || []),
   });
   const runs: PayrollRun[] = Array.isArray(runsData) ? runsData : (runsData?.records || []);
+  // Derived from the live runs query (not a locally-captured snapshot) so
+  // the Run Detail header always reflects the current status — invalidating
+  // ['payroll-runs'] after Calculate now refreshes this too, not just the table.
+  const selectedRun: PayrollRun | null = selectedRunId ? runs.find((r) => r.id === selectedRunId) || null : null;
 
   // Fetch run entries when a run is selected
   const { data: entriesData, isLoading: entriesLoading } = useQuery({
@@ -228,7 +232,7 @@ const PayrollPage: React.FC = () => {
       header: 'Actions', key: 'id', align: 'right',
       render: (r) => (
         <div className="flex items-center justify-end gap-2">
-          <button onClick={() => setSelectedRun(r)}
+          <button onClick={() => setSelectedRunId(r.id)}
             className="px-3 py-1.5 text-xs font-black rounded-lg bg-primary-50 text-primary-600 hover:bg-primary-100 transition-colors">
             View
           </button>
@@ -337,7 +341,7 @@ const PayrollPage: React.FC = () => {
         <>
           {/* Run Detail */}
           <div className="flex items-center gap-3">
-            <button onClick={() => setSelectedRun(null)} className="flex items-center gap-1.5 text-sm font-bold text-gray-500 hover:text-gray-800 transition-colors">
+            <button onClick={() => setSelectedRunId(null)} className="flex items-center gap-1.5 text-sm font-bold text-gray-500 hover:text-gray-800 transition-colors">
               <ChevronLeft size={16} /> Back to runs
             </button>
             <div className="h-4 w-px bg-gray-200" />

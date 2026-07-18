@@ -65,6 +65,10 @@ const TimesheetManagement: React.FC = () => {
             toast.error('No valid entry ID found');
             return;
         }
+        if (!editForm.reason.trim()) {
+            toast.error('Reason for edit is required');
+            return;
+        }
         try {
             await updateMutation.mutateAsync({ id: selectedEntry.entry_id, data: editForm });
             toast.success('Entry updated successfully');
@@ -74,21 +78,29 @@ const TimesheetManagement: React.FC = () => {
         }
     };
 
+    const [pendingRequestId, setPendingRequestId] = useState<string | null>(null);
+
     const handleApproveTimeOff = async (id: string) => {
+        setPendingRequestId(id);
         try {
             await approveMutation.mutateAsync(id);
             toast.success('Request approved');
         } catch (error: any) {
             toast.error(error.message || 'Failed to approve');
+        } finally {
+            setPendingRequestId(null);
         }
     };
 
     const handleRejectTimeOff = async (id: string) => {
+        setPendingRequestId(id);
         try {
             await rejectMutation.mutateAsync(id);
             toast.success('Request rejected');
         } catch (error: any) {
             toast.error(error.message || 'Failed to reject');
+        } finally {
+            setPendingRequestId(null);
         }
     };
 
@@ -109,20 +121,22 @@ const TimesheetManagement: React.FC = () => {
             header: 'Action',
             key: 'actions',
             render: (item) => (
-                <button
-                    onClick={() => {
-                        setSelectedEntry(item);
-                        setEditForm({
-                            checkIn: item.check_in || '',
-                            checkOut: item.check_out || '',
-                            reason: ''
-                        });
-                        setIsEditModalOpen(true);
-                    }}
-                    className="p-2 hover:bg-primary-50 text-primary-500 rounded-lg transition-all active:scale-95 group"
-                >
-                    <SquarePen size={18} className="group-hover:scale-110 transition-transform" />
-                </button>
+                !item.has_entry ? null : (
+                    <button
+                        onClick={() => {
+                            setSelectedEntry(item);
+                            setEditForm({
+                                checkIn: item.check_in || '',
+                                checkOut: item.check_out || '',
+                                reason: ''
+                            });
+                            setIsEditModalOpen(true);
+                        }}
+                        className="p-2 hover:bg-primary-50 text-primary-500 rounded-lg transition-all active:scale-95 group"
+                    >
+                        <SquarePen size={18} className="group-hover:scale-110 transition-transform" />
+                    </button>
+                )
             )
         }
     ];
@@ -285,15 +299,16 @@ const TimesheetManagement: React.FC = () => {
 
                                         <div className="flex items-center gap-3 mt-2">
                                             <button
-                                                disabled={approveMutation.isPending || rejectMutation.isPending}
+                                                disabled={pendingRequestId !== null}
                                                 onClick={() => handleRejectTimeOff(req.id)}
                                                 className="flex-1 py-3.5 bg-red-100 text-red-600 font-black text-sm rounded-xl hover:bg-red-200 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
                                             >
-                                                {rejectMutation.isPending ? <Loader2 className="animate-spin" size={18} /> : <><X size={18} strokeWidth={3} /> Reject</>}
+                                                {rejectMutation.isPending && pendingRequestId === req.id ? <Loader2 className="animate-spin" size={18} /> : <><X size={18} strokeWidth={3} /> Reject</>}
                                             </button>
                                             <Button
                                                 variant='primary'
-                                                loading={approveMutation.isPending}
+                                                loading={approveMutation.isPending && pendingRequestId === req.id}
+                                                disabled={pendingRequestId !== null && pendingRequestId !== req.id}
                                                 onClick={() => handleApproveTimeOff(req.id)}
                                                 className="flex-1 py-3.5 text-sm transition-all rounded-xl active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-blue-100"
                                             >

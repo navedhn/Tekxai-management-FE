@@ -40,6 +40,8 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
   const [categoryMeta, setCategoryMeta] = useState<{ is_device: boolean; is_assignable: boolean } | null>(null);
   const [isOther, setIsOther] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryIsDevice, setNewCategoryIsDevice] = useState(false);
+  const [newCategoryIsAssignable, setNewCategoryIsAssignable] = useState(true);
   const [userId, setUserId] = useState('');
 
   const [form, setForm] = useState({
@@ -123,8 +125,8 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
       try {
         const res = await createCategoryMutation.mutateAsync({
           name: newCategoryName.trim(),
-          is_device: false,
-          is_assignable: false,
+          is_device: newCategoryIsDevice,
+          is_assignable: newCategoryIsAssignable,
         });
         final_category_id = (res as any)?.payload?.id;
       } catch (e: any) {
@@ -191,9 +193,17 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
 
           {/* New category name if Other */}
           {isOther && (
-            <div>
+            <div className="flex flex-col gap-2">
               <label className={labelCls}>New Category Name <span className="text-red-500">*</span></label>
               <input className={inputCls} value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder="e.g. Projector" />
+              <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 mt-1">
+                <input type="checkbox" className="w-4 h-4 rounded accent-primary-600" checked={newCategoryIsAssignable} onChange={e => setNewCategoryIsAssignable(e.target.checked)} />
+                Assignable to employees
+              </label>
+              <label className="flex items-center gap-2 text-sm font-semibold text-gray-600">
+                <input type="checkbox" className="w-4 h-4 rounded accent-primary-600" checked={newCategoryIsDevice} onChange={e => setNewCategoryIsDevice(e.target.checked)} />
+                This is a device (laptop, phone, etc.)
+              </label>
             </div>
           )}
 
