@@ -10,6 +10,28 @@ if (process.platform === 'win32') {
   app.setAppUserModelId('com.tekxai.agent');
 }
 
+// Without this lock, launching the app while it's already running (e.g. from
+// the Start Menu shortcut) spawns a whole second Electron process instead of
+// focusing the existing window — each with its own screenshot/tracking
+// timers running concurrently. Second launches now just focus the original.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    // mainWindow can be destroyed (not just hidden) in edge cases the 'close'
+    // handler doesn't catch (e.g. Windows session-ending events) — recreate
+    // rather than crash on a destroyed BrowserWindow reference.
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    } else {
+      createWindow();
+    }
+  });
+}
+
 const store = new Store();
 const API_BASE = 'https://api.tekxai.services/api/v1';
 const DASHBOARD_URL = 'https://tekxai.services/employee';
@@ -234,7 +256,16 @@ ipcMain.handle('set-store', (_, key, value) => store.set(key, value));
 ipcMain.handle('del-store', (_, key) => store.delete(key));
 
 ipcMain.handle('login', async (_, { email, password }) => {
-  const res = await axios.post(`${API_BASE}/auth/login`, { email, password });
+  let res;
+  try {
+    res = await axios.post(`${API_BASE}/auth/login`, { email, password });
+  } catch (err) {
+    // Electron's IPC layer only preserves Error.message across the process
+    // boundary, not the full axios error shape — so the backend's actual
+    // message (e.g. "Invalid credentials") must be extracted here, not left
+    // for the renderer to read from err.response, which won't survive.
+    throw new Error(err?.response?.data?.message || 'Unable to sign in. Please check your connection and try again.');
+  }
   if (!res.data?.success || (!res.data?.payload && !res.data?.data)) {
     throw new Error(res.data?.message || 'Login failed');
   }

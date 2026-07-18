@@ -44,31 +44,11 @@ const Dashboard: React.FC = () => {
     const totalPages = Math.ceil(filteredProjects.length / itemsPerPage);
 
     const timesheetColumns: Column<TimesheetEntry>[] = [
+        { header: 'Employee', key: 'employee' },
         { header: 'Date', key: 'date' },
         { header: 'Check-in', key: 'checkIn' },
         { header: 'Check-out', key: 'checkOut' },
         { header: 'Total', key: 'duration' },
-        {
-            header: 'Status',
-            key: 'status',
-            render: (item) => {
-                const statusStyles: Record<string, string> = {
-                    'In Progress': 'bg-[#EFF8FF] text-[#175CD3] border-[#B2DDFF]',
-                    'Overdue': 'bg-[#FFF1F3] text-[#C01048] border-[#FEB3B3]',
-                    'Pending': 'bg-[#FFF6ED] text-[#C4320A] border-[#FFD6AE]',
-                    'Completed': 'bg-[#ECFDF3] text-[#027A48] border-[#ABEFC6]'
-                };
-                const style = statusStyles[item.status] || '';
-                return (
-                    <Badge
-                        variant="info"
-                        className={cn("rounded-lg px-3 py-1 text-[10px] font-bold tracking-wider border", style)}
-                    >
-                        {item.status}
-                    </Badge>
-                );
-            }
-        },
     ];
 
     const projectColumns: Column<ProjectDetail>[] = [
