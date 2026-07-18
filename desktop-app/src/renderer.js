@@ -49,6 +49,18 @@ let screenshotCount = 0;
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 
+function togglePasswordVisibility() {
+  const input = document.getElementById('password');
+  const icon  = document.getElementById('eye-icon');
+  const btn   = document.getElementById('password-toggle');
+  const showing = input.type === 'text';
+  input.type = showing ? 'password' : 'text';
+  btn.title = showing ? 'Show password' : 'Hide password';
+  icon.innerHTML = showing
+    ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"></path><circle cx="12" cy="12" r="3"></circle>'
+    : '<path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.62 21.62 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.62 21.62 0 0 1-2.89 4.16M14.12 14.12a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+}
+
 async function doLogin() {
   const email    = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
@@ -66,7 +78,11 @@ async function doLogin() {
     showDashboard(user);
     await refreshToday();
   } catch (e) {
-    errEl.textContent = e?.response?.data?.message || e?.message || 'Login failed.';
+    // Electron prefixes every ipcMain.handle rejection with
+    // "Error invoking remote method '<channel>': Error: <message>" — strip
+    // that wrapper so the user sees only the actual message main.js threw.
+    const raw = e?.response?.data?.message || e?.message || 'Login failed.';
+    errEl.textContent = raw.replace(/^Error invoking remote method '[^']+':\s*(Error:\s*)?/, '');
   } finally {
     btn.disabled = false;
     btn.textContent = 'Sign In';
@@ -90,6 +106,7 @@ async function doLogout() {
   document.getElementById('dashboard-screen').classList.remove('active');
   document.getElementById('email').value = '';
   document.getElementById('password').value = '';
+  if (document.getElementById('password').type === 'text') togglePasswordVisibility();
 }
 
 // ── Show dashboard ────────────────────────────────────────────────────────────
