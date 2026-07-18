@@ -86,6 +86,18 @@ src/
 
 ---
 
+## 🖥️ Desktop Release Process
+
+The `desktop-app/` folder contains the TekXAI time-tracking desktop agent (Electron). Release documentation lives under `docs/`:
+
+- **Release notes** (per-version changelog, artifacts, verification evidence): [`docs/releases/desktop/`](docs/releases/desktop/) — see [`RELEASE_v1.0.0.md`](docs/releases/desktop/RELEASE_v1.0.0.md) for the current release
+- **CI/CD restoration plan** (proposal for automating build/deploy/verify/rollback — not yet implemented): [`docs/ci-cd/DESKTOP_CICD_RESTORATION_PLAN.md`](docs/ci-cd/DESKTOP_CICD_RESTORATION_PLAN.md)
+- **QA improvement plan** (proposal for automated desktop testing — not yet implemented): [`docs/qa/DESKTOP_QA_IMPROVEMENT_PLAN.md`](docs/qa/DESKTOP_QA_IMPROVEMENT_PLAN.md)
+
+There is currently no automated CI/CD pipeline for the desktop app — releases are built and deployed manually. See the CI/CD restoration plan above before making changes to the release process.
+
+---
+
 ## 📝 License
 
 This project is maintained by the **TEKXAI** team.

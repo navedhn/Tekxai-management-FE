@@ -19,6 +19,39 @@
 
 ---
 
+### Release Artifacts
+
+| Artifact | Value |
+|---|---|
+| Git Tag | `desktop-v1.0.0` |
+| Commit | `9330a55f20755eca6dfb4407f57a6fc5751655e0` |
+| Documentation Commit | `002384dbf79bfce2357f737f30b44e43ae1720bb` |
+| Version | 1.0.0 |
+| Build Timestamp | 2026-07-18T15:43:57Z |
+| Installer SHA256 | `c57a4143ef8a4c5f76492f3d28e24cd45d2fe0af7f276be9b77558865a13aabe` |
+| app.asar SHA256 | `17964e99ff89ccb8f83032e3f5cb581db995153f057c8c1861424ebf18f4b669` |
+| Production URL | `https://api.tekxai.services/downloads/TekXAI-Agent-Setup.exe` |
+| Deployment Status | SUCCEEDED (one path error caught mid-deployment and corrected before verification passed) |
+| Production Verification Status | PASSED — installer downloaded from the live public URL, `app.asar` hash-matched against the local QA build |
+
+---
+
+### Sprint Metrics
+
+| Metric | Count | Notes |
+|---|---|---|
+| Findings investigated | 5 | FINDING-001 through FINDING-005, all runtime-tested, not assumed from code alone |
+| Confirmed bugs | 3 | Password toggle missing, login error message lost over IPC, no single-instance protection |
+| Bugs fixed | 4 | The 3 confirmed bugs, plus 1 regression (below) |
+| Regression bugs caught | 1 | Relaunch-after-close crash, introduced by the single-instance fix itself, caught during QA retesting before release |
+| Retracted findings | 1 | "Time Tracker doesn't reset" — verified at runtime to be correct intentional behavior, not a defect |
+| Production deployments | 1 | Includes 1 path-naming correction applied mid-deployment before final verification |
+| Production verification runs | 2 | Initial run caught the path-naming defect; second run (after fix) passed cleanly |
+| Critical bugs remaining | 0 | No known critical functional defects in the released build |
+| Release recommendation | 🟢 GO | Issued only after the production-downloaded installer passed the full verification suite, per this sprint's own gating rule |
+
+---
+
 ### Features Delivered
 
 - Password visibility toggle on the login screen (eye icon, toggles field between hidden/visible, resets on sign-out)
@@ -89,3 +122,24 @@ No nginx reload or service restart is required — files are served directly via
 - `app.asar` SHA256 identical between the local QA build and the installer downloaded fresh from `https://api.tekxai.services/downloads/TekXAI-Agent-Setup.exe`: `17964e99ff89ccb8f83032e3f5cb581db995153f057c8c1861424ebf18f4b669`
 - Live endpoint headers at verification time: `Content-Length: 79123600`, `Last-Modified: Sat, 18 Jul 2026 16:10:29 GMT` — matching the deployed build exactly
 - Full runtime verification suite (see above) re-run against the production-downloaded installer, not just the local build
+
+### Lessons Learned
+
+**What went well**
+- Runtime-only verification discipline (no finding marked "verified" from code review alone) caught a real regression (the relaunch crash) and correctly retracted a false finding (Time Tracker) before either could waste further effort or ship incorrectly.
+- Independent re-verification from a separate machine — rather than trusting pasted terminal output — caught the deployment path error before it could reach real customers.
+- Credential handling stayed clean throughout: no persistent SSH key was ever created, shared, or stored; the CloudShell + temporary `ec2-instance-connect` key approach solved file transfer without compromising this discipline.
+
+**What caused delays**
+- No CI/CD pipeline meant every build → deploy → verify cycle was fully manual, multiplying the time cost of each fix (several full rebuild-reinstall-retest loops were needed).
+- The deployment path error (`~/downloads/` vs `~/downloads/latest/`) cost an extra full round-trip of investigation and correction — a mistake automation with an atomic-deploy step would have caught immediately.
+- Discovering there was no reusable SSH access required several iterations (searching for local keys, evaluating CloudShell vs. AWS CLI vs. GitHub Releases as a transfer mechanism) before landing on a working approach.
+
+**What should be automated**
+- The entire build → deploy → verify → smoke-test cycle (see `DESKTOP_CICD_RESTORATION_PLAN.md`), especially the checksum and `app.asar` hash verification steps that this sprint did by hand every time.
+- Single-instance and relaunch-crash regression testing, since this sprint proved a fix in this exact area can introduce a new regression — an automated regression test is cheap insurance against it recurring.
+
+**What should change before the next release**
+- Restore CI/CD before the next desktop release, so deployment is atomic and self-verifying rather than manual and split-state-prone.
+- Stand up (or identify an existing) staging backend, so QA doesn't have to run directly against production.
+- Decide and document the deploy user's least-privilege permissions on the backend host, rather than continuing to use the general `ubuntu` account for deployments.
