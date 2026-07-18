@@ -1,12 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Search, MessageSquare, Video, Gavel, CheckSquare, Activity as ActivityIcon,
-  Plus, ArrowUpDown, ExternalLink,
+  MessageSquare, Video, Gavel, CheckSquare, Activity as ActivityIcon,
+  Plus, ExternalLink,
 } from 'lucide-react';
 import Select from './Select';
 import Textarea from './Textarea';
 import Button from './Button';
 import Loader from './Loader';
+import SearchFilterBar from './SearchFilterBar';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useCommunicationTimeline, type CommunicationEvent, type CommunicationEventType } from '@/services/communicationTimelineService';
 import { useCreateDiscussion } from '@/services/projectDiscussionsService';
@@ -141,25 +142,16 @@ const ClientCommunicationPanel: React.FC<ClientCommunicationPanelProps> = ({ pro
           </div>
         )}
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              className="w-full h-10 pl-9 pr-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
-              placeholder="Search communication…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <Select options={TYPE_FILTER_OPTIONS} value={typeFilter} onChange={(v) => setTypeFilter(v as CommunicationEventType | 'ALL')} containerClassName="sm:w-44" />
-          <Select options={authorOptions} value={authorFilter} onChange={(v) => setAuthorFilter(String(v))} containerClassName="sm:w-40" />
-          <button
-            onClick={() => setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))}
-            className="flex items-center gap-1.5 h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 shrink-0"
-          >
-            <ArrowUpDown size={13} /> {sortDir === 'desc' ? 'Newest' : 'Oldest'}
-          </button>
-        </div>
+        <SearchFilterBar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search communication…"
+          filters={[
+            { options: TYPE_FILTER_OPTIONS, value: typeFilter, onChange: (v) => setTypeFilter(v as CommunicationEventType | 'ALL'), containerClassName: 'sm:w-44' },
+            { options: authorOptions, value: authorFilter, onChange: (v) => setAuthorFilter(String(v)), containerClassName: 'sm:w-40' },
+          ]}
+          sort={{ label: sortDir === 'desc' ? 'Newest' : 'Oldest', onToggle: () => setSortDir((d) => (d === 'desc' ? 'asc' : 'desc')) }}
+        />
 
         {isLoading && <div className="flex justify-center py-6"><Loader size={28} /></div>}
 

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, Link2, Plus, Search, Trash2 } from 'lucide-react';
+import { AlertTriangle, Link2, Plus, Trash2 } from 'lucide-react';
 import Input from './Input';
 import Select from './Select';
 import Textarea from './Textarea';
@@ -7,6 +7,7 @@ import Button from './Button';
 import Loader from './Loader';
 import StatusDropdown from './StatusDropdown';
 import ActionModal from './ActionModal';
+import SearchFilterBar from './SearchFilterBar';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import {
   useCreateDependency, useDeleteDependency, useDependencies, useUpdateDependency,
@@ -138,23 +139,17 @@ const DependenciesPanel: React.FC<DependenciesPanelProps> = ({ projectId, canEdi
           </div>
         )}
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              className="w-full h-10 pl-9 pr-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
-              placeholder="Search dependencies…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <Select
-            options={STATUS_FILTER_OPTIONS}
-            value={statusFilter}
-            onChange={(v) => setStatusFilter(v as DependencyStatus | 'ALL')}
-            containerClassName="sm:w-48"
-          />
-        </div>
+        <SearchFilterBar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search dependencies…"
+          filters={[{
+            options: STATUS_FILTER_OPTIONS,
+            value: statusFilter,
+            onChange: (v) => setStatusFilter(v as DependencyStatus | 'ALL'),
+            containerClassName: 'sm:w-48',
+          }]}
+        />
 
         {isLoading && <div className="flex justify-center py-6"><Loader size={28} /></div>}
 
