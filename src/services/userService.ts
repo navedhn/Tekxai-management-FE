@@ -73,7 +73,7 @@ export const useLazyFetchUsersQuery = (params?: Record<string, any>) => {
 // keys (hr-dashboard/index.tsx) and employeeService's dashboard-stat key —
 // neither is derived from QUERY_KEYS.USER.LIST, so they must be invalidated
 // explicitly alongside the user list itself.
-const invalidateUserAndDependents = (queryClient: ReturnType<typeof useQueryClient>) => {
+const invalidateUserAndDependents = (queryClient: ReturnType<typeof useQueryClient>, userId?: string) => {
   queryClient.invalidateQueries({ queryKey: QUERY_KEYS.USER.LIST });
   queryClient.invalidateQueries({ queryKey: ['employee-list-hr-dash'] });
   queryClient.invalidateQueries({ queryKey: ['employee-stats-hr-dash'] });
@@ -84,6 +84,13 @@ const invalidateUserAndDependents = (queryClient: ReturnType<typeof useQueryClie
   // several other admin pages — previously never invalidated by any user
   // mutation, so those pickers could show stale names/statuses indefinitely.
   queryClient.invalidateQueries({ queryKey: ['user-list-brief'] });
+  // Employee Profile reads ['employee-full', userId] / ['hr-profile', userId]
+  // (hrService.ts) — previously only hrService's own mutations invalidated
+  // these, so editing a user via ERP Users -> Edit User left an already-open
+  // Employee Profile tab stale. Invalidate by userId when known, otherwise
+  // fall back to the whole key prefix (matches every cached profile).
+  queryClient.invalidateQueries({ queryKey: userId ? ['employee-full', userId] : ['employee-full'] });
+  queryClient.invalidateQueries({ queryKey: userId ? ['hr-profile', userId] : ['hr-profile'] });
 };
 
 export const useCreateUserMutation = () => {
@@ -101,8 +108,8 @@ export const useUpdateUserMutation = () => {
   return useMutation({
     mutationFn: ({ id, data }: { id: string | number; data: any }) =>
       apiRequest(API_ENDPOINTS.USER.UPDATE(id), { method: 'PUT', body: JSON.stringify(data) }),
-    onSuccess: () => {
-      invalidateUserAndDependents(queryClient);
+    onSuccess: (_data, variables) => {
+      invalidateUserAndDependents(queryClient, String(variables.id));
     },
   });
 };
@@ -115,8 +122,8 @@ export const useChangeUserRoleMutation = () => {
   return useMutation({
     mutationFn: ({ id, role_id }: { id: string | number; role_id: string }) =>
       apiRequest(API_ENDPOINTS.USER.ROLE_CHANGE(id), { method: 'PUT', body: JSON.stringify({ role_id }) }),
-    onSuccess: () => {
-      invalidateUserAndDependents(queryClient);
+    onSuccess: (_data, variables) => {
+      invalidateUserAndDependents(queryClient, String(variables.id));
     },
   });
 };
@@ -125,8 +132,8 @@ export const useDeleteUserMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string | number) => apiRequest(API_ENDPOINTS.USER.DELETE(id), { method: 'DELETE' }),
-    onSuccess: () => {
-      invalidateUserAndDependents(queryClient);
+    onSuccess: (_data, id) => {
+      invalidateUserAndDependents(queryClient, String(id));
     },
   });
 };

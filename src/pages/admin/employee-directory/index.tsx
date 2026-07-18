@@ -121,7 +121,7 @@ export default function EmployeeDirectory() {
     return f;
   }, [q, divisionId, deptId, teamId, status, employmentStatus, employeeIdFilter, roleFilter, designationFilter, urlFilter, urlLifecycle, sortBy, sortDir, page, limit]);
 
-  const { data, isLoading, refetch } = useGetEmployeeDirectory(filters);
+  const { data, isLoading } = useGetEmployeeDirectory(filters);
   const records: any[] = data?.records || [];
   const stats = data?.stats || {};
   const total = data?.total || 0;
@@ -194,11 +194,12 @@ export default function EmployeeDirectory() {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
+    // deleteUser's own onSuccess already invalidates ['employee-directory']
+    // (invalidateUserAndDependents, userService.ts) — no manual refetch needed.
     deleteUser.mutate(deleteTarget.id, {
       onSuccess: () => {
         toast.success(`${deleteTarget.full_name || deleteTarget.email} removed`);
         setDeleteTarget(null);
-        refetch();
       },
       onError: (e: any) => toast.error(e?.message || 'Failed to delete'),
     });
@@ -211,7 +212,6 @@ export default function EmployeeDirectory() {
         toast.success(`${ids.length} employee(s) removed`);
         setSelected(new Set());
         setBulkDeleteOpen(false);
-        refetch();
       },
       onError: (e: any) => toast.error(e?.message || 'Failed to delete'),
     });
@@ -219,17 +219,18 @@ export default function EmployeeDirectory() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Edit modal */}
+      {/* Edit modal — UserFormModal's own save mutation already invalidates
+          ['employee-directory'] on success; no manual refetch needed. */}
       <UserFormModal
         isOpen={!!editEmployee}
-        onClose={() => { setEditEmployee(null); refetch(); }}
+        onClose={() => setEditEmployee(null)}
         user={editEmployee}
       />
 
       {/* Quick Create User — lightweight login-only creation, full profile filled in later */}
       <QuickCreateUserModal
         isOpen={quickCreateOpen}
-        onClose={() => { setQuickCreateOpen(false); refetch(); }}
+        onClose={() => setQuickCreateOpen(false)}
       />
 
       {/* Single delete confirmation */}

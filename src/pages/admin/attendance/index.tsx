@@ -76,6 +76,16 @@ const AttendancePage: React.FC = () => {
     { header: 'Start', key: 'start_time', render: (item) => <span className="font-mono">{item.start_time}</span> },
     { header: 'End', key: 'end_time', render: (item) => <span className="font-mono">{item.end_time}</span> },
     { header: 'Grace Period', key: 'grace_period_min', render: (item) => <span>{item.grace_period_min} min</span> },
+    { header: 'Assigned', key: 'assigned_employees', render: (item) => {
+      const assignees = item.assigned_employees || [];
+      if (assignees.length === 0) return <span className="text-gray-400 text-xs">None</span>;
+      const names = assignees.map((u: any) => `${u.first_name} ${u.last_name}`).join(', ');
+      return (
+        <span className="text-xs font-bold text-gray-600" title={names}>
+          {assignees.length} employee{assignees.length === 1 ? '' : 's'}
+        </span>
+      );
+    } },
     { header: 'Default', key: 'is_default', render: (item) => item.is_default ? <Badge variant="success" className="text-[10px] px-2 py-0.5 bg-green-50 text-green-600 border border-green-100 rounded-lg">Default</Badge> : null },
     { header: 'Actions', key: 'actions', render: (item) => (
       <div className="flex items-center gap-2">
