@@ -378,6 +378,7 @@ export const API_ENDPOINTS = {
     ACCOUNT:      (userId: string) => `${v1}/expenses/accounts/${userId}`,
     TRANSACTIONS: (userId: string) => `${v1}/expenses/accounts/${userId}/transactions`,
     TRANSACTION:  (id: string)     => `${v1}/expenses/transactions/${id}`,
+    RECEIPT:      (id: string)     => `${v1}/expenses/transactions/${id}/receipt`,
     CATEGORIES:   `${v1}/expenses/categories`,
   },
   HR_REPORT: {

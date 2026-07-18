@@ -42,7 +42,7 @@ function TransactionModal({
     reader.onload = async (e) => {
       const receipt_url = e.target?.result as string;
       try {
-        await apiRequest(`/expenses/${editTxn.id}/receipt`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ receipt_url }) });
+        await apiRequest(API_ENDPOINTS.EXPENSES.RECEIPT(editTxn.id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ receipt_url }) });
         qc.invalidateQueries({ queryKey: ['expense-ledger', userId] });
         toast.success('Receipt attached');
       } catch {

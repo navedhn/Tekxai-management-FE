@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Tabs from '@/components/ui/Tabs';
@@ -65,6 +65,11 @@ const MonitoringPage: React.FC = () => {
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [screenshotToDelete, setScreenshotToDelete] = useState<Screenshot | null>(null);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [ssPage, setSsPage] = useState(1);
+  const [prodPage, setProdPage] = useState(1);
+  const PAGE_SIZE = 20;
+
+  useEffect(() => { setSsPage(1); setProdPage(1); }, [selectedUser, dateFrom, dateTo]);
 
   const { user } = useAuthStore();
   const isSuperAdmin = (user as any)?.roles?.includes('SUPER_ADMIN') || (user as any)?.role_name === 'SUPER_ADMIN';
@@ -73,23 +78,23 @@ const MonitoringPage: React.FC = () => {
 
   const { data: users = [] } = useFetchUsersQuery({});
 
-  const prodParams: Record<string, string> = {};
+  const prodParams: Record<string, string> = { page: String(prodPage), limit: String(PAGE_SIZE) };
   if (selectedUser) prodParams.user_id = selectedUser;
   if (dateFrom) prodParams.from = dateFrom;
   if (dateTo) prodParams.to = dateTo;
-  const hasParams = Object.keys(prodParams).length > 0;
+  const hasParams = Object.keys(prodParams).length > 2;
 
-  const { data: productivity = [], isLoading: pLoading } = useGetProductivity(hasParams ? prodParams : undefined);
+  const { data: productivityData, isLoading: pLoading } = useGetProductivity(prodParams);
+  const productivity = (productivityData as any)?.records || [];
+  const productivityTotal = (productivityData as any)?.total || 0;
   const { data: appUsage = [], isLoading: appLoading } = useGetAppUsage(hasParams ? prodParams : undefined);
 
-  const ssParams: Record<string, string> = {};
+  const ssParams: Record<string, string> = { page: String(ssPage), limit: String(PAGE_SIZE) };
   if (selectedUser) ssParams.user_id = selectedUser;
   if (dateFrom) ssParams.from = dateFrom;
   if (dateTo) ssParams.to = dateTo;
 
-  const { data: ssData, isLoading: ssLoading } = useGetScreenshots(
-    Object.keys(ssParams).length ? ssParams : undefined
-  );
+  const { data: ssData, isLoading: ssLoading } = useGetScreenshots(ssParams);
   const screenshots: Screenshot[] = (ssData as any)?.records || [];
 
   const userOptions = [
@@ -382,6 +387,13 @@ const MonitoringPage: React.FC = () => {
               data={productivity as any[]}
               isLoading={pLoading}
               emptyMessage="No productivity data. Desktop agent must be running."
+              pagination={{
+                currentPage: prodPage,
+                totalPages: Math.max(1, Math.ceil(productivityTotal / PAGE_SIZE)),
+                onPageChange: setProdPage,
+                totalEntries: productivityTotal,
+                entriesPerPage: PAGE_SIZE,
+              }}
             />
           </Card>
         </div>
@@ -410,6 +422,13 @@ const MonitoringPage: React.FC = () => {
             data={screenshots}
             isLoading={ssLoading}
             emptyMessage="No screenshots yet. Desktop agent must be running to capture screenshots."
+            pagination={{
+              currentPage: ssPage,
+              totalPages: Math.max(1, Math.ceil(((ssData as any)?.total || 0) / PAGE_SIZE)),
+              onPageChange: setSsPage,
+              totalEntries: (ssData as any)?.total || 0,
+              entriesPerPage: PAGE_SIZE,
+            }}
           />
         </Card>
       )}

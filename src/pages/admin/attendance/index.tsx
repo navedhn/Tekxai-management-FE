@@ -29,9 +29,11 @@ const AttendancePage: React.FC = () => {
   const [editingShift, setEditingShift] = useState<any>(null);
   const [shiftToDelete, setShiftToDelete] = useState<any>(null);
   const [shiftForm, setShiftForm] = useState({ name: '', start_time: '09:00', end_time: '18:00', grace_period_min: 15, is_default: false });
-  const [assignForm, setAssignForm] = useState({ user_id: '', shift_id: '' });
+  const EMPTY_ASSIGN_FORM = { user_id: '', shift_id: '' };
+  const [assignForm, setAssignForm] = useState(EMPTY_ASSIGN_FORM);
+  const [violationFilters, setViolationFilters] = useState({ user_id: '', violation_type: '', start_date: '', end_date: '' });
 
-  const { data: violationsData, isLoading: vLoading } = useGetViolationsQuery();
+  const { data: violationsData, isLoading: vLoading } = useGetViolationsQuery(violationFilters);
   const { data: shifts = [], isLoading: sLoading } = useGetShiftsQuery();
   const { data: users = [] } = useFetchUsersQuery({});
   const upsertShift = useUpsertShiftMutation();
@@ -65,7 +67,7 @@ const AttendancePage: React.FC = () => {
     try {
       await deleteShift.mutateAsync(shiftToDelete.id);
       toast.success('Shift deleted');
-    } catch { toast.error('Failed to delete shift'); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to delete shift'); }
     finally { setShiftToDelete(null); }
   };
 
@@ -85,12 +87,13 @@ const AttendancePage: React.FC = () => {
 
   const handleSaveShift = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!shiftForm.name.trim()) { toast.error('Shift name is required'); return; }
     try {
       await upsertShift.mutateAsync(editingShift ? { ...shiftForm, id: editingShift.id } : shiftForm);
       toast.success(editingShift ? 'Shift updated' : 'Shift created');
       setShowShiftModal(false);
       setEditingShift(null);
-    } catch { toast.error('Failed to save shift'); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to save shift'); }
   };
 
   const handleAssign = async (e: React.FormEvent) => {
@@ -100,7 +103,13 @@ const AttendancePage: React.FC = () => {
       await assignShift.mutateAsync(assignForm);
       toast.success('Shift assigned');
       setShowAssignModal(false);
-    } catch { toast.error('Failed to assign'); }
+      setAssignForm(EMPTY_ASSIGN_FORM);
+    } catch (e: any) { toast.error(e?.message || 'Failed to assign'); }
+  };
+
+  const closeAssignModal = () => {
+    setShowAssignModal(false);
+    setAssignForm(EMPTY_ASSIGN_FORM);
   };
 
   return (
@@ -115,6 +124,38 @@ const AttendancePage: React.FC = () => {
       {activeTab === 'Late Coming / Violations' && (
         <Card className="border-none shadow-sm">
           <h2 className="text-lg font-black text-gray-900 mb-4">Attendance Violations</h2>
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <select
+              value={violationFilters.user_id}
+              onChange={(e) => setViolationFilters(p => ({ ...p, user_id: e.target.value }))}
+              className="h-10 px-3 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none sm:w-56"
+            >
+              <option value="">All Employees</option>
+              {users.map((u: any) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
+            </select>
+            <select
+              value={violationFilters.violation_type}
+              onChange={(e) => setViolationFilters(p => ({ ...p, violation_type: e.target.value }))}
+              className="h-10 px-3 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none sm:w-44"
+            >
+              <option value="">All Types</option>
+              <option value="LATE">Late</option>
+              <option value="ABSENT">Absent</option>
+              <option value="EARLY_OUT">Early Out</option>
+            </select>
+            <input
+              type="date"
+              value={violationFilters.start_date}
+              onChange={(e) => setViolationFilters(p => ({ ...p, start_date: e.target.value }))}
+              className="h-10 px-3 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
+            />
+            <input
+              type="date"
+              value={violationFilters.end_date}
+              onChange={(e) => setViolationFilters(p => ({ ...p, end_date: e.target.value }))}
+              className="h-10 px-3 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
+            />
+          </div>
           <Table columns={violationCols} data={violations} isLoading={vLoading} emptyMessage="No violations recorded." />
         </Card>
       )}
@@ -147,6 +188,7 @@ const AttendancePage: React.FC = () => {
             <div key={key} className="flex flex-col gap-1.5">
               <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">{label}</label>
               <input type={type} value={(shiftForm as any)[key]} placeholder={placeholder}
+                required={key === 'name'}
                 onChange={(e) => setShiftForm(p => ({ ...p, [key]: e.target.value }))}
                 className="h-11 px-4 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none" />
             </div>
@@ -171,7 +213,7 @@ const AttendancePage: React.FC = () => {
       </Modal>
 
       {/* Assign Shift Modal */}
-      <Modal isOpen={showAssignModal} onClose={() => setShowAssignModal(false)} title="Assign Shift to Employee">
+      <Modal isOpen={showAssignModal} onClose={closeAssignModal} title="Assign Shift to Employee">
         <form onSubmit={handleAssign} className="flex flex-col gap-4 mt-4">
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Employee</label>
@@ -190,7 +232,7 @@ const AttendancePage: React.FC = () => {
             </select>
           </div>
           <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" fullWidth onClick={() => setShowAssignModal(false)}>Cancel</Button>
+            <Button type="button" variant="outline" fullWidth onClick={closeAssignModal}>Cancel</Button>
             <Button type="submit" variant="primary" fullWidth loading={assignShift.isPending}>Assign</Button>
           </div>
         </form>
