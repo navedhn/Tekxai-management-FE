@@ -4,7 +4,7 @@ import { Search, Plus, X, Layers, Users } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import {
-  useGetDivisionsQuery, useCreateDivision, useUpdateDivision,
+  useGetDivisionsQuery, useGetDepartmentsQuery, useCreateDivision, useUpdateDivision,
   useDeleteDivision, useBulkDeleteDivisions,
 } from '@/services/departmentService';
 import { useBulkSelection } from '@/hooks/useBulkSelection';
@@ -89,11 +89,13 @@ function Modal({ division, onClose }: { division?: any; onClose: () => void }) {
 export default function DivisionsPage() {
   const toast = useToastContext();
   const [q, setQ] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('');
   const [modal, setModal] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
-  const { data, isLoading } = useGetDivisionsQuery();
+  const { data, isLoading } = useGetDivisionsQuery(departmentFilter || undefined);
+  const { data: departments } = useGetDepartmentsQuery();
 
   const divisions: any[] = (data || []).filter((d: any) =>
     !q || d.name?.toLowerCase().includes(q.toLowerCase()) || d.department?.name?.toLowerCase().includes(q.toLowerCase())
@@ -101,7 +103,7 @@ export default function DivisionsPage() {
 
   const { selected, allOnPageSelected, toggleAll, toggleOne, clear } =
     useBulkSelection(divisions.map(d => d.id));
-  useEffect(() => { clear(); }, [q]);
+  useEffect(() => { clear(); }, [q, departmentFilter]);
 
   const deleteMutation = useDeleteDivision();
   const bulkDelete = useBulkDeleteDivisions();
@@ -143,10 +145,20 @@ export default function DivisionsPage() {
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        <div className="relative mb-4 max-w-sm">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="w-full h-10 pl-9 pr-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
-            placeholder="Search divisions…" value={q} onChange={e => setQ(e.target.value)} />
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <div className="relative max-w-sm flex-1 min-w-[200px]">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input className="w-full h-10 pl-9 pr-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
+              placeholder="Search divisions…" value={q} onChange={e => setQ(e.target.value)} />
+          </div>
+          <select
+            className="h-10 px-3 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-primary-400 min-w-[200px]"
+            value={departmentFilter}
+            onChange={e => setDepartmentFilter(e.target.value)}
+          >
+            <option value="">All Departments</option>
+            {(departments || []).map((dep: any) => <option key={dep.id} value={dep.id}>{dep.name}</option>)}
+          </select>
         </div>
 
         <BulkDeleteBar
