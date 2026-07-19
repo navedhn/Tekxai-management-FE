@@ -100,6 +100,12 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
 
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
+  // When creating a new ("Other") category, categoryMeta is null (no existing
+  // row to read from) — fall back to the checkboxes being set for the new
+  // category so the device/assignment sections below actually show up instead
+  // of silently omitting them until the asset is edited afterward.
+  const effectiveMeta = isOther ? { is_device: newCategoryIsDevice, is_assignable: newCategoryIsAssignable } : categoryMeta;
+
   const handleCategoryChange = (val: string) => {
     if (val === '__OTHER__') {
       setIsOther(true);
@@ -151,7 +157,7 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
     };
 
     // Device fields
-    if (categoryMeta?.is_device) {
+    if (effectiveMeta?.is_device) {
       if (form.processor) payload.processor = form.processor;
       if (form.ram) payload.ram = form.ram;
       if (form.storage) payload.storage = form.storage;
@@ -160,7 +166,7 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
     }
 
     // Assignment
-    if (categoryMeta?.is_assignable && userId) {
+    if (effectiveMeta?.is_assignable && userId) {
       payload.user_id = userId;
       if (form.assigned_at) payload.assigned_at = form.assigned_at;
     }
@@ -260,7 +266,7 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
           </div>
 
           {/* Device-specific fields — show when is_device=true or undefined (old categories) */}
-          {categoryMeta && categoryMeta.is_device !== false && (
+          {effectiveMeta && effectiveMeta.is_device !== false && (
             <>
               <div className="border-t border-gray-100 pt-4">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Device Specifications</p>
@@ -296,7 +302,7 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
           )}
 
           {/* Assignment section — show unless category explicitly marks is_assignable=false */}
-          {categoryMeta && categoryMeta.is_assignable !== false && (
+          {effectiveMeta && effectiveMeta.is_assignable !== false && (
             <div className="border-t border-gray-100 pt-4">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Assignment (optional)</p>
               <div className="grid grid-cols-2 gap-3">
