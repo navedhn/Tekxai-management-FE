@@ -89,6 +89,16 @@ const MonitoringPage: React.FC = () => {
   const productivityTotal = (productivityData as any)?.total || 0;
   const { data: appUsage = [], isLoading: appLoading } = useGetAppUsage(hasParams ? prodParams : undefined);
 
+  // Summary cards (avg score, totals) must reflect the whole filtered range,
+  // not just the current page — kept as a separate unpaginated query so
+  // paginating the table doesn't change the KPI numbers underneath it.
+  const summaryParams: Record<string, string> = { page: '1', limit: '1000' };
+  if (selectedUser) summaryParams.user_id = selectedUser;
+  if (dateFrom) summaryParams.from = dateFrom;
+  if (dateTo) summaryParams.to = dateTo;
+  const { data: productivitySummaryData } = useGetProductivity(summaryParams);
+  const productivitySummary = (productivitySummaryData as any)?.records || [];
+
   const ssParams: Record<string, string> = { page: String(ssPage), limit: String(PAGE_SIZE) };
   if (selectedUser) ssParams.user_id = selectedUser;
   if (dateFrom) ssParams.from = dateFrom;
@@ -102,7 +112,7 @@ const MonitoringPage: React.FC = () => {
     ...(users as any[]).map((u: any) => ({ value: u.id, label: `${u.first_name} ${u.last_name}` })),
   ];
 
-  const agg = aggregateProductivity(productivity as any[]);
+  const agg = aggregateProductivity(productivitySummary as any[]);
   const totalAppSecs = appUsage.reduce((s, a) => s + a.duration_seconds, 0);
 
   const prodCols: Column<any>[] = [

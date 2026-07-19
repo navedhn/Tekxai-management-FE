@@ -17,7 +17,7 @@ interface QuickCreateUserModalProps {
   onClose: () => void;
 }
 
-const EMPTY_FORM = { first_name: '', last_name: '', email: '', designation_id: '', department_id: '', role_id: '', hire_date: '' };
+const EMPTY_FORM = { first_name: '', last_name: '', email: '', password: '', designation_id: '', department_id: '', role_id: '', hire_date: '' };
 
 // Lightweight login-account creation — HR/Admin fills in only what's needed
 // to grant access; everything else (education, emergency contacts, salary,
@@ -66,6 +66,8 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
     if (!formData.first_name.trim()) newErrors.first_name = 'First name is required';
     if (!formData.last_name.trim()) newErrors.last_name = 'Last name is required';
     if (!formData.email.trim()) newErrors.email = 'Email is required';
+    if (!formData.password) newErrors.password = 'Password is required';
+    else if (formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters';
     if (!formData.designation_id) newErrors.designation_id = 'Designation is required';
     if (!formData.role_id) newErrors.role_id = 'Role is required';
     setErrors(newErrors);
@@ -75,6 +77,7 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
       first_name: formData.first_name.trim(),
       last_name: formData.last_name.trim(),
       email: formData.email.trim(),
+      password: formData.password,
       designation_id: formData.designation_id,
       role_id: formData.role_id,
     };
@@ -180,6 +183,18 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
           onChange={handleChange}
           error={errors.email}
           placeholder="user@example.com"
+          className="h-12 rounded-xl"
+        />
+
+        <Input
+          label="Password *"
+          name="password"
+          type="password"
+          value={formData.password}
+          onChange={handleChange}
+          error={errors.password}
+          placeholder="••••••••"
+          autoComplete="new-password"
           className="h-12 rounded-xl"
         />
 
