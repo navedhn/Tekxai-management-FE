@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from './api/endpoints';
+import type { BulkDeleteResult } from './departmentService';
 
 export interface Designation {
   id: string;
@@ -44,6 +45,17 @@ export const useDeleteDesignation = () => {
   return useMutation({
     mutationFn: (id: string) =>
       apiRequest<any>(API_ENDPOINTS.DESIGNATION.DELETE(id), { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['designations'] }),
+  });
+};
+
+export const useBulkDeleteDesignations = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const r = await apiRequest<any>(API_ENDPOINTS.DESIGNATION.BULK_DELETE, { method: 'POST', body: JSON.stringify({ ids }) });
+      return (r?.payload?.results || []) as BulkDeleteResult[];
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['designations'] }),
   });
 };

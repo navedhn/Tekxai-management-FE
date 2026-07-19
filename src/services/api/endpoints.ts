@@ -52,11 +52,12 @@ export const API_ENDPOINTS = {
     BULK_DELETE: `${v1}/divisions/bulk-delete`,
   },
   DESIGNATION: {
-    LIST:   `${v1}/designations`,
-    CREATE: `${v1}/designations`,
-    DETAIL: (id: string | number) => `${v1}/designations/${id}`,
-    UPDATE: (id: string | number) => `${v1}/designations/${id}`,
-    DELETE: (id: string | number) => `${v1}/designations/${id}`,
+    LIST:        `${v1}/designations`,
+    CREATE:      `${v1}/designations`,
+    DETAIL:      (id: string | number) => `${v1}/designations/${id}`,
+    UPDATE:      (id: string | number) => `${v1}/designations/${id}`,
+    DELETE:      (id: string | number) => `${v1}/designations/${id}`,
+    BULK_DELETE: `${v1}/designations/bulk-delete`,
   },
   GRADE: {
     LIST:   `${v1}/grades`,

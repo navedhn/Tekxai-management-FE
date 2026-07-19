@@ -28,4 +28,12 @@ describe('missingRequiredDocs', () => {
   it('ignores unrelated document types entirely', () => {
     expect(missingRequiredDocs([doc('RESUME'), doc('OFFER_LETTER')])).toEqual(['CNIC Front', 'CNIC Back']);
   });
+
+  it('treats a required type already on file (edit mode) as satisfied even with no new docFiles', () => {
+    expect(missingRequiredDocs([], ['CNIC_FRONT', 'CNIC_BACK'])).toEqual([]);
+  });
+
+  it('still reports the side that is neither newly added nor already on file', () => {
+    expect(missingRequiredDocs([], ['CNIC_FRONT'])).toEqual(['CNIC Back']);
+  });
 });

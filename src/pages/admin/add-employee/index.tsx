@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { ChevronRight, ChevronLeft, Check, User, Briefcase, MapPin, FileText, ClipboardList, Save, X, Plus, Trash2, RotateCcw, Upload, ExternalLink } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Check, User, Briefcase, MapPin, FileText, ClipboardList, Save, X, Plus, Trash2, RotateCcw, Upload, ExternalLink, Loader2 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { uploadFile } from '@/lib/upload';
 import { cn } from '@/utils/cn';
 import { EMPLOYMENT_STATUS_OPTIONS, EMPLOYMENT_STATUS_LABELS } from '@/constants/employmentStatus';
+import { useGetEmployeeFullRecord } from '@/services/hrService';
 
 const DRAFT_KEY = 'add_employee_draft';
 
@@ -523,14 +524,19 @@ const EMPTY_DOC: DocFile = { title: '', document_type: 'OTHER', file_url: '', no
 
 // Required upload validation: both CNIC sides must be present (uploaded file
 // or pasted link) before the wizard can proceed past the Documents step.
-export function missingRequiredDocs(docFiles: DocFile[]): string[] {
+// `existingTypes` (edit mode only) lists document_types already on file from
+// a prior session — a required type already present there also satisfies the
+// check, so re-editing an employee who already uploaded their CNIC docs
+// doesn't get incorrectly blocked just because docFiles (new uploads only)
+// is empty.
+export function missingRequiredDocs(docFiles: DocFile[], existingTypes: string[] = []): string[] {
   return CNIC_DOC_TYPES.filter(
-    type => !docFiles.some(d => d.document_type === type && d.file_url.trim())
+    type => !docFiles.some(d => d.document_type === type && d.file_url.trim()) && !existingTypes.includes(type)
   ).map(type => DOC_TYPE_OPTIONS.find(o => o.value === type)?.label || type);
 }
 
-function StepDocuments({ docFiles, setDocFiles }: { docFiles: DocFile[]; setDocFiles: React.Dispatch<React.SetStateAction<DocFile[]>> }) {
-  const missing = missingRequiredDocs(docFiles);
+function StepDocuments({ docFiles, setDocFiles, existingTypes = [] }: { docFiles: DocFile[]; setDocFiles: React.Dispatch<React.SetStateAction<DocFile[]>>; existingTypes?: string[] }) {
+  const missing = missingRequiredDocs(docFiles, existingTypes);
   const [uploading, setUploading] = React.useState<Record<number, boolean>>({});
   const addRow = () => setDocFiles(prev => [...prev, { ...EMPTY_DOC }]);
   const removeRow = (idx: number) => setDocFiles(prev => prev.filter((_, i) => i !== idx));
@@ -709,6 +715,13 @@ function generateEmployeeId(count: number) {
 export default function AddEmployee() {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { employeeId } = useParams<{ employeeId?: string }>();
+  const isEditMode = !!employeeId;
+  const { data: record, isLoading: recordLoading } = useGetEmployeeFullRecord(employeeId);
+  // Guards against a background refetch (e.g. after invalidation elsewhere)
+  // clobbering fields the user is actively editing — population only ever
+  // runs once, the first time the record arrives.
+  const populatedRef = useRef(false);
   const [step, setStep] = useState(1);
   const [personal, setPersonal]     = useState(initPersonal);
   const [employment, setEmployment] = useState({ ...initEmployment });
@@ -720,8 +733,10 @@ export default function AddEmployee() {
   const fieldRefs = React.useRef<Record<string, HTMLElement | null>>({});
   const registerRef = (field: string, el: HTMLElement | null) => { fieldRefs.current[field] = el; };
 
-  // ── Draft auto-save / restore ──────────────────────────────────────────────
+  // ── Draft auto-save / restore (create mode only — an edit session must
+  // never read or write the shared create-draft key) ─────────────────────────
   useEffect(() => {
+    if (isEditMode) return;
     try {
       const saved = localStorage.getItem(DRAFT_KEY);
       if (saved) {
@@ -735,15 +750,77 @@ export default function AddEmployee() {
         }
       }
     } catch { /* ignore corrupt draft */ }
-  }, []);
+  }, [isEditMode]);
 
   // Save draft to localStorage on every meaningful change
   useEffect(() => {
+    if (isEditMode) return;
     if (!personal.first_name && !personal.email) return;
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify({ personal, employment, work, step }));
     } catch { /* storage full — ignore */ }
-  }, [personal, employment, work, step]);
+  }, [isEditMode, personal, employment, work, step]);
+
+  // ── Edit mode: populate wizard state from the fetched full record ──────────
+  useEffect(() => {
+    if (!isEditMode || !record || populatedRef.current) return;
+    populatedRef.current = true;
+    const { user, profile } = record as any;
+    setPersonal(prev => ({
+      ...prev,
+      first_name: user?.first_name || '',
+      last_name: user?.last_name || '',
+      email: user?.email || '',
+      phone: user?.phone || '',
+      alternate_phone: profile?.alternate_phone || '',
+      father_name: profile?.father_name || '',
+      cnic: profile?.cnic || '',
+      dob: profile?.dob ? String(profile.dob).slice(0, 10) : '',
+      gender: profile?.gender || '',
+      marital_status: profile?.marital_status || '',
+      nationality: profile?.nationality || '',
+      religion: profile?.religion || '',
+      blood_group: profile?.blood_group || '',
+      current_address: profile?.current_address || '',
+      permanent_address: profile?.permanent_address || '',
+    }));
+    setEmployment(prev => ({
+      ...prev,
+      employee_id: user?.employee_id || '',
+      hire_date: user?.hire_date ? String(user.hire_date).slice(0, 10) : '',
+      confirmation_date: profile?.confirmation_date ? String(profile.confirmation_date).slice(0, 10) : '',
+      employment_type: profile?.employment_type || '',
+      employment_status: profile?.employment_status || prev.employment_status,
+      probation_start: profile?.probation_start ? String(profile.probation_start).slice(0, 10) : '',
+      probation_end: profile?.probation_end ? String(profile.probation_end).slice(0, 10) : '',
+      work_email: profile?.work_email || '',
+      department_id: user?.department_id || '',
+      team_id: user?.team_memberships?.[0]?.team?.id || '',
+      designation: user?.designation || '',
+      designation_id: user?.designation_ref?.id || '',
+      grade: profile?.grade || '',
+      grade_id: user?.grade?.id || '',
+      supervisor_id: user?.supervisor?.id || '',
+      base_salary: profile?.base_salary != null ? String(profile.base_salary) : '',
+      salary_currency: profile?.salary_currency || prev.salary_currency,
+      pay_frequency: profile?.pay_frequency || prev.pay_frequency,
+      effective_salary_date: profile?.effective_salary_date ? String(profile.effective_salary_date).slice(0, 10) : '',
+    }));
+    setWork(prev => ({
+      ...prev,
+      work_location: profile?.work_location || '',
+      office_branch: profile?.office_branch || '',
+      floor_area: profile?.floor_area || '',
+      work_start: profile?.work_start || prev.work_start,
+      work_end: profile?.work_end || prev.work_end,
+      lunch_break_min: profile?.lunch_break_min != null ? String(profile.lunch_break_min) : prev.lunch_break_min,
+      working_days: profile?.working_days?.length ? profile.working_days : prev.working_days,
+      weekend: profile?.weekend || prev.weekend,
+      work_extension: profile?.work_extension || '',
+      work_phone: profile?.work_phone || '',
+      is_remote: !!profile?.is_remote,
+    }));
+  }, [isEditMode, record]);
 
   const clearDraft = () => {
     try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
@@ -803,6 +880,7 @@ export default function AddEmployee() {
   });
 
   React.useEffect(() => {
+    if (isEditMode) return; // real employee_id comes from the fetched record, never auto-generated
     if (userCount != null) {
       setEmployment(p => ({ ...p, employee_id: p.employee_id || generateEmployeeId(userCount) }));
     } else {
@@ -815,35 +893,59 @@ export default function AddEmployee() {
       }, 3000);
       return () => clearTimeout(timeout);
     }
-  }, [userCount]);
+  }, [isEditMode, userCount]);
 
-  const createMutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: async (as_draft: boolean) => {
-      const userRes: any = await apiRequest<any>(API_ENDPOINTS.USER.CREATE, {
-        method: 'POST',
-        body: JSON.stringify({
-          first_name:    personal.first_name,
-          last_name:     personal.last_name,
-          email:         personal.email,
-          phone:         personal.phone || undefined,
-          employee_id:   employment.employee_id || undefined,
-          hire_date:     employment.hire_date || undefined,
-          designation:   employment.designation || undefined,
-          designation_id: employment.designation_id || undefined,
-          grade_id:      employment.grade_id || undefined,
-          department_id: employment.department_id || undefined,
-          supervisor_id: employment.supervisor_id || undefined,
-          business_unit: 'ERP',
-        }),
-      });
-      const userId = userRes?.payload?.id || userRes?.id;
-      if (!userId) throw new Error('Failed to create user');
+      let userId: string;
 
-      if (employment.team_id) {
+      if (isEditMode) {
+        userId = employeeId!;
+        // Base user fields only — employee_id and business_unit are never
+        // re-sent on edit, they're immutable once assigned at creation.
         await apiRequest<any>(API_ENDPOINTS.USER.UPDATE(userId), {
           method: 'PUT',
-          body: JSON.stringify({ team_id: employment.team_id }),
+          body: JSON.stringify({
+            first_name:    personal.first_name,
+            last_name:     personal.last_name,
+            email:         personal.email,
+            phone:         personal.phone || undefined,
+            hire_date:     employment.hire_date || undefined,
+            designation:   employment.designation || undefined,
+            designation_id: employment.designation_id || undefined,
+            grade_id:      employment.grade_id || undefined,
+            department_id: employment.department_id || undefined,
+            supervisor_id: employment.supervisor_id || undefined,
+            team_id:       employment.team_id || undefined,
+          }),
         });
+      } else {
+        const userRes: any = await apiRequest<any>(API_ENDPOINTS.USER.CREATE, {
+          method: 'POST',
+          body: JSON.stringify({
+            first_name:    personal.first_name,
+            last_name:     personal.last_name,
+            email:         personal.email,
+            phone:         personal.phone || undefined,
+            employee_id:   employment.employee_id || undefined,
+            hire_date:     employment.hire_date || undefined,
+            designation:   employment.designation || undefined,
+            designation_id: employment.designation_id || undefined,
+            grade_id:      employment.grade_id || undefined,
+            department_id: employment.department_id || undefined,
+            supervisor_id: employment.supervisor_id || undefined,
+            business_unit: 'ERP',
+          }),
+        });
+        userId = userRes?.payload?.id || userRes?.id;
+        if (!userId) throw new Error('Failed to create user');
+
+        if (employment.team_id) {
+          await apiRequest<any>(API_ENDPOINTS.USER.UPDATE(userId), {
+            method: 'PUT',
+            body: JSON.stringify({ team_id: employment.team_id }),
+          });
+        }
       }
 
       await apiRequest<any>(API_ENDPOINTS.HR_PROFILE.UPDATE(userId), {
@@ -902,9 +1004,15 @@ export default function AddEmployee() {
       return userId;
     },
     onSuccess: () => {
-      clearDraft();
       qc.invalidateQueries({ queryKey: ['employee-directory'] });
-      navigate(`/hr/employees`);
+      if (isEditMode) {
+        qc.invalidateQueries({ queryKey: ['employee-full', employeeId] });
+        qc.invalidateQueries({ queryKey: ['hr-profile', employeeId] });
+        navigate('/hr/employee-directory');
+      } else {
+        clearDraft();
+        navigate(`/hr/employees`);
+      }
     },
     onError: (err: any) => {
       // Generic backend-validation-error routing: the backend's field_error()
@@ -940,28 +1048,52 @@ export default function AddEmployee() {
   };
   const changeWork        = (k: string, v: any) => setWork(p => ({ ...p, [k]: v }));
 
+  const existingDocTypes = ((record as any)?.documents || []).map((d: any) => d.document_type);
+
   const canNext = () => {
     if (step === 1) return personal.first_name && personal.last_name && personal.email;
     if (step === 2) return !!employment.hire_date;
-    if (step === 4) return missingRequiredDocs(docFiles).length === 0;
+    if (step === 4) return missingRequiredDocs(docFiles, existingDocTypes).length === 0;
     return true;
   };
+
+  if (isEditMode && recordLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-32">
+        <Loader2 size={28} className="animate-spin text-primary-500" />
+        <p className="text-sm text-gray-400 font-semibold">Loading employee profile…</p>
+      </div>
+    );
+  }
+
+  if (isEditMode && !recordLoading && !record) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-32">
+        <p className="text-sm font-semibold text-gray-500">Employee not found.</p>
+        <button onClick={() => navigate('/hr/employee-directory')} className="text-sm text-primary-600 font-semibold hover:underline">
+          Back to Employee Directory
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black text-gray-900">Add New Employee</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Complete the wizard to create a new employee profile</p>
+          <h1 className="text-2xl font-black text-gray-900">{isEditMode ? 'Edit Employee' : 'Add New Employee'}</h1>
+          <p className="text-sm text-gray-400 mt-0.5">
+            {isEditMode ? "Update the employee's profile" : 'Complete the wizard to create a new employee profile'}
+          </p>
         </div>
         <button onClick={() => navigate(-1)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
           <X size={20} />
         </button>
       </div>
 
-      {/* Draft restore banner */}
-      {draftBanner && (
+      {/* Draft restore banner (create mode only) */}
+      {!isEditMode && draftBanner && (
         <div className="flex items-center justify-between gap-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
           <div className="flex items-center gap-2 text-amber-800">
             <RotateCcw size={15} />
@@ -1006,7 +1138,7 @@ export default function AddEmployee() {
             {step === 1 && <StepPersonal data={personal} onChange={changePersonal} errorField={errorField} errorMessage={errorMessage} registerRef={registerRef} />}
             {step === 2 && <StepEmployment data={employment} onChange={changeEmployment} departments={departments} teams={teams} users={users} designations={designations} grades={grades} errorField={errorField} errorMessage={errorMessage} registerRef={registerRef} />}
             {step === 3 && <StepWork data={work} onChange={changeWork} />}
-            {step === 4 && <StepDocuments docFiles={docFiles} setDocFiles={setDocFiles} />}
+            {step === 4 && <StepDocuments docFiles={docFiles} setDocFiles={setDocFiles} existingTypes={existingDocTypes} />}
             {step === 5 && <StepReview personal={personal} employment={employment} work={work} />}
 
             {/* Actions */}
@@ -1021,13 +1153,17 @@ export default function AddEmployee() {
                     and is reachable from any step. A draft exists precisely to let
                     HR save incomplete progress and finish later — required-document
                     validation only applies to the final "Save Employee" submission,
-                    which can only be reached via Next once step 4 is satisfied. */}
-                <button
-                  onClick={() => createMutation.mutate(true)}
-                  disabled={createMutation.isPending}
-                  className="flex items-center gap-2 px-5 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
-                  <Save size={16} />Save as Draft
-                </button>
+                    which can only be reached via Next once step 4 is satisfied.
+                    Not shown in edit mode — an existing employee is never a
+                    "draft", there's no meaningful profile_status: 'DRAFT' mid-edit. */}
+                {!isEditMode && (
+                  <button
+                    onClick={() => saveMutation.mutate(true)}
+                    disabled={saveMutation.isPending}
+                    className="flex items-center gap-2 px-5 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+                    <Save size={16} />Save as Draft
+                  </button>
+                )}
                 {step < 5 ? (
                   <button disabled={!canNext()} onClick={() => setStep(s => s + 1)}
                     className="flex items-center gap-2 px-5 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors">
@@ -1035,16 +1171,16 @@ export default function AddEmployee() {
                   </button>
                 ) : (
                   <button
-                    onClick={() => createMutation.mutate(false)}
-                    disabled={createMutation.isPending}
+                    onClick={() => saveMutation.mutate(false)}
+                    disabled={saveMutation.isPending}
                     className="flex items-center gap-2 px-5 h-10 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors">
-                    <Check size={16} />{createMutation.isPending ? 'Saving…' : 'Save Employee'}
+                    <Check size={16} />{saveMutation.isPending ? 'Saving…' : (isEditMode ? 'Save Changes' : 'Save Employee')}
                   </button>
                 )}
               </div>
             </div>
 
-            {createMutation.isError && (
+            {saveMutation.isError && (
               <p className="text-red-500 text-sm mt-3 text-center">
                 {errorField
                   ? 'Please fix the highlighted field above before saving again.'
