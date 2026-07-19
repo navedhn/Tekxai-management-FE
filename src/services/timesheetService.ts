@@ -175,6 +175,10 @@ const rejectTimeOffApi = async (id: string | number) => {
    return apiRequest(`api/v1/timesheet/time-off/${id}/reject`, { method: 'POST' });
 };
 
+const deleteTimeOffApi = async (id: string | number) => {
+   return apiRequest(API_ENDPOINTS.TIMESHEET.DELETE_TIMEOFF(id), { method: 'DELETE' });
+};
+
 // --- Hooks ---
 
 export const useApproveEditRequestMutation = () => {
@@ -256,6 +260,17 @@ export const useRejectTimeOffMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: rejectTimeOffApi,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TIMESHEET.MY_REQUESTS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TIMESHEET.REQUESTS });
+    },
+  });
+};
+
+export const useDeleteTimeOffMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteTimeOffApi,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TIMESHEET.MY_REQUESTS });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TIMESHEET.REQUESTS });

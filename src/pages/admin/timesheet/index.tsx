@@ -5,6 +5,7 @@ import {
     useUpdateTimesheetMutation,
     useApproveTimeOffMutation,
     useRejectTimeOffMutation,
+    useDeleteTimeOffMutation,
     TimesheetEntry,
     EditRequest,
 } from '@/services/timesheetService';
@@ -12,9 +13,10 @@ import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
 import Tabs from '@/components/ui/Tabs';
-import { Check, X,  Calendar, Clock, SquarePen, Search, Loader2 } from 'lucide-react';
+import { Check, X, Trash2, Calendar, Clock, SquarePen, Search, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Modal from '@/components/ui/Modal';
+import ActionModal from '@/components/ui/ActionModal';
 import Input from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import ReviewEditRequestModal from '@/components/modals/ReviewEditRequestModal';
@@ -48,6 +50,7 @@ const TimesheetManagement: React.FC = () => {
     const updateMutation = useUpdateTimesheetMutation();
     const approveMutation = useApproveTimeOffMutation();
     const rejectMutation = useRejectTimeOffMutation();
+    const deleteMutation = useDeleteTimeOffMutation();
 
     const itemsPerPage = 8;
     const tabs = ['All Entries', 'Edit Requests', 'Time Off Requests'];
@@ -99,6 +102,22 @@ const TimesheetManagement: React.FC = () => {
             toast.success('Request rejected');
         } catch (error: any) {
             toast.error(error.message || 'Failed to reject');
+        } finally {
+            setPendingRequestId(null);
+        }
+    };
+
+    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+
+    const handleDeleteTimeOff = async () => {
+        if (!deleteTargetId) return;
+        setPendingRequestId(deleteTargetId);
+        try {
+            await deleteMutation.mutateAsync(deleteTargetId);
+            toast.success('Request deleted');
+            setDeleteTargetId(null);
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to delete');
         } finally {
             setPendingRequestId(null);
         }
@@ -314,6 +333,14 @@ const TimesheetManagement: React.FC = () => {
                                             >
                                                 <Check size={18} strokeWidth={3} /> Approve
                                             </Button>
+                                            <button
+                                                disabled={pendingRequestId !== null}
+                                                onClick={() => setDeleteTargetId(req.id)}
+                                                title="Delete request"
+                                                className="p-3.5 bg-gray-100 text-gray-500 rounded-xl hover:bg-gray-200 transition-all active:scale-95 disabled:opacity-50"
+                                            >
+                                                {deleteMutation.isPending && pendingRequestId === req.id ? <Loader2 className="animate-spin" size={18} /> : <Trash2 size={18} strokeWidth={3} />}
+                                            </button>
                                         </div>
                                     </div>
                                 )) : (
@@ -329,6 +356,18 @@ const TimesheetManagement: React.FC = () => {
                 isOpen={isRequestEditModalOpen}
                 onClose={() => { setIsRequestEditModalOpen(false); setSelectedRequest(null); }}
                 request={selectedRequest}
+            />
+
+            <ActionModal
+                isOpen={!!deleteTargetId}
+                onClose={() => setDeleteTargetId(null)}
+                onConfirm={handleDeleteTimeOff}
+                title="Delete Time-Off Request"
+                description="Are you sure you want to delete this request? This cannot be undone — use this to remove stray requests (e.g. left behind after an employee was deleted), not to decide a live request (use Approve/Reject for that)."
+                confirmText="Delete"
+                confirmVariant="danger"
+                icon="delete"
+                loading={deleteMutation.isPending}
             />
 
             {/* Edit Time Entry Modal */}

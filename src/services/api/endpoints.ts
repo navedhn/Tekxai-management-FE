@@ -157,6 +157,7 @@ export const API_ENDPOINTS = {
     REJECT_EDIT:     (id: string | number) => `${v1}/timesheet/edit-request/${id}/reject`,
     APPROVE_TIMEOFF: (id: string | number) => `${v1}/timesheet/time-off/${id}/approve`,
     REJECT_TIMEOFF:  (id: string | number) => `${v1}/timesheet/time-off/${id}/reject`,
+    DELETE_TIMEOFF:  (id: string | number) => `${v1}/timesheet/time-off/${id}`,
   },
   SETTINGS: {
     ME:            `${v1}/settings/me`,
