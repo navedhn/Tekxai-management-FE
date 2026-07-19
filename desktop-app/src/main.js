@@ -106,6 +106,15 @@ apiClient.interceptors.response.use(
         mainWindow?.webContents.send('force-logout');
       }
     }
+    // Electron's ipcRenderer.invoke strips custom properties (like
+    // AxiosError.response) off any Error crossing the main->renderer
+    // boundary, so a handler with no local try/catch (e.g. clock-in) would
+    // otherwise surface the generic "Error invoking remote method '...':
+    // AxiosError: Request failed with status code 403" instead of the
+    // backend's real message. Normalize once here, for every apiClient
+    // call, instead of requiring every ipcMain.handle to catch individually.
+    const backend_message = error?.response?.data?.message;
+    if (backend_message) error.message = backend_message;
     return Promise.reject(error);
   }
 );
