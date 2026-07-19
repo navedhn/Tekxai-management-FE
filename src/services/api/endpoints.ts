@@ -490,6 +490,8 @@ export const API_ENDPOINTS = {
     ARCHIVE:          (id: string) => `${v1}/hr-documents/${id}/archive`,
 
     SIGN:             (id: string) => `${v1}/hr-documents/${id}/sign`,
+
+    PDF:              (id: string) => `${v1}/hr-documents/${id}/pdf`,
   },
 } as const;
 

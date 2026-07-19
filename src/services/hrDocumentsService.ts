@@ -312,6 +312,16 @@ export const useRejectDocument = make_status_mutation(API_ENDPOINTS.HR_DOCUMENTS
 export const useCancelDocument = make_status_mutation(API_ENDPOINTS.HR_DOCUMENTS.CANCEL);
 export const useArchiveDocument = make_status_mutation(API_ENDPOINTS.HR_DOCUMENTS.ARCHIVE);
 
+// Lazily generates (server-side, cached after first call) and returns a
+// presigned/download URL for the document's PDF — call `.mutateAsync()` on
+// click rather than a `useQuery`, since the first call may render the PDF.
+export const useGetDocumentPdf = () =>
+  useMutation({
+    mutationFn: (id: string) =>
+      apiRequest<any>(API_ENDPOINTS.HR_DOCUMENTS.PDF(id), { method: 'GET' })
+        .then((r) => r?.payload as { url: string; file_key: string }),
+  });
+
 export const useSignDocument = () => {
   const qc = useQueryClient();
   return useMutation({
