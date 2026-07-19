@@ -51,6 +51,9 @@ const AdminApprovals         = lazy(() => import('@/pages/admin/approvals'));
 // HR workspace pages (reuse admin pages)
 const AdminCRM               = lazy(() => import('@/pages/admin/crm'));
 const AdminContracts         = lazy(() => import('@/pages/admin/contracts'));
+const AdminHrDocuments       = lazy(() => import('@/pages/admin/hr-documents'));
+const AdminHrDocumentDetail  = lazy(() => import('@/pages/admin/hr-documents/detail'));
+const AdminHrDocumentTemplates = lazy(() => import('@/pages/admin/hr-document-templates'));
 const AdminOnboarding        = lazy(() => import('@/pages/admin/onboarding'));
 const AdminPolicies          = lazy(() => import('@/pages/admin/policies'));
 const AdminAttendance        = lazy(() => import('@/pages/admin/attendance'));
@@ -285,6 +288,9 @@ const routes: RouteObject[] = [
           { path: '/hr/assets',                   element: <AdminAssets /> },
           { path: '/hr/requisitions',             element: <AdminRequisitions /> },
           { path: '/hr/contracts',                element: <AdminContracts /> },
+          { path: '/hr/documents',                element: <AdminHrDocuments /> },
+          { path: '/hr/documents/:id',            element: <AdminHrDocumentDetail /> },
+          { path: '/hr/document-templates',       element: <AdminHrDocumentTemplates /> },
           { path: '/hr/onboarding',               element: <AdminOnboarding /> },
           { path: '/hr/policies',                 element: <AdminPolicies /> },
           { path: '/hr/job-descriptions',         element: <AdminJobDescriptions /> },

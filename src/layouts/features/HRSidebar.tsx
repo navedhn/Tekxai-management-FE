@@ -48,6 +48,8 @@ const HRSidebar: React.FC<HRSidebarProps> = memo(({ isOpen, onClose }) => {
     { section: 'Assets & Ops', to: '/hr/assets', label: 'Assets', icon: Package },
     { to: '/hr/requisitions', label: 'Requisitions', icon: Package },
     { section: 'Employment', to: '/hr/contracts', label: 'Contracts', icon: FileText },
+    { to: '/hr/documents', label: 'HR Documents', icon: FileText },
+    { to: '/hr/document-templates', label: 'Document Templates', icon: Layers },
     { to: '/hr/onboarding', label: 'Hiring & Onboarding', icon: UserPlus },
     { to: '/hr/policies', label: 'Policies', icon: ShieldCheck },
     { to: '/hr/job-descriptions', label: 'Job Descriptions', icon: Briefcase },
