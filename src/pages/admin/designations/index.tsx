@@ -1,7 +1,16 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Search, Plus, X, Tag, Users } from 'lucide-react';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
-import { useGetDesignationsQuery, useCreateDesignation, useUpdateDesignation } from '@/services/designationService';
+import {
+  useGetDesignationsQuery, useCreateDesignation, useUpdateDesignation,
+  useDeleteDesignation, useBulkDeleteDesignations,
+} from '@/services/designationService';
+import { useBulkSelection } from '@/hooks/useBulkSelection';
+import { summarizeBulkDelete } from '@/utils/bulkDeleteSummary';
+import ActionModal from '@/components/ui/ActionModal';
+import BulkDeleteBar from '@/components/ui/BulkDeleteBar';
+import { useToastContext } from '@/components/toast/ToastProvider';
+import { cn } from '@/utils/cn';
 
 function Modal({ designation, onClose }: { designation?: any; onClose: () => void }) {
   const [form, setForm] = useState({
@@ -67,14 +76,47 @@ function Modal({ designation, onClose }: { designation?: any; onClose: () => voi
 }
 
 export default function DesignationsPage() {
+  const toast = useToastContext();
   const [q, setQ] = useState('');
   const [modal, setModal] = useState<any>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   const { data, isLoading } = useGetDesignationsQuery();
 
   const designations: any[] = (data || []).filter((d: any) =>
     !q || d.name?.toLowerCase().includes(q.toLowerCase()) || d.department?.name?.toLowerCase().includes(q.toLowerCase())
   );
+
+  const { selected, allOnPageSelected, toggleAll, toggleOne, clear } =
+    useBulkSelection(designations.map(d => d.id));
+  useEffect(() => { clear(); }, [q]);
+
+  const deleteMutation = useDeleteDesignation();
+  const bulkDelete = useBulkDeleteDesignations();
+
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    deleteMutation.mutate(deleteTarget.id, {
+      onSuccess: () => { toast.success('Designation deleted'); setDeleteTarget(null); },
+      onError: (e: any) => toast.error(e?.message || 'Failed to delete designation'),
+    });
+  };
+
+  const handleBulkDelete = () => {
+    const ids = Array.from(selected);
+    bulkDelete.mutate(ids, {
+      onSuccess: (results) => {
+        const byId = new Map(designations.map(d => [d.id, d.name]));
+        const { successMessage, errorMessage } = summarizeBulkDelete(results, 'designation', id => byId.get(id) || id);
+        toast.success(successMessage);
+        if (errorMessage) toast.error(errorMessage, 6000);
+        clear();
+        setBulkDeleteOpen(false);
+      },
+      onError: (e: any) => toast.error(e?.message || 'Bulk delete failed'),
+    });
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -96,10 +138,26 @@ export default function DesignationsPage() {
             placeholder="Search designations…" value={q} onChange={e => setQ(e.target.value)} />
         </div>
 
-        <div className="overflow-x-auto">
+        <BulkDeleteBar
+          count={selected.size}
+          entityLabel="designation"
+          onClear={clear}
+          onDelete={() => setBulkDeleteOpen(true)}
+        />
+
+        <div className="overflow-x-auto mt-4">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
+                <th className="py-3 px-2 w-8">
+                  <input
+                    type="checkbox"
+                    checked={allOnPageSelected}
+                    onChange={toggleAll}
+                    className="w-4 h-4 rounded accent-primary-600 cursor-pointer"
+                    title={allOnPageSelected ? 'Deselect all' : 'Select all'}
+                  />
+                </th>
                 {['Designation', 'Department', 'Employees', 'Actions'].map(h => (
                   <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
                 ))}
@@ -108,41 +166,82 @@ export default function DesignationsPage() {
             <tbody className="divide-y divide-gray-50">
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}><td colSpan={4} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                  <tr key={i}><td colSpan={5} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
                 ))
               ) : designations.length === 0 ? (
-                <tr><td colSpan={4} className="py-12 text-center text-gray-400 text-sm">No designations found</td></tr>
-              ) : designations.map((d: any) => (
-                <tr key={d.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="py-3 px-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center">
-                        <Tag size={14} className="text-teal-600" />
+                <tr><td colSpan={5} className="py-12 text-center text-gray-400 text-sm">No designations found</td></tr>
+              ) : designations.map((d: any) => {
+                const isChecked = selected.has(d.id);
+                return (
+                  <tr key={d.id} className={cn('hover:bg-gray-50 transition-colors', isChecked && 'bg-primary-50')}>
+                    <td className="py-3 px-2">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleOne(d.id)}
+                        className="w-4 h-4 rounded accent-primary-600 cursor-pointer"
+                      />
+                    </td>
+                    <td className="py-3 px-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center">
+                          <Tag size={14} className="text-teal-600" />
+                        </div>
+                        <span className="font-semibold text-gray-900">{d.name}</span>
                       </div>
-                      <span className="font-semibold text-gray-900">{d.name}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-2 text-gray-700">{d.department?.name || <span className="text-gray-400 italic">Any department</span>}</td>
-                  <td className="py-3 px-2">
-                    <div className="flex items-center gap-1.5 text-gray-600">
-                      <Users size={13} className="text-gray-400" />
-                      {d._count?.users ?? '—'}
-                    </div>
-                  </td>
-                  <td className="py-3 px-2">
-                    <button onClick={() => setModal(d)}
-                      className="px-3 h-7 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
-                      Edit
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="py-3 px-2 text-gray-700">{d.department?.name || <span className="text-gray-400 italic">Any department</span>}</td>
+                    <td className="py-3 px-2">
+                      <div className="flex items-center gap-1.5 text-gray-600">
+                        <Users size={13} className="text-gray-400" />
+                        {d._count?.users ?? '—'}
+                      </div>
+                    </td>
+                    <td className="py-3 px-2">
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setModal(d)}
+                          className="px-3 h-7 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+                          Edit
+                        </button>
+                        <button onClick={() => setDeleteTarget(d)}
+                          className="px-3 h-7 border border-red-200 rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors">
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
 
       {modal !== null && <Modal designation={modal?.id ? modal : undefined} onClose={() => setModal(null)} />}
+
+      <ActionModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Delete Designation"
+        description={`Are you sure you want to delete "${deleteTarget?.name}"? This cannot be undone.`}
+        confirmText="Delete"
+        confirmVariant="danger"
+        icon="delete"
+        loading={deleteMutation.isPending}
+      />
+
+      <ActionModal
+        isOpen={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+        onConfirm={handleBulkDelete}
+        title="Delete Designations"
+        description={`Delete ${selected.size} selected designation(s)? This cannot be undone.`}
+        confirmText="Delete"
+        confirmVariant="danger"
+        icon="delete"
+        loading={bulkDelete.isPending}
+      />
     </div>
   );
 }

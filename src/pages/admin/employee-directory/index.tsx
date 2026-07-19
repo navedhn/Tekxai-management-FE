@@ -7,7 +7,6 @@ import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useGetEmployeeDirectory } from '@/services/employeeService';
 import { useDeleteUserMutation, useBulkDeleteUsersMutation } from '@/services/userService';
 import { useToastContext } from '@/components/toast/ToastProvider';
-import UserFormModal from '@/components/ui/UserFormModal';
 import QuickCreateUserModal from '@/components/ui/QuickCreateUserModal';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetRolesQuery } from '@/services/roleService';
@@ -79,7 +78,6 @@ export default function EmployeeDirectory() {
     setPage(1);
   };
 
-  const [editEmployee, setEditEmployee]   = useState<any>(null);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget]   = useState<any>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -219,13 +217,6 @@ export default function EmployeeDirectory() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Edit modal — UserFormModal's own save mutation already invalidates
-          ['employee-directory'] on success; no manual refetch needed. */}
-      <UserFormModal
-        isOpen={!!editEmployee}
-        onClose={() => setEditEmployee(null)}
-        user={editEmployee}
-      />
 
       {/* Quick Create User — lightweight login-only creation, full profile filled in later */}
       <QuickCreateUserModal
@@ -511,7 +502,7 @@ export default function EmployeeDirectory() {
                           <Eye size={14} />
                         </button>
                         <button
-                          onClick={() => setEditEmployee(emp)}
+                          onClick={() => navigate(`/hr/add-employee/${emp.id}`)}
                           className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Edit Employee"
                         >

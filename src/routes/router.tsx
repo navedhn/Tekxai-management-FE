@@ -291,7 +291,7 @@ const routes: RouteObject[] = [
           { path: '/hr/my-salaries',              element: <MarketingMySalaries /> },
           { path: '/hr/employee/:employeeId',     element: <AdminEmployeeProfile /> },
           { path: '/hr/employee-directory',       element: <EmployeeDirectory /> },
-          { path: '/hr/add-employee',             element: <AddEmployee /> },
+          { path: '/hr/add-employee/:employeeId?', element: <AddEmployee /> },
           { path: '/hr/reports',                  element: <HRReports /> },
           { path: '/hr/overtime',                 element: <OvertimePage /> },
           { path: '/hr/increments',               element: <IncrementsPage /> },
