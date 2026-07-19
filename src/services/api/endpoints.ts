@@ -461,6 +461,36 @@ export const API_ENDPOINTS = {
     ATTACHMENT_LIST:   `${v1}/meeting/attachment`,
     ATTACHMENT_CREATE: `${v1}/meeting/attachment`,
   },
+
+  HR_DOCUMENTS: {
+    PLACEHOLDERS:     `${v1}/hr-documents/placeholders`,
+
+    CATEGORIES:       `${v1}/hr-documents/categories`,
+    CATEGORY_UPDATE:  (id: string) => `${v1}/hr-documents/categories/${id}`,
+
+    TYPES:            `${v1}/hr-documents/types`,
+    TYPE_UPDATE:      (id: string) => `${v1}/hr-documents/types/${id}`,
+
+    TEMPLATES:        `${v1}/hr-documents/templates`,
+    TEMPLATE_DETAIL:  (id: string) => `${v1}/hr-documents/templates/${id}`,
+    TEMPLATE_UPDATE:  (id: string) => `${v1}/hr-documents/templates/${id}`,
+    TEMPLATE_VERSIONS:(id: string) => `${v1}/hr-documents/templates/${id}/versions`,
+
+    PREVIEW_RENDER:   `${v1}/hr-documents/render/preview`,
+
+    LIST:             `${v1}/hr-documents`,
+    DETAIL:           (id: string) => `${v1}/hr-documents/${id}`,
+    GENERATE:         `${v1}/hr-documents/generate`,
+    RENEW:            (id: string) => `${v1}/hr-documents/${id}/renew`,
+
+    SEND:             (id: string) => `${v1}/hr-documents/${id}/send`,
+    VIEW:             (id: string) => `${v1}/hr-documents/${id}/view`,
+    REJECT:           (id: string) => `${v1}/hr-documents/${id}/reject`,
+    CANCEL:           (id: string) => `${v1}/hr-documents/${id}/cancel`,
+    ARCHIVE:          (id: string) => `${v1}/hr-documents/${id}/archive`,
+
+    SIGN:             (id: string) => `${v1}/hr-documents/${id}/sign`,
+  },
 } as const;
 
 // Legacy alias — kept for any future imports, content mirrors API_ENDPOINTS
