@@ -82,7 +82,6 @@ const HRSidebar: React.FC<HRSidebarProps> = memo(({ isOpen, onClose }) => {
       {canSwitchWorkspace && (
         <div className="px-3 pt-3 flex gap-2">
           <button onClick={() => navigate('/admin')} className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">ERP</button>
-          <button onClick={() => navigate('/crm')} className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">CRM</button>
           <button className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-emerald-600 text-white">HR</button>
         </div>
       )}

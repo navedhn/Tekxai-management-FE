@@ -160,7 +160,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       {isAdmin && (
         <div className="px-3 pt-3 flex gap-2">
           <button className="flex-1 text-xs font-semibold py-1.5 rounded-lg bg-[#005CDA] text-white">ERP</button>
-          <button onClick={() => navigate('/crm')} className="flex-1 text-xs font-semibold py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">CRM</button>
           <button onClick={() => navigate('/hr')} className="flex-1 text-xs font-semibold py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">HR</button>
         </div>
       )}

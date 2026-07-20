@@ -343,17 +343,15 @@ const routes: RouteObject[] = [
         element: <ProtectedRoute roles={[USER_ROLES.MARKETING, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN, USER_ROLES.HR]} />,
         children: [
           { path: '/marketing',                          element: <Navigate to="/crm" replace /> },
-          { path: '/marketing/won-deals',                element: <Navigate to="/crm/won-deals" replace /> },
           { path: '/marketing/salary-builder/:memberId', element: <MarketingSalaryBuilder /> },
-          { path: '/marketing/salary-history',           element: <Navigate to="/crm/salary-history" replace /> },
-          { path: '/marketing/upwork',                   element: <Navigate to="/crm/upwork" replace /> },
-          { path: '/marketing/linkedin',                 element: <Navigate to="/crm/linkedin" replace /> },
-          { path: '/marketing/email-leads',              element: <Navigate to="/crm/email-leads" replace /> },
-          { path: '/marketing/deposits',                 element: <Navigate to="/crm/deposits" replace /> },
-          { path: '/marketing/targets',                  element: <Navigate to="/crm/targets" replace /> },
-          { path: '/marketing/my-report',                element: <Navigate to="/crm/my-report" replace /> },
-          { path: '/marketing/my-salaries',              element: <Navigate to="/crm/my-salaries" replace /> },
-          { path: '/marketing/hr-dashboard',             element: <Navigate to="/crm/hr-dashboard" replace /> },
+          // The other legacy /marketing/* redirects (won-deals, salary-history,
+          // upwork, linkedin, email-leads, deposits, targets, my-report,
+          // my-salaries, hr-dashboard) pointed at /crm/* pages that were already
+          // de-navigated in an earlier CRM split phase — every one of them was
+          // silently 404ing via the /crm/* catch-all below. Removed rather than
+          // fixed, since there's nothing live to redirect to and nothing else in
+          // the app links to these paths (confirmed via grep) — CRM/ERP split
+          // Milestone 4 (no dead navigation).
         ],
       },
       { path: '/marketing/*', element: <NotFound /> },
