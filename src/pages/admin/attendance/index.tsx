@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Tabs from '@/components/ui/Tabs';
@@ -7,13 +8,104 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
 import ActionModal from '@/components/ui/ActionModal';
-import { Clock, AlertTriangle, Settings, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Clock, AlertTriangle, Settings, Plus, Pencil, Trash2, BarChart3 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useGetShiftsQuery, useGetViolationsQuery, useUpsertShiftMutation, useAssignShiftMutation, useDeleteShiftMutation } from '@/services/attendanceService';
 import { useFetchUsersQuery } from '@/services/userService';
+import { apiRequest } from '@/lib/queryClient';
 
-const TABS = ['Late Coming / Violations', 'Shift Management'];
+const TABS = ['Late Coming / Violations', 'Shift Management', 'Reports'];
+const v1 = 'api/v1';
+const BUILDER = `${v1}/report/builder`;
+
+// Sprint 1 Milestone 5 — Attendance Reports, entirely via the generic
+// report_builder engine against the already-persisted attendance_violations/
+// timesheet_entries/employee_shifts tables (no new attendance-specific logic).
+function AttendanceReportsTab({ users }: { users: any[] }) {
+  const [dimKey, setDimKey] = useState<'type' | 'employee'>('type');
+
+  const kpiCall = (entity: string, metric: string, filters?: any) =>
+    apiRequest<any>(`${BUILDER}/kpi`, { method: 'POST', body: JSON.stringify({ entity, metric, field: metric === 'COUNT' ? undefined : 'late_mins', filters }) }).then((r: any) => r?.payload?.value ?? 0);
+
+  const lateQ = useQuery({ queryKey: ['attendance-kpi-late'], queryFn: () => kpiCall('attendance_violations', 'COUNT', { violation_type: 'LATE' }) });
+  const absentQ = useQuery({ queryKey: ['attendance-kpi-absent'], queryFn: () => kpiCall('attendance_violations', 'COUNT', { violation_type: 'ABSENT' }) });
+  const lateMinsQ = useQuery({ queryKey: ['attendance-kpi-late-mins'], queryFn: () => kpiCall('attendance_violations', 'SUM') });
+  const entriesQ = useQuery({ queryKey: ['attendance-kpi-entries'], queryFn: () => kpiCall('timesheet_entries', 'COUNT') });
+
+  const cards = [
+    { icon: AlertTriangle, color: 'bg-yellow-500', label: 'Late Violations', value: lateQ.data },
+    { icon: AlertTriangle, color: 'bg-red-500', label: 'Absent Violations', value: absentQ.data },
+    { icon: Clock, color: 'bg-orange-500', label: 'Total Late Minutes', value: lateMinsQ.data },
+    { icon: BarChart3, color: 'bg-indigo-500', label: 'Timesheet Entries', value: entriesQ.data },
+  ];
+
+  const aggregateMutation = useMutation({
+    mutationFn: (body: { entity: string; group_by: string; metric_field?: string }) =>
+      apiRequest<any>(`${BUILDER}/aggregate`, { method: 'POST', body: JSON.stringify(body) }).then((r: any) => r?.payload),
+  });
+
+  React.useEffect(() => {
+    if (dimKey === 'type') aggregateMutation.mutate({ entity: 'attendance_violations', group_by: 'violation_type' });
+    else aggregateMutation.mutate({ entity: 'attendance_violations', group_by: 'user_id', metric_field: 'late_mins' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dimKey]);
+
+  const rows = useMemo(() => {
+    const raw = aggregateMutation.data?.rows || [];
+    return raw.map((r: any) => {
+      let label = dimKey === 'type' ? r.violation_type : (users.find((u: any) => u.id === r.user_id)?.first_name ? `${users.find((u: any) => u.id === r.user_id).first_name} ${users.find((u: any) => u.id === r.user_id).last_name}` : r.user_id);
+      return { label, count: r.count, value: r.value };
+    });
+  }, [aggregateMutation.data, dimKey, users]);
+
+  const max = Math.max(1, ...rows.map((r: any) => (dimKey === 'employee' ? r.value : r.count)));
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {cards.map((c) => (
+          <div key={c.label} className="flex items-center gap-4 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+            <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center', c.color)}>
+              <c.icon size={20} className="text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">{c.label}</p>
+              <p className="text-xl font-black text-gray-900 leading-tight">{c.value ?? '—'}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <Card className="border-none shadow-sm p-5">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Violations Breakdown</p>
+          <div className="flex gap-1.5">
+            <button onClick={() => setDimKey('type')} className={cn('px-3 h-8 rounded-lg text-xs font-semibold transition-colors', dimKey === 'type' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}>By Type</button>
+            <button onClick={() => setDimKey('employee')} className={cn('px-3 h-8 rounded-lg text-xs font-semibold transition-colors', dimKey === 'employee' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}>Top Late Employees</button>
+          </div>
+        </div>
+        {aggregateMutation.isPending ? (
+          <div className="h-24 bg-gray-50 rounded-xl animate-pulse" />
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-gray-400 py-6 text-center">No violation data.</p>
+        ) : (
+          <div className="space-y-2.5">
+            {rows.map((r: any, i: number) => (
+              <div key={`${r.label}-${i}`} className="flex items-center gap-3">
+                <span className="text-xs font-semibold text-gray-600 w-36 truncate">{r.label || 'Unknown'}</span>
+                <div className="flex-1 bg-gray-100 rounded-full h-2">
+                  <div className="h-2 rounded-full bg-yellow-500" style={{ width: `${((dimKey === 'employee' ? r.value : r.count) / max) * 100}%` }} />
+                </div>
+                <span className="text-xs font-black text-gray-900 tabular-nums w-16 text-right">{dimKey === 'employee' ? `${r.value} min` : r.count}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
 
 const VIOLATION_COLORS: Record<string, string> = {
   LATE:      'bg-yellow-50 text-yellow-700 border-yellow-100',
@@ -186,6 +278,8 @@ const AttendancePage: React.FC = () => {
           <Table columns={shiftCols} data={shifts} isLoading={sLoading} emptyMessage="No shifts configured." />
         </Card>
       )}
+
+      {activeTab === 'Reports' && <AttendanceReportsTab users={users} />}
 
       {/* New/Edit Shift Modal */}
       <Modal isOpen={showShiftModal} onClose={() => { setShowShiftModal(false); setEditingShift(null); }} title={editingShift ? 'Edit Shift' : 'New Shift'}>
