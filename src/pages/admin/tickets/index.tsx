@@ -1,14 +1,89 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import Card from '@/components/ui/Card';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS as ENDPOINTS } from '@/services/api/endpoints';
 import { SupportTicket } from '@/types/ticket';
 import { TicketDetailModal } from '@/components/tickets';
 import PromptModal from '@/components/ui/PromptModal';
 import { formatTicketDate } from '@/services/ticketService';
-import { Ticket, Search, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { Ticket, Search, Clock, CheckCircle2, XCircle, BarChart3 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useFetchUsersQuery } from '@/services/userService';
+
+const v1 = 'api/v1';
+const BUILDER = `${v1}/report/builder`;
+
+// Sprint 1 Milestone 6 — Tickets by Category/Type/Priority/Assignee/
+// Department, entirely via the generic report_builder aggregate engine.
+// SLA Breaches / Average Resolution Time are NOT offered here — see
+// report_builder.controller.js's ENTITY_MAP comment: neither is expressible
+// via flat filters/single-column aggregates without ticket-specific logic
+// inside the generic engine, which this milestone explicitly rules out.
+const TICKET_DIMENSIONS = [
+  { key: 'priority', label: 'By Priority', group_by: 'priority' },
+  { key: 'type', label: 'By Type', group_by: 'ticket_type_id' },
+  { key: 'department', label: 'By Department', group_by: 'department_id' },
+  { key: 'assignee', label: 'By Assignee', group_by: 'assignee_id' },
+];
+
+function TicketReportsSection() {
+  const [dimKey, setDimKey] = useState(TICKET_DIMENSIONS[0].key);
+  const dimension = TICKET_DIMENSIONS.find((d) => d.key === dimKey)!;
+  const { data: users = [] } = useFetchUsersQuery({});
+
+  const aggregateMutation = useMutation({
+    mutationFn: (body: any) => apiRequest<any>(`${BUILDER}/aggregate`, { method: 'POST', body: JSON.stringify(body) }).then((r: any) => r?.payload),
+  });
+
+  React.useEffect(() => {
+    aggregateMutation.mutate({ entity: 'support_tickets', group_by: dimension.group_by });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dimKey]);
+
+  const rows = useMemo(() => {
+    const raw = aggregateMutation.data?.rows || [];
+    return raw.map((r: any) => {
+      const value = r[dimension.group_by];
+      let label = value ? String(value) : 'Unassigned';
+      if (dimKey === 'assignee') { const u = (users as any[]).find((x: any) => x.id === value); label = u ? `${u.first_name} ${u.last_name}` : 'Unassigned'; }
+      return { label, count: r.count };
+    });
+  }, [aggregateMutation.data, dimKey, dimension, users]);
+
+  const max = Math.max(1, ...rows.map((r: any) => r.count));
+
+  return (
+    <Card className="border-none shadow-sm p-5">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Ticket Breakdown</p>
+        <div className="flex gap-1.5 flex-wrap">
+          {TICKET_DIMENSIONS.map((d) => (
+            <button key={d.key} onClick={() => setDimKey(d.key)} className={cn('px-3 h-8 rounded-lg text-xs font-semibold transition-colors', dimKey === d.key ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}>{d.label}</button>
+          ))}
+        </div>
+      </div>
+      {aggregateMutation.isPending ? (
+        <div className="h-24 bg-gray-50 rounded-xl animate-pulse" />
+      ) : rows.length === 0 ? (
+        <p className="text-sm text-gray-400 py-6 text-center">No ticket data for this dimension.</p>
+      ) : (
+        <div className="space-y-2.5">
+          {rows.map((r: any, i: number) => (
+            <div key={`${r.label}-${i}`} className="flex items-center gap-3">
+              <span className="text-xs font-semibold text-gray-600 w-36 truncate">{r.label}</span>
+              <div className="flex-1 bg-gray-100 rounded-full h-2">
+                <div className="h-2 rounded-full bg-blue-500" style={{ width: `${(r.count / max) * 100}%` }} />
+              </div>
+              <span className="text-xs font-black text-gray-900 tabular-nums w-8 text-right">{r.count}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
 
 const STATUS_STYLES: Record<string, string> = {
   pending:     'bg-yellow-100 text-yellow-700',
@@ -86,10 +161,20 @@ export default function AdminTickets() {
     return wf.filter((_, i) => i !== idx);
   };
 
+  // Previously computed by filtering the current paginated `data.records`
+  // page (max 100 rows) — wrong once there were more than 100 tickets, since
+  // it only counted whatever page happened to be loaded. Now backed by the
+  // generic KPI engine's COUNT, which reflects the true total regardless of
+  // pagination/filters on the list below.
+  const kpiCount = (status: string) =>
+    apiRequest<any>(`${BUILDER}/kpi`, { method: 'POST', body: JSON.stringify({ entity: 'support_tickets', metric: 'COUNT', filters: { status } }) }).then((r: any) => r?.payload?.value ?? 0);
+  const pendingQ = useQuery({ queryKey: ['ticket-kpi-pending'], queryFn: () => kpiCount('pending') });
+  const inProgressQ = useQuery({ queryKey: ['ticket-kpi-in_progress'], queryFn: () => kpiCount('in_progress') });
+  const resolvedQ = useQuery({ queryKey: ['ticket-kpi-resolved'], queryFn: () => kpiCount('resolved') });
   const stats = {
-    pending:     (data?.records ?? []).filter(t => t.status === 'pending').length,
-    in_progress: (data?.records ?? []).filter(t => t.status === 'in_progress').length,
-    resolved:    (data?.records ?? []).filter(t => t.status === 'resolved').length,
+    pending: pendingQ.data ?? 0,
+    in_progress: inProgressQ.data ?? 0,
+    resolved: resolvedQ.data ?? 0,
   };
 
   return (
@@ -121,6 +206,8 @@ export default function AdminTickets() {
           </button>
         ))}
       </div>
+
+      <TicketReportsSection />
 
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
