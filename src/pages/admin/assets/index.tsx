@@ -1,10 +1,36 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Monitor, CheckCircle, Package, Wrench, Filter, X, Plus, Search, RotateCcw, ClipboardList, Trash2, BarChart3, TrendingDown, AlertTriangle, Clock } from 'lucide-react';
+import { Monitor, CheckCircle, Package, Wrench, Filter, X, Plus, Search, RotateCcw, ClipboardList, Trash2, BarChart3, TrendingDown, AlertTriangle, Clock, Boxes, UserCheck2, Layers3 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
+import { useGetDepartmentsQuery } from '@/services/departmentService';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
+
+const v1 = 'api/v1';
+const BUILDER = `${v1}/report/builder`;
+
+// Sprint 1 Milestone 3 (Asset Reports) — Aggregate breakdowns not already
+// covered by the existing /asset/reports/inventory endpoint (which only
+// groups by category/status). Reuses the generic report_builder aggregate
+// engine (Sprint 1 Milestone 1/2) rather than adding bespoke groupBy queries
+// to the assets module.
+const ASSET_DIMENSIONS = [
+  { key: 'brand', label: 'By Brand', group_by: 'brand' },
+  { key: 'department', label: 'By Department', group_by: 'department_id' },
+  { key: 'office', label: 'By Office', group_by: 'location_id' },
+];
+
+// Detail reports (Assigned / Available / Retired / Under Repair) — same
+// generic run_report entity ('assets') already registered for the builder
+// page, just filtered by status. "Under Repair" maps to the existing
+// status='MAINTENANCE' value (there is no separate UNDER_REPAIR status).
+const ASSET_DETAIL_REPORTS = [
+  { key: 'ASSIGNED', label: 'Assigned Assets', icon: UserCheck2 },
+  { key: 'AVAILABLE', label: 'Available Assets', icon: CheckCircle },
+  { key: 'RETIRED', label: 'Retired Assets', icon: Trash2 },
+  { key: 'MAINTENANCE', label: 'Under Repair', icon: Wrench },
+];
 
 const STATUS_STYLE: Record<string, string> = {
   AVAILABLE:   'bg-green-100 text-green-700',
@@ -715,6 +741,186 @@ function RejectRequestModal({ request, onClose }: { request: any; onClose: () =>
   );
 }
 
+// Assets by Brand / Department / Office — the only groupings the existing
+// inventory report doesn't already provide (it covers category + status).
+// Backed entirely by the generic report_builder aggregate engine.
+function AssetAggregateBreakdown() {
+  const [dimKey, setDimKey] = useState(ASSET_DIMENSIONS[0].key);
+  const dimension = ASSET_DIMENSIONS.find((d) => d.key === dimKey)!;
+
+  const { data: departments } = useGetDepartmentsQuery();
+  const { data: locations } = useQuery({
+    queryKey: ['asset-locations'],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.LOCATIONS).then((r: any) => r?.payload || []),
+  });
+
+  const aggregateMutation = useMutation({
+    mutationFn: (body: { entity: string; group_by: string }) =>
+      apiRequest<any>(`${BUILDER}/aggregate`, { method: 'POST', body: JSON.stringify(body) }).then((r: any) => r?.payload),
+  });
+
+  React.useEffect(() => {
+    aggregateMutation.mutate({ entity: 'assets', group_by: dimension.group_by });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dimKey]);
+
+  const rows = useMemo(() => {
+    const raw = aggregateMutation.data?.rows || [];
+    return raw.map((r: any) => {
+      const value = r[dimension.group_by];
+      let label = value ? String(value) : 'Unassigned';
+      if (dimKey === 'department') label = (departments || []).find((d: any) => d.id === value)?.name || 'Unassigned';
+      if (dimKey === 'office') label = (locations || []).find((l: any) => l.id === value)?.name || 'Unassigned';
+      return { label, count: r.count };
+    });
+  }, [aggregateMutation.data, dimKey, dimension, departments, locations]);
+
+  const maxCount = Math.max(1, ...rows.map((r: any) => r.count));
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Assets Breakdown</p>
+        <div className="flex gap-1.5">
+          {ASSET_DIMENSIONS.map((d) => (
+            <button
+              key={d.key}
+              onClick={() => setDimKey(d.key)}
+              className={cn('px-3 h-8 rounded-lg text-xs font-semibold transition-colors',
+                dimKey === d.key ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}
+            >
+              {d.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {aggregateMutation.isPending ? (
+        <div className="h-24 bg-gray-50 rounded-xl animate-pulse" />
+      ) : rows.length === 0 ? (
+        <p className="text-sm text-gray-400 py-6 text-center">No data for this dimension.</p>
+      ) : (
+        <div className="space-y-2.5">
+          {rows.map((r: any) => (
+            <div key={r.label} className="flex items-center gap-3">
+              <span className="text-xs font-semibold text-gray-600 w-36 truncate">{r.label}</span>
+              <div className="flex-1 bg-gray-100 rounded-full h-2">
+                <div className="h-2 rounded-full bg-primary-500" style={{ width: `${(r.count / maxCount) * 100}%` }} />
+              </div>
+              <span className="text-xs font-black text-gray-900 tabular-nums w-8 text-right">{r.count}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Detail reports — Assigned / Available / Retired / Under Repair — filtered
+// listings against the same 'assets' entity via run_report, consistent with
+// "everything uses the same generic reporting engine."
+function AssetDetailReports() {
+  const [activeStatus, setActiveStatus] = useState<string | null>(null);
+
+  const detailMutation = useMutation({
+    mutationFn: (status: string) =>
+      apiRequest<any>(`${BUILDER}/run`, {
+        method: 'POST',
+        body: JSON.stringify({ entity: 'assets', filters: { status }, limit: 100, sort_by: 'created_at', sort_dir: 'desc' }),
+      }).then((r: any) => r?.payload),
+  });
+
+  const openReport = (status: string) => {
+    setActiveStatus(status);
+    detailMutation.mutate(status);
+  };
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Detail Reports</p>
+      <div className="flex flex-wrap gap-2 mb-4">
+        {ASSET_DETAIL_REPORTS.map((r) => (
+          <button
+            key={r.key}
+            onClick={() => openReport(r.key)}
+            className={cn('flex items-center gap-2 px-3.5 h-9 rounded-xl text-xs font-semibold transition-colors',
+              activeStatus === r.key ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}
+          >
+            <r.icon size={13} />{r.label}
+          </button>
+        ))}
+      </div>
+      {activeStatus && (
+        <div className="overflow-x-auto">
+          {detailMutation.isPending ? (
+            <div className="h-24 bg-gray-50 rounded-xl animate-pulse" />
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  {['Tag', 'Name', 'Brand', 'Model', 'Condition', 'Purchase Cost'].map((h) => (
+                    <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-2 px-2 whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {(detailMutation.data?.data || []).length === 0 ? (
+                  <tr><td colSpan={6} className="py-8 text-center text-gray-400 text-sm">No assets found for this status.</td></tr>
+                ) : (detailMutation.data?.data || []).map((a: any) => (
+                  <tr key={a.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="py-2 px-2 text-gray-500 font-mono text-xs">{a.asset_tag || '—'}</td>
+                    <td className="py-2 px-2 font-semibold text-gray-900">{a.name}</td>
+                    <td className="py-2 px-2 text-gray-600">{a.brand || '—'}</td>
+                    <td className="py-2 px-2 text-gray-600">{a.model || '—'}</td>
+                    <td className="py-2 px-2 text-gray-600">{a.condition || '—'}</td>
+                    <td className="py-2 px-2 text-gray-600 whitespace-nowrap">{a.purchase_cost != null ? `PKR ${a.purchase_cost.toLocaleString?.() ?? a.purchase_cost}` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <p className="text-xs text-gray-400 mt-2">{detailMutation.data?.total ?? 0} total (showing up to 100)</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// KPI cards — Total/Assigned/Available/Under Repair via the generic KPI
+// engine (COUNT), Expiring Warranty/Categories/Asset Value reused directly
+// from data already fetched for the tiles below (inventory/depreciation
+// reports + categories list) rather than re-derived.
+function AssetKpiRow({ warrantyCount, categoriesCount }: { warrantyCount: number; categoriesCount: number }) {
+  const kpi = (metric: string, filters?: Record<string, any>) => ({ entity: 'assets', metric, filters });
+
+  const totalQ = useQuery({ queryKey: ['asset-kpi-total'], queryFn: () => apiRequest<any>(`${BUILDER}/kpi`, { method: 'POST', body: JSON.stringify(kpi('COUNT')) }).then((r: any) => r?.payload?.value) });
+  const assignedQ = useQuery({ queryKey: ['asset-kpi-assigned'], queryFn: () => apiRequest<any>(`${BUILDER}/kpi`, { method: 'POST', body: JSON.stringify(kpi('COUNT', { status: 'ASSIGNED' })) }).then((r: any) => r?.payload?.value) });
+  const availableQ = useQuery({ queryKey: ['asset-kpi-available'], queryFn: () => apiRequest<any>(`${BUILDER}/kpi`, { method: 'POST', body: JSON.stringify(kpi('COUNT', { status: 'AVAILABLE' })) }).then((r: any) => r?.payload?.value) });
+  const repairQ = useQuery({ queryKey: ['asset-kpi-repair'], queryFn: () => apiRequest<any>(`${BUILDER}/kpi`, { method: 'POST', body: JSON.stringify(kpi('COUNT', { status: 'MAINTENANCE' })) }).then((r: any) => r?.payload?.value) });
+
+  const cards = [
+    { icon: Boxes, color: 'bg-indigo-500', label: 'Total Assets', value: totalQ.data },
+    { icon: UserCheck2, color: 'bg-blue-500', label: 'Assigned Assets', value: assignedQ.data },
+    { icon: CheckCircle, color: 'bg-green-500', label: 'Available Assets', value: availableQ.data },
+    { icon: Wrench, color: 'bg-orange-500', label: 'Under Repair', value: repairQ.data },
+    { icon: AlertTriangle, color: 'bg-amber-500', label: 'Expiring Warranty', value: warrantyCount },
+    { icon: Layers3, color: 'bg-purple-500', label: 'Asset Categories', value: categoriesCount },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+      {cards.map((c) => (
+        <div key={c.label} className="flex flex-col gap-2 bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+          <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', c.color)}>
+            <c.icon size={16} className="text-white" />
+          </div>
+          <p className="text-xl font-black text-gray-900 leading-tight">{c.value ?? '—'}</p>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">{c.label}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AssetsPage() {
@@ -1092,6 +1298,9 @@ export default function AssetsPage() {
 
       {tab === 'reports' && (
         <>
+          {/* Sprint 1 Milestone 3 — KPI cards (generic report_builder KPI engine) */}
+          <AssetKpiRow warrantyCount={warrantyAlerts.length} categoriesCount={(categories as any[] || []).length} />
+
           {/* Inventory summary tiles */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
@@ -1246,6 +1455,10 @@ export default function AssetsPage() {
               </table>
             </div>
           </div>
+
+          {/* Sprint 1 Milestone 3 — Assets by Brand/Department/Office + Detail Reports */}
+          <AssetAggregateBreakdown />
+          <AssetDetailReports />
         </>
       )}
 
