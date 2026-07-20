@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
@@ -7,8 +7,102 @@ import Badge from '@/components/ui/Badge';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
-import { DollarSign, Users, TrendingDown, Plus, X, ChevronLeft, Printer } from 'lucide-react';
+import { DollarSign, Users, TrendingDown, Plus, X, ChevronLeft, Printer, TrendingUp, Award, BarChart3 } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { useFetchUsersQuery } from '@/services/userService';
+
+const v1 = 'api/v1';
+const BUILDER = `${v1}/report/builder`;
+
+// Sprint 1 Milestone 5 — Payroll Reports, entirely via the generic
+// report_builder engine against payroll_runs/payroll_entries/
+// monthly_bonus_records (all already computed by the existing payroll
+// calculation service — nothing re-derived here).
+function PayrollReportsSection() {
+  const { data: users = [] } = useFetchUsersQuery({});
+  const [dimKey, setDimKey] = useState<'employee' | 'bonus'>('employee');
+
+  const kpiCall = (entity: string, metric: string, field?: string, filters?: any) =>
+    apiRequest<any>(`${BUILDER}/kpi`, { method: 'POST', body: JSON.stringify({ entity, metric, field, filters }) }).then((r: any) => r?.payload?.value ?? 0);
+
+  const overtimeQ = useQuery({ queryKey: ['payroll-kpi-overtime'], queryFn: () => kpiCall('payroll_entries', 'SUM', 'overtime_amount') });
+  const bonusQ = useQuery({ queryKey: ['payroll-kpi-bonus'], queryFn: () => kpiCall('payroll_entries', 'SUM', 'bonus_amount') });
+  const deductionsQ = useQuery({ queryKey: ['payroll-kpi-deductions'], queryFn: () => kpiCall('payroll_entries', 'SUM', 'deductions') });
+  const completedRunsQ = useQuery({ queryKey: ['payroll-kpi-completed-runs'], queryFn: () => kpiCall('payroll_runs', 'COUNT', undefined, { status: 'COMPLETED' }) });
+
+  const cards = [
+    { icon: TrendingUp, color: 'bg-orange-500', label: 'Total Overtime Cost', value: overtimeQ.data },
+    { icon: Award, color: 'bg-purple-500', label: 'Total Bonuses Paid', value: bonusQ.data },
+    { icon: TrendingDown, color: 'bg-red-500', label: 'Total Deductions', value: deductionsQ.data },
+    { icon: BarChart3, color: 'bg-indigo-500', label: 'Completed Runs', value: completedRunsQ.data },
+  ];
+
+  const aggregateMutation = useMutation({
+    mutationFn: (body: any) => apiRequest<any>(`${BUILDER}/aggregate`, { method: 'POST', body: JSON.stringify(body) }).then((r: any) => r?.payload),
+  });
+
+  React.useEffect(() => {
+    if (dimKey === 'employee') aggregateMutation.mutate({ entity: 'payroll_entries', group_by: 'user_id', metric_field: 'net_amount' });
+    else aggregateMutation.mutate({ entity: 'monthly_bonus_records', group_by: 'user_id', metric_field: 'bonus_amount' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dimKey]);
+
+  const rows = useMemo(() => {
+    const raw = aggregateMutation.data?.rows || [];
+    return raw.map((r: any) => {
+      const u = (users as any[]).find((x: any) => x.id === r.user_id);
+      return { label: u ? `${u.first_name} ${u.last_name}` : r.user_id, value: r.value };
+    });
+  }, [aggregateMutation.data, users]);
+
+  const max = Math.max(1, ...rows.map((r: any) => r.value));
+
+  return (
+    <div className="flex flex-col gap-4">
+      <h2 className="text-sm font-black text-gray-700">Payroll Reports</h2>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {cards.map((c) => (
+          <div key={c.label} className="flex items-center gap-4 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+            <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center', c.color)}>
+              <c.icon size={20} className="text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">{c.label}</p>
+              <p className="text-xl font-black text-gray-900 leading-tight">{c.value != null ? `PKR ${Number(c.value).toLocaleString('en-PK')}` : '—'}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <Card className="border-none shadow-sm p-5">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Payroll Breakdown by Employee</p>
+          <div className="flex gap-1.5">
+            <button onClick={() => setDimKey('employee')} className={cn('px-3 h-8 rounded-lg text-xs font-semibold transition-colors', dimKey === 'employee' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}>Salary Breakdown</button>
+            <button onClick={() => setDimKey('bonus')} className={cn('px-3 h-8 rounded-lg text-xs font-semibold transition-colors', dimKey === 'bonus' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}>Bonus</button>
+          </div>
+        </div>
+        {aggregateMutation.isPending ? (
+          <div className="h-24 bg-gray-50 rounded-xl animate-pulse" />
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-gray-400 py-6 text-center">No payroll data for this dimension.</p>
+        ) : (
+          <div className="space-y-2.5">
+            {rows.slice(0, 10).map((r: any, i: number) => (
+              <div key={`${r.label}-${i}`} className="flex items-center gap-3">
+                <span className="text-xs font-semibold text-gray-600 w-36 truncate">{r.label}</span>
+                <div className="flex-1 bg-gray-100 rounded-full h-2">
+                  <div className="h-2 rounded-full bg-indigo-500" style={{ width: `${(r.value / max) * 100}%` }} />
+                </div>
+                <span className="text-xs font-black text-gray-900 tabular-nums w-24 text-right">PKR {Number(r.value).toLocaleString('en-PK')}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type RunStatus = 'DRAFT' | 'PROCESSING' | 'COMPLETED' | 'PAID';
@@ -336,6 +430,8 @@ const PayrollPage: React.FC = () => {
           <Card className="border-none shadow-sm">
             <Table columns={runCols} data={runs} isLoading={runsLoading} emptyMessage="No payroll runs yet. Create the first run." />
           </Card>
+
+          <PayrollReportsSection />
         </>
       ) : (
         <>
