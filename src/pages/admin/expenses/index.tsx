@@ -183,11 +183,13 @@ function ExpenseAggregateBreakdown() {
 
   const { data: categories } = useQuery({
     queryKey: ['expense-categories'],
-    queryFn: () => apiRequest<any>(API_ENDPOINTS.EXPENSES.CATEGORIES).then((r: any) => r?.payload?.records || []),
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.EXPENSES.CATEGORIES),
+    select: (r: any) => r?.payload?.records || [],
   });
   const { data: users } = useQuery({
     queryKey: ['user-list-brief'],
-    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200`).then((r: any) => r?.payload?.records || []),
+    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200`),
+    select: (r: any) => r?.payload?.records || [],
   });
 
   const aggregateMutation = useMutation({
@@ -269,7 +271,8 @@ function ExpenseDetailReports() {
 
   const { data: users } = useQuery({
     queryKey: ['user-list-brief'],
-    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200`).then((r: any) => r?.payload?.records || []),
+    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200`),
+    select: (r: any) => r?.payload?.records || [],
   });
   const [employeeId, setEmployeeId] = useState('');
 
