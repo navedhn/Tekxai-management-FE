@@ -1,10 +1,38 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { BarChart3, Users, AlertTriangle, Clock, Calendar, TrendingUp } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { BarChart3, Users, AlertTriangle, Clock, Calendar, TrendingUp, PieChart } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useGetAnnualReport, useGetMonthlyReport, useGetAggregateReport } from '@/services/employeeService';
+import { useGetDepartmentsQuery } from '@/services/departmentService';
+import { useGetGradesQuery } from '@/services/gradeService';
+import { useGetTeamsQuery } from '@/services/adminService';
 import { cn } from '@/utils/cn';
+
+const v1 = 'api/v1';
+const BUILDER = `${v1}/report/builder`;
+
+// Dimensions HR can break the workforce down by — each maps to an
+// {entity, group_by} pair on the generic report_builder engine (Sprint 1
+// Milestone 1). Adding a new dimension here is a one-line change, no new
+// backend endpoint required.
+type Dimension = {
+  key: string; label: string; entity: string; group_by: string;
+  resolveLabel?: (value: string, ctx: { departments: any[]; grades: any[]; teams: any[] }) => string;
+};
+
+const DIMENSIONS: Dimension[] = [
+  { key: 'department', label: 'By Department', entity: 'users', group_by: 'department_id',
+    resolveLabel: (v, { departments }) => departments.find((d) => d.id === v)?.name || 'Unassigned' },
+  { key: 'designation', label: 'By Designation', entity: 'users', group_by: 'designation' },
+  { key: 'grade', label: 'By Grade', entity: 'users', group_by: 'grade_id',
+    resolveLabel: (v, { grades }) => grades.find((g) => g.id === v)?.name || 'Unassigned' },
+  { key: 'business_unit', label: 'By Business Unit', entity: 'users', group_by: 'business_unit' },
+  { key: 'status', label: 'By Employment Status', entity: 'users', group_by: 'status' },
+  { key: 'team', label: 'By Team', entity: 'team_members', group_by: 'team_id',
+    resolveLabel: (v, { teams }) => teams.find((t) => t.id === v)?.name || 'Unassigned' },
+  { key: 'lifecycle', label: 'By Lifecycle Stage', entity: 'employee_profiles', group_by: 'lifecycle_stage' },
+];
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const THIS_YEAR = new Date().getFullYear();
@@ -276,9 +304,89 @@ function EmployeeView() {
   );
 }
 
+// ── Workforce Breakdown (Sprint 1 Milestone 2 — HR Reports) ────────────────────
+// Employee Summary / Department / Designation / Grade / Business Unit / Team /
+// Lifecycle counts — all driven by the generic report_builder aggregate
+// endpoint added in Milestone 1, no bespoke HR counting logic.
+function WorkforceBreakdown() {
+  const [dimKey, setDimKey] = useState(DIMENSIONS[0].key);
+  const dimension = DIMENSIONS.find((d) => d.key === dimKey)!;
+
+  const { data: departments } = useGetDepartmentsQuery();
+  const { data: grades } = useGetGradesQuery();
+  const { data: teamsRaw } = useGetTeamsQuery();
+  const teams = (teamsRaw as any)?.payload?.records || (teamsRaw as any)?.payload || [];
+
+  const aggregateMutation = useMutation({
+    mutationFn: (body: { entity: string; group_by: string }) =>
+      apiRequest<any>(`${BUILDER}/aggregate`, { method: 'POST', body: JSON.stringify(body) }).then((r) => r?.payload),
+  });
+
+  React.useEffect(() => {
+    aggregateMutation.mutate({ entity: dimension.entity, group_by: dimension.group_by });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dimKey]);
+
+  const rows = useMemo(() => {
+    const raw = aggregateMutation.data?.rows || [];
+    return raw.map((r: any) => ({
+      label: dimension.resolveLabel
+        ? dimension.resolveLabel(r[dimension.group_by], { departments: departments || [], grades: grades || [], teams })
+        : (r[dimension.group_by] ? String(r[dimension.group_by]).replace(/_/g, ' ') : 'Unassigned'),
+      count: r.count,
+    }));
+  }, [aggregateMutation.data, dimension, departments, grades, teams]);
+
+  const total = aggregateMutation.data?.total ?? 0;
+  const maxCount = Math.max(1, ...rows.map((r: any) => r.count));
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap gap-2">
+        {DIMENSIONS.map((d) => (
+          <button
+            key={d.key}
+            onClick={() => setDimKey(d.key)}
+            className={cn('px-3.5 h-9 rounded-xl text-xs font-semibold transition-colors',
+              dimKey === d.key ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}
+          >
+            {d.label}
+          </button>
+        ))}
+      </div>
+
+      <SectionCard title={`Employee Summary — ${dimension.label}`}>
+        {aggregateMutation.isPending ? (
+          <div className="h-40 bg-gray-50 rounded-xl animate-pulse" />
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-gray-400 py-8 text-center">No data for this dimension.</p>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="font-black text-gray-900 text-lg">{total}</span>
+              <span className="text-gray-400">total employees</span>
+            </div>
+            <div className="space-y-2.5">
+              {rows.map((r: any) => (
+                <div key={r.label} className="flex items-center gap-3">
+                  <span className="text-xs font-semibold text-gray-600 w-40 truncate">{r.label}</span>
+                  <div className="flex-1 bg-gray-100 rounded-full h-2">
+                    <div className="h-2 rounded-full bg-primary-500" style={{ width: `${(r.count / maxCount) * 100}%` }} />
+                  </div>
+                  <span className="text-xs font-black text-gray-900 tabular-nums w-8 text-right">{r.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </SectionCard>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function HRReports() {
-  const [view, setView] = useState<'employee' | 'aggregate'>('aggregate');
+  const [view, setView] = useState<'employee' | 'aggregate' | 'workforce'>('aggregate');
 
   return (
     <div className="flex flex-col gap-6">
@@ -298,10 +406,15 @@ export default function HRReports() {
               view === 'employee' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:bg-gray-50')}>
             <Users size={15} />Per Employee
           </button>
+          <button onClick={() => setView('workforce')}
+            className={cn('px-4 h-10 flex items-center gap-2 text-sm font-semibold transition-colors',
+              view === 'workforce' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:bg-gray-50')}>
+            <PieChart size={15} />Workforce Breakdown
+          </button>
         </div>
       </div>
 
-      {view === 'aggregate' ? <AggregateView /> : <EmployeeView />}
+      {view === 'aggregate' ? <AggregateView /> : view === 'employee' ? <EmployeeView /> : <WorkforceBreakdown />}
     </div>
   );
 }
