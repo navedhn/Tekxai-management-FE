@@ -1,18 +1,119 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Tabs from '@/components/ui/Tabs';
 import Select from '@/components/ui/Select';
 import Badge from '@/components/ui/Badge';
 import ActionModal from '@/components/ui/ActionModal';
-import { Activity, Camera, Clock, Cpu, Trash2 } from 'lucide-react';
+import { Activity, Camera, Clock, Cpu, Trash2, BarChart3 } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { apiRequest } from '@/lib/queryClient';
 import { useFetchUsersQuery } from '@/services/userService';
 import { useGetScreenshots, useGetProductivity, useGetAppUsage, useDeleteScreenshot, useBulkDeleteScreenshots, type Screenshot, type ProductivitySession } from '@/services/monitoringService';
 import { useAuthStore } from '@/stores/authStore';
 import { StatSkeleton } from '@/components/skeletons';
 
-const TABS = ['Productivity Overview', 'Screenshot History'];
+const TABS = ['Productivity Overview', 'Screenshot History', 'Reports'];
+const v1 = 'api/v1';
+const BUILDER = `${v1}/report/builder`;
+
+// Sprint 1 Milestone 6 — org-wide Monitoring Reports via the generic
+// report_builder engine. Deliberately separate from the existing
+// "Productivity Overview" tab's per-page aggregateProductivity() (left
+// untouched, same formula, just scoped to whatever page is loaded) — this
+// tab answers the same questions (avg productivity, active vs idle) but
+// correctly across ALL records via KPI AVG/SUM, not just the current page.
+function MonitoringReportsTab() {
+  const { data: users = [] } = useFetchUsersQuery({});
+  const [dimKey, setDimKey] = useState<'apps' | 'websites' | 'employee'>('apps');
+
+  const kpiCall = (entity: string, metric: string, field?: string) =>
+    apiRequest<any>(`${BUILDER}/kpi`, { method: 'POST', body: JSON.stringify({ entity, metric, field }) }).then((r: any) => r?.payload?.value ?? 0);
+
+  const avgProductivityQ = useQuery({ queryKey: ['monitoring-kpi-avg-productivity'], queryFn: () => kpiCall('productivity_sessions', 'AVG', 'productivity_score') });
+  const activeQ = useQuery({ queryKey: ['monitoring-kpi-active'], queryFn: () => kpiCall('productivity_sessions', 'SUM', 'active_seconds') });
+  const idleQ = useQuery({ queryKey: ['monitoring-kpi-idle'], queryFn: () => kpiCall('productivity_sessions', 'SUM', 'idle_seconds') });
+  const screenshotCountQ = useQuery({ queryKey: ['monitoring-kpi-screenshots'], queryFn: () => kpiCall('screenshots', 'COUNT') });
+  const monitoringTimeQ = useQuery({ queryKey: ['monitoring-kpi-time'], queryFn: () => kpiCall('app_usage_logs', 'SUM', 'duration_seconds') });
+
+  const cards = [
+    { icon: Cpu, color: 'bg-green-500', label: 'Avg. Productivity %', value: avgProductivityQ.data != null ? `${Math.round(avgProductivityQ.data)}%` : '—' },
+    { icon: Activity, color: 'bg-blue-500', label: 'Active vs Idle', value: activeQ.data != null && idleQ.data != null ? `${fmtDuration(activeQ.data)} / ${fmtDuration(idleQ.data)}` : '—' },
+    { icon: Camera, color: 'bg-purple-500', label: 'Screenshot Count', value: screenshotCountQ.data ?? '—' },
+    { icon: Clock, color: 'bg-orange-500', label: 'Total Monitoring Time', value: monitoringTimeQ.data != null ? fmtDuration(monitoringTimeQ.data) : '—' },
+  ];
+
+  const aggregateMutation = useMutation({
+    mutationFn: (body: any) => apiRequest<any>(`${BUILDER}/aggregate`, { method: 'POST', body: JSON.stringify(body) }).then((r: any) => r?.payload),
+  });
+
+  React.useEffect(() => {
+    if (dimKey === 'apps') aggregateMutation.mutate({ entity: 'app_usage_logs', group_by: 'app_name', metric_field: 'duration_seconds' });
+    else if (dimKey === 'websites') aggregateMutation.mutate({ entity: 'app_usage_logs', group_by: 'url', metric_field: 'duration_seconds' });
+    else aggregateMutation.mutate({ entity: 'productivity_sessions', group_by: 'user_id', metric_field: 'productivity_score', metric: 'AVG' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dimKey]);
+
+  const rows = useMemo(() => {
+    const raw = (aggregateMutation.data?.rows || []).filter((r: any) => r[dimKey === 'apps' ? 'app_name' : dimKey === 'websites' ? 'url' : 'user_id']);
+    return raw.map((r: any) => {
+      if (dimKey === 'employee') {
+        const u = (users as any[]).find((x: any) => x.id === r.user_id);
+        return { label: u ? `${u.first_name} ${u.last_name}` : r.user_id, value: r.value, isPct: true };
+      }
+      return { label: r[dimKey === 'apps' ? 'app_name' : 'url'], value: r.value, isPct: false };
+    });
+  }, [aggregateMutation.data, dimKey, users]);
+
+  const max = Math.max(1, ...rows.map((r: any) => r.value));
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {cards.map((c) => (
+          <div key={c.label} className="flex items-center gap-4 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+            <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center', c.color)}>
+              <c.icon size={20} className="text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">{c.label}</p>
+              <p className="text-lg font-black text-gray-900 leading-tight">{c.value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <Card className="border-none shadow-sm p-5">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Breakdown</p>
+          <div className="flex gap-1.5">
+            <button onClick={() => setDimKey('apps')} className={cn('px-3 h-8 rounded-lg text-xs font-semibold transition-colors', dimKey === 'apps' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}>Top Applications</button>
+            <button onClick={() => setDimKey('websites')} className={cn('px-3 h-8 rounded-lg text-xs font-semibold transition-colors', dimKey === 'websites' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}>Top Websites</button>
+            <button onClick={() => setDimKey('employee')} className={cn('px-3 h-8 rounded-lg text-xs font-semibold transition-colors', dimKey === 'employee' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}>User Productivity</button>
+          </div>
+        </div>
+        {aggregateMutation.isPending ? (
+          <div className="h-24 bg-gray-50 rounded-xl animate-pulse" />
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-gray-400 py-6 text-center">No monitoring data for this dimension.</p>
+        ) : (
+          <div className="space-y-2.5">
+            {rows.slice(0, 10).map((r: any, i: number) => (
+              <div key={`${r.label}-${i}`} className="flex items-center gap-3">
+                <span className="text-xs font-semibold text-gray-600 w-40 truncate">{r.label}</span>
+                <div className="flex-1 bg-gray-100 rounded-full h-2">
+                  <div className="h-2 rounded-full bg-teal-500" style={{ width: `${(r.value / max) * 100}%` }} />
+                </div>
+                <span className="text-xs font-black text-gray-900 tabular-nums w-16 text-right">{r.isPct ? `${Math.round(r.value)}%` : fmtDuration(r.value)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
 
 function fmtDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -442,6 +543,8 @@ const MonitoringPage: React.FC = () => {
           />
         </Card>
       )}
+
+      {activeTab === 'Reports' && <MonitoringReportsTab />}
 
       <ActionModal
         isOpen={!!screenshotToDelete}
