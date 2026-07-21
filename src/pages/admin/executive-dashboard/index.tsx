@@ -6,6 +6,7 @@ import {
   Activity, Gauge, AlertTriangle, Clock, CalendarClock,
   TrendingUp, TrendingDown, Monitor, Camera, AppWindow, ShieldAlert,
   UserPlus, UserMinus, Flag, ArrowUpRight, ArrowDownRight,
+  Search, Lightbulb, ClipboardList,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useGetExecutiveDashboard } from '@/services/executiveAnalyticsService';
@@ -61,6 +62,26 @@ function SectionHeader({ title }: { title: string }) {
   return <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">{title}</p>;
 }
 
+// Shared by "Top Applications by Usage Time" and the Root Cause factor
+// breakdowns below — both render the same {label, value} bar-list shape,
+// just with a different value formatter.
+function BarList({ items, formatValue }: { items: { label: string; value: number }[]; formatValue: (n: number) => string }) {
+  const max = Math.max(...items.map((i) => Math.abs(i.value)), 1);
+  return (
+    <div className="space-y-2.5">
+      {items.map((item, i) => (
+        <div key={`${item.label}-${i}`} className="flex items-center gap-3">
+          <span className="text-xs font-semibold text-gray-600 w-40 truncate">{item.label || 'Unknown'}</span>
+          <div className="flex-1 bg-gray-100 rounded-full h-2">
+            <div className="h-2 rounded-full bg-orange-500" style={{ width: `${(Math.abs(item.value) / max) * 100}%` }} />
+          </div>
+          <span className="text-xs font-black text-gray-900 tabular-nums w-16 text-right">{formatValue(item.value)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Sprint 2 Milestone 3 — Executive Action Center. Every item is
 // {key, label, count, priority, path} straight from the backend's
 // action_center bucket — already deterministically sorted by priority
@@ -68,6 +89,15 @@ function SectionHeader({ title }: { title: string }) {
 // executive-analytics.service.js). This component only renders; no
 // re-sorting, re-filtering, or re-fetching happens here.
 type ActionItem = { key: string; label: string; count: number; priority: string; path: string };
+
+// Sprint 2 Milestone 4 — Executive Drill-down & Decision Support. Every
+// field below comes straight from the backend's root_cause/recommendations/
+// executive_summary — see build_root_cause() etc. in
+// executive-analytics.service.js. No client-side calculation; this only
+// renders what the API already computed.
+type RootCausePanel = { key: string; kpi: string; summary: string; factors: { label: string; value: number }[]; path: string };
+type Recommendation = { recommendation: string; reason: string; priority: string; path: string };
+type ExecutiveSummary = { critical_issues: number; high_priority_items: number; recommendations_count: number; highlights: string[] };
 
 const PRIORITY_STYLES: Record<string, string> = {
   critical: 'bg-red-100 text-red-700',
@@ -164,6 +194,9 @@ export default function ExecutiveDashboard() {
   const actionCenter = data?.action_center as {
     requires_attention: ActionItem[]; requires_review: ActionItem[]; informational: ActionItem[];
   } | undefined;
+  const rootCause = data?.root_cause as RootCausePanel[] | undefined;
+  const recommendations = data?.recommendations as Recommendation[] | undefined;
+  const execSummary = data?.executive_summary as ExecutiveSummary | undefined;
 
   const alertMeta: Record<string, { icon: React.ElementType; path: string; cls: string }> = {
     overdue_tickets:      { icon: Ticket,       path: '/admin/tickets',           cls: 'bg-red-50 text-red-800 hover:bg-red-100' },
@@ -189,6 +222,33 @@ export default function ExecutiveDashboard() {
         <h1 className="text-2xl font-black text-gray-900">Executive Dashboard</h1>
         <p className="text-sm text-gray-500 mt-0.5">Company-wide operations, financial, and productivity overview.</p>
       </div>
+
+      {/* Executive Summary — Sprint 2 Milestone 4. A single roll-up of counts
+          already computed by the Action Center above plus a handful of
+          insight trends — no new calculation, just the headline numbers an
+          executive would otherwise have to skim every section to find. */}
+      {execSummary && (
+        <Card className="border-none shadow-sm p-5 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
+          <div className="flex items-start gap-3 mb-3">
+            <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+              <ClipboardList size={16} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-white/50 uppercase tracking-wider">Executive Summary</p>
+              <p className="text-sm font-semibold mt-0.5">
+                {execSummary.critical_issues} critical issue{execSummary.critical_issues === 1 ? '' : 's'} · {execSummary.high_priority_items} high-priority item{execSummary.high_priority_items === 1 ? '' : 's'} · {execSummary.recommendations_count} recommendation{execSummary.recommendations_count === 1 ? '' : 's'}
+              </p>
+            </div>
+          </div>
+          {execSummary.highlights.length > 0 && (
+            <ul className="flex flex-wrap gap-2">
+              {execSummary.highlights.map((h, i) => (
+                <li key={i} className="text-xs font-semibold bg-white/10 rounded-lg px-2.5 py-1.5">{h}</li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
 
       {/* Executive Action Center — Sprint 2 Milestone 3. Turns insights into
           direct navigation: every card here reuses an already-computed count
@@ -261,20 +321,7 @@ export default function ExecutiveDashboard() {
         {prod?.top_applications?.length > 0 && (
           <Card className="border-none shadow-sm p-5">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Top Applications by Usage Time</p>
-            <div className="space-y-2.5">
-              {prod.top_applications.map((a: any, i: number) => {
-                const max = prod.top_applications[0]?.value || 1;
-                return (
-                  <div key={`${a.app_name}-${i}`} className="flex items-center gap-3">
-                    <span className="text-xs font-semibold text-gray-600 w-40 truncate">{a.app_name || 'Unknown'}</span>
-                    <div className="flex-1 bg-gray-100 rounded-full h-2">
-                      <div className="h-2 rounded-full bg-orange-500" style={{ width: `${(a.value / max) * 100}%` }} />
-                    </div>
-                    <span className="text-xs font-black text-gray-900 tabular-nums w-16 text-right">{fmtSeconds(a.value)}</span>
-                  </div>
-                );
-              })}
-            </div>
+            <BarList items={prod.top_applications.map((a: any) => ({ label: a.app_name, value: a.value }))} formatValue={fmtSeconds as (n: number) => string} />
           </Card>
         )}
       </div>
@@ -359,6 +406,67 @@ export default function ExecutiveDashboard() {
           )}
         </Card>
       </div>
+
+      {/* Root Cause Analysis — Sprint 2 Milestone 4. Every panel/factor here
+          is assembled from data Milestones 1-3 already computed (delivery
+          health, insight trends, expense breakdown) — see build_root_cause()
+          in executive-analytics.service.js. Clicking a panel drills into the
+          same existing module page its KPI already links to above. */}
+      {rootCause && rootCause.length > 0 && (
+        <div>
+          <SectionHeader title="Root Cause Analysis" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {rootCause.map((panel) => (
+              <button
+                key={panel.key}
+                onClick={() => navigate(panel.path)}
+                className="text-left bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
+                    <Search size={14} />
+                  </div>
+                  <p className="text-sm font-black text-gray-900">{panel.kpi}</p>
+                </div>
+                <p className="text-xs text-gray-500 mb-3">{panel.summary}</p>
+                <BarList items={panel.factors} formatValue={(n) => n.toLocaleString()} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recommendations — Sprint 2 Milestone 4. Deterministic rule-based
+          suggestions, one per already-flagged Action Center item — no AI,
+          no notification engine. See get_recommendations() in
+          executive-analytics.service.js. */}
+      {recommendations && recommendations.length > 0 && (
+        <div>
+          <SectionHeader title="Recommendations" />
+          <Card className="border-none shadow-sm p-5">
+            <div className="space-y-2">
+              {recommendations.map((r, i) => (
+                <button
+                  key={i}
+                  onClick={() => navigate(r.path)}
+                  className="w-full flex items-start gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                    <Lightbulb size={14} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-gray-900">{r.recommendation}</span>
+                      <span className={cn('text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full shrink-0', PRIORITY_STYLES[r.priority] || PRIORITY_STYLES.low)}>{r.priority}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5">{r.reason}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
