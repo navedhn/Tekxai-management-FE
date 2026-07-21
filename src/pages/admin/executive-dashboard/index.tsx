@@ -4,7 +4,8 @@ import Card from '@/components/ui/Card';
 import {
   Users, Briefcase, Ticket, Package, DollarSign, Wallet,
   Activity, Gauge, AlertTriangle, Clock, CalendarClock,
-  TrendingUp, Monitor, Camera, AppWindow, ShieldAlert,
+  TrendingUp, TrendingDown, Monitor, Camera, AppWindow, ShieldAlert,
+  UserPlus, UserMinus, Flag, ArrowUpRight, ArrowDownRight,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useGetExecutiveDashboard } from '@/services/executiveAnalyticsService';
@@ -60,6 +61,52 @@ function SectionHeader({ title }: { title: string }) {
   return <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">{title}</p>;
 }
 
+// Sprint 2 Milestone 2 — Executive Insights. `trend` is {current, previous,
+// delta_pct} straight from the backend's trend_kpi() helper — two
+// report_builder KPI calls, no client-side recalculation. `invertGood` flips
+// the up/down color for metrics where a rise is bad news (e.g. attrition).
+function TrendCard({
+  icon: Icon, color, label, trend, invertGood = false, format = 'num', onClick,
+}: {
+  icon: React.ElementType; color: string; label: string;
+  trend?: { current: number | null; previous: number | null; delta_pct: number } | null;
+  invertGood?: boolean; format?: 'num' | 'money' | 'pct'; onClick?: () => void;
+}) {
+  const fmt = format === 'money' ? fmtMoney : format === 'pct' ? fmtPct : fmtNum;
+  const delta = trend?.delta_pct ?? null;
+  const isUp = delta != null && delta > 0;
+  const isGood = delta == null ? null : invertGood ? delta <= 0 : delta >= 0;
+  return (
+    <button
+      onClick={onClick}
+      disabled={!onClick}
+      className={cn(
+        'flex items-center gap-3 bg-white rounded-2xl border border-gray-100 p-4 shadow-sm text-left w-full transition-shadow',
+        onClick && 'hover:shadow-md cursor-pointer'
+      )}
+    >
+      <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0', color)}>
+        <Icon size={18} className="text-white" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider truncate">{label}</p>
+        <div className="flex items-baseline gap-2">
+          <p className="text-lg font-black text-gray-900 leading-tight truncate">{trend ? fmt(trend.current) : '—'}</p>
+          {trend && delta != null && (
+            <span className={cn(
+              'flex items-center gap-0.5 text-[11px] font-bold tabular-nums',
+              isGood === null ? 'text-gray-400' : isGood ? 'text-green-600' : 'text-red-600'
+            )}>
+              {isUp ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+              {Math.abs(delta)}%
+            </span>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+}
+
 export default function ExecutiveDashboard() {
   const navigate = useNavigate();
   const { data, isLoading } = useGetExecutiveDashboard();
@@ -68,7 +115,16 @@ export default function ExecutiveDashboard() {
   const ops = data?.operations;
   const fin = data?.financial;
   const prod = data?.productivity;
-  const alerts = data?.alerts;
+  const insights = data?.insights;
+  const priorityAlerts = data?.priority_alerts as Array<{ key: string; label: string; count: number; severity: string }> | undefined;
+
+  const alertMeta: Record<string, { icon: React.ElementType; path: string; cls: string }> = {
+    overdue_tickets:      { icon: Ticket,       path: '/admin/tickets',           cls: 'bg-red-50 text-red-800 hover:bg-red-100' },
+    blocked_projects:     { icon: Briefcase,    path: '/admin/project-tracking',  cls: 'bg-orange-50 text-orange-800 hover:bg-orange-100' },
+    overdue_approvals:    { icon: ShieldAlert,  path: '/admin/approvals',         cls: 'bg-yellow-50 text-yellow-800 hover:bg-yellow-100' },
+    compliance_reminders: { icon: ShieldAlert,  path: '/admin/policies',          cls: 'bg-purple-50 text-purple-800 hover:bg-purple-100' },
+    probation_reminders:  { icon: Users,        path: '/hr/employee-directory',   cls: 'bg-blue-50 text-blue-800 hover:bg-blue-100' },
+  };
 
   if (isLoading) {
     return (
@@ -160,34 +216,84 @@ export default function ExecutiveDashboard() {
         )}
       </div>
 
-      {/* Executive Alerts */}
+      {/* Executive Insights — Sprint 2 Milestone 2. Every trend below is the
+          same generic report_builder KPI call made twice (current window vs.
+          the prior window of equal length) by the backend's trend_kpi()
+          helper — no new calculation surface, just period comparison. */}
+      <div>
+        <SectionHeader title="Executive Insights" />
+
+        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 mt-1">Workforce</p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+          <TrendCard icon={UserPlus} color="bg-blue-500" label="Hiring (30d)" trend={insights?.workforce?.hiring_trend_30d} onClick={() => navigate('/hr/employee-directory')} />
+          <KpiCard icon={Users} color="bg-indigo-500" label="Employee Growth" value={fmtNum(insights?.workforce?.employee_growth)} onClick={() => navigate('/hr/employee-directory')} />
+          <TrendCard icon={UserMinus} color="bg-red-500" label="Attrition (30d)" trend={insights?.workforce?.attrition_30d} invertGood onClick={() => navigate('/hr/employee-directory')} />
+          <KpiCard icon={Clock} color="bg-amber-500" label="Probation Ending Soon" value={fmtNum(insights?.workforce?.probation_ending_soon)} onClick={() => navigate('/hr/employee-directory')} />
+        </div>
+
+        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Delivery</p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+          <KpiCard icon={AlertTriangle} color="bg-orange-500" label="Projects at Risk" value={fmtNum(insights?.delivery?.projects_at_risk)} onClick={() => navigate('/admin/project-tracking')} />
+          <KpiCard icon={Briefcase} color="bg-red-500" label="Projects Blocked" value={fmtNum(insights?.delivery?.projects_blocked)} onClick={() => navigate('/admin/project-tracking')} />
+          <KpiCard icon={Flag} color="bg-indigo-500" label="Upcoming Milestones (7d)" value={fmtNum(insights?.delivery?.upcoming_milestones_7d)} onClick={() => navigate('/admin/project-tracking')} />
+          <KpiCard icon={TrendingUp} color="bg-rose-500" label="Budget Overrun Risk" value={fmtNum(insights?.delivery?.budget_overrun_risk_count)} onClick={() => navigate('/admin/project-tracking')} />
+        </div>
+
+        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Financial</p>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+          <TrendCard icon={DollarSign} color="bg-teal-500" label="Expense Trend (30d)" trend={insights?.financial?.expense_trend_30d} format="money" invertGood onClick={() => navigate('/admin/expenses')} />
+          <TrendCard icon={Wallet} color="bg-green-600" label="Payroll Trend (MoM)" trend={insights?.financial?.payroll_trend_mom} format="money" invertGood onClick={() => navigate('/admin/payroll')} />
+          <KpiCard icon={TrendingDown} color="bg-gray-400" label="Budget Utilization Trend" value="No history tracked" onClick={() => navigate('/admin/project-tracking')} />
+        </div>
+
+        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Productivity</p>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+          <TrendCard icon={Gauge} color="bg-green-500" label="Productivity Trend (7d)" trend={insights?.productivity?.productivity_trend_7d} format="pct" onClick={() => navigate('/admin/monitoring')} />
+          <TrendCard icon={Monitor} color="bg-blue-500" label="Monitoring Coverage Trend (7d)" trend={insights?.productivity?.monitoring_coverage_trend_7d} format="pct" onClick={() => navigate('/admin/monitoring')} />
+          <TrendCard icon={Clock} color="bg-amber-500" label="Late Attendance Trend (7d)" trend={insights?.productivity?.attendance_late_trend_7d} invertGood onClick={() => navigate('/admin/attendance')} />
+        </div>
+
+        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Service Desk</p>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+          <TrendCard icon={Ticket} color="bg-orange-500" label="Ticket Volume Trend (30d)" trend={insights?.service_desk?.ticket_volume_trend_30d} invertGood onClick={() => navigate('/admin/tickets')} />
+          <TrendCard icon={Activity} color="bg-emerald-500" label="Resolution Trend (30d)" trend={insights?.service_desk?.resolution_trend_30d} onClick={() => navigate('/admin/tickets')} />
+          <KpiCard icon={Clock} color="bg-gray-400" label="SLA Trend" value="No history tracked" onClick={() => navigate('/admin/tickets')} />
+        </div>
+      </div>
+
+      {/* Executive Alerts — reuses the exact counts from `alerts` (Milestone
+          1); this section only ranks/labels them by severity, no new alert
+          source. */}
       <div>
         <SectionHeader title="Executive Alerts" />
         <Card className="border-none shadow-sm p-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <button onClick={() => navigate('/admin/approvals')} className="flex items-center justify-between p-3 rounded-xl bg-yellow-50 hover:bg-yellow-100 transition-colors text-left">
-              <span className="flex items-center gap-2 text-sm font-semibold text-yellow-800"><ShieldAlert size={16} /> Overdue Approvals</span>
-              <span className="text-sm font-black text-yellow-900 tabular-nums">
-                {(alerts?.overdue_approvals?.requisitions_pending || 0) + (alerts?.overdue_approvals?.tickets_pending || 0) + (alerts?.overdue_approvals?.leave_pending || 0)}
-              </span>
-            </button>
-            <button onClick={() => navigate('/admin/tickets')} className="flex items-center justify-between p-3 rounded-xl bg-red-50 hover:bg-red-100 transition-colors text-left">
-              <span className="flex items-center gap-2 text-sm font-semibold text-red-800"><Ticket size={16} /> Overdue Tickets</span>
-              <span className="text-sm font-black text-red-900 tabular-nums">{fmtNum(alerts?.overdue_tickets)}</span>
-            </button>
-            <button onClick={() => navigate('/admin/project-tracking')} className="flex items-center justify-between p-3 rounded-xl bg-orange-50 hover:bg-orange-100 transition-colors text-left">
-              <span className="flex items-center gap-2 text-sm font-semibold text-orange-800"><Briefcase size={16} /> Blocked Projects</span>
-              <span className="text-sm font-black text-orange-900 tabular-nums">{fmtNum(alerts?.blocked_projects)}</span>
-            </button>
-            <button onClick={() => navigate('/hr/employee-directory')} className="flex items-center justify-between p-3 rounded-xl bg-blue-50 hover:bg-blue-100 transition-colors text-left">
-              <span className="flex items-center gap-2 text-sm font-semibold text-blue-800"><Users size={16} /> Probation Reminders</span>
-              <span className="text-sm font-black text-blue-900 tabular-nums">{fmtNum(alerts?.probation_reminders)}</span>
-            </button>
-            <button onClick={() => navigate('/admin/policies')} className="flex items-center justify-between p-3 rounded-xl bg-purple-50 hover:bg-purple-100 transition-colors text-left md:col-span-2">
-              <span className="flex items-center gap-2 text-sm font-semibold text-purple-800"><ShieldAlert size={16} /> Compliance Reminders</span>
-              <span className="text-sm font-black text-purple-900 tabular-nums">{fmtNum(alerts?.compliance_reminders)}</span>
-            </button>
-          </div>
+          {priorityAlerts && priorityAlerts.length > 0 ? (
+            <div className="space-y-2">
+              {priorityAlerts.map((a) => {
+                const meta = alertMeta[a.key];
+                const Icon = meta?.icon || ShieldAlert;
+                return (
+                  <button
+                    key={a.key}
+                    onClick={() => meta && navigate(meta.path)}
+                    className={cn('w-full flex items-center justify-between p-3 rounded-xl transition-colors text-left', meta?.cls || 'bg-gray-50 text-gray-800 hover:bg-gray-100')}
+                  >
+                    <span className="flex items-center gap-2 text-sm font-semibold">
+                      <Icon size={16} />
+                      {a.label}
+                      <span className={cn(
+                        'text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full ml-1',
+                        a.severity === 'high' ? 'bg-red-200 text-red-800' : a.severity === 'medium' ? 'bg-yellow-200 text-yellow-800' : 'bg-gray-200 text-gray-600'
+                      )}>{a.severity}</span>
+                    </span>
+                    <span className="text-sm font-black tabular-nums">{a.count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400 text-center py-4">No active alerts — everything is on track.</p>
+          )}
         </Card>
       </div>
     </div>
