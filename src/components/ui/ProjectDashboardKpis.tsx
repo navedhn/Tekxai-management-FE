@@ -88,14 +88,6 @@ const ProjectDashboardKpis: React.FC<ProjectDashboardKpisProps> = ({ stats, acti
         colorClassName="bg-[#FFF1F3]"
       />
       <KpiCard
-        icon={<AlertTriangle size={18} className="text-[#C4320A]" />}
-        value={stats.at_risk}
-        label="At Risk"
-        active={activeFilter === 'at_risk'}
-        onClick={() => toggle('at_risk')}
-        colorClassName="bg-[#FFF6ED]"
-      />
-      <KpiCard
         icon={<CheckCircle2 size={18} className="text-[#027A48]" />}
         value={stats.delivered}
         label="Delivered"

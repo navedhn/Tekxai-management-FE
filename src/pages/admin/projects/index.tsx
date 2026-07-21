@@ -73,7 +73,6 @@ const ProjectManagement: React.FC = () => {
     else if (kpiFilter === 'needs_qa') data = data.filter(p => p.status === 'QA');
     else if (kpiFilter === 'waiting_on_client') data = data.filter(p => p.status === 'CLIENT_REVIEW');
     else if (kpiFilter === 'access_incomplete') data = data.filter(p => (p.access_completion_score?.percent || 0) < 100);
-    else if (kpiFilter === 'at_risk') data = data.filter(p => p.health_status && p.health_status !== 'HEALTHY');
     if (filters.sortByLatest) {
       data = [...data].sort((a, b) => Number(b.id) - Number(a.id));
     }
