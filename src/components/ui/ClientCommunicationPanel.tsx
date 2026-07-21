@@ -30,14 +30,19 @@ const TYPE_FILTER_OPTIONS = [
 ];
 
 const METHOD_OPTIONS: { label: string; value: CommChannel }[] = [
+  { label: 'ClickUp', value: 'CLICKUP' },
   { label: 'Email', value: 'EMAIL' },
-  { label: 'Clickup', value: 'CLICKUP' },
+  { label: 'WhatsApp', value: 'WHATSAPP' },
   { label: 'Slack', value: 'SLACK' },
   { label: 'Microsoft Teams', value: 'TEAMS' },
-  { label: 'WhatsApp', value: 'WHATSAPP' },
-  { label: 'Google Meet', value: 'GOOGLE_MEET' },
+  { label: 'Discord', value: 'DISCORD' },
+  { label: 'Skype', value: 'SKYPE' },
   { label: 'Zoom', value: 'ZOOM' },
-  { label: 'Other Platform', value: 'OTHER' },
+  { label: 'Upwork', value: 'UPWORK' },
+  { label: 'Fiverr', value: 'FIVERR' },
+  { label: 'Phone', value: 'PHONE' },
+  { label: 'Google Meet', value: 'GOOGLE_MEET' },
+  { label: 'Other', value: 'OTHER' },
 ];
 
 interface ClientCommunicationPanelProps {
@@ -59,7 +64,7 @@ const ClientCommunicationPanel: React.FC<ClientCommunicationPanelProps> = ({ pro
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [noteContent, setNoteContent] = useState('');
   const [showUpdateForm, setShowUpdateForm] = useState(false);
-  const [updateForm, setUpdateForm] = useState({ method: 'EMAIL' as CommChannel, summary: '', client_response: '' });
+  const [updateForm, setUpdateForm] = useState({ method: 'EMAIL' as CommChannel, summary: '', client_response: '', attachment_url: '' });
 
   const authorOptions = useMemo(() => {
     const names = Array.from(new Set(events.map((e) => e.author).filter(Boolean))) as string[];
@@ -91,7 +96,7 @@ const ClientCommunicationPanel: React.FC<ClientCommunicationPanelProps> = ({ pro
   const handleLogUpdate = () => {
     if (!updateForm.summary.trim()) return toast.error('Summary is required');
     createWeeklyUpdate.mutate(updateForm, {
-      onSuccess: () => { toast.success('Update logged'); setUpdateForm({ method: 'EMAIL', summary: '', client_response: '' }); setShowUpdateForm(false); },
+      onSuccess: () => { toast.success('Update logged'); setUpdateForm({ method: 'EMAIL', summary: '', client_response: '', attachment_url: '' }); setShowUpdateForm(false); },
       onError: (e: any) => toast.error(e?.message || 'Failed to log update'),
     });
   };
@@ -121,6 +126,13 @@ const ClientCommunicationPanel: React.FC<ClientCommunicationPanelProps> = ({ pro
             <Select label="Method" options={METHOD_OPTIONS} value={updateForm.method} onChange={(v) => setUpdateForm((f) => ({ ...f, method: v as CommChannel }))} />
             <Textarea label="Summary *" value={updateForm.summary} onChange={(e) => setUpdateForm((f) => ({ ...f, summary: e.target.value }))} placeholder="What was shared with the client..." className="min-h-[70px]" />
             <Textarea label="Client Response (optional)" value={updateForm.client_response} onChange={(e) => setUpdateForm((f) => ({ ...f, client_response: e.target.value }))} placeholder="How did the client respond..." className="min-h-[50px]" />
+            <input
+              type="url"
+              value={updateForm.attachment_url}
+              onChange={(e) => setUpdateForm((f) => ({ ...f, attachment_url: e.target.value }))}
+              placeholder="Attachment/link (optional) — https://..."
+              className="w-full border border-gray-200 rounded-xl h-10 px-3 text-sm"
+            />
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setShowUpdateForm(false)} className="h-9 rounded-xl font-bold text-xs px-4">Cancel</Button>
               <Button onClick={handleLogUpdate} disabled={createWeeklyUpdate.isPending} className="bg-primary-500 text-white h-9 rounded-xl font-bold text-xs px-4">
@@ -199,6 +211,11 @@ const TimelineRow: React.FC<{ event: CommunicationEvent }> = ({ event }) => {
         <p className="text-sm font-medium text-gray-700 mt-0.5 break-words">{event.summary}</p>
         {event.type === 'WEEKLY_UPDATE' && event.related_entity.client_response && (
           <p className="text-xs text-gray-500 italic border-l-2 border-primary-200 pl-2 mt-1">Client: {event.related_entity.client_response}</p>
+        )}
+        {event.type === 'WEEKLY_UPDATE' && event.related_entity.attachment_url && (
+          <a href={event.related_entity.attachment_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary-600 hover:underline mt-1">
+            <ExternalLink size={11} /> Attachment
+          </a>
         )}
       </div>
     </div>

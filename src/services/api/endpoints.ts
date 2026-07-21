@@ -267,11 +267,13 @@ export const API_ENDPOINTS = {
   TIME_LOGS:  (taskId: string) => `${v1}/tasks/${taskId}/time-logs`,
   // Milestones are nested under projects: /project/:projectId/milestones
   MILESTONE: {
-    LIST:   (projectId: string) => `${v1}/project/${projectId}/milestones`,
-    CREATE: (projectId: string) => `${v1}/project/${projectId}/milestones`,
-    DETAIL: (projectId: string, milestoneId: string) => `${v1}/project/${projectId}/milestones/${milestoneId}`,
-    UPDATE: (projectId: string, milestoneId: string) => `${v1}/project/${projectId}/milestones/${milestoneId}`,
-    DELETE: (projectId: string, milestoneId: string) => `${v1}/project/${projectId}/milestones/${milestoneId}`,
+    LIST:      (projectId: string) => `${v1}/project/${projectId}/milestones`,
+    CREATE:    (projectId: string) => `${v1}/project/${projectId}/milestones`,
+    DETAIL:    (projectId: string, milestoneId: string) => `${v1}/project/${projectId}/milestones/${milestoneId}`,
+    UPDATE:    (projectId: string, milestoneId: string) => `${v1}/project/${projectId}/milestones/${milestoneId}`,
+    DELETE:    (projectId: string, milestoneId: string) => `${v1}/project/${projectId}/milestones/${milestoneId}`,
+    ARCHIVE:   (projectId: string, milestoneId: string) => `${v1}/project/${projectId}/milestones/${milestoneId}/archive`,
+    UNARCHIVE: (projectId: string, milestoneId: string) => `${v1}/project/${projectId}/milestones/${milestoneId}/unarchive`,
   },
   // DevOps/client handoff access tracking, nested under projects: /project/:projectId/devops-access
   DEVOPS_ACCESS: {

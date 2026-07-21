@@ -12,7 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useDevopsAccess, useUpdateDevopsAccess } from '@/services/devopsAccessService';
 import { useTrackingLinks, useCreateTrackingLink, useDeleteTrackingLink } from '@/services/trackingLinksService';
 import type {
-  AccessStatus, ApiKeysStatus, AwsAccessStatus, CommChannel, DatabaseBackupStatus,
+  AccessStatus, ApiKeysStatus, AwsAccessStatus, AzureAccessStatus, CommChannel, DatabaseBackupStatus,
   DevopsAccessUpdatePayload, DomainSslStatus, HostingEnvironment, ProgressSharedStatus,
 } from '@/types/devopsAccess';
 import type { AccessCompletionScore } from '@/services/projectService';
@@ -32,6 +32,10 @@ const AWS_OPTIONS: StatusOption[] = [
   { label: 'N/A', value: 'NOT_APPLICABLE', colorClassName: 'bg-gray-50 text-gray-500 border-gray-200' },
 ];
 
+// Azure mirrors AWS (also supports Limited); OpenAI/Stripe use the plain
+// 3-value vocabulary the same as Git/Server/Domain/SMTP above.
+const AZURE_OPTIONS = AWS_OPTIONS;
+
 const PROGRESS_SHARED_OPTIONS: StatusOption[] = [
   { label: 'Not Shared', value: 'NOT_SHARED', colorClassName: 'bg-gray-50 text-gray-500 border-gray-200' },
   { label: 'Shared', value: 'SHARED', colorClassName: 'bg-[#EFF8FF] text-[#175CD3] border-[#B2DDFF]' },
@@ -40,14 +44,19 @@ const PROGRESS_SHARED_OPTIONS: StatusOption[] = [
 ];
 
 const COMM_CHANNEL_OPTIONS: { label: string; value: CommChannel }[] = [
+  { label: 'ClickUp', value: 'CLICKUP' },
   { label: 'Email', value: 'EMAIL' },
-  { label: 'Clickup', value: 'CLICKUP' },
+  { label: 'WhatsApp', value: 'WHATSAPP' },
   { label: 'Slack', value: 'SLACK' },
   { label: 'Microsoft Teams', value: 'TEAMS' },
-  { label: 'WhatsApp', value: 'WHATSAPP' },
-  { label: 'Google Meet', value: 'GOOGLE_MEET' },
+  { label: 'Discord', value: 'DISCORD' },
+  { label: 'Skype', value: 'SKYPE' },
   { label: 'Zoom', value: 'ZOOM' },
-  { label: 'Other Platform', value: 'OTHER' },
+  { label: 'Upwork', value: 'UPWORK' },
+  { label: 'Fiverr', value: 'FIVERR' },
+  { label: 'Phone', value: 'PHONE' },
+  { label: 'Google Meet', value: 'GOOGLE_MEET' },
+  { label: 'Other', value: 'OTHER' },
 ];
 
 const HOSTING_ENV_OPTIONS: { label: string; value: HostingEnvironment }[] = [
@@ -96,10 +105,14 @@ const EMPTY_INFRA_FORM: InfraFormState = {
 
 const LINK_TYPE_OPTIONS = [
   { label: 'ClickUp', value: 'CLICKUP' },
+  { label: 'Tracking Sheet', value: 'TRACKING_SHEET' },
   { label: 'Google Sheet', value: 'GOOGLE_SHEET' },
-  { label: 'Notion', value: 'NOTION' },
-  { label: 'Jira', value: 'JIRA' },
+  { label: 'Figma', value: 'FIGMA' },
+  { label: 'Loom', value: 'LOOM' },
+  { label: 'GitHub', value: 'GITHUB' },
   { label: 'GitHub Project', value: 'GITHUB_PROJECT' },
+  { label: 'Jira', value: 'JIRA' },
+  { label: 'Notion', value: 'NOTION' },
   { label: 'Linear', value: 'LINEAR' },
   { label: 'Other', value: 'OTHER' },
 ];
@@ -198,6 +211,25 @@ const DevopsAccessPanel: React.FC<DevopsAccessPanelProps> = ({ projectId, ownerI
 
   const health = healthStatus ? HEALTH_STYLES[healthStatus] : null;
 
+  // Progress-Shared recency bucket — same "Today/Yesterday/2 Days Ago/3 Days
+  // Ago/1 Week/Custom Date/Never" logic as normalize_project()'s
+  // compute_progress_shared_recency() (projects.repository.js), kept as a
+  // small local helper here rather than a second backend call, since this
+  // is just an immediate-feedback label on the edit control itself — the
+  // authoritative figure for dashboards/warnings comes from that backend
+  // computation, not from here.
+  const progressSharedRecency = (() => {
+    const date = data.progress_shared_date;
+    if (!date) return { label: 'Never', stale: true };
+    const days_ago = Math.floor((Date.now() - new Date(date).getTime()) / 86400000);
+    if (days_ago <= 0) return { label: 'Today', stale: false };
+    if (days_ago === 1) return { label: 'Yesterday', stale: false };
+    if (days_ago === 2) return { label: '2 Days Ago', stale: false };
+    if (days_ago === 3) return { label: '3 Days Ago', stale: false };
+    if (days_ago <= 7) return { label: '1 Week', stale: true };
+    return { label: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), stale: true };
+  })();
+
   return (
     <div className="flex flex-col bg-white border border-gray-100 rounded-[2rem] shadow-sm overflow-hidden">
       <div className="w-full flex items-center justify-between gap-3 p-6 border-b border-gray-100">
@@ -246,10 +278,28 @@ const DevopsAccessPanel: React.FC<DevopsAccessPanelProps> = ({ projectId, ownerI
                 progress_shared_date: v !== 'NOT_SHARED' ? new Date().toISOString() : null,
               })}
             />
+            <div className="flex items-center gap-2 mt-1">
+              <span className={cn('text-xs font-bold', progressSharedRecency.stale ? 'text-red-500' : 'text-gray-500')}>
+                {progressSharedRecency.stale && '⚠ '}Last shared: {progressSharedRecency.label}
+              </span>
+              {canEdit && (
+                <>
+                  <input
+                    type="date"
+                    className="text-xs border border-gray-200 rounded-lg px-2 py-0.5"
+                    value={data.progress_shared_date ? data.progress_shared_date.slice(0, 10) : ''}
+                    onChange={(e) => update({
+                      progress_shared_date: e.target.value ? new Date(e.target.value).toISOString() : null,
+                      progress_shared_status: e.target.value ? 'SHARED' : 'NOT_SHARED',
+                    })}
+                  />
+                </>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-6">
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Git Access</span>
             <StatusDropdown
@@ -293,6 +343,33 @@ const DevopsAccessPanel: React.FC<DevopsAccessPanelProps> = ({ projectId, ownerI
               options={AWS_OPTIONS}
               disabled={!canEdit}
               onChange={(v) => update({ aws_access_status: v as AwsAccessStatus })}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Azure Access</span>
+            <StatusDropdown
+              value={data.azure_access_status}
+              options={AZURE_OPTIONS}
+              disabled={!canEdit}
+              onChange={(v) => update({ azure_access_status: v as AzureAccessStatus })}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">OpenAI Key Access</span>
+            <StatusDropdown
+              value={data.openai_access_status}
+              options={ACCESS_OPTIONS}
+              disabled={!canEdit}
+              onChange={(v) => update({ openai_access_status: v as AccessStatus })}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Stripe Access</span>
+            <StatusDropdown
+              value={data.stripe_access_status}
+              options={ACCESS_OPTIONS}
+              disabled={!canEdit}
+              onChange={(v) => update({ stripe_access_status: v as AccessStatus })}
             />
           </div>
         </div>

@@ -255,10 +255,19 @@ export default function ProjectTrackingDashboard() {
     { header: 'Dev Status', key: 'dev_status', render: (p) => <span className="text-gray-600 text-xs">{p.dev_status || '—'}</span> },
     {
       header: 'Active Milestone',
-      key: 'current_milestone',
-      render: (p) => p.current_milestone
-        ? <span className="text-xs text-gray-700">{p.current_milestone.title}</span>
-        : <span className="text-xs text-gray-300">—</span>,
+      key: 'active_milestone',
+      render: (p) => {
+        const m = p.active_milestone;
+        if (!m) return <span className="text-xs text-gray-300">—</span>;
+        return (
+          <div className="flex flex-col gap-0.5 min-w-[140px]">
+            <span className="text-xs font-bold text-gray-800">{m.title}</span>
+            <span className="text-[10px] text-gray-400">
+              {m.due_date ? fmt_date(m.due_date) : 'No due date'} · {m.progress_percent}%{m.owner ? ` · ${m.owner}` : ''}
+            </span>
+          </div>
+        );
+      },
     },
     { header: 'Pending Milestones', key: 'pending_milestones_count', render: (p) => <span className="text-xs font-bold text-gray-600">{p.pending_milestones_count ?? 0}</span> },
     {
@@ -279,8 +288,11 @@ export default function ProjectTrackingDashboard() {
         </span>
       ),
     },
-    { header: 'Frontend Dev(s)', key: 'members', render: (p) => <span className="text-xs text-gray-600">{namesFor(p.members, 'FRONTEND')}</span> },
-    { header: 'Backend Dev(s)', key: 'members', render: (p) => <span className="text-xs text-gray-600">{namesFor(p.members, 'BACKEND')}</span> },
+    { header: 'Milestones Added', key: 'milestones_added', render: (p) => p.milestones_added
+      ? <span className="text-[10px] font-black px-2 py-1 rounded-full bg-green-50 text-green-700 uppercase">Yes</span>
+      : <span className="text-[10px] font-black px-2 py-1 rounded-full bg-gray-100 text-gray-500 uppercase">No</span> },
+    { header: 'Frontend Dev(s)', key: 'members', render: (p) => <span className="text-xs text-gray-600">{(p.frontend_developers?.length ? p.frontend_developers.join(', ') : namesFor(p.members, 'FRONTEND'))}</span> },
+    { header: 'Backend Dev(s)', key: 'members', render: (p) => <span className="text-xs text-gray-600">{(p.backend_developers?.length ? p.backend_developers.join(', ') : namesFor(p.members, 'BACKEND'))}</span> },
     {
       header: 'Team Lead',
       key: 'team_leader',
@@ -310,11 +322,19 @@ export default function ProjectTrackingDashboard() {
       key: 'devops_access',
       render: (p) => {
         const status = p.devops_access?.progress_shared_status;
+        const recency = p.devops_access?.progress_shared_recency;
         if (!status) return <span className="text-xs text-gray-300">—</span>;
         return (
-          <span className={cn('text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-wide', PROGRESS_SHARED_BADGE[status] || 'bg-gray-100 text-gray-500')}>
-            {status.replace(/_/g, ' ')}
-          </span>
+          <div className="flex flex-col gap-0.5">
+            <span className={cn('text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-wide w-fit', PROGRESS_SHARED_BADGE[status] || 'bg-gray-100 text-gray-500')}>
+              {status.replace(/_/g, ' ')}
+            </span>
+            {recency && (
+              <span className={cn('text-[10px] font-bold', recency.stale ? 'text-red-500' : 'text-gray-400')}>
+                {recency.stale && '⚠ '}{recency.label}
+              </span>
+            )}
+          </div>
         );
       },
     },
@@ -322,6 +342,17 @@ export default function ProjectTrackingDashboard() {
     { header: 'Server', key: 'devops_access', render: (p) => <AccessBadge status={p.devops_access?.server_access_status} /> },
     { header: 'Domain', key: 'devops_access', render: (p) => <AccessBadge status={p.devops_access?.domain_access_status} /> },
     { header: 'Email/SMTP', key: 'devops_access', render: (p) => <AccessBadge status={p.devops_access?.email_smtp_access_status} /> },
+    { header: 'AWS', key: 'devops_access', render: (p) => <AccessBadge status={p.devops_access?.aws_access_status} /> },
+    { header: 'Azure', key: 'devops_access', render: (p) => <AccessBadge status={p.devops_access?.azure_access_status} /> },
+    { header: 'OpenAI', key: 'devops_access', render: (p) => <AccessBadge status={p.devops_access?.openai_access_status} /> },
+    { header: 'Stripe', key: 'devops_access', render: (p) => <AccessBadge status={p.devops_access?.stripe_access_status} /> },
+    {
+      header: 'DevOps Remarks',
+      key: 'devops_access',
+      render: (p) => p.devops_access?.devops_remarks
+        ? <span className="text-xs text-gray-600 max-w-[180px] block truncate" title={p.devops_access.devops_remarks}>{p.devops_access.devops_remarks}</span>
+        : <span className="text-xs text-gray-300">—</span>,
+    },
   ];
 
   return (

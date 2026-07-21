@@ -1,6 +1,9 @@
-export type CommChannel = 'EMAIL' | 'CLICKUP' | 'SLACK' | 'TEAMS' | 'WHATSAPP' | 'GOOGLE_MEET' | 'ZOOM' | 'OTHER';
+export type CommChannel =
+  | 'EMAIL' | 'CLICKUP' | 'SLACK' | 'TEAMS' | 'WHATSAPP' | 'DISCORD' | 'SKYPE'
+  | 'ZOOM' | 'UPWORK' | 'FIVERR' | 'PHONE' | 'GOOGLE_MEET' | 'OTHER';
 export type AccessStatus = 'GRANTED' | 'PENDING' | 'NOT_APPLICABLE';
 export type AwsAccessStatus = 'GRANTED' | 'PENDING' | 'LIMITED' | 'NOT_APPLICABLE';
+export type AzureAccessStatus = AwsAccessStatus;
 export type ProgressSharedStatus = 'NOT_SHARED' | 'SHARED' | 'AWAITING_FEEDBACK' | 'CLIENT_APPROVED';
 export type HostingEnvironment = 'PRODUCTION' | 'STAGING' | 'DEVELOPMENT';
 export type DomainSslStatus = 'ACTIVE' | 'EXPIRING' | 'EXPIRED' | 'NOT_CONFIGURED';
@@ -19,6 +22,9 @@ export interface DevopsAccessTracking {
   domain_access_status: AccessStatus;
   email_smtp_access_status: AccessStatus;
   aws_access_status: AwsAccessStatus;
+  openai_access_status: AccessStatus;
+  stripe_access_status: AccessStatus;
+  azure_access_status: AzureAccessStatus;
   devops_remarks: string | null;
 
   git_provider: string | null;
@@ -64,6 +70,9 @@ export type DevopsAccessUpdatePayload = Partial<
     | 'domain_access_status'
     | 'email_smtp_access_status'
     | 'aws_access_status'
+    | 'openai_access_status'
+    | 'stripe_access_status'
+    | 'azure_access_status'
     | 'devops_remarks'
     | 'git_provider'
     | 'git_repo_url'
@@ -93,7 +102,7 @@ export type DevopsAccessUpdatePayload = Partial<
 export interface ProjectTrackingLink {
   id: string;
   project_id: string;
-  link_type: 'CLICKUP' | 'GOOGLE_SHEET' | 'NOTION' | 'JIRA' | 'GITHUB_PROJECT' | 'LINEAR' | 'OTHER';
+  link_type: 'CLICKUP' | 'TRACKING_SHEET' | 'GOOGLE_SHEET' | 'FIGMA' | 'LOOM' | 'GITHUB' | 'NOTION' | 'JIRA' | 'GITHUB_PROJECT' | 'LINEAR' | 'OTHER';
   label: string | null;
   url: string;
   created_by: string | null;

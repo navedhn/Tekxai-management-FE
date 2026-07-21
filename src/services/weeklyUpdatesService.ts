@@ -12,6 +12,7 @@ export interface ClientWeeklyUpdate {
   method: CommChannel;
   summary: string;
   client_response: string | null;
+  attachment_url: string | null;
   created_at: string;
   updater?: { id: string; first_name: string; last_name: string; avatar?: string | null } | null;
 }
@@ -32,7 +33,7 @@ export function useWeeklyUpdates(projectId: string | null | undefined) {
 export function useCreateWeeklyUpdate(projectId: string | null | undefined) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { method: CommChannel; summary: string; client_response?: string; update_date?: string }) => {
+    mutationFn: (data: { method: CommChannel; summary: string; client_response?: string; update_date?: string; attachment_url?: string }) => {
       if (!projectId) throw new Error('No projectId');
       return apiRequest<any>(API_ENDPOINTS.WEEKLY_UPDATES.CREATE(projectId), {
         method: 'POST',
