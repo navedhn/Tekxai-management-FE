@@ -61,6 +61,50 @@ function SectionHeader({ title }: { title: string }) {
   return <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">{title}</p>;
 }
 
+// Sprint 2 Milestone 3 — Executive Action Center. Every item is
+// {key, label, count, priority, path} straight from the backend's
+// action_center bucket — already deterministically sorted by priority
+// there (see prioritize_alerts()-style sort_by_priority in
+// executive-analytics.service.js). This component only renders; no
+// re-sorting, re-filtering, or re-fetching happens here.
+type ActionItem = { key: string; label: string; count: number; priority: string; path: string };
+
+const PRIORITY_STYLES: Record<string, string> = {
+  critical: 'bg-red-100 text-red-700',
+  high: 'bg-orange-100 text-orange-700',
+  medium: 'bg-yellow-100 text-yellow-700',
+  low: 'bg-gray-100 text-gray-600',
+};
+
+function ActionCenterColumn({
+  title, items, emptyLabel, navigate,
+}: { title: string; items: ActionItem[]; emptyLabel: string; navigate: (path: string) => void }) {
+  return (
+    <Card className="border-none shadow-sm p-5 flex-1 min-w-0">
+      <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-3">{title}</p>
+      {items.length === 0 ? (
+        <p className="text-sm text-gray-400 py-3">{emptyLabel}</p>
+      ) : (
+        <div className="space-y-2">
+          {items.map((item) => (
+            <button
+              key={item.key}
+              onClick={() => navigate(item.path)}
+              className="w-full flex items-center justify-between p-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+            >
+              <span className="flex items-center gap-2 text-xs font-semibold text-gray-700 truncate">
+                <span className={cn('text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full shrink-0', PRIORITY_STYLES[item.priority] || PRIORITY_STYLES.low)}>{item.priority}</span>
+                <span className="truncate">{item.label}</span>
+              </span>
+              <span className="text-xs font-black text-gray-900 tabular-nums shrink-0 ml-2">{item.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 // Sprint 2 Milestone 2 — Executive Insights. `trend` is {current, previous,
 // delta_pct} straight from the backend's trend_kpi() helper — two
 // report_builder KPI calls, no client-side recalculation. `invertGood` flips
@@ -117,6 +161,9 @@ export default function ExecutiveDashboard() {
   const prod = data?.productivity;
   const insights = data?.insights;
   const priorityAlerts = data?.priority_alerts as Array<{ key: string; label: string; count: number; severity: string }> | undefined;
+  const actionCenter = data?.action_center as {
+    requires_attention: ActionItem[]; requires_review: ActionItem[]; informational: ActionItem[];
+  } | undefined;
 
   const alertMeta: Record<string, { icon: React.ElementType; path: string; cls: string }> = {
     overdue_tickets:      { icon: Ticket,       path: '/admin/tickets',           cls: 'bg-red-50 text-red-800 hover:bg-red-100' },
@@ -142,6 +189,22 @@ export default function ExecutiveDashboard() {
         <h1 className="text-2xl font-black text-gray-900">Executive Dashboard</h1>
         <p className="text-sm text-gray-500 mt-0.5">Company-wide operations, financial, and productivity overview.</p>
       </div>
+
+      {/* Executive Action Center — Sprint 2 Milestone 3. Turns insights into
+          direct navigation: every card here reuses an already-computed count
+          (from operations/insights/alerts, or a handful of independent
+          lookups) and drills into the existing page that owns that workflow —
+          no new action pages, no new approval/assignment/escalation flow. */}
+      {actionCenter && (
+        <div>
+          <SectionHeader title="Executive Action Center" />
+          <div className="flex flex-col lg:flex-row gap-4">
+            <ActionCenterColumn title="Requires Immediate Attention" items={actionCenter.requires_attention} emptyLabel="Nothing urgent right now." navigate={navigate} />
+            <ActionCenterColumn title="Requires Review" items={actionCenter.requires_review} emptyLabel="No open review items." navigate={navigate} />
+            <ActionCenterColumn title="Informational" items={actionCenter.informational} emptyLabel="No recent activity to report." navigate={navigate} />
+          </div>
+        </div>
+      )}
 
       {/* Company Overview */}
       <div>
