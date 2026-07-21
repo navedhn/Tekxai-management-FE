@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home, Users2, Settings, FolderCheck, Clock, Star, Monitor, LogOut, X,
   BarChart3, Shield, ClipboardCheck, Ticket, Receipt, Banknote, Webhook, Mail,
-  MessageSquare, FileText, Package, CalendarDays, Table2, Layers, Video,
+  MessageSquare, FileText, Package, CalendarDays, Table2, Layers, Video, Gauge,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
@@ -110,6 +110,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       {                       to: '/admin/payroll',      label: 'Payroll',         icon: <Banknote size={18} strokeWidth={SW} /> },
       {                       to: '/admin/webhooks',     label: 'Webhooks',        icon: <Webhook size={18} strokeWidth={SW} /> },
       {                       to: '/admin/report-builder', label: 'Report Builder',icon: <BarChart3 size={18} strokeWidth={SW} /> },
+      ...((myPerms?.is_super_admin || myPerms?.permissions?.includes('erp.executive-analytics.view')) ? [
+        { to: '/admin/executive-dashboard', label: 'Executive Dashboard', icon: <Gauge size={18} strokeWidth={SW} /> },
+      ] : []),
       ...(isSuperAdmin ? [
         { to: '/admin/permissions',       label: 'Access Control',    icon: <Shield size={18} strokeWidth={SW} /> },
         { to: '/admin/financial-reports', label: 'Financial Reports', icon: <BarChart3 size={18} strokeWidth={SW} /> },

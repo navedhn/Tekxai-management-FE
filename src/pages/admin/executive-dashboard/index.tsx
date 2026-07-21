@@ -1,0 +1,195 @@
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import Card from '@/components/ui/Card';
+import {
+  Users, Briefcase, Ticket, Package, DollarSign, Wallet,
+  Activity, Gauge, AlertTriangle, Clock, CalendarClock,
+  TrendingUp, Monitor, Camera, AppWindow, ShieldAlert,
+} from 'lucide-react';
+import { cn } from '@/utils/cn';
+import { useGetExecutiveDashboard } from '@/services/executiveAnalyticsService';
+
+// Sprint 2 Milestone 1 — Executive Dashboard. Pure orchestration layer: every
+// number rendered here comes from the (now-extended) /executive-analytics
+// dashboard endpoint, which itself composes existing services + the generic
+// report_builder KPI/aggregate engine — nothing is recalculated client-side.
+// Every card below links back to the existing module page it summarizes
+// (Phase 4 drill-down requirement) rather than duplicating that page's view.
+
+function fmtMoney(n?: number | null) {
+  if (n == null) return '—';
+  return `PKR ${Math.round(n).toLocaleString()}`;
+}
+function fmtNum(n?: number | null) {
+  return n == null ? '—' : n.toLocaleString();
+}
+function fmtPct(n?: number | null) {
+  return n == null ? '—' : `${n}%`;
+}
+function fmtSeconds(n?: number | null) {
+  if (n == null) return '—';
+  const h = Math.floor(n / 3600);
+  const m = Math.floor((n % 3600) / 60);
+  return `${h}h ${m}m`;
+}
+
+function KpiCard({
+  icon: Icon, color, label, value, onClick,
+}: { icon: React.ElementType; color: string; label: string; value: React.ReactNode; onClick?: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={!onClick}
+      className={cn(
+        'flex items-center gap-3 bg-white rounded-2xl border border-gray-100 p-4 shadow-sm text-left w-full transition-shadow',
+        onClick && 'hover:shadow-md cursor-pointer'
+      )}
+    >
+      <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0', color)}>
+        <Icon size={18} className="text-white" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider truncate">{label}</p>
+        <p className="text-lg font-black text-gray-900 leading-tight truncate">{value}</p>
+      </div>
+    </button>
+  );
+}
+
+function SectionHeader({ title }: { title: string }) {
+  return <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">{title}</p>;
+}
+
+export default function ExecutiveDashboard() {
+  const navigate = useNavigate();
+  const { data, isLoading } = useGetExecutiveDashboard();
+
+  const co = data?.company_overview;
+  const ops = data?.operations;
+  const fin = data?.financial;
+  const prod = data?.productivity;
+  const alerts = data?.alerts;
+
+  if (isLoading) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto space-y-6">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-24 bg-gray-50 rounded-2xl animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto space-y-8">
+      <div>
+        <h1 className="text-2xl font-black text-gray-900">Executive Dashboard</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Company-wide operations, financial, and productivity overview.</p>
+      </div>
+
+      {/* Company Overview */}
+      <div>
+        <SectionHeader title="Company Overview" />
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+          <KpiCard icon={Users} color="bg-blue-500" label="Employees" value={fmtNum(co?.employees)} onClick={() => navigate('/hr/employee-directory')} />
+          <KpiCard icon={Briefcase} color="bg-indigo-500" label="Active Projects" value={fmtNum(co?.active_projects)} onClick={() => navigate('/admin/project-tracking')} />
+          <KpiCard icon={Ticket} color="bg-orange-500" label="Open Tickets" value={fmtNum(co?.open_tickets)} onClick={() => navigate('/admin/tickets')} />
+          <KpiCard icon={Package} color="bg-purple-500" label="Active Assets" value={fmtNum(co?.active_assets)} onClick={() => navigate('/admin/assets')} />
+          <KpiCard icon={DollarSign} color="bg-teal-500" label="Monthly Expense" value={fmtMoney(co?.monthly_expense)} onClick={() => navigate('/admin/expenses')} />
+          <KpiCard icon={Wallet} color="bg-green-600" label="Current Payroll" value={fmtMoney(co?.current_payroll)} onClick={() => navigate('/admin/payroll')} />
+        </div>
+      </div>
+
+      {/* Operations */}
+      <div>
+        <SectionHeader title="Operations" />
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+          <KpiCard
+            icon={Activity}
+            color="bg-emerald-500"
+            label="Project Health"
+            value={ops?.project_health ? `${ops.project_health.healthy}H / ${ops.project_health.warning}W / ${ops.project_health.critical}C` : '—'}
+            onClick={() => navigate('/admin/project-tracking')}
+          />
+          <KpiCard icon={AlertTriangle} color="bg-red-500" label="Blocked Projects" value={fmtNum(ops?.blocked_projects)} onClick={() => navigate('/admin/project-tracking')} />
+          <KpiCard icon={Clock} color="bg-rose-500" label="Ticket SLA Overdue" value={fmtNum(ops?.ticket_sla_overdue)} onClick={() => navigate('/admin/tickets')} />
+          <KpiCard icon={Gauge} color="bg-sky-500" label="Attendance Today" value={fmtNum(ops?.attendance_today)} onClick={() => navigate('/admin/attendance')} />
+          <KpiCard icon={Clock} color="bg-amber-500" label="Late Today" value={fmtNum(ops?.late_employees_today)} onClick={() => navigate('/admin/attendance')} />
+          <KpiCard icon={CalendarClock} color="bg-cyan-500" label="On Leave Today" value={fmtNum(ops?.leave_today)} onClick={() => navigate('/admin/attendance')} />
+        </div>
+      </div>
+
+      {/* Financial */}
+      <div>
+        <SectionHeader title="Financial" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <KpiCard icon={DollarSign} color="bg-teal-500" label="Monthly Expense" value={fmtMoney(fin?.monthly_expense)} onClick={() => navigate('/admin/expenses')} />
+          <KpiCard icon={Wallet} color="bg-green-600" label="Payroll Cost" value={fmtMoney(fin?.payroll_cost)} onClick={() => navigate('/admin/payroll')} />
+          <KpiCard icon={Package} color="bg-purple-500" label="Asset Value" value={fmtMoney(fin?.asset_value)} onClick={() => navigate('/admin/assets')} />
+          <KpiCard icon={TrendingUp} color="bg-indigo-500" label="Budget Utilization" value={fmtPct(fin?.budget_utilization_pct)} onClick={() => navigate('/admin/project-tracking')} />
+        </div>
+      </div>
+
+      {/* Productivity */}
+      <div>
+        <SectionHeader title="Productivity" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          <KpiCard icon={Gauge} color="bg-green-500" label="Productivity %" value={fmtPct(prod?.productivity_pct)} onClick={() => navigate('/admin/monitoring')} />
+          <KpiCard icon={Monitor} color="bg-blue-500" label="Monitoring Coverage" value={fmtPct(prod?.monitoring_coverage_pct)} onClick={() => navigate('/admin/monitoring')} />
+          <KpiCard icon={Camera} color="bg-purple-500" label="Screenshot Count" value={fmtNum(prod?.screenshot_count)} onClick={() => navigate('/admin/monitoring')} />
+          <KpiCard icon={AppWindow} color="bg-orange-500" label="Top Applications" value={prod?.top_applications?.[0]?.app_name || '—'} onClick={() => navigate('/admin/monitoring')} />
+        </div>
+        {prod?.top_applications?.length > 0 && (
+          <Card className="border-none shadow-sm p-5">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Top Applications by Usage Time</p>
+            <div className="space-y-2.5">
+              {prod.top_applications.map((a: any, i: number) => {
+                const max = prod.top_applications[0]?.value || 1;
+                return (
+                  <div key={`${a.app_name}-${i}`} className="flex items-center gap-3">
+                    <span className="text-xs font-semibold text-gray-600 w-40 truncate">{a.app_name || 'Unknown'}</span>
+                    <div className="flex-1 bg-gray-100 rounded-full h-2">
+                      <div className="h-2 rounded-full bg-orange-500" style={{ width: `${(a.value / max) * 100}%` }} />
+                    </div>
+                    <span className="text-xs font-black text-gray-900 tabular-nums w-16 text-right">{fmtSeconds(a.value)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        )}
+      </div>
+
+      {/* Executive Alerts */}
+      <div>
+        <SectionHeader title="Executive Alerts" />
+        <Card className="border-none shadow-sm p-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <button onClick={() => navigate('/admin/approvals')} className="flex items-center justify-between p-3 rounded-xl bg-yellow-50 hover:bg-yellow-100 transition-colors text-left">
+              <span className="flex items-center gap-2 text-sm font-semibold text-yellow-800"><ShieldAlert size={16} /> Overdue Approvals</span>
+              <span className="text-sm font-black text-yellow-900 tabular-nums">
+                {(alerts?.overdue_approvals?.requisitions_pending || 0) + (alerts?.overdue_approvals?.tickets_pending || 0) + (alerts?.overdue_approvals?.leave_pending || 0)}
+              </span>
+            </button>
+            <button onClick={() => navigate('/admin/tickets')} className="flex items-center justify-between p-3 rounded-xl bg-red-50 hover:bg-red-100 transition-colors text-left">
+              <span className="flex items-center gap-2 text-sm font-semibold text-red-800"><Ticket size={16} /> Overdue Tickets</span>
+              <span className="text-sm font-black text-red-900 tabular-nums">{fmtNum(alerts?.overdue_tickets)}</span>
+            </button>
+            <button onClick={() => navigate('/admin/project-tracking')} className="flex items-center justify-between p-3 rounded-xl bg-orange-50 hover:bg-orange-100 transition-colors text-left">
+              <span className="flex items-center gap-2 text-sm font-semibold text-orange-800"><Briefcase size={16} /> Blocked Projects</span>
+              <span className="text-sm font-black text-orange-900 tabular-nums">{fmtNum(alerts?.blocked_projects)}</span>
+            </button>
+            <button onClick={() => navigate('/hr/employee-directory')} className="flex items-center justify-between p-3 rounded-xl bg-blue-50 hover:bg-blue-100 transition-colors text-left">
+              <span className="flex items-center gap-2 text-sm font-semibold text-blue-800"><Users size={16} /> Probation Reminders</span>
+              <span className="text-sm font-black text-blue-900 tabular-nums">{fmtNum(alerts?.probation_reminders)}</span>
+            </button>
+            <button onClick={() => navigate('/admin/policies')} className="flex items-center justify-between p-3 rounded-xl bg-purple-50 hover:bg-purple-100 transition-colors text-left md:col-span-2">
+              <span className="flex items-center gap-2 text-sm font-semibold text-purple-800"><ShieldAlert size={16} /> Compliance Reminders</span>
+              <span className="text-sm font-black text-purple-900 tabular-nums">{fmtNum(alerts?.compliance_reminders)}</span>
+            </button>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
