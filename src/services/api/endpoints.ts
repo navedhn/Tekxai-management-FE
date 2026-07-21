@@ -493,6 +493,10 @@ export const API_ENDPOINTS = {
 
     PDF:              (id: string) => `${v1}/hr-documents/${id}/pdf`,
   },
+
+  EXECUTIVE_ANALYTICS: {
+    DASHBOARD: `${v1}/executive-analytics/dashboard`,
+  },
 } as const;
 
 // Legacy alias — kept for any future imports, content mirrors API_ENDPOINTS

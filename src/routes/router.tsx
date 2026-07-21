@@ -85,6 +85,7 @@ const EmailLogsPage          = lazy(() => import('@/pages/admin/email-logs'));
 const PayrollPage            = lazy(() => import('@/pages/admin/payroll'));
 const WebhooksPage           = lazy(() => import('@/pages/admin/webhooks'));
 const ReportBuilderPage      = lazy(() => import('@/pages/admin/report-builder'));
+const ExecutiveDashboardPage = lazy(() => import('@/pages/admin/executive-dashboard'));
 
 // CRM workspace pages
 const CRMDashboard           = lazy(() => import('@/pages/crm/dashboard'));
@@ -216,6 +217,12 @@ const routes: RouteObject[] = [
           { path: '/admin/payroll',            element: <PayrollPage /> },
           { path: '/admin/webhooks',           element: <WebhooksPage /> },
           { path: '/admin/report-builder',     element: <ReportBuilderPage /> },
+          {
+            element: <ProtectedRoute roles={adminRoles} permission="erp.executive-analytics.view" />,
+            children: [
+              { path: '/admin/executive-dashboard', element: <ExecutiveDashboardPage /> },
+            ],
+          },
           // SUPER_ADMIN-only sub-pages: the sidebar already hides these from
           // plain ADMIN users, but the route itself previously only required
           // {adminRoles: [SUPER_ADMIN, ADMIN]} + erp.workspace.access — which
