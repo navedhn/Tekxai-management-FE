@@ -16,16 +16,26 @@ export interface TeamMember {
 // Reuses the existing project_members.role column (was always "MEMBER" and
 // unused until this feature — see Tekxai-Operations-OS gap audit, Sprint 2
 // Phase 2). No new table.
-export type ProjectMemberRole = 'FRONTEND' | 'BACKEND' | 'TEAM_LEAD' | 'QA' | 'DEVOPS' | 'UI_UX' | 'MEMBER';
+export type ProjectMemberRole =
+  | 'FRONTEND' | 'BACKEND' | 'TEAM_LEAD' | 'QA' | 'DEVOPS' | 'UI_UX'
+  | 'AI_ENGINEER' | 'BUSINESS_ANALYST' | 'SALES' | 'ESTIMATOR' | 'OTHER' | 'MEMBER';
 
+// Kept in parity with backend PROJECT_MEMBER_ROLES (projects.validation.js) —
+// previously missing AI_ENGINEER/BUSINESS_ANALYST/SALES/ESTIMATOR/OTHER,
+// which the backend already accepted but this dropdown couldn't assign.
 export const PROJECT_MEMBER_ROLES: { value: ProjectMemberRole; label: string }[] = [
-  { value: 'FRONTEND',  label: 'Frontend Developer' },
-  { value: 'BACKEND',   label: 'Backend Developer' },
-  { value: 'TEAM_LEAD', label: 'Team Lead' },
-  { value: 'QA',        label: 'QA' },
-  { value: 'DEVOPS',    label: 'DevOps' },
-  { value: 'UI_UX',     label: 'UI/UX' },
-  { value: 'MEMBER',    label: 'Member' },
+  { value: 'TEAM_LEAD',        label: 'Team Lead' },
+  { value: 'FRONTEND',         label: 'Frontend Developer' },
+  { value: 'BACKEND',          label: 'Backend Developer' },
+  { value: 'QA',               label: 'QA' },
+  { value: 'UI_UX',            label: 'UI/UX' },
+  { value: 'AI_ENGINEER',      label: 'AI Engineer' },
+  { value: 'BUSINESS_ANALYST', label: 'Business Analyst' },
+  { value: 'DEVOPS',           label: 'DevOps' },
+  { value: 'SALES',            label: 'Sales' },
+  { value: 'ESTIMATOR',        label: 'Estimator' },
+  { value: 'OTHER',            label: 'Other' },
+  { value: 'MEMBER',           label: 'Member' },
 ];
 
 export interface ProjectMember {
@@ -55,6 +65,8 @@ export interface ProjectDto {
   progress_mode?: 'MANUAL' | 'AUTO';
   budget?: number | null;
   budget_currency?: string;
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  business_unit_id?: string | null;
 }
 
 export interface BudgetUpdatePayload {
@@ -68,6 +80,20 @@ export interface Milestone {
   title: string;
   due_date: string | null;
   completed: boolean;
+}
+
+export interface ActiveMilestone {
+  id: string;
+  title: string;
+  due_date: string | null;
+  progress_percent: number;
+  owner: string | null;
+}
+
+export interface ProgressSharedRecency {
+  label: string;
+  days_ago: number | null;
+  stale: boolean;
 }
 
 export interface MilestoneBreakdown {
@@ -116,20 +142,31 @@ export interface ProjectDetail {
   owner?: ProjectMember;
   team_leader?: ProjectMember | null;
   milestones?: Milestone[];
+  milestones_added?: boolean;
+  active_milestone?: ActiveMilestone | null;
   current_milestone?: Milestone | null;
   pending_milestones_count?: number;
   milestone_breakdown?: MilestoneBreakdown;
   access_completion_score?: AccessCompletionScore;
+  frontend_developers?: string[];
+  backend_developers?: string[];
   // Same devops_access row already joined for access_completion_score above —
   // surfaced directly so list/dashboard views don't need a second call to
   // GET /project/:id/devops-access. null when the project has no row yet.
   devops_access?: {
     point_of_communication: string;
     progress_shared_status: string;
+    progress_shared_date?: string | null;
+    progress_shared_recency?: ProgressSharedRecency;
     git_access_status: string;
     server_access_status: string;
     domain_access_status: string;
     email_smtp_access_status: string;
+    aws_access_status?: string;
+    openai_access_status?: string;
+    stripe_access_status?: string;
+    azure_access_status?: string;
+    devops_remarks?: string | null;
   } | null;
   client_portal?: ClientPortalInfo;
   health_score?: number;
@@ -145,6 +182,9 @@ export interface ProjectDetail {
   budget?: number | null;
   budget_currency?: string;
   budget_spent?: number;
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  business_unit_id?: string | null;
+  project_code?: string | null;
 }
 
 // --- API Functions ---

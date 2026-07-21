@@ -19,7 +19,7 @@ import DependenciesPanel from './DependenciesPanel';
 import ActionModal from './ActionModal';
 import StatusDropdown from './StatusDropdown';
 import { useGetProjectDetails, useUpdateProjectMutation } from '@/services/projectService';
-import { useMilestones, useDeleteMilestone } from '@/services/milestonesService';
+import { useMilestones, useDeleteMilestone, useArchiveMilestone, Milestone } from '@/services/milestonesService';
 import { useUpdateTask, useDeleteTask } from '@/services/tasksService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useAuth } from '@/hooks/useAuth';
@@ -59,6 +59,7 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
   const { data: milestones = [], isLoading: milestonesLoading } = useMilestones(projectId);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('overview');
   const deleteMilestoneMutation = useDeleteMilestone(projectId);
+  const archiveMilestoneMutation = useArchiveMilestone(projectId);
   const updateTaskMutation = useUpdateTask(projectId);
   const deleteTaskMutation = useDeleteTask(projectId);
   const updateProjectMutation = useUpdateProjectMutation();
@@ -71,6 +72,7 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
   const [showAddTask, setShowAddTask] = useState(false);
   const [activeMilestoneId, setActiveMilestoneId] = useState<string | number | null>(null);
   const [milestoneToDelete, setMilestoneToDelete] = useState<{ id: string; title: string } | null>(null);
+  const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const toggleExpand = (id: string) => setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
@@ -94,6 +96,13 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
     deleteMilestoneMutation.mutate(milestoneToDelete.id, {
       onSuccess: () => { toast.success('Milestone deleted'); setMilestoneToDelete(null); },
       onError: (e: any) => { toast.error(e?.message || 'Failed to delete milestone'); setMilestoneToDelete(null); },
+    });
+  };
+
+  const handleArchiveMilestone = (milestoneId: string) => {
+    archiveMilestoneMutation.mutate(milestoneId, {
+      onSuccess: () => toast.success('Milestone archived'),
+      onError: (e: any) => toast.error(e?.message || 'Failed to archive milestone'),
     });
   };
 
@@ -254,9 +263,11 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                     />
                   )}
                   <CreateMilestoneModal
-                    isOpen={showCreateMilestone}
-                    onClose={() => setShowCreateMilestone(false)}
+                    isOpen={showCreateMilestone || !!editingMilestone}
+                    onClose={() => { setShowCreateMilestone(false); setEditingMilestone(null); }}
                     projectId={projectId}
+                    milestone={editingMilestone}
+                    projectMembers={project?.all_members || project?.members || []}
                   />
                   <AddTaskModal
                     isOpen={showAddTask}
@@ -345,7 +356,14 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                       const tasks = milestone.tasks || [];
                       const totalTasks = tasks.length;
                       const doneTasks = tasks.filter((t) => t.status === 'DONE').length;
-                      const pct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+                      const pct = milestone.progress_percent ?? 0;
+                      const members = (milestone.members || []).map((m) => m.user);
+                      const STATUS_STYLE: Record<string, string> = {
+                        NOT_STARTED: 'bg-gray-100 text-gray-500',
+                        IN_PROGRESS: 'bg-blue-50 text-blue-600',
+                        COMPLETED: 'bg-green-50 text-green-700',
+                        BLOCKED: 'bg-red-50 text-red-600',
+                      };
                       return (
                       <div key={milestone.id} className="flex flex-col bg-white border border-gray-100 rounded-[2rem] shadow-sm overflow-hidden">
                         <button
@@ -353,16 +371,31 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                           className="w-full flex items-center justify-between p-6 hover:bg-gray-50/50 transition-colors border-b border-transparent data-[expanded=true]:border-gray-100"
                           data-expanded={expanded[milestone.id]}
                         >
-                          <div className="flex items-center gap-3">
-                            <CheckCircle2 size={18} strokeWidth={2.5} className={milestone.completed ? "text-[#005CDA]" : "text-gray-300"} />
-                            <h3 className="font-black text-gray-900 tracking-tight text-[15px]">{milestone.title}</h3>
+                          <div className="flex items-center gap-3 min-w-0">
+                            <CheckCircle2 size={18} strokeWidth={2.5} className={milestone.status === 'COMPLETED' ? "text-[#005CDA]" : "text-gray-300"} />
+                            {milestone.sequence != null && (
+                              <span className="text-[10px] font-black text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-md shrink-0">#{milestone.sequence}</span>
+                            )}
+                            <h3 className="font-black text-gray-900 tracking-tight text-[15px] truncate">{milestone.title}</h3>
+                            <span className={cn('text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide shrink-0', STATUS_STYLE[milestone.status] || STATUS_STYLE.NOT_STARTED)}>
+                              {milestone.status.replace(/_/g, ' ')}
+                            </span>
                           </div>
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-3 w-48">
+                          <div className="flex items-center gap-4 shrink-0">
+                            {members.length > 0 && (
+                              <div className="flex items-center -space-x-2">
+                                {members.slice(0, 3).map((u) => (
+                                  <div key={u.id} title={`${u.first_name || ''} ${u.last_name || ''}`.trim()} className="w-6 h-6 rounded-full bg-primary-100 text-primary-700 text-[9px] font-black flex items-center justify-center border-2 border-white">
+                                    {(u.first_name?.[0] || '') + (u.last_name?.[0] || '')}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-3 w-40">
                               <div className="h-1.5 flex-1 bg-gray-100 rounded-full overflow-hidden">
                                 <div className="h-full bg-[#005CDA] rounded-full transition-all" style={{ width: `${pct}%` }} />
                               </div>
-                              <span className="text-[11px] font-bold text-gray-500 whitespace-nowrap">{doneTasks}/{totalTasks} Done</span>
+                              <span className="text-[11px] font-bold text-gray-500 whitespace-nowrap">{pct}%</span>
                             </div>
                             <ChevronDown size={20} className={cn("text-gray-400 transition-transform duration-300", expanded[milestone.id] && "rotate-180")} />
                           </div>
@@ -376,6 +409,41 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                               exit={{ height: 0, opacity: 0 }}
                               className="flex flex-col p-4 overflow-hidden bg-white"
                             >
+                              {(milestone.due_date || milestone.estimated_start || milestone.estimated_end || milestone.remarks || totalTasks > 0 || (milestone.depends_on?.length ?? 0) > 0) && (
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-3 pb-4 text-xs">
+                                  {totalTasks > 0 && (
+                                    <div><p className="text-gray-400 font-bold uppercase text-[10px] tracking-wide">Tasks</p><p className="font-semibold text-gray-700">{doneTasks}/{totalTasks} Done</p></div>
+                                  )}
+                                  {milestone.estimated_start && (
+                                    <div><p className="text-gray-400 font-bold uppercase text-[10px] tracking-wide">Est. Start</p><p className="font-semibold text-gray-700">{new Date(milestone.estimated_start).toLocaleDateString()}</p></div>
+                                  )}
+                                  {milestone.estimated_end && (
+                                    <div><p className="text-gray-400 font-bold uppercase text-[10px] tracking-wide">Est. End</p><p className="font-semibold text-gray-700">{new Date(milestone.estimated_end).toLocaleDateString()}</p></div>
+                                  )}
+                                  {milestone.due_date && (
+                                    <div><p className="text-gray-400 font-bold uppercase text-[10px] tracking-wide">Due Date</p><p className="font-semibold text-gray-700">{new Date(milestone.due_date).toLocaleDateString()}</p></div>
+                                  )}
+                                  {milestone.completed_date && (
+                                    <div><p className="text-gray-400 font-bold uppercase text-[10px] tracking-wide">Completed</p><p className="font-semibold text-gray-700">{new Date(milestone.completed_date).toLocaleDateString()}</p></div>
+                                  )}
+                                  {milestone.depends_on && milestone.depends_on.length > 0 && (
+                                    <div className="col-span-2 sm:col-span-4">
+                                      <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wide mb-1">Depends On</p>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {milestone.depends_on.map((d) => (
+                                          <span key={d.id} className="bg-gray-50 text-gray-600 font-bold px-2 py-0.5 rounded-lg">{d.title}</span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {milestone.remarks && (
+                                    <div className="col-span-2 sm:col-span-4">
+                                      <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wide mb-1">Remarks</p>
+                                      <p className="text-gray-600 font-medium">{milestone.remarks}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                               {tasks.length === 0 && (
                                 <div className="px-3 py-4 text-sm text-gray-400 font-medium">No tasks in this milestone yet.</div>
                               )}
@@ -429,12 +497,27 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                                 >
                                   Add task
                                 </Button>
-                                <button
-                                  onClick={() => setMilestoneToDelete({ id: milestone.id, title: milestone.title })}
-                                  className="flex items-center gap-2 text-red-500 font-black hover:bg-red-50 px-4 py-2 rounded-xl transition-all text-xs uppercase tracking-widest"
-                                >
-                                  Delete milestone
-                                </button>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => setEditingMilestone(milestone)}
+                                    className="flex items-center gap-2 text-gray-500 font-black hover:bg-gray-50 px-3 py-2 rounded-xl transition-all text-xs uppercase tracking-widest"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleArchiveMilestone(milestone.id)}
+                                    disabled={archiveMilestoneMutation.isPending}
+                                    className="flex items-center gap-2 text-gray-500 font-black hover:bg-gray-50 px-3 py-2 rounded-xl transition-all text-xs uppercase tracking-widest disabled:opacity-50"
+                                  >
+                                    Archive
+                                  </button>
+                                  <button
+                                    onClick={() => setMilestoneToDelete({ id: milestone.id, title: milestone.title })}
+                                    className="flex items-center gap-2 text-red-500 font-black hover:bg-red-50 px-3 py-2 rounded-xl transition-all text-xs uppercase tracking-widest"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
                               </div>
                             </motion.div>
                           )}
@@ -495,9 +578,10 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                       BUSINESS_ANALYST: 'Business Analysts',
                       SALES: 'Sales',
                       ESTIMATOR: 'Estimators',
+                      OTHER: 'Other',
                       MEMBER: 'Members',
                     };
-                    const ROLE_ORDER = ['TEAM_LEAD', 'FRONTEND', 'BACKEND', 'QA', 'DEVOPS', 'UI_UX', 'AI_ENGINEER', 'BUSINESS_ANALYST', 'SALES', 'ESTIMATOR', 'MEMBER'];
+                    const ROLE_ORDER = ['TEAM_LEAD', 'FRONTEND', 'BACKEND', 'QA', 'DEVOPS', 'UI_UX', 'AI_ENGINEER', 'BUSINESS_ANALYST', 'SALES', 'ESTIMATOR', 'OTHER', 'MEMBER'];
                     const members: any[] = project.all_members || project.members || [];
                     if (members.length === 0) {
                       return (

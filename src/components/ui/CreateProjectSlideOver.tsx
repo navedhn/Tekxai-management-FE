@@ -9,6 +9,7 @@ import Textarea from './Textarea';
 import DatePicker from './DatePicker';
 import { ProjectDetail, ProjectDto, ProjectMemberRole, PROJECT_MEMBER_ROLES, useCreateProjectMutation, useUpdateProjectMutation } from '@/services/projectService';
 import { useFetchUsersQuery } from '@/services/userService';
+import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { PROJECT_STATUS_OPTIONS } from '@/utils/projectStatus';
 
@@ -180,6 +181,8 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
   const [clientName, setClientName] = useState('');
   const [devStatus, setDevStatus] = useState('');
   const [status, setStatus] = useState('PLANNING');
+  const [priority, setPriority] = useState('MEDIUM');
+  const [businessUnitId, setBusinessUnitId] = useState('');
   const [budget, setBudget] = useState('');
   const [budgetCurrency, setBudgetCurrency] = useState('PKR');
 
@@ -191,6 +194,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
 
   const createMutation = useCreateProjectMutation();
   const updateMutation = useUpdateProjectMutation();
+  const { data: businessUnits = [] } = useGetBusinessUnitsQuery();
 
   const isEdit = !!project;
 
@@ -204,6 +208,8 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       setClientName(project.client_name || '');
       setDevStatus(project.dev_status || '');
       setStatus(project.status || 'PLANNING');
+      setPriority(project.priority || 'MEDIUM');
+      setBusinessUnitId(project.business_unit_id ? String(project.business_unit_id) : '');
       setBudget(project.budget != null ? String(project.budget) : '');
       setBudgetCurrency(project.budget_currency || 'PKR');
       setTeamMembers((project.members || []).map((m) => ({
@@ -237,6 +243,8 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       setClientName('');
       setDevStatus('');
       setStatus('PLANNING');
+      setPriority('MEDIUM');
+      setBusinessUnitId('');
       setBudget('');
       setBudgetCurrency('PKR');
       setProjectOwners([]);
@@ -269,6 +277,8 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       client_name: clientName.trim() || undefined,
       dev_status: devStatus.trim() || undefined,
       status,
+      priority: priority as ProjectDto['priority'],
+      business_unit_id: businessUnitId || null,
       budget: budget !== '' ? Number(budget) : null,
       budget_currency: budgetCurrency,
       owner_id: projectOwners[0]?.id || '',
@@ -371,6 +381,36 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
                     onChange={(v) => setStatus(String(v))}
                   />
                 </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Priority</label>
+                  <Select
+                    options={[
+                      { label: 'Low', value: 'LOW' },
+                      { label: 'Medium', value: 'MEDIUM' },
+                      { label: 'High', value: 'HIGH' },
+                      { label: 'Critical', value: 'CRITICAL' },
+                    ]}
+                    value={priority}
+                    onChange={(v) => setPriority(String(v))}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Business Unit</label>
+                  <Select
+                    options={[{ label: 'Unassigned', value: '' }, ...businessUnits.map((bu: any) => ({ label: bu.name, value: bu.id }))]}
+                    value={businessUnitId}
+                    onChange={(v) => setBusinessUnitId(String(v))}
+                  />
+                </div>
+
+                {isEdit && project?.project_code && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Project Code</span>
+                    <span className="text-sm font-bold text-gray-600 ml-1">{project.project_code}</span>
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col gap-4">
