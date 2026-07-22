@@ -15,24 +15,21 @@ import {
 } from '@/services/dependenciesService';
 import { cn } from '@/utils/cn';
 
+// GitHub/Server/Domain/SMTP/OpenAI/Stripe/AWS live in the DevOps Access tab
+// instead — see the comment on DependencyType in dependenciesService.ts.
 const DEPENDENCY_TYPE_OPTIONS: { label: string; value: DependencyType }[] = [
-  { label: 'GitHub', value: 'GITHUB' },
-  { label: 'Server', value: 'SERVER' },
-  { label: 'Domain', value: 'DOMAIN' },
-  { label: 'SMTP', value: 'SMTP' },
-  { label: 'OpenAI', value: 'OPENAI' },
   { label: 'Anthropic', value: 'ANTHROPIC' },
   { label: 'Gemini', value: 'GEMINI' },
-  { label: 'Stripe', value: 'STRIPE' },
   { label: 'Twilio', value: 'TWILIO' },
   { label: 'Firebase', value: 'FIREBASE' },
   { label: 'Supabase', value: 'SUPABASE' },
-  { label: 'AWS', value: 'AWS' },
   { label: 'DigitalOcean', value: 'DIGITALOCEAN' },
   { label: 'Cloudflare', value: 'CLOUDFLARE' },
   { label: 'Google OAuth', value: 'GOOGLE_OAUTH' },
   { label: 'Apple Developer', value: 'APPLE_DEVELOPER' },
   { label: 'Play Store', value: 'PLAY_STORE' },
+  { label: 'Meta', value: 'META' },
+  { label: 'SendGrid', value: 'SENDGRID' },
   { label: 'Other', value: 'OTHER' },
 ];
 
