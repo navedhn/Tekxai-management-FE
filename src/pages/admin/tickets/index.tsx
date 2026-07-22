@@ -11,6 +11,7 @@ import { Ticket, Search, Clock, CheckCircle2, XCircle, BarChart3 } from 'lucide-
 import { cn } from '@/utils/cn';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useFetchUsersQuery } from '@/services/userService';
+import { useToastContext } from '@/components/toast/ToastProvider';
 
 const v1 = 'api/v1';
 const BUILDER = `${v1}/report/builder`;
@@ -98,6 +99,7 @@ const PRIORITY_STYLES: Record<string, string> = {
 
 export default function AdminTickets() {
   const qc = useQueryClient();
+  const toast = useToastContext();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
@@ -131,6 +133,7 @@ export default function AdminTickets() {
         qc.invalidateQueries({ queryKey: ['ticket-timeline', selectedTicket.id] });
       }
     },
+    onError: (e: any) => toast.error(e?.response?.data?.message || e?.message || 'Failed to update ticket status.'),
   });
 
   const approvalMutation = useMutation({
@@ -144,6 +147,7 @@ export default function AdminTickets() {
         qc.invalidateQueries({ queryKey: ['ticket-timeline', selectedTicket.id] });
       }
     },
+    onError: (e: any) => toast.error(e?.response?.data?.message || e?.message || 'Failed to submit approval decision.'),
   });
 
   // Search is now server-side (subject/description/ticket number) — the list
