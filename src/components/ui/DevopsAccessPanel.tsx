@@ -123,11 +123,13 @@ interface DevopsAccessPanelProps {
   leaderId?: string | null;
   accessScore?: AccessCompletionScore;
   healthScore?: number;
-  healthStatus?: 'HEALTHY' | 'WARNING' | 'CRITICAL';
+  healthStatus?: 'HEALTHY' | 'AT_RISK' | 'WARNING' | 'CRITICAL';
 }
 
+// 4-tier Green/Yellow/Orange/Red.
 const HEALTH_STYLES: Record<string, { color: string; badge: string }> = {
   HEALTHY:  { color: '#027A48', badge: 'bg-[#ECFDF3] text-[#027A48] border-[#ABEFC6]' },
+  AT_RISK:  { color: '#B54708', badge: 'bg-[#FFFAEB] text-[#B54708] border-[#FEDF89]' },
   WARNING:  { color: '#C4320A', badge: 'bg-[#FFF6ED] text-[#C4320A] border-[#FFD6AE]' },
   CRITICAL: { color: '#C01048', badge: 'bg-[#FFF1F3] text-[#C01048] border-[#FEB3B3]' },
 };

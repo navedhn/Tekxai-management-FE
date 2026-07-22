@@ -10,6 +10,25 @@ import Loader from '@/components/ui/Loader';
 import { Search, Filter, Plus, Edit2, Trash2, MoreVertical, Star } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { getProjectStatusStyle, getProjectStatusLabel } from '@/utils/projectStatus';
+
+const PRIORITY_STYLE: Record<string, string> = {
+  LOW: 'bg-gray-50 text-gray-500 border-gray-200',
+  MEDIUM: 'bg-blue-50 text-blue-600 border-blue-200',
+  HIGH: 'bg-orange-50 text-orange-600 border-orange-200',
+  CRITICAL: 'bg-red-50 text-red-600 border-red-200',
+};
+
+// 4-tier Green/Yellow/Orange/Red health indicator, driven by the backend's
+// computed health_status (health_score-derived, never manually set).
+const HEALTH_DOT: Record<string, string> = {
+  HEALTHY: 'bg-emerald-500',
+  AT_RISK: 'bg-yellow-400',
+  WARNING: 'bg-orange-500',
+  CRITICAL: 'bg-red-500',
+};
+const HEALTH_LABEL: Record<string, string> = {
+  HEALTHY: 'Healthy', AT_RISK: 'At Risk', WARNING: 'Warning', CRITICAL: 'Critical',
+};
 import ProjectDetailsSlideOver from '@/components/ui/ProjectDetailsSlideOver';
 import FilterDropdown, { FilterState, DEFAULT_FILTER_STATE } from '@/components/ui/FilterDropdown';
 import CreateProjectSlideOver from '@/components/ui/CreateProjectSlideOver';
@@ -143,6 +162,29 @@ const ProjectManagement: React.FC = () => {
         : <span className="text-xs text-gray-400 italic">—</span>
     },
     {
+      header: 'Priority',
+      key: 'priority',
+      render: (item) => (
+        <Badge variant="info" className={cn("rounded-lg px-2.5 py-1 text-[10px] font-black tracking-tight border", PRIORITY_STYLE[item.priority || 'MEDIUM'])}>
+          {item.priority || 'MEDIUM'}
+        </Badge>
+      )
+    },
+    {
+      header: 'Business Unit',
+      key: 'business_unit',
+      render: (item) => item.business_unit?.name
+        ? <span className="text-xs font-bold text-gray-700">{item.business_unit.name}</span>
+        : <span className="text-xs text-gray-400 italic">—</span>
+    },
+    {
+      header: 'Project Manager',
+      key: 'owner',
+      render: (item) => item.owner
+        ? <span className="text-xs font-bold text-gray-700">{`${item.owner.first_name || ''} ${item.owner.last_name || ''}`.trim() || item.owner.email}</span>
+        : <span className="text-xs text-gray-400 italic">Unassigned</span>
+    },
+    {
       header: 'Dev Status',
       key: 'dev_status',
       render: (item) => item.dev_status
@@ -216,6 +258,19 @@ const ProjectManagement: React.FC = () => {
           {getProjectStatusLabel(item.status)}
         </Badge>
       )
+    },
+    {
+      header: 'Health',
+      key: 'health_status',
+      render: (item) => {
+        const status = item.health_status || 'HEALTHY';
+        return (
+          <div className="flex items-center gap-1.5" title={`Health score: ${item.health_score ?? '—'}`}>
+            <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', HEALTH_DOT[status])} />
+            <span className="text-xs font-bold text-gray-600">{HEALTH_LABEL[status]}</span>
+          </div>
+        );
+      }
     },
     {
       header: 'Current Milestone',

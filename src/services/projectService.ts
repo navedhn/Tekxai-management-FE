@@ -61,8 +61,9 @@ export interface ProjectDto {
   client_name?: string;
   dev_status?: string;
   status?: string;
-  progress?: number;
-  progress_mode?: 'MANUAL' | 'AUTO';
+  // progress/progress_mode intentionally absent — MANUAL mode is removed,
+  // progress is always computed server-side from milestone completion and
+  // can no longer be set on create/update.
   budget?: number | null;
   budget_currency?: string;
   priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
@@ -126,8 +127,8 @@ export interface ProjectDetail {
   id: string;
   title: string;
   status: ProjectStatus;
-  progress: number;
-  progress_mode?: 'MANUAL' | 'AUTO';
+  progress: number; // always computed from milestone completion — never manually set
+  progress_mode?: 'AUTO'; // fixed — MANUAL has been removed
   total_hours: number;
   due_date: string | null;
   start_date: string;
@@ -170,7 +171,7 @@ export interface ProjectDetail {
   } | null;
   client_portal?: ClientPortalInfo;
   health_score?: number;
-  health_status?: 'HEALTHY' | 'WARNING' | 'CRITICAL';
+  health_status?: 'HEALTHY' | 'AT_RISK' | 'WARNING' | 'CRITICAL'; // 4-tier Green/Yellow/Orange/Red
   created_at: string;
   updated_at: string;
   is_saved: boolean;
@@ -184,6 +185,7 @@ export interface ProjectDetail {
   budget_spent?: number;
   priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   business_unit_id?: string | null;
+  business_unit?: { id: string; name: string } | null;
   project_code?: string | null;
 }
 

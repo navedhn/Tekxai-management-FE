@@ -197,6 +197,12 @@ export default function ExecutiveDashboard() {
   const rootCause = data?.root_cause as RootCausePanel[] | undefined;
   const recommendations = data?.recommendations as Recommendation[] | undefined;
   const execSummary = data?.executive_summary as ExecutiveSummary | undefined;
+  const pmHealth = data?.project_management_health as {
+    projects_at_risk: number; delayed_projects: number; upcoming_deliveries: number;
+    missing_milestones: number;
+    // 4-tier Green/Yellow/Orange/Red (was a 2-way healthy/at_risk split).
+    milestone_health: { healthy: number; at_risk: number; warning: number; critical: number };
+  } | undefined;
 
   const alertMeta: Record<string, { icon: React.ElementType; path: string; cls: string }> = {
     overdue_tickets:      { icon: Ticket,       path: '/admin/tickets',           cls: 'bg-red-50 text-red-800 hover:bg-red-100' },
@@ -279,6 +285,32 @@ export default function ExecutiveDashboard() {
         </div>
       </div>
 
+      {/* Project Management Health — the five headline project metrics the
+          Project Management overhaul requires on this dashboard. Backend
+          already computed all of these in get_dashboard_stats()
+          (projects.repository.js); this section just surfaces them —
+          projects_at_risk/delayed_projects existed already, upcoming_
+          deliveries/missing_milestones/milestone_health were added
+          alongside the Milestones rebuild but had no UI until now. */}
+      {pmHealth && (
+        <div>
+          <SectionHeader title="Project Management Health" />
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+            <KpiCard icon={ShieldAlert} color="bg-red-500" label="Projects At Risk" value={fmtNum(pmHealth.projects_at_risk)} onClick={() => navigate('/admin/project-tracking')} />
+            <KpiCard icon={Clock} color="bg-orange-500" label="Delayed Projects" value={fmtNum(pmHealth.delayed_projects)} onClick={() => navigate('/admin/project-tracking')} />
+            <KpiCard icon={CalendarClock} color="bg-blue-500" label="Upcoming Deliveries" value={fmtNum(pmHealth.upcoming_deliveries)} onClick={() => navigate('/admin/project-tracking')} />
+            <KpiCard icon={Flag} color="bg-purple-500" label="Missing Milestones" value={fmtNum(pmHealth.missing_milestones)} onClick={() => navigate('/admin/project-tracking')} />
+            <KpiCard
+              icon={Activity}
+              color="bg-emerald-500"
+              label="Milestone Health"
+              value={pmHealth.milestone_health ? `${pmHealth.milestone_health.healthy}G / ${pmHealth.milestone_health.at_risk}Y / ${pmHealth.milestone_health.warning}O / ${pmHealth.milestone_health.critical}R` : '—'}
+              onClick={() => navigate('/admin/project-tracking')}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Operations */}
       <div>
         <SectionHeader title="Operations" />
@@ -287,7 +319,7 @@ export default function ExecutiveDashboard() {
             icon={Activity}
             color="bg-emerald-500"
             label="Project Health"
-            value={ops?.project_health ? `${ops.project_health.healthy}H / ${ops.project_health.warning}W / ${ops.project_health.critical}C` : '—'}
+            value={ops?.project_health ? `${ops.project_health.healthy}G / ${ops.project_health.at_risk}Y / ${ops.project_health.warning}O / ${ops.project_health.critical}R` : '—'}
             onClick={() => navigate('/admin/project-tracking')}
           />
           <KpiCard icon={AlertTriangle} color="bg-red-500" label="Blocked Projects" value={fmtNum(ops?.blocked_projects)} onClick={() => navigate('/admin/project-tracking')} />

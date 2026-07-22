@@ -28,8 +28,12 @@ interface ProjectReportRow {
   budget_remaining: number | string;
 }
 
+// 4-tier Green/Yellow/Orange/Red — AT_RISK (yellow) sits between HEALTHY and
+// WARNING (orange) so a project that's slightly behind reads differently
+// from one that's genuinely at risk.
 const HEALTH_STYLE: Record<string, string> = {
   HEALTHY: 'bg-[#ECFDF3] text-[#027A48] border-[#ABEFC6]',
+  AT_RISK: 'bg-[#FEFBE8] text-[#854D0E] border-[#FDE68A]',
   WARNING: 'bg-[#FFFAEB] text-[#B54708] border-[#FEDF89]',
   CRITICAL: 'bg-[#FEF3F2] text-[#B42318] border-[#FECDCA]',
 };
