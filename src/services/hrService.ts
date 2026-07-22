@@ -85,6 +85,15 @@ export const useCreateEmployeeDoc = (userId: string) => {
   });
 };
 
+export const useUpdateEmployeeDoc = (userId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ docId, data }: { docId: string; data: any }) =>
+      apiRequest<any>(API_ENDPOINTS.EMPLOYEE_DOC.UPDATE(userId, docId), { method: 'PUT', body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['employee-docs', userId] }),
+  });
+};
+
 export const useDeleteEmployeeDoc = (userId: string) => {
   const qc = useQueryClient();
   return useMutation({
