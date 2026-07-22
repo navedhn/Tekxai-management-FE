@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Briefcase, DollarSign, FileText, Clock, Plus, Trash2, Save } from 'lucide-react';
+import { ArrowLeft, User, Briefcase, DollarSign, FileText, Clock, Plus, Trash2, Save, Upload, Download, RefreshCw } from 'lucide-react';
+import { uploadFile } from '@/lib/upload';
 import Tabs from '@/components/ui/Tabs';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -12,7 +13,7 @@ import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import {
   useGetEmployeeFullRecord, useUpsertHRProfile, useUpdateUserOrg,
-  useGetEmployeeDocs, useGetDocTypes, useCreateEmployeeDoc, useDeleteEmployeeDoc,
+  useGetEmployeeDocs, useGetDocTypes, useCreateEmployeeDoc, useUpdateEmployeeDoc, useDeleteEmployeeDoc,
 } from '@/services/hrService';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetGradesQuery } from '@/services/gradeService';
@@ -366,67 +367,126 @@ const CompensationSection: React.FC<{
 
 const DocumentsSection: React.FC<{
   docs: any[]; docTypes: any; showAddDoc: boolean; setShowAddDoc: (v: boolean) => void;
-  newDoc: any; setNewDoc: any; createDoc: any; deleteDoc: any; handleAddDoc: () => void;
-}> = ({ docs, docTypes, showAddDoc, setShowAddDoc, newDoc, setNewDoc, createDoc, deleteDoc, handleAddDoc }) => (
-  <div className="flex flex-col gap-4">
-    <div className="flex justify-end">
-      <Button variant="primary" size="sm" animation="none" rounded={false} className="rounded-xl" onClick={() => setShowAddDoc(true)}>
-        <Plus size={14} className="mr-1.5" />Add Document
-      </Button>
-    </div>
+  newDoc: any; setNewDoc: any; createDoc: any; updateDoc: any; deleteDoc: any; handleAddDoc: () => void;
+}> = ({ docs, docTypes, showAddDoc, setShowAddDoc, newDoc, setNewDoc, createDoc, updateDoc, deleteDoc, handleAddDoc }) => {
+  const [uploading, setUploading] = useState(false);
+  const [replacingId, setReplacingId] = useState<string | null>(null);
+  const toast = useToastContext();
 
-    {showAddDoc && (
-      <Card>
-        <h3 className="text-sm font-black text-gray-900 mb-3">Add New Document</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <Input label="Title *" value={newDoc.title} onChange={e => setNewDoc((p: any) => ({ ...p, title: e.target.value }))} className="h-10 rounded-xl" placeholder="e.g. Employment Contract 2024" />
-          <Select label="Document Type" options={docTypes} value={newDoc.document_type} onChange={(v: any) => setNewDoc((p: any) => ({ ...p, document_type: String(v) }))} className="h-10 !rounded-xl" />
-          <Input label="File URL (optional)" value={newDoc.file_url} onChange={e => setNewDoc((p: any) => ({ ...p, file_url: e.target.value }))} className="h-10 rounded-xl col-span-2" placeholder="https://..." />
-          <Input label="Notes (optional)" value={newDoc.notes} onChange={e => setNewDoc((p: any) => ({ ...p, notes: e.target.value }))} className="h-10 rounded-xl col-span-2" />
-        </div>
-        <div className="flex gap-2 mt-3">
-          <Button variant="outline" size="sm" animation="none" rounded={false} className="rounded-xl" onClick={() => setShowAddDoc(false)}>Cancel</Button>
-          <Button variant="primary" size="sm" animation="none" rounded={false} className="rounded-xl" loading={createDoc.isPending} onClick={handleAddDoc}>Add</Button>
-        </div>
-      </Card>
-    )}
+  const handleNewDocFile = async (file: File) => {
+    setUploading(true);
+    try {
+      const { file_url, file_key } = await uploadFile(file);
+      setNewDoc((p: any) => ({ ...p, file_url, file_key, title: p.title || file.name.replace(/\.[^.]+$/, '') }));
+    } catch (e: any) {
+      toast.error(e?.message || 'Upload failed');
+    }
+    setUploading(false);
+  };
 
-    {docs.length > 0 ? (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {docs.map((doc: any) => (
-          <Card key={doc.id} className="flex flex-col gap-3">
-            <div className="flex items-start justify-between">
-              <div className={cn('px-2 py-0.5 rounded-full text-[10px] font-black uppercase', DOC_TYPE_COLORS[doc.document_type] || DOC_TYPE_COLORS.OTHER)}>
-                {doc.document_type.replace(/_/g, ' ')}
-              </div>
-              <button onClick={() => deleteDoc.mutate(doc.id)} className="p-1 text-gray-300 hover:text-red-500 transition-colors">
-                <Trash2 size={14} />
-              </button>
-            </div>
-            <div>
-              <p className="text-sm font-black text-gray-900">{doc.title}</p>
-              {doc.notes && <p className="text-xs text-gray-400 mt-0.5">{doc.notes}</p>}
-            </div>
-            {doc.file_url && (
-              <a href={doc.file_url} target="_blank" rel="noreferrer" className="text-xs text-[#005CDA] font-semibold flex items-center gap-1">
-                <FileText size={12} />View File
-              </a>
-            )}
-            <p className="text-[10px] text-gray-300 mt-auto">{new Date(doc.created_at).toLocaleDateString()}</p>
-          </Card>
-        ))}
-      </div>
-    ) : !showAddDoc && (
-      <Card className="py-12 flex flex-col items-center gap-3">
-        <FileText size={32} className="text-gray-200" />
-        <p className="text-gray-400 font-medium">No documents uploaded yet</p>
-        <Button variant="outline" size="sm" animation="none" rounded={false} className="rounded-xl" onClick={() => setShowAddDoc(true)}>
-          Add First Document
+  const handleReplaceFile = async (doc: any, file: File) => {
+    setReplacingId(doc.id);
+    try {
+      const { file_url, file_key } = await uploadFile(file);
+      updateDoc.mutate({ docId: doc.id, data: { title: doc.title, document_type: doc.document_type, notes: doc.notes, file_url, file_key } }, {
+        onSuccess: () => toast.success('Document replaced'),
+        onError: (e: any) => toast.error(e?.message || 'Replace failed'),
+      });
+    } catch (e: any) {
+      toast.error(e?.message || 'Upload failed');
+    }
+    setReplacingId(null);
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex justify-end">
+        <Button variant="primary" size="sm" animation="none" rounded={false} className="rounded-xl" onClick={() => setShowAddDoc(true)}>
+          <Plus size={14} className="mr-1.5" />Add Document
         </Button>
-      </Card>
-    )}
-  </div>
-);
+      </div>
+
+      {showAddDoc && (
+        <Card>
+          <h3 className="text-sm font-black text-gray-900 mb-3">Add New Document</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Title *" value={newDoc.title} onChange={e => setNewDoc((p: any) => ({ ...p, title: e.target.value }))} className="h-10 rounded-xl" placeholder="e.g. Employment Contract 2024" />
+            <Select label="Document Type" options={docTypes} value={newDoc.document_type} onChange={(v: any) => setNewDoc((p: any) => ({ ...p, document_type: String(v) }))} className="h-10 !rounded-xl" />
+            <div className="col-span-2">
+              <p className="text-xs font-bold text-gray-500 mb-1">Upload File *</p>
+              <label className={cn(
+                'flex items-center gap-2 w-full h-10 px-3 border border-dashed rounded-xl text-sm cursor-pointer transition-colors',
+                uploading ? 'border-blue-300 bg-blue-50 text-blue-500' : 'border-gray-300 hover:border-blue-300 hover:bg-blue-50 text-gray-400 hover:text-blue-500',
+              )}>
+                <Upload size={14} />
+                <span className="truncate">{uploading ? 'Uploading…' : newDoc.file_url ? 'File uploaded — choose another to replace' : 'Choose file to upload'}</span>
+                <input type="file" className="hidden" disabled={uploading} onChange={e => e.target.files?.[0] && handleNewDocFile(e.target.files[0])} />
+              </label>
+              {newDoc.file_url && (
+                <a href={newDoc.file_url} target="_blank" rel="noreferrer" className="text-xs text-[#005CDA] font-semibold mt-1.5 inline-flex items-center gap-1">
+                  <FileText size={12} />Preview uploaded file
+                </a>
+              )}
+            </div>
+            <Input label="Notes (optional)" value={newDoc.notes} onChange={e => setNewDoc((p: any) => ({ ...p, notes: e.target.value }))} className="h-10 rounded-xl col-span-2" />
+          </div>
+          <div className="flex gap-2 mt-3">
+            <Button variant="outline" size="sm" animation="none" rounded={false} className="rounded-xl" onClick={() => setShowAddDoc(false)}>Cancel</Button>
+            <Button variant="primary" size="sm" animation="none" rounded={false} className="rounded-xl" loading={createDoc.isPending} disabled={uploading} onClick={handleAddDoc}>Add</Button>
+          </div>
+        </Card>
+      )}
+
+      {docs.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {docs.map((doc: any) => (
+            <Card key={doc.id} className="flex flex-col gap-3">
+              <div className="flex items-start justify-between">
+                <div className={cn('px-2 py-0.5 rounded-full text-[10px] font-black uppercase', DOC_TYPE_COLORS[doc.document_type] || DOC_TYPE_COLORS.OTHER)}>
+                  {doc.document_type.replace(/_/g, ' ')}
+                </div>
+                <button onClick={() => deleteDoc.mutate(doc.id)} className="p-1 text-gray-300 hover:text-red-500 transition-colors">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+              <div>
+                <p className="text-sm font-black text-gray-900">{doc.title}</p>
+                {doc.notes && <p className="text-xs text-gray-400 mt-0.5">{doc.notes}</p>}
+              </div>
+              {doc.file_url && (
+                <div className="flex items-center gap-3">
+                  <a href={doc.file_url} target="_blank" rel="noreferrer" className="text-xs text-[#005CDA] font-semibold flex items-center gap-1">
+                    <FileText size={12} />Preview
+                  </a>
+                  <a href={doc.file_url} download target="_blank" rel="noreferrer" className="text-xs text-[#005CDA] font-semibold flex items-center gap-1">
+                    <Download size={12} />Download
+                  </a>
+                </div>
+              )}
+              <label className={cn(
+                'flex items-center justify-center gap-1.5 w-full h-8 border border-dashed rounded-lg text-[11px] font-bold cursor-pointer transition-colors',
+                replacingId === doc.id ? 'border-blue-300 bg-blue-50 text-blue-500' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50 text-gray-400 hover:text-blue-500',
+              )}>
+                <RefreshCw size={11} className={replacingId === doc.id ? 'animate-spin' : ''} />
+                {replacingId === doc.id ? 'Uploading…' : 'Replace file'}
+                <input type="file" className="hidden" disabled={replacingId === doc.id} onChange={e => e.target.files?.[0] && handleReplaceFile(doc, e.target.files[0])} />
+              </label>
+              <p className="text-[10px] text-gray-300 mt-auto">{new Date(doc.created_at).toLocaleDateString()}</p>
+            </Card>
+          ))}
+        </div>
+      ) : !showAddDoc && (
+        <Card className="py-12 flex flex-col items-center gap-3">
+          <FileText size={32} className="text-gray-200" />
+          <p className="text-gray-400 font-medium">No documents uploaded yet</p>
+          <Button variant="outline" size="sm" animation="none" rounded={false} className="rounded-xl" onClick={() => setShowAddDoc(true)}>
+            Add First Document
+          </Button>
+        </Card>
+      )}
+    </div>
+  );
+};
 
 const HistorySection: React.FC<{ user: any; profile: any; asset_assignments: any[]; policy_acknowledgements: any[] }> = ({
   user, profile,
@@ -513,7 +573,7 @@ const EmployeeProfilePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('Overview');
   const [hrForm, setHrForm] = useState<any>({});
   const [hrEditing, setHrEditing] = useState(false);
-  const [newDoc, setNewDoc] = useState({ title: '', document_type: 'OTHER', file_url: '', notes: '' });
+  const [newDoc, setNewDoc] = useState({ title: '', document_type: 'OTHER', file_url: '', file_key: '', notes: '' });
   const [showAddDoc, setShowAddDoc] = useState(false);
   const [orgEditing, setOrgEditing] = useState(false);
   const [orgForm, setOrgForm] = useState<{ designation_id: string; grade_id: string; supervisor_id: string }>({ designation_id: '', grade_id: '', supervisor_id: '' });
@@ -523,6 +583,7 @@ const EmployeeProfilePage: React.FC = () => {
   const { data: docTypes = [] } = useGetDocTypes();
   const upsertProfile = useUpsertHRProfile(employeeId!);
   const createDoc = useCreateEmployeeDoc(employeeId!);
+  const updateDoc = useUpdateEmployeeDoc(employeeId!);
   const deleteDoc = useDeleteEmployeeDoc(employeeId!);
   const updateOrg = useUpdateUserOrg(employeeId!);
   const { data: designations } = useGetDesignationsQuery(record?.user?.department?.id);
@@ -576,8 +637,9 @@ const EmployeeProfilePage: React.FC = () => {
 
   const handleAddDoc = () => {
     if (!newDoc.title) { toast.error('Title is required'); return; }
+    if (!newDoc.file_url) { toast.error('Please upload a file'); return; }
     createDoc.mutate(newDoc, {
-      onSuccess: () => { toast.success('Document added'); setShowAddDoc(false); setNewDoc({ title: '', document_type: 'OTHER', file_url: '', notes: '' }); },
+      onSuccess: () => { toast.success('Document added'); setShowAddDoc(false); setNewDoc({ title: '', document_type: 'OTHER', file_url: '', file_key: '', notes: '' }); },
       onError: (e: any) => toast.error(e?.message || 'Failed'),
     });
   };
@@ -631,7 +693,7 @@ const EmployeeProfilePage: React.FC = () => {
       render: () => (
         <DocumentsSection
           docs={docs} docTypes={docTypes} showAddDoc={showAddDoc} setShowAddDoc={setShowAddDoc}
-          newDoc={newDoc} setNewDoc={setNewDoc} createDoc={createDoc} deleteDoc={deleteDoc} handleAddDoc={handleAddDoc}
+          newDoc={newDoc} setNewDoc={setNewDoc} createDoc={createDoc} updateDoc={updateDoc} deleteDoc={deleteDoc} handleAddDoc={handleAddDoc}
         />
       ),
     },
