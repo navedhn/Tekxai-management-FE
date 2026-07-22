@@ -32,7 +32,7 @@ export interface ProjectSummary {
   status: string;
   end_date: string | null;
   days_remaining: number | null;
-  health_status: 'HEALTHY' | 'WARNING' | 'CRITICAL';
+  health_status: 'HEALTHY' | 'AT_RISK' | 'WARNING' | 'CRITICAL'; // 4-tier Green/Yellow/Orange/Red
 }
 
 export interface MilestoneSummary {

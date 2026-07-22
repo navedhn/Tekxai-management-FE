@@ -364,6 +364,18 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                         COMPLETED: 'bg-green-50 text-green-700',
                         BLOCKED: 'bg-red-50 text-red-600',
                       };
+                      // 4-tier Green/Yellow/Orange/Red health dot, same convention as
+                      // project-level health_status: Red = blocked, Orange = overdue,
+                      // Yellow = due within 3 days, Green = completed or on track.
+                      const daysUntilDue = milestone.due_date ? Math.ceil((new Date(milestone.due_date).getTime() - Date.now()) / 86400000) : null;
+                      const milestoneHealth = milestone.status === 'COMPLETED' ? 'HEALTHY'
+                        : milestone.status === 'BLOCKED' ? 'CRITICAL'
+                        : daysUntilDue !== null && daysUntilDue < 0 ? 'WARNING'
+                        : daysUntilDue !== null && daysUntilDue <= 3 ? 'AT_RISK'
+                        : 'HEALTHY';
+                      const HEALTH_DOT: Record<string, string> = {
+                        HEALTHY: 'bg-emerald-500', AT_RISK: 'bg-yellow-400', WARNING: 'bg-orange-500', CRITICAL: 'bg-red-500',
+                      };
                       return (
                       <div key={milestone.id} className="flex flex-col bg-white border border-gray-100 rounded-[2rem] shadow-sm overflow-hidden">
                         <button
@@ -372,6 +384,7 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                           data-expanded={expanded[milestone.id]}
                         >
                           <div className="flex items-center gap-3 min-w-0">
+                            <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', HEALTH_DOT[milestoneHealth])} title={`Health: ${milestoneHealth.replace('_', ' ')}`} />
                             <CheckCircle2 size={18} strokeWidth={2.5} className={milestone.status === 'COMPLETED' ? "text-[#005CDA]" : "text-gray-300"} />
                             {milestone.sequence != null && (
                               <span className="text-[10px] font-black text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-md shrink-0">#{milestone.sequence}</span>
@@ -423,6 +436,17 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                                   {milestone.due_date && (
                                     <div><p className="text-gray-400 font-bold uppercase text-[10px] tracking-wide">Due Date</p><p className="font-semibold text-gray-700">{new Date(milestone.due_date).toLocaleDateString()}</p></div>
                                   )}
+                                  {milestone.due_date && milestone.status !== 'COMPLETED' && (() => {
+                                    const days = Math.ceil((new Date(milestone.due_date).getTime() - Date.now()) / 86400000);
+                                    return (
+                                      <div>
+                                        <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wide">Remaining Days</p>
+                                        <p className={cn('font-semibold', days < 0 ? 'text-red-500' : 'text-gray-700')}>
+                                          {days < 0 ? `${Math.abs(days)}d overdue` : `${days}d left`}
+                                        </p>
+                                      </div>
+                                    );
+                                  })()}
                                   {milestone.completed_date && (
                                     <div><p className="text-gray-400 font-bold uppercase text-[10px] tracking-wide">Completed</p><p className="font-semibold text-gray-700">{new Date(milestone.completed_date).toLocaleDateString()}</p></div>
                                   )}
@@ -636,10 +660,6 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                         <div className="rounded-2xl border border-gray-100 bg-white p-4">
                           <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Project Type</p>
                           <p className="text-sm font-bold text-gray-700">{project.project_type || 'N/A'}</p>
-                        </div>
-                        <div className="rounded-2xl border border-gray-100 bg-white p-4">
-                          <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Progress Mode</p>
-                          <p className="text-sm font-bold text-gray-700">{project.progress_mode || 'AUTO'}</p>
                         </div>
                         <div className="rounded-2xl border border-gray-100 bg-white p-4">
                           <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Budget Currency</p>
