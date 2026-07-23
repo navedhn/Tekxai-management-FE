@@ -419,6 +419,9 @@ export const API_ENDPOINTS = {
     PRIVATE:     `${v1}/chat/channels/private`,
     JOIN:        (id: string) => `${v1}/chat/channels/${id}/join`,
     ARCHIVE:     (id: string) => `${v1}/chat/channels/${id}/archive`,
+    LEAVE:       (id: string) => `${v1}/chat/channels/${id}/leave`,
+    UNREAD_COUNT: `${v1}/chat/unread-count`,
+    SEARCH:      `${v1}/chat/search`,
     MEMBERS:     (id: string) => `${v1}/chat/channels/${id}/members`,
     MEMBER:      (id: string, uid: string) => `${v1}/chat/channels/${id}/members/${uid}`,
     MEMBER_ROLE: (id: string, uid: string) => `${v1}/chat/channels/${id}/members/${uid}/role`,
@@ -477,6 +480,8 @@ export const API_ENDPOINTS = {
     TEMPLATE_DETAIL:  (id: string) => `${v1}/hr-documents/templates/${id}`,
     TEMPLATE_UPDATE:  (id: string) => `${v1}/hr-documents/templates/${id}`,
     TEMPLATE_VERSIONS:(id: string) => `${v1}/hr-documents/templates/${id}/versions`,
+    TEMPLATE_DUPLICATE:(id: string) => `${v1}/hr-documents/templates/${id}/duplicate`,
+    TEMPLATE_DELETE:  (id: string) => `${v1}/hr-documents/templates/${id}`,
 
     PREVIEW_RENDER:   `${v1}/hr-documents/render/preview`,
 
@@ -486,6 +491,7 @@ export const API_ENDPOINTS = {
     RENEW:            (id: string) => `${v1}/hr-documents/${id}/renew`,
 
     SEND:             (id: string) => `${v1}/hr-documents/${id}/send`,
+    APPROVE_DRAFT:    (id: string) => `${v1}/hr-documents/${id}/approve-draft`,
     VIEW:             (id: string) => `${v1}/hr-documents/${id}/view`,
     REJECT:           (id: string) => `${v1}/hr-documents/${id}/reject`,
     CANCEL:           (id: string) => `${v1}/hr-documents/${id}/cancel`,
@@ -494,6 +500,7 @@ export const API_ENDPOINTS = {
     SIGN:             (id: string) => `${v1}/hr-documents/${id}/sign`,
 
     PDF:              (id: string) => `${v1}/hr-documents/${id}/pdf`,
+    DOCX:             (id: string) => `${v1}/hr-documents/${id}/docx`,
   },
 
   EXECUTIVE_ANALYTICS: {

@@ -16,6 +16,7 @@ import { cn } from '@/utils/cn';
 import ProjectDetailsSlideOver from '@/components/ui/ProjectDetailsSlideOver';
 import { StatSkeleton, CardSkeleton } from '@/components/skeletons';
 import DashboardStatCard from '@/components/ui/DashboardStatCard';
+import WorkforceOverview from './WorkforceOverview';
 
 const Dashboard: React.FC = () => {
     const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
@@ -169,6 +170,8 @@ const Dashboard: React.FC = () => {
                 </div>
             </div>
 
+            <WorkforceOverview />
+
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
                 <Card isLoading={timesheetLoading} className="lg:col-span-3 flex flex-col gap-6 border-none">
                     <div className="flex items-center justify-between">
@@ -176,7 +179,7 @@ const Dashboard: React.FC = () => {
                     </div>
                     <Table
                         columns={timesheetColumns}
-                        data={timesheet || []}
+                        data={(timesheet || []).slice(0, 4)}
                         isLoading={timesheetLoading}
                         className="border-none shadow-none"
                         emptyMessage="No timesheet found."
@@ -195,7 +198,7 @@ const Dashboard: React.FC = () => {
                         </div>
                     ) : activity && activity.length > 0 ? (
                         <div className="flex flex-col gap-1">
-                            {activity.map((act) => (
+                            {activity.slice(0, 4).map((act) => (
                                 <div key={act.id} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
                                     <div className={cn(
                                         'shrink-0 h-9 w-9 rounded-full flex items-center justify-center',

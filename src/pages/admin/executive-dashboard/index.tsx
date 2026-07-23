@@ -209,7 +209,7 @@ export default function ExecutiveDashboard() {
     blocked_projects:     { icon: Briefcase,    path: '/admin/project-tracking',  cls: 'bg-orange-50 text-orange-800 hover:bg-orange-100' },
     overdue_approvals:    { icon: ShieldAlert,  path: '/admin/approvals',         cls: 'bg-yellow-50 text-yellow-800 hover:bg-yellow-100' },
     compliance_reminders: { icon: ShieldAlert,  path: '/admin/policies',          cls: 'bg-purple-50 text-purple-800 hover:bg-purple-100' },
-    probation_reminders:  { icon: Users,        path: '/hr/employee-directory',   cls: 'bg-blue-50 text-blue-800 hover:bg-blue-100' },
+    probation_reminders:  { icon: Users,        path: '/admin/employee-directory',   cls: 'bg-blue-50 text-blue-800 hover:bg-blue-100' },
   };
 
   if (isLoading) {
@@ -276,7 +276,7 @@ export default function ExecutiveDashboard() {
       <div>
         <SectionHeader title="Company Overview" />
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-          <KpiCard icon={Users} color="bg-blue-500" label="Employees" value={fmtNum(co?.employees)} onClick={() => navigate('/hr/employee-directory')} />
+          <KpiCard icon={Users} color="bg-blue-500" label="Employees" value={fmtNum(co?.employees)} onClick={() => navigate('/admin/employee-directory')} />
           <KpiCard icon={Briefcase} color="bg-indigo-500" label="Active Projects" value={fmtNum(co?.active_projects)} onClick={() => navigate('/admin/project-tracking')} />
           <KpiCard icon={Ticket} color="bg-orange-500" label="Open Tickets" value={fmtNum(co?.open_tickets)} onClick={() => navigate('/admin/tickets')} />
           <KpiCard icon={Package} color="bg-purple-500" label="Active Assets" value={fmtNum(co?.active_assets)} onClick={() => navigate('/admin/assets')} />
@@ -367,10 +367,10 @@ export default function ExecutiveDashboard() {
 
         <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 mt-1">Workforce</p>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-          <TrendCard icon={UserPlus} color="bg-blue-500" label="Hiring (30d)" trend={insights?.workforce?.hiring_trend_30d} onClick={() => navigate('/hr/employee-directory')} />
-          <KpiCard icon={Users} color="bg-indigo-500" label="Employee Growth" value={fmtNum(insights?.workforce?.employee_growth)} onClick={() => navigate('/hr/employee-directory')} />
-          <TrendCard icon={UserMinus} color="bg-red-500" label="Attrition (30d)" trend={insights?.workforce?.attrition_30d} invertGood onClick={() => navigate('/hr/employee-directory')} />
-          <KpiCard icon={Clock} color="bg-amber-500" label="Probation Ending Soon" value={fmtNum(insights?.workforce?.probation_ending_soon)} onClick={() => navigate('/hr/employee-directory')} />
+          <TrendCard icon={UserPlus} color="bg-blue-500" label="Hiring (30d)" trend={insights?.workforce?.hiring_trend_30d} onClick={() => navigate('/admin/employee-directory')} />
+          <KpiCard icon={Users} color="bg-indigo-500" label="Employee Growth" value={fmtNum(insights?.workforce?.employee_growth)} onClick={() => navigate('/admin/employee-directory')} />
+          <TrendCard icon={UserMinus} color="bg-red-500" label="Attrition (30d)" trend={insights?.workforce?.attrition_30d} invertGood onClick={() => navigate('/admin/employee-directory')} />
+          <KpiCard icon={Clock} color="bg-amber-500" label="Probation Ending Soon" value={fmtNum(insights?.workforce?.probation_ending_soon)} onClick={() => navigate('/admin/employee-directory')} />
         </div>
 
         <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Delivery</p>

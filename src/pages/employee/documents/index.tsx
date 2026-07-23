@@ -1,20 +1,37 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import { FileText, ShieldCheck, Briefcase, Star, Download, CheckCircle } from 'lucide-react';
+import { FileText, ShieldCheck, Briefcase, Star, Download, CheckCircle, PenLine } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useGetContracts } from '@/services/contractService';
 import { useGetPolicies, useGetMyAcks, useAcknowledgePolicy } from '@/services/policyService';
 import { useGetMyJD } from '@/services/jdService';
+import { useGetDocuments, type DocumentStatus } from '@/services/hrDocumentsService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 
+const HR_DOC_STATUS_STYLE: Record<DocumentStatus, string> = {
+  DRAFT: 'bg-gray-100 text-gray-600',
+  GENERATED: 'bg-blue-100 text-blue-700',
+  SENT: 'bg-amber-100 text-amber-700',
+  VIEWED: 'bg-purple-100 text-purple-700',
+  SIGNED: 'bg-green-100 text-green-700',
+  REJECTED: 'bg-red-100 text-red-700',
+  CANCELLED: 'bg-gray-200 text-gray-500',
+  EXPIRED: 'bg-orange-100 text-orange-700',
+  ARCHIVED: 'bg-gray-100 text-gray-400',
+};
+
 const EmployeeDocuments: React.FC = () => {
+  const navigate = useNavigate();
   const toast = useToastContext();
   const { data: contracts = [], isLoading: cLoading } = useGetContracts();
   const { data: policies = [], isLoading: pLoading } = useGetPolicies();
   const { data: acks = [] } = useGetMyAcks();
   const { data: jd } = useGetMyJD();
+  const { data: hrDocsData, isLoading: hrDocsLoading } = useGetDocuments();
+  const hrDocs = hrDocsData?.records || [];
 
   const acknowledged_ids = new Set((acks as any[]).map((a: any) => a.policy_id));
 
@@ -38,6 +55,32 @@ const EmployeeDocuments: React.FC = () => {
         <h1 className="text-2xl font-black text-gray-900 tracking-tight">My Documents</h1>
         <p className="text-sm text-gray-500 font-medium mt-1">Access your employment documents, contracts, and policies.</p>
       </div>
+
+      {/* HR Documents — offer letters, contracts, and other generated documents that may need your review or signature */}
+      <Card className="border-none shadow-sm">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="h-10 w-10 rounded-xl bg-primary-50 flex items-center justify-center text-primary-600"><PenLine size={18} /></div>
+          <h2 className="text-lg font-black text-gray-900">HR Documents</h2>
+        </div>
+        {hrDocsLoading ? <p className="text-sm text-gray-400">Loading...</p> :
+         hrDocs.length === 0 ? <p className="text-sm text-gray-400 italic">No documents yet.</p> :
+         hrDocs.map((d) => (
+          <div key={d.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0 gap-4">
+            <div className="min-w-0">
+              <p className="font-black text-gray-900 truncate">{d.title}</p>
+              <p className="text-xs text-gray-400">{d.category?.name} · {d.type?.name}</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Badge variant="info" className={cn('text-[10px] font-bold border-0 rounded-lg px-2 py-0.5', HR_DOC_STATUS_STYLE[d.status])}>
+                {d.status}
+              </Badge>
+              <Button size="sm" variant="outline" className="rounded-xl h-7 text-xs" onClick={() => navigate(`/employee/documents/${d.id}`)}>
+                {['SENT', 'VIEWED'].includes(d.status) ? 'Review & Sign' : 'View'}
+              </Button>
+            </div>
+          </div>
+        ))}
+      </Card>
 
       {/* Job Description */}
       <Card className="border-none shadow-sm">

@@ -38,7 +38,7 @@ export const isUserRole = (value: string | null | undefined): value is UserRole 
 export const getRoleHomePath = (role: string | null | undefined): string => {
   if (role === USER_ROLES.SUPER_ADMIN) return '/admin';
   if (role === USER_ROLES.ADMIN) return '/admin';
-  if (role === USER_ROLES.HR) return '/hr';
+  if (role === USER_ROLES.HR) return '/admin';
   if (role === USER_ROLES.MARKETING) return '/crm';
   if (role === USER_ROLES.DIVISION_MANAGER || role === USER_ROLES.TEAM_LEAD) return '/admin';
   if (role === USER_ROLES.EMPLOYEE || role === USER_ROLES.EMPLLOYEE) return '/employee';

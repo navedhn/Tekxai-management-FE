@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Briefcase, DollarSign, FileText, Clock, Plus, Trash2, Save, Upload, Download, RefreshCw } from 'lucide-react';
+import { ArrowLeft, User, Briefcase, DollarSign, FileText, Clock, Plus, Trash2, Save, Upload, Download, RefreshCw, FileSignature } from 'lucide-react';
 import { uploadFile } from '@/lib/upload';
 import Tabs from '@/components/ui/Tabs';
 import Card from '@/components/ui/Card';
@@ -24,6 +24,7 @@ import EmergencyContactsSection from '@/components/employee-profile/EmergencyCon
 import PolicyStatusSection from '@/components/employee-profile/PolicyStatusSection';
 import EducationExperienceSection from '@/components/employee-profile/EducationExperienceSection';
 import { EMPLOYMENT_STATUS_LABELS } from '@/constants/employmentStatus';
+import { NewDocumentModal } from '@/pages/admin/hr-documents';
 
 const InfoRow: React.FC<{ label: string; value?: string | null }> = ({ label, value }) => (
   <div>
@@ -577,6 +578,7 @@ const EmployeeProfilePage: React.FC = () => {
   const [showAddDoc, setShowAddDoc] = useState(false);
   const [orgEditing, setOrgEditing] = useState(false);
   const [orgForm, setOrgForm] = useState<{ designation_id: string; grade_id: string; supervisor_id: string }>({ designation_id: '', grade_id: '', supervisor_id: '' });
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
 
   const { data: record, isLoading } = useGetEmployeeFullRecord(employeeId);
   const { data: docs = [] } = useGetEmployeeDocs(employeeId);
@@ -751,8 +753,11 @@ const EmployeeProfilePage: React.FC = () => {
           </div>
         </div>
         <div className="flex gap-2 shrink-0">
+          <Button variant="outline" size="sm" animation="none" rounded={false} className="rounded-xl gap-1.5" onClick={() => setShowGenerateModal(true)}>
+            <FileSignature size={14} />Generate Document
+          </Button>
           <Button variant="outline" size="sm" animation="none" rounded={false} className="rounded-xl" onClick={handleEditProfile}>
-            Edit HR Info
+            Update Info
           </Button>
         </div>
       </Card>
@@ -763,6 +768,15 @@ const EmployeeProfilePage: React.FC = () => {
       </div>
 
       {activeTabConfig.render()}
+
+      {showGenerateModal && (
+        <NewDocumentModal
+          initialUserId={employeeId}
+          initialUserName={name}
+          onClose={() => setShowGenerateModal(false)}
+          onGenerated={(id) => { toast.success('Document generated'); if (id) navigate(`/admin/documents/${id}`); }}
+        />
+      )}
     </div>
   );
 };

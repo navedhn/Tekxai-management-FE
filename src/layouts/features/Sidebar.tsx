@@ -4,9 +4,12 @@ import {
   Home, Users2, Settings, FolderCheck, Clock, Star, Monitor, LogOut, X,
   BarChart3, Shield, ClipboardCheck, Ticket, Receipt, Banknote, Webhook, Mail,
   MessageSquare, FileText, Package, CalendarDays, Table2, Layers, Video, Gauge,
+  Building2, TrendingUp, UserPlus, ShieldCheck, Briefcase, Heart, AlarmClock,
+  UserSearch, PlusCircle, Tag, Network, Landmark,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
+import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
 import { useMyPermissions } from '@/services/permissionsService';
 import { clearAuthTokens } from '@/utils/tokenMemory';
 import { USER_ROLES } from '@/constants/roles';
@@ -29,6 +32,7 @@ interface SidebarLink {
   icon: React.ReactNode;
   end?: boolean;
   section?: string;
+  badge?: number;
 }
 
 interface SidebarProps {
@@ -54,7 +58,15 @@ const NavItem: React.FC<{ link: SidebarLink }> = ({ link }) => (
         <span className={cn('shrink-0 w-5 h-5 flex items-center justify-center transition-colors', isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-600')}>
           {link.icon}
         </span>
-        <span className="truncate">{link.label}</span>
+        <span className="truncate flex-1">{link.label}</span>
+        {!!link.badge && (
+          <span className={cn(
+            'shrink-0 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black flex items-center justify-center',
+            isActive ? 'bg-white/25 text-white' : 'bg-red-500 text-white',
+          )}>
+            {link.badge > 99 ? '99+' : link.badge}
+          </span>
+        )}
       </>
     )}
   </NavLink>
@@ -65,12 +77,14 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
   const navigate = useNavigate();
   const { data: myPerms } = useMyPermissions();
   const queryClient = useQueryClient();
+  const chatUnreadCount = useChatUnreadCount();
 
   const links: SidebarLink[] = useMemo(() => {
     const isAdmin = ERP_ROLES.includes(role as any);
     const hasErpAccess = isAdmin || myPerms?.permissions?.includes('erp.workspace.access');
+    const isHrRole = role === USER_ROLES.HR;
 
-    if (!hasErpAccess) {
+    if (!hasErpAccess && !isHrRole) {
       return [
         { to: '/employee',             label: 'Home',            icon: <Home size={18} strokeWidth={SW} />,          end: true },
         { to: '/employee/projects',    label: 'Projects',        icon: <FolderCheck size={18} strokeWidth={SW} /> },
@@ -80,7 +94,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
         { to: '/employee/documents',   label: 'My Documents',    icon: <FileText size={18} strokeWidth={SW} /> },
         { to: '/employee/requisitions',label: 'Requisitions',    icon: <Package size={18} strokeWidth={SW} /> },
         { to: '/employee/daily-report',label: 'Daily Report',    icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
-        { to: '/chat',                 label: 'Messages',        icon: <MessageSquare size={18} strokeWidth={SW} /> },
+        { to: '/chat',                 label: 'Messages',        icon: <MessageSquare size={18} strokeWidth={SW} />, badge: chatUnreadCount },
         { to: '/employee/download-app',label: 'Desktop App',     icon: <Monitor size={18} strokeWidth={SW} /> },
         { to: '/employee/settings',    label: 'Settings',        icon: <Settings size={18} strokeWidth={SW} /> },
       ];
@@ -88,28 +102,67 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
 
     const isSuperAdmin = role === 'SUPER_ADMIN';
 
-    return [
-      { section: 'Overview', to: '/admin',              label: 'ERP Dashboard',   icon: <Home size={18} strokeWidth={SW} />,           end: true },
-      { section: 'Delivery', to: '/admin/projects',     label: 'Projects',        icon: <FolderCheck size={18} strokeWidth={SW} /> },
+    // Shared — visible to every ERP/HR user past the gate above, rendered once.
+    const sharedItems: SidebarLink[] = [
+      { section: 'Overview', to: '/admin',           label: 'Dashboard',  icon: <Home size={18} strokeWidth={SW} />, end: true },
+      { section: 'Shared',   to: '/admin/timesheet', label: 'Timesheet',  icon: <Clock size={18} strokeWidth={SW} /> },
+      {                       to: '/admin/monitoring', label: 'Monitoring', icon: <Monitor size={18} strokeWidth={SW} /> },
+      {                       to: '/chat',            label: 'Messages',   icon: <MessageSquare size={18} strokeWidth={SW} />, badge: chatUnreadCount },
+      {                       to: '/admin/settings',  label: 'Settings',   icon: <Settings size={18} strokeWidth={SW} /> },
+    ];
+
+    // HR — visible to ADMIN/SUPER_ADMIN and to plain HR-role users alike.
+    const hrItems: SidebarLink[] = [
+      { section: 'People',       to: '/admin/employee-directory', label: 'Employee Directory', icon: <UserSearch size={18} strokeWidth={SW} /> },
+      {                          to: '/admin/add-employee',       label: 'Add Employee',       icon: <PlusCircle size={18} strokeWidth={SW} /> },
+      { section: 'Organization', to: '/admin/business-units',     label: 'Business Units',     icon: <Landmark size={18} strokeWidth={SW} /> },
+      {                          to: '/admin/departments',        label: 'Departments',        icon: <Building2 size={18} strokeWidth={SW} /> },
+      {                          to: '/admin/divisions',          label: 'Divisions',          icon: <Layers size={18} strokeWidth={SW} /> },
+      {                          to: '/admin/designations',       label: 'Designations',       icon: <Tag size={18} strokeWidth={SW} /> },
+      {                          to: '/admin/grades',             label: 'Grades',              icon: <TrendingUp size={18} strokeWidth={SW} /> },
+      {                          to: '/admin/org-chart',          label: 'Org Chart',           icon: <Network size={18} strokeWidth={SW} /> },
+      { section: 'Time & Attendance', to: '/admin/attendance',    label: 'Attendance',          icon: <Clock size={18} strokeWidth={SW} /> },
+      {                          to: '/admin/overtime',           label: 'Overtime',            icon: <AlarmClock size={18} strokeWidth={SW} /> },
+      { section: 'Payroll & Growth', to: '/admin/increments',     label: 'Increments',          icon: <TrendingUp size={18} strokeWidth={SW} /> },
+      { section: 'Performance',  to: '/admin/performance',        label: 'Performance',         icon: <TrendingUp size={18} strokeWidth={SW} /> },
+      {                          to: '/admin/performance-scoring', label: 'Performance Scoring', icon: <TrendingUp size={18} strokeWidth={SW} /> },
+      { section: 'HR Reports',  to: '/admin/hr-reports',          label: 'HR Reports',          icon: <BarChart3 size={18} strokeWidth={SW} /> },
+      { section: 'Assets & Ops', to: '/admin/assets',             label: 'Assets',              icon: <Package size={18} strokeWidth={SW} /> },
+      {                          to: '/admin/requisitions',       label: 'Requisitions',        icon: <Package size={18} strokeWidth={SW} /> },
+      { section: 'Employment',  to: '/admin/contracts',           label: 'Contracts',           icon: <FileText size={18} strokeWidth={SW} /> },
+      {                          to: '/admin/documents',          label: 'HR Documents',        icon: <FileText size={18} strokeWidth={SW} /> },
+      {                          to: '/admin/document-templates', label: 'Document Templates',  icon: <Layers size={18} strokeWidth={SW} /> },
+      {                          to: '/admin/onboarding',         label: 'Hiring & Onboarding', icon: <UserPlus size={18} strokeWidth={SW} /> },
+      {                          to: '/admin/policies',           label: 'Policies',            icon: <ShieldCheck size={18} strokeWidth={SW} /> },
+      {                          to: '/admin/job-descriptions',   label: 'Job Descriptions',    icon: <Briefcase size={18} strokeWidth={SW} /> },
+      { section: 'Tools',       to: '/admin/download-app',        label: 'Desktop App',         icon: <Monitor size={18} strokeWidth={SW} /> },
+      { section: 'My HR',       to: '/admin/my-salaries',         label: 'My Salaries',         icon: <Heart size={18} strokeWidth={SW} /> },
+    ];
+
+    // Delivery / Admin — ERP-only, hidden from plain HR-role users.
+    const erpOnlyItems: SidebarLink[] = [
+      { section: 'Delivery', to: '/admin/projects',         label: 'Projects',         icon: <FolderCheck size={18} strokeWidth={SW} /> },
       {                       to: '/admin/project-tracking', label: 'Project Tracking', icon: <Table2 size={18} strokeWidth={SW} /> },
-      {                       to: '/admin/project-timeline', label: 'Timeline',    icon: <CalendarDays size={18} strokeWidth={SW} /> },
-      {                       to: '/admin/team',         label: 'Teams',           icon: <Users2 size={18} strokeWidth={SW} /> },
-      {                       to: '/admin/timesheet',    label: 'Timesheet',       icon: <Clock size={18} strokeWidth={SW} /> },
-{                       to: '/admin/monitoring',   label: 'Monitoring',      icon: <Monitor size={18} strokeWidth={SW} /> },
-      {                       to: '/admin/reports',      label: 'Reports',         icon: <BarChart3 size={18} strokeWidth={SW} /> },
-      {                       to: '/admin/project-report', label: 'Project Report', icon: <BarChart3 size={18} strokeWidth={SW} /> },
-      { section: 'Shared',   to: '/admin/starred',      label: 'Starred',         icon: <Star size={18} strokeWidth={SW} /> },
-      {                       to: '/chat',               label: 'Messages',        icon: <MessageSquare size={18} strokeWidth={SW} /> },
-      {                       to: '/admin/settings',     label: 'Settings',        icon: <Settings size={18} strokeWidth={SW} /> },
-      { section: 'Admin',    to: '/admin/approvals',    label: 'Approvals',       icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
-      {                       to: '/admin/meetings',     label: 'Meetings',        icon: <Video size={18} strokeWidth={SW} /> },
-      {                       to: '/admin/tickets',      label: 'Support Tickets', icon: <Ticket size={18} strokeWidth={SW} /> },
+      {                       to: '/admin/project-timeline', label: 'Timeline',         icon: <CalendarDays size={18} strokeWidth={SW} /> },
+      {                       to: '/admin/team',             label: 'Teams',            icon: <Users2 size={18} strokeWidth={SW} /> },
+      {                       to: '/admin/reports',          label: 'Reports',          icon: <BarChart3 size={18} strokeWidth={SW} /> },
+      {                       to: '/admin/project-report',   label: 'Project Report',   icon: <BarChart3 size={18} strokeWidth={SW} /> },
+      {                       to: '/admin/starred',          label: 'Starred',          icon: <Star size={18} strokeWidth={SW} /> },
+      { section: 'Admin',    to: '/admin/approvals',        label: 'Approvals',        icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
+      {                       to: '/admin/meetings',         label: 'Meetings',         icon: <Video size={18} strokeWidth={SW} /> },
+      {                       to: '/admin/tickets',          label: 'Support Tickets',  icon: <Ticket size={18} strokeWidth={SW} /> },
       {                       to: '/admin/ticket-categories', label: 'Ticket Categories', icon: <Layers size={18} strokeWidth={SW} /> },
-      {                       to: '/admin/ticket-types', label: 'Ticket Types',    icon: <Settings size={18} strokeWidth={SW} /> },
-      {                       to: '/admin/expenses',     label: 'Expenses',        icon: <Receipt size={18} strokeWidth={SW} /> },
-      {                       to: '/admin/payroll',      label: 'Payroll',         icon: <Banknote size={18} strokeWidth={SW} /> },
-      {                       to: '/admin/webhooks',     label: 'Webhooks',        icon: <Webhook size={18} strokeWidth={SW} /> },
-      {                       to: '/admin/report-builder', label: 'Report Builder',icon: <BarChart3 size={18} strokeWidth={SW} /> },
+      {                       to: '/admin/ticket-types',     label: 'Ticket Types',     icon: <Settings size={18} strokeWidth={SW} /> },
+      {                       to: '/admin/expenses',         label: 'Expenses',         icon: <Receipt size={18} strokeWidth={SW} /> },
+      {                       to: '/admin/payroll',          label: 'Payroll',          icon: <Banknote size={18} strokeWidth={SW} /> },
+      {                       to: '/admin/webhooks',         label: 'Webhooks',         icon: <Webhook size={18} strokeWidth={SW} /> },
+      {                       to: '/admin/report-builder',   label: 'Report Builder',   icon: <BarChart3 size={18} strokeWidth={SW} /> },
+    ];
+
+    return [
+      ...sharedItems,
+      ...hrItems,
+      ...(isAdmin ? erpOnlyItems : []),
       ...((myPerms?.is_super_admin || myPerms?.permissions?.includes('erp.executive-analytics.view')) ? [
         { to: '/admin/executive-dashboard', label: 'Executive Dashboard', icon: <Gauge size={18} strokeWidth={SW} /> },
       ] : []),
@@ -120,9 +173,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
         { to: '/admin/system-settings',   label: 'System Settings',   icon: <Settings size={18} strokeWidth={SW} /> },
       ] : []),
     ];
-  }, [role, myPerms]);
+  }, [role, myPerms, chatUnreadCount]);
 
   const isAdmin = ERP_ROLES.includes(role as any) || myPerms?.permissions?.includes('erp.workspace.access');
+  const isHrRole = role === USER_ROLES.HR;
 
   const handleLogout = async () => {
     clearAuthTokens();
@@ -146,9 +200,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
         <div className="flex items-center gap-3">
           <img src={tekxaiLogo} alt="Tekxai" className="h-8" />
-          {isAdmin && (
+          {(isAdmin || isHrRole) && (
             <span className="text-xs font-bold uppercase tracking-widest text-[#005CDA] bg-blue-50 px-2 py-1 rounded-lg">
-              ERP
+              {isAdmin ? 'ERP' : 'HR'}
             </span>
           )}
         </div>
@@ -158,14 +212,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
           </button>
         )}
       </div>
-
-      {/* Workspace Switcher */}
-      {isAdmin && (
-        <div className="px-3 pt-3 flex gap-2">
-          <button className="flex-1 text-xs font-semibold py-1.5 rounded-lg bg-[#005CDA] text-white">ERP</button>
-          <button onClick={() => navigate('/hr')} className="flex-1 text-xs font-semibold py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">HR</button>
-        </div>
-      )}
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-0.5">
