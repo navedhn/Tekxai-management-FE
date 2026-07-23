@@ -14,7 +14,14 @@ import { CardSkeleton } from '@/components/skeletons';
 // ── Date helpers ─────────────────────────────────────────────────────────────
 
 function toDateStr(d: Date) {
-  return d.toISOString().split('T')[0];
+  // Not `.toISOString().split('T')[0]` — that converts to UTC first, which
+  // silently shifts the date back a day for any positive-UTC-offset
+  // timezone (e.g. Asia/Karachi, UTC+5) whenever `d` is local midnight, as
+  // every date here is (see startOfWeek/startOfMonth below).
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 function startOfWeek(d: Date) {
