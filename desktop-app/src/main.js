@@ -306,7 +306,13 @@ ipcMain.handle('clock-in', async () => {
     sessionId = sessRes.data.payload.id;
   } catch (_) {}
 
-  const res = await apiClient.post('/timesheet/clock-in', { note: '' });
+  let res;
+  try {
+    res = await apiClient.post('/timesheet/clock-in', { note: '' });
+  } catch (err) {
+    // Same IPC-boundary message loss as login — see the login handler above.
+    throw new Error(err?.response?.data?.message || 'Unable to clock in. Please try again.');
+  }
 
   store.set('clocked_in', true);
   updateTrayMenu();
@@ -319,7 +325,12 @@ ipcMain.handle('clock-out', async () => {
   stopScreenshots();
   stopActivityTracking();
 
-  const res = await apiClient.post('/timesheet/clock-out', { note: '' });
+  let res;
+  try {
+    res = await apiClient.post('/timesheet/clock-out', { note: '' });
+  } catch (err) {
+    throw new Error(err?.response?.data?.message || 'Unable to clock out. Please try again.');
+  }
 
   // End monitoring session
   if (sessionId) {
