@@ -80,6 +80,10 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
       password: formData.password,
       designation_id: formData.designation_id,
       role_id: formData.role_id,
+      // Quick Create is for adding someone already actively working, not a
+      // formal new-hire onboarding — skips straight to ACTIVE_EMPLOYMENT
+      // instead of the ONBOARDING stage the full Add Employee flow uses.
+      quick_create: true,
     };
     if (formData.department_id) payload.department_id = formData.department_id;
     if (formData.hire_date) payload.hire_date = formData.hire_date;
