@@ -1,12 +1,38 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { MessageSquare } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '@/utils/cn';
+import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
+import { useToastContext } from '@/components/toast/ToastProvider';
 
 const ChatFloatingButton: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const unreadCount = useChatUnreadCount();
+    const toast = useToastContext();
+    // This component is mounted exactly once per active layout (admin/hr/
+    // employee), and exactly one layout is ever mounted at a time — so this
+    // is the single place the unread total is diffed and surfaced, rather
+    // than duplicating the effect in every consumer of useChatUnreadCount
+    // (e.g. the sidebar badge, which only displays the number).
+    const prevCount = useRef<number | null>(null);
+
+    useEffect(() => {
+        if (prevCount.current !== null && unreadCount > prevCount.current) {
+            const delta = unreadCount - prevCount.current;
+            const body = `You have ${delta} new message${delta === 1 ? '' : 's'}`;
+            toast.info(body);
+            if (typeof Notification !== 'undefined') {
+                if (Notification.permission === 'granted') {
+                    new Notification('New chat message', { body, icon: '/favicon.ico' });
+                } else if (Notification.permission === 'default') {
+                    Notification.requestPermission();
+                }
+            }
+        }
+        prevCount.current = unreadCount;
+    }, [unreadCount]);
 
     const isOnChat = location.pathname === '/chat';
 
@@ -34,6 +60,11 @@ const ChatFloatingButton: React.FC = () => {
             )}
         >
             <MessageSquare size={22} />
+            {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center ring-2 ring-white">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+            )}
             {/* Pulse ring */}
             <span className="absolute inset-0 rounded-full animate-ping bg-[#005CDA]/30 pointer-events-none" />
         </motion.button>

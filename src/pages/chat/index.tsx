@@ -9,6 +9,9 @@ import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 import { useAuthStore } from '@/stores/authStore';
 import ActionModal from '@/components/ui/ActionModal';
+import { uploadFile } from '@/lib/upload';
+import { useToastContext } from '@/components/toast/ToastProvider';
+import { useDebounce } from '@/hooks/useDebounce';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -19,6 +22,7 @@ interface ChatUser {
   email?: string;
   avatar?: string;
   designation?: string;
+  last_active_at?: string | null;
 }
 
 interface ChannelMember {
@@ -37,6 +41,7 @@ interface ChatMessage {
   content: string;
   parent_id?: string | null;
   file_url?: string | null;
+  file_key?: string | null;
   file_name?: string | null;
   file_size?: number | null;
   mime_type?: string | null;
@@ -55,6 +60,9 @@ interface Channel {
   description?: string;
   type: 'PUBLIC' | 'PRIVATE' | 'DM' | 'GROUP';
   is_archived: boolean;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  unread_count?: number;
   created_by?: string;
   created_at: string;
   updated_at: string;
@@ -72,7 +80,11 @@ function getOtherMember(channel: Channel, currentUserId: string): ChatUser | und
 function getChannelDisplayName(channel: Channel, currentUserId: string): string {
   if (channel.type === 'DM') {
     const other = getOtherMember(channel, currentUserId);
-    return other ? `${other.first_name} ${other.last_name}` : 'Direct Message';
+    // first_name/last_name are optional in the DB — some seeded accounts
+    // have no last_name at all, and unconditionally interpolating both
+    // rendered the literal string "null" next to the first name.
+    const name = other ? [other.first_name, other.last_name].filter(Boolean).join(' ').trim() : '';
+    return name || 'Direct Message';
   }
   return channel.name || 'Channel';
 }
@@ -89,19 +101,30 @@ function fmtTime(iso: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+// "Online" derived client-side from a heartbeat (users.last_active_at,
+// bumped by the auth middleware on any request, throttled to 1/min) — there's
+// no WebSocket in this app, so this is presence-by-recency, not true push.
+const ONLINE_WINDOW_MS = 2 * 60 * 1000;
+function isOnline(user?: ChatUser | null): boolean {
+  if (!user?.last_active_at) return false;
+  return Date.now() - new Date(user.last_active_at).getTime() < ONLINE_WINDOW_MS;
+}
+
+function fmtLastSeen(user?: ChatUser | null): string {
+  if (!user?.last_active_at) return '';
+  if (isOnline(user)) return 'Online';
+  const mins = Math.floor((Date.now() - new Date(user.last_active_at).getTime()) / 60000);
+  if (mins < 60) return `Last seen ${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `Last seen ${hours}h ago`;
+  return `Last seen ${new Date(user.last_active_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+}
+
 function fmtSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
-
-const readAsDataURL = (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 
 const PRIVACY_BADGE: Record<string, { label: string; cls: string }> = {
   PUBLIC:  { label: 'Public',  cls: 'bg-green-50 text-green-700' },
@@ -118,20 +141,36 @@ const ROLE_BADGE: Record<string, string> = {
 
 // ─── Avatar ──────────────────────────────────────────────────────────────────
 
-const Avatar: React.FC<{ user?: ChatUser; size?: 'sm' | 'md'; active?: boolean }> = ({
-  user, size = 'md', active = false,
+const Avatar: React.FC<{ user?: ChatUser; size?: 'sm' | 'md'; active?: boolean; showStatus?: boolean }> = ({
+  user, size = 'md', active = false, showStatus = false,
 }) => {
   const dim = size === 'sm' ? 'w-7 h-7 text-[10px]' : 'w-9 h-9 text-xs';
+  const dotDim = size === 'sm' ? 'w-2 h-2' : 'w-2.5 h-2.5';
+  const online = showStatus && isOnline(user);
+  const statusDot = showStatus && (
+    <span className={cn(
+      dotDim, 'absolute -bottom-0.5 -right-0.5 rounded-full ring-2 ring-white',
+      online ? 'bg-emerald-500' : 'bg-gray-300',
+    )} title={fmtLastSeen(user) || 'Offline'} />
+  );
   if (user?.avatar) {
-    return <img src={user.avatar} className={cn(dim, 'rounded-full object-cover shrink-0')} alt="" />;
+    return (
+      <div className="relative shrink-0">
+        <img src={user.avatar} className={cn(dim, 'rounded-full object-cover shrink-0')} alt="" />
+        {statusDot}
+      </div>
+    );
   }
   const name = user ? `${user.first_name} ${user.last_name}` : '?';
   return (
-    <div className={cn(
-      dim, 'rounded-full flex items-center justify-center font-black shrink-0',
-      active ? 'bg-primary-200 text-primary-800' : 'bg-gray-200 text-gray-600',
-    )}>
-      {getInitials(name)}
+    <div className="relative shrink-0">
+      <div className={cn(
+        dim, 'rounded-full flex items-center justify-center font-black shrink-0',
+        active ? 'bg-primary-200 text-primary-800' : 'bg-gray-200 text-gray-600',
+      )}>
+        {getInitials(name)}
+      </div>
+      {statusDot}
     </div>
   );
 };
@@ -139,17 +178,21 @@ const Avatar: React.FC<{ user?: ChatUser; size?: 'sm' | 'md'; active?: boolean }
 // ─── Members Modal ────────────────────────────────────────────────────────────
 
 function MembersModal({
-  channelId, currentUserId, currentUserRole, onClose,
+  channelId, currentUserId, currentUserRole, isGlobalAdmin, onClose,
 }: {
   channelId: string;
   currentUserId: string;
   currentUserRole?: string;
+  isGlobalAdmin?: boolean;
   onClose: () => void;
 }) {
   const qc = useQueryClient();
   const [addSearch, setAddSearch] = useState('');
   const [showAddDropdown, setShowAddDropdown] = useState(false);
-  const canManage = ['OWNER', 'ADMIN'].includes(currentUserRole || '');
+  // Mirrors the backend's is_global_admin(req) bypass on add_member/
+  // remove_member — a SUPER_ADMIN/ADMIN can manage membership even for a
+  // channel they aren't a member (or OWNER/ADMIN member) of themselves.
+  const canManage = isGlobalAdmin || ['OWNER', 'ADMIN'].includes(currentUserRole || '');
 
   const { data: members = [] } = useQuery<ChannelMember[]>({
     queryKey: ['chat-members', channelId],
@@ -259,20 +302,39 @@ function MembersModal({
 // ─── Channel Settings Modal ───────────────────────────────────────────────────
 
 function ChannelSettingsModal({
-  channel, currentUserRole, onClose, onSaved,
+  channel, currentUserRole, isGlobalAdmin, onClose, onSaved, onLeftOrDeleted,
 }: {
   channel: Channel;
   currentUserRole?: string;
+  isGlobalAdmin?: boolean;
   onClose: () => void;
   onSaved: () => void;
+  onLeftOrDeleted: () => void;
 }) {
   const qc = useQueryClient();
   const [name, setName] = useState(channel.name);
   const [description, setDescription] = useState(channel.description || '');
   const [type, setType] = useState<'PUBLIC' | 'PRIVATE'>(channel.type === 'PRIVATE' ? 'PRIVATE' : 'PUBLIC');
-  const canEdit = ['OWNER', 'ADMIN'].includes(currentUserRole || '');
-  const canArchive = currentUserRole === 'OWNER';
+  // Mirrors the backend's is_global_admin(req) bypass on update_channel/
+  // archive_channel/delete_channel — a SUPER_ADMIN/ADMIN can act on any
+  // channel even if they hold no role in it (or aren't a member at all),
+  // same as the backend already allows. Without this, currentUserRole is
+  // undefined for a channel the admin never joined, and every one of these
+  // stayed hidden regardless of global role.
+  const canEdit = isGlobalAdmin || ['OWNER', 'ADMIN'].includes(currentUserRole || '');
+  const canArchive = isGlobalAdmin || currentUserRole === 'OWNER';
+  const canDelete = isGlobalAdmin || currentUserRole === 'OWNER';
+  // A project channel's roster follows the project team (project-chat sync
+  // on the backend) — leaving would just fight that on the next project
+  // update, so the backend rejects it and this button is hidden to match.
+  // DMs have no "leave" concept either.
+  // Global admins can now open Settings for a channel they were never added
+  // to (see canDelete/canArchive above) — "Leave" only makes sense if you
+  // actually hold a role in the channel to begin with.
+  const canLeave = !!currentUserRole && channel.type !== 'DM' && channel.entity_type !== 'PROJECT';
   const [confirmArchive, setConfirmArchive] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
 
   const updateMutation = useMutation({
     mutationFn: () =>
@@ -292,6 +354,24 @@ function ChannelSettingsModal({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['chat-channels'] });
       onClose();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () =>
+      apiRequest<any>(API_ENDPOINTS.CHAT.CHANNEL(channel.id), { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['chat-channels'] });
+      onLeftOrDeleted();
+    },
+  });
+
+  const leaveMutation = useMutation({
+    mutationFn: () =>
+      apiRequest<any>(API_ENDPOINTS.CHAT.LEAVE(channel.id), { method: 'POST' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['chat-channels'] });
+      onLeftOrDeleted();
     },
   });
 
@@ -352,16 +432,36 @@ function ChannelSettingsModal({
               Save Changes
             </button>
           )}
-          {canArchive && (
-            <div className="border-t border-gray-100 pt-4">
+          {(canArchive || canDelete || canLeave) && (
+            <div className="border-t border-gray-100 pt-4 space-y-2">
               <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Danger Zone</p>
-              <button
-                onClick={() => setConfirmArchive(true)}
-                disabled={archiveMutation.isPending}
-                className="w-full h-10 border border-red-200 text-red-600 text-sm font-bold rounded-xl hover:bg-red-50 disabled:opacity-40 transition-colors"
-              >
-                {archiveMutation.isPending ? 'Archiving…' : 'Archive Channel'}
-              </button>
+              {canArchive && (
+                <button
+                  onClick={() => setConfirmArchive(true)}
+                  disabled={archiveMutation.isPending}
+                  className="w-full h-10 border border-red-200 text-red-600 text-sm font-bold rounded-xl hover:bg-red-50 disabled:opacity-40 transition-colors"
+                >
+                  {archiveMutation.isPending ? 'Archiving…' : 'Archive Channel'}
+                </button>
+              )}
+              {canDelete && (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  disabled={deleteMutation.isPending}
+                  className="w-full h-10 border border-red-200 text-red-600 text-sm font-bold rounded-xl hover:bg-red-50 disabled:opacity-40 transition-colors"
+                >
+                  {deleteMutation.isPending ? 'Deleting…' : 'Delete Channel'}
+                </button>
+              )}
+              {canLeave && (
+                <button
+                  onClick={() => setConfirmLeave(true)}
+                  disabled={leaveMutation.isPending}
+                  className="w-full h-10 border border-gray-200 text-gray-600 text-sm font-bold rounded-xl hover:bg-gray-50 disabled:opacity-40 transition-colors"
+                >
+                  {leaveMutation.isPending ? 'Leaving…' : 'Leave Channel'}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -378,6 +478,151 @@ function ChannelSettingsModal({
         icon="delete"
         loading={archiveMutation.isPending}
       />
+
+      <ActionModal
+        isOpen={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={() => { setConfirmDelete(false); deleteMutation.mutate(); }}
+        title="Delete Channel"
+        description="This permanently deletes the channel, all its messages, and all memberships. This cannot be undone."
+        confirmText="Delete Permanently"
+        confirmVariant="danger"
+        icon="delete"
+        loading={deleteMutation.isPending}
+      />
+
+      <ActionModal
+        isOpen={confirmLeave}
+        onClose={() => setConfirmLeave(false)}
+        onConfirm={() => { setConfirmLeave(false); leaveMutation.mutate(); }}
+        title="Leave Channel"
+        description="You'll lose access to this channel's messages unless someone adds you back."
+        confirmText="Leave"
+        confirmVariant="danger"
+        icon="delete"
+        loading={leaveMutation.isPending}
+      />
+    </div>
+  );
+}
+
+// ─── Search Modal ─────────────────────────────────────────────────────────────
+
+interface SearchResults {
+  channels: Array<{ id: string; name: string; type: string; is_archived: boolean; entity_type?: string | null }>;
+  messages: Array<ChatMessage & { channel: { id: string; name: string; type: string } }>;
+}
+
+function SearchModal({
+  onClose, onJumpToChannel, currentUserId,
+}: {
+  onClose: () => void;
+  onJumpToChannel: (channelId: string) => void;
+  currentUserId: string;
+}) {
+  const [q, setQ] = useState('');
+  const [hasAttachment, setHasAttachment] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const debouncedQ = useDebounce(q, 350);
+
+  const enabled = !!debouncedQ.trim() || hasAttachment || !!dateFrom || !!dateTo;
+
+  const { data, isLoading } = useQuery<SearchResults>({
+    queryKey: ['chat-search', debouncedQ, hasAttachment, dateFrom, dateTo],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (debouncedQ.trim()) params.set('q', debouncedQ.trim());
+      if (hasAttachment) params.set('has_attachment', 'true');
+      if (dateFrom) params.set('date_from', dateFrom);
+      if (dateTo) params.set('date_to', dateTo);
+      const r = await apiRequest<any>(`${API_ENDPOINTS.CHAT.SEARCH}?${params.toString()}`);
+      return r?.payload || { channels: [], messages: [] };
+    },
+    enabled,
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h3 className="font-black text-gray-900">Search Chat</h3>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-4 border-b border-gray-100 space-y-3">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              autoFocus
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search messages or channels…"
+              className="w-full h-10 pl-9 pr-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
+            />
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 cursor-pointer">
+              <input type="checkbox" checked={hasAttachment} onChange={(e) => setHasAttachment(e.target.checked)} />
+              Has attachment
+            </label>
+            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 px-2 border border-gray-200 rounded-lg text-xs" title="From date" />
+            <span className="text-xs text-gray-400">to</span>
+            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 px-2 border border-gray-200 rounded-lg text-xs" title="To date" />
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-3">
+          {!enabled && (
+            <p className="text-sm text-gray-300 text-center py-8">Type to search, or pick a filter above</p>
+          )}
+          {enabled && isLoading && (
+            <div className="flex items-center justify-center py-8"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
+          )}
+          {enabled && !isLoading && data && (
+            <>
+              {data.channels.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-2 mb-1">Channels</p>
+                  {data.channels.map((ch) => (
+                    <button
+                      key={ch.id}
+                      onClick={() => onJumpToChannel(ch.id)}
+                      className="w-full flex items-center gap-2 px-2 py-2 rounded-xl hover:bg-gray-50 text-left"
+                    >
+                      <Hash size={13} className="text-gray-400 shrink-0" />
+                      <span className="text-sm font-semibold text-gray-800 truncate">{ch.name}</span>
+                      {ch.entity_type === 'PROJECT' && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 shrink-0">Project</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {data.messages.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-2 mb-1">Messages</p>
+                  {data.messages.map((msg) => (
+                    <button
+                      key={msg.id}
+                      onClick={() => onJumpToChannel(msg.channel.id)}
+                      className="w-full flex flex-col gap-0.5 px-2 py-2 rounded-xl hover:bg-gray-50 text-left"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-gray-800">{msg.user.first_name} {msg.user.last_name}</span>
+                        <span className="text-[10px] text-gray-400">in {msg.channel.name}</span>
+                        <span className="text-[10px] text-gray-300 ml-auto shrink-0">{fmtTime(msg.created_at)}</span>
+                      </div>
+                      <p className="text-sm text-gray-600 truncate">{msg.content || msg.file_name || 'Attachment'}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {data.channels.length === 0 && data.messages.length === 0 && (
+                <p className="text-sm text-gray-300 text-center py-8">No results</p>
+              )}
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -605,10 +850,11 @@ function ChannelSection({
         const name = getChannelDisplayName(ch, currentUserId);
         const lastMsg = ch.messages?.[0];
         const otherUser = ch.type === 'DM' ? getOtherMember(ch, currentUserId) : undefined;
-        const myMember = ch.members?.find((m) => m.user_id === currentUserId);
-        const hasUnread = myMember?.last_read_at && lastMsg
-          ? new Date(lastMsg.created_at) > new Date(myMember.last_read_at)
-          : false;
+        // Server-computed (channel_members.last_read_at vs messages.created_at,
+        // excluding your own messages) — replaces a client-side date heuristic
+        // that couldn't tell "1 unread" from "40 unread".
+        const unreadCount = ch.unread_count || 0;
+        const hasUnread = unreadCount > 0;
         return (
           <button
             key={ch.id}
@@ -619,7 +865,7 @@ function ChannelSection({
             )}
           >
             {ch.type === 'DM' ? (
-              <Avatar user={otherUser} active={isSelected} size="sm" />
+              <Avatar user={otherUser} active={isSelected} size="sm" showStatus />
             ) : ch.type === 'GROUP' ? (
               <div className={cn('w-7 h-7 rounded-full flex items-center justify-center shrink-0',
                 isSelected ? 'bg-primary-200' : 'bg-gray-200')}>
@@ -649,7 +895,11 @@ function ChannelSection({
                     ? `${lastMsg.user_id === currentUserId ? 'You' : (lastMsg.user?.first_name || '')}: ${lastMsg.content || (lastMsg as any).file_name || 'Attachment'}`
                     : 'No messages yet'}
                 </p>
-                {hasUnread && <span className="w-2 h-2 bg-primary-500 rounded-full shrink-0" />}
+                {hasUnread && (
+                  <span className="min-w-[18px] h-[18px] px-1 bg-primary-500 text-white text-[10px] font-black rounded-full shrink-0 flex items-center justify-center">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </div>
             </div>
           </button>
@@ -706,6 +956,8 @@ function MessageBubble({
   }, {});
 
   const isImage = msg.mime_type?.startsWith('image/');
+  const isAudio = msg.mime_type?.startsWith('audio/');
+  const isVideo = msg.mime_type?.startsWith('video/');
 
   return (
     <div
@@ -763,6 +1015,10 @@ function MessageBubble({
               <div className="mb-1">
                 {isImage ? (
                   <img src={msg.file_url} alt={msg.file_name || 'image'} className="max-h-48 rounded-xl object-contain" />
+                ) : isAudio ? (
+                  <audio src={msg.file_url} controls className="h-9 max-w-[220px]" />
+                ) : isVideo ? (
+                  <video src={msg.file_url} controls className="max-h-48 rounded-xl" />
                 ) : (
                   <a
                     href={msg.file_url}
@@ -939,7 +1195,10 @@ function ThreadPanel({
 export default function ChatPage() {
   const currentUser = useAuthStore((s) => s.user);
   const currentUserId = currentUser?.id || '';
+  const currentGlobalRole = useAuthStore((s) => s.role);
+  const isGlobalAdmin = currentGlobalRole === 'SUPER_ADMIN' || currentGlobalRole === 'ADMIN';
   const qc = useQueryClient();
+  const toast = useToastContext();
 
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [threadMsgId, setThreadMsgId] = useState<string | null>(null);
@@ -948,7 +1207,9 @@ export default function ChatPage() {
   const [showNewChat, setShowNewChat] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [showChannelSettings, setShowChannelSettings] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [editingMsg, setEditingMsg] = useState<ChatMessage | null>(null);
   const [editDraft, setEditDraft] = useState('');
 
@@ -983,6 +1244,7 @@ export default function ChatPage() {
     mutationFn: async (payload: {
       content: string;
       file_url?: string;
+      file_key?: string;
       file_name?: string;
       file_size?: number;
       mime_type?: string;
@@ -1040,22 +1302,33 @@ export default function ChatPage() {
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   const handleSend = async () => {
-    if (!selectedChannelId || sendMutation.isPending) return;
+    if (!selectedChannelId || sendMutation.isPending || isUploadingAttachment) return;
     if (!draft.trim() && !attachmentFile) return;
 
     let file_url: string | undefined;
+    let file_key: string | undefined;
     let file_name: string | undefined;
     let file_size: number | undefined;
     let mime_type: string | undefined;
 
     if (attachmentFile) {
-      file_url = await readAsDataURL(attachmentFile);
-      file_name = attachmentFile.name;
-      file_size = attachmentFile.size;
-      mime_type = attachmentFile.type;
+      setIsUploadingAttachment(true);
+      try {
+        const uploaded = await uploadFile(attachmentFile);
+        file_url = uploaded.file_url;
+        file_key = uploaded.file_key;
+        file_name = attachmentFile.name;
+        file_size = attachmentFile.size;
+        mime_type = attachmentFile.type;
+      } catch (e: any) {
+        toast.error(e?.message || 'Attachment upload failed');
+        setIsUploadingAttachment(false);
+        return;
+      }
+      setIsUploadingAttachment(false);
     }
 
-    sendMutation.mutate({ content: draft.trim(), file_url, file_name, file_size, mime_type });
+    sendMutation.mutate({ content: draft.trim(), file_url, file_key, file_name, file_size, mime_type });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1142,13 +1415,18 @@ export default function ChatPage() {
           <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-3">
             {selectedChannel.type === 'DM' ? (
               <>
-                <Avatar user={getOtherMember(selectedChannel, currentUserId)} />
+                <Avatar user={getOtherMember(selectedChannel, currentUserId)} showStatus />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-black text-gray-900 text-sm truncate">{getChannelDisplayName(selectedChannel, currentUserId)}</p>
                     {badge && <span className={cn('px-2 py-0.5 rounded-md text-[10px] font-bold shrink-0', badge.cls)}>{badge.label}</span>}
+                    {selectedChannel.entity_type === 'PROJECT' && (
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold shrink-0 bg-indigo-50 text-indigo-700" title="Synced with this project's team automatically">Project</span>
+                    )}
                   </div>
-                  <p className="text-xs text-gray-400">{getOtherMember(selectedChannel, currentUserId)?.designation || 'Direct Message'}</p>
+                  <p className={cn('text-xs', isOnline(getOtherMember(selectedChannel, currentUserId)) ? 'text-emerald-600 font-semibold' : 'text-gray-400')}>
+                    {fmtLastSeen(getOtherMember(selectedChannel, currentUserId)) || getOtherMember(selectedChannel, currentUserId)?.designation || 'Direct Message'}
+                  </p>
                 </div>
               </>
             ) : selectedChannel.type === 'GROUP' ? (
@@ -1160,6 +1438,9 @@ export default function ChatPage() {
                   <div className="flex items-center gap-2">
                     <p className="font-black text-gray-900 text-sm truncate">{selectedChannel.name}</p>
                     {badge && <span className={cn('px-2 py-0.5 rounded-md text-[10px] font-bold shrink-0', badge.cls)}>{badge.label}</span>}
+                    {selectedChannel.entity_type === 'PROJECT' && (
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold shrink-0 bg-indigo-50 text-indigo-700" title="Synced with this project's team automatically">Project</span>
+                    )}
                   </div>
                   <p className="text-xs text-gray-400">{selectedChannel._count?.members || selectedChannel.members?.length || 0} members</p>
                 </div>
@@ -1173,6 +1454,9 @@ export default function ChatPage() {
                   <div className="flex items-center gap-2">
                     <p className="font-black text-gray-900 text-sm truncate">{selectedChannel.name}</p>
                     {badge && <span className={cn('px-2 py-0.5 rounded-md text-[10px] font-bold shrink-0', badge.cls)}>{badge.label}</span>}
+                    {selectedChannel.entity_type === 'PROJECT' && (
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold shrink-0 bg-indigo-50 text-indigo-700" title="Synced with this project's team automatically">Project</span>
+                    )}
                   </div>
                   <p className="text-xs text-gray-400">{selectedChannel._count?.members || selectedChannel.members?.length || 0} members</p>
                 </div>
@@ -1186,6 +1470,9 @@ export default function ChatPage() {
                   <div className="flex items-center gap-2">
                     <p className="font-black text-gray-900 text-sm truncate"># {selectedChannel.name}</p>
                     {badge && <span className={cn('px-2 py-0.5 rounded-md text-[10px] font-bold shrink-0', badge.cls)}>{badge.label}</span>}
+                    {selectedChannel.entity_type === 'PROJECT' && (
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold shrink-0 bg-indigo-50 text-indigo-700" title="Synced with this project's team automatically">Project</span>
+                    )}
                   </div>
                   <p className="text-xs text-gray-400">{selectedChannel._count?.members || 0} members</p>
                 </div>
@@ -1194,6 +1481,13 @@ export default function ChatPage() {
 
             {/* Action icons */}
             <div className="flex items-center gap-1 ml-auto shrink-0">
+              <button
+                onClick={() => setShowSearch(true)}
+                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+                title="Search messages"
+              >
+                <Search size={16} />
+              </button>
               {selectedChannel.type !== 'DM' && !isMember && (
                 <button
                   onClick={() => joinMutation.mutate(selectedChannel.id)}
@@ -1203,7 +1497,7 @@ export default function ChatPage() {
                   {joinMutation.isPending ? 'Joining…' : 'Join'}
                 </button>
               )}
-              {isMember && (
+              {(isMember || isGlobalAdmin) && (
                 <button
                   onClick={() => setShowMembersModal(true)}
                   className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
@@ -1212,7 +1506,13 @@ export default function ChatPage() {
                   <Users size={16} />
                 </button>
               )}
-              {isMember && selectedChannel.type !== 'DM' && (
+              {/* Global admins (matching the backend's is_global_admin bypass
+                  on update/archive/delete_channel) can always reach settings
+                  — including Delete — even for a channel they were never
+                  added to themselves. Previously gated on isMember alone, so
+                  an admin who wasn't a member of a given channel had no way
+                  to reach Delete Channel at all. */}
+              {(isMember || isGlobalAdmin) && selectedChannel.type !== 'DM' && (
                 <button
                   onClick={() => setShowChannelSettings(true)}
                   className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
@@ -1288,10 +1588,10 @@ export default function ChatPage() {
               {/* Attachment preview chip */}
               {attachmentFile && (
                 <div className="flex items-center gap-2 mb-2 px-3 py-1.5 bg-gray-50 rounded-xl border border-gray-200 text-sm">
-                  <Paperclip size={13} className="text-gray-400 shrink-0" />
+                  {isUploadingAttachment ? <Loader2 size={13} className="text-gray-400 shrink-0 animate-spin" /> : <Paperclip size={13} className="text-gray-400 shrink-0" />}
                   <span className="text-gray-700 truncate flex-1">{attachmentFile.name}</span>
                   <span className="text-gray-400 text-xs shrink-0">{fmtSize(attachmentFile.size)}</span>
-                  <button onClick={() => setAttachmentFile(null)} className="text-gray-400 hover:text-red-500">
+                  <button onClick={() => setAttachmentFile(null)} disabled={isUploadingAttachment} className="text-gray-400 hover:text-red-500 disabled:opacity-40">
                     <X size={13} />
                   </button>
                 </div>
@@ -1321,10 +1621,10 @@ export default function ChatPage() {
                 />
                 <button
                   onClick={handleSend}
-                  disabled={(!draft.trim() && !attachmentFile) || sendMutation.isPending}
+                  disabled={(!draft.trim() && !attachmentFile) || sendMutation.isPending || isUploadingAttachment}
                   className="h-[42px] w-[42px] bg-primary-600 text-white rounded-xl flex items-center justify-center hover:bg-primary-700 disabled:opacity-40 transition-colors shrink-0"
                 >
-                  {sendMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+                  {sendMutation.isPending || isUploadingAttachment ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
                 </button>
               </div>
               <p className="text-[10px] text-gray-300 mt-1 pl-1">Shift+Enter for new line · Enter to send</p>
@@ -1362,6 +1662,7 @@ export default function ChatPage() {
           channelId={selectedChannelId}
           currentUserId={currentUserId}
           currentUserRole={myMembership?.role}
+          isGlobalAdmin={isGlobalAdmin}
           onClose={() => setShowMembersModal(false)}
         />
       )}
@@ -1370,8 +1671,21 @@ export default function ChatPage() {
         <ChannelSettingsModal
           channel={selectedChannel}
           currentUserRole={myMembership?.role}
+          isGlobalAdmin={isGlobalAdmin}
           onClose={() => setShowChannelSettings(false)}
           onSaved={() => setShowChannelSettings(false)}
+          onLeftOrDeleted={() => {
+            setShowChannelSettings(false);
+            setSelectedChannelId(null);
+          }}
+        />
+      )}
+
+      {showSearch && (
+        <SearchModal
+          onClose={() => setShowSearch(false)}
+          onJumpToChannel={(id) => { setSelectedChannelId(id); setShowSearch(false); }}
+          currentUserId={currentUserId}
         />
       )}
     </div>
