@@ -95,6 +95,9 @@ export const API_ENDPOINTS = {
     // strips role_id unconditionally on the backend.
     ROLE_CHANGE: (id: string | number) => `${v1}/user/${id}/role`,
   },
+  EMPLOYEE_LIFECYCLE: {
+    SET_STAGE: `${v1}/employee-lifecycle/set-stage`,
+  },
   PROJECT: {
     LIST:      `${v1}/project`,
     CREATE:    `${v1}/project`,

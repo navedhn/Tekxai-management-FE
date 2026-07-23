@@ -1,17 +1,27 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, Plus, UserPlus, Download, Users, CheckCircle, Clock, UserX, Eye, Edit2, Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { Search, Plus, UserPlus, Download, Users, CheckCircle, Clock, UserX, Eye, Edit2, Trash2, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useGetEmployeeDirectory } from '@/services/employeeService';
-import { useDeleteUserMutation, useBulkDeleteUsersMutation } from '@/services/userService';
+import { useDeleteUserMutation, useBulkDeleteUsersMutation, useSetLifecycleStageMutation } from '@/services/userService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import QuickCreateUserModal from '@/components/ui/QuickCreateUserModal';
+import Select from '@/components/ui/Select';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetRolesQuery } from '@/services/roleService';
 import { cn } from '@/utils/cn';
 import { EMPLOYMENT_STATUS_LABELS } from '@/constants/employmentStatus';
+
+const LIFECYCLE_STAGE_OPTIONS = [
+  { value: 'ONBOARDING', label: 'Onboarding' },
+  { value: 'PROBATION', label: 'Probation' },
+  { value: 'ACTIVE_EMPLOYMENT', label: 'Active Employment' },
+  { value: 'NOTICE_PERIOD', label: 'Notice Period' },
+  { value: 'EXIT_CLEARANCE', label: 'Exit Clearance' },
+  { value: 'ARCHIVED', label: 'Archived' },
+];
 
 const STATUS_STYLE: Record<string, string> = {
   ACTIVE:      'bg-green-100 text-green-700',
@@ -81,8 +91,11 @@ export default function EmployeeDirectory() {
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget]   = useState<any>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkLifecycleOpen, setBulkLifecycleOpen] = useState(false);
+  const [bulkLifecycleStage, setBulkLifecycleStage] = useState('ACTIVE_EMPLOYMENT');
   const deleteUser = useDeleteUserMutation();
   const bulkDelete = useBulkDeleteUsersMutation();
+  const setLifecycleStage = useSetLifecycleStageMutation();
 
   useEffect(() => {
     setStatus(urlStatus);
@@ -213,6 +226,21 @@ export default function EmployeeDirectory() {
       },
       onError: (e: any) => toast.error(e?.message || 'Failed to delete'),
     });
+  };
+
+  const handleBulkLifecycle = () => {
+    const ids = Array.from(selected);
+    setLifecycleStage.mutate(
+      { user_ids: ids, lifecycle_stage: bulkLifecycleStage },
+      {
+        onSuccess: () => {
+          toast.success(`Lifecycle stage updated for ${ids.length} employee(s)`);
+          setSelected(new Set());
+          setBulkLifecycleOpen(false);
+        },
+        onError: (e: any) => toast.error(e?.message || 'Failed to update lifecycle stage'),
+      }
+    );
   };
 
   return (
@@ -378,11 +406,45 @@ export default function EmployeeDirectory() {
               Clear selection
             </button>
             <button
+              onClick={() => setBulkLifecycleOpen(true)}
+              className="flex items-center gap-1.5 text-xs font-black text-primary-700 bg-white border border-primary-200 hover:bg-primary-50 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <RefreshCw size={13} /> Set Lifecycle Stage
+            </button>
+            <button
               onClick={() => setBulkDeleteOpen(true)}
               className="flex items-center gap-1.5 text-xs font-black text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg transition-colors"
             >
               <Trash2 size={13} /> Remove {selected.size} selected
             </button>
+          </div>
+        )}
+
+        {/* Bulk lifecycle-stage confirmation */}
+        {bulkLifecycleOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+              <h3 className="text-base font-black text-gray-900 mb-2">Set Lifecycle Stage for {selected.size} Employee{selected.size > 1 ? 's' : ''}</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                This directly overrides the lifecycle stage for the selected employee{selected.size > 1 ? 's' : ''}, bypassing the normal approval workflow. Use for correcting stuck/incorrect stages, not routine transitions.
+              </p>
+              <Select
+                options={LIFECYCLE_STAGE_OPTIONS}
+                value={bulkLifecycleStage}
+                onChange={(value) => setBulkLifecycleStage(String(value))}
+                className="mb-5"
+              />
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setBulkLifecycleOpen(false)} className="px-4 py-2 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-100">Cancel</button>
+                <button
+                  onClick={handleBulkLifecycle}
+                  disabled={setLifecycleStage.isPending}
+                  className="px-4 py-2 rounded-xl text-sm font-black bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {setLifecycleStage.isPending ? 'Updating…' : `Update ${selected.size}`}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

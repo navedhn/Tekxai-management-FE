@@ -153,3 +153,17 @@ export const useBulkDeleteUsersMutation = () => {
     },
   });
 };
+
+// Direct admin override for Employee Lifecycle stage — single or bulk (pass
+// one id or many). Bypasses the approval-gated transition endpoints
+// (Move to Probation, Request Confirm, etc.) for cases those don't cover.
+export const useSetLifecycleStageMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ user_ids, lifecycle_stage }: { user_ids: string[]; lifecycle_stage: string }) =>
+      apiRequest(API_ENDPOINTS.EMPLOYEE_LIFECYCLE.SET_STAGE, { method: 'POST', body: JSON.stringify({ user_ids, lifecycle_stage }) }),
+    onSuccess: () => {
+      invalidateUserAndDependents(queryClient);
+    },
+  });
+};
