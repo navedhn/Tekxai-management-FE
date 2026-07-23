@@ -17,6 +17,7 @@ import {
 } from '@/services/hrService';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetGradesQuery } from '@/services/gradeService';
+import { useSetLifecycleStageMutation } from '@/services/userService';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useQuery } from '@tanstack/react-query';
@@ -579,8 +580,10 @@ const EmployeeProfilePage: React.FC = () => {
   const [orgEditing, setOrgEditing] = useState(false);
   const [orgForm, setOrgForm] = useState<{ designation_id: string; grade_id: string; supervisor_id: string }>({ designation_id: '', grade_id: '', supervisor_id: '' });
   const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [editingLifecycle, setEditingLifecycle] = useState(false);
 
   const { data: record, isLoading } = useGetEmployeeFullRecord(employeeId);
+  const setLifecycleStage = useSetLifecycleStageMutation();
   const { data: docs = [] } = useGetEmployeeDocs(employeeId);
   const { data: docTypes = [] } = useGetDocTypes();
   const upsertProfile = useUpsertHRProfile(employeeId!);
@@ -744,9 +747,28 @@ const EmployeeProfilePage: React.FC = () => {
               {EMPLOYMENT_STATUS_LABELS[user.status] || user.status}
             </Badge>
             {profile?.lifecycle_stage && (
-              <Badge className={cn('border text-xs font-bold px-2 py-0.5 rounded-full', LIFECYCLE_COLORS[profile.lifecycle_stage] || LIFECYCLE_COLORS.ONBOARDING)}>
-                {LIFECYCLE_LABELS[profile.lifecycle_stage] || profile.lifecycle_stage}
-              </Badge>
+              editingLifecycle ? (
+                <Select
+                  options={Object.entries(LIFECYCLE_LABELS).map(([value, label]) => ({ value, label }))}
+                  value={profile.lifecycle_stage}
+                  onChange={(value) => {
+                    setLifecycleStage.mutate(
+                      { user_ids: [employeeId!], lifecycle_stage: String(value) },
+                      {
+                        onSuccess: () => { toast.success('Lifecycle stage updated'); setEditingLifecycle(false); },
+                        onError: (e: any) => toast.error(e?.message || 'Failed to update lifecycle stage'),
+                      }
+                    );
+                  }}
+                  className="min-w-[160px]"
+                />
+              ) : (
+                <button onClick={() => setEditingLifecycle(true)} title="Click to change lifecycle stage">
+                  <Badge className={cn('border text-xs font-bold px-2 py-0.5 rounded-full cursor-pointer hover:opacity-80', LIFECYCLE_COLORS[profile.lifecycle_stage] || LIFECYCLE_COLORS.ONBOARDING)}>
+                    {LIFECYCLE_LABELS[profile.lifecycle_stage] || profile.lifecycle_stage}
+                  </Badge>
+                </button>
+              )
             )}
             <span className="text-xs text-gray-400 font-medium">{user.email}</span>
             {user.employee_id && <span className="text-xs text-gray-400 font-medium">ID: {user.employee_id}</span>}
