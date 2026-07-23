@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { FileStack, Plus, X, History } from 'lucide-react';
+import { FileStack, Plus, X, History, Copy, Archive, RotateCcw, Trash2 } from 'lucide-react';
 import {
   useGetDocumentCategories, useGetDocumentTypes, useGetTemplates,
-  useCreateTemplate, useUpdateTemplate, useGetTemplateVersions,
+  useCreateTemplate, useUpdateTemplate, useDuplicateTemplate, useDeleteTemplate, useGetTemplateVersions,
   useGetPlaceholderRegistry, type DocumentTemplate,
 } from '@/services/hrDocumentsService';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import ActionModal from '@/components/ui/ActionModal';
 import { cn } from '@/utils/cn';
 
 const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white';
@@ -20,6 +21,7 @@ function TemplateModal({ template, onClose }: { template?: DocumentTemplate; onC
   const [typeId, setTypeId] = useState(template?.type_id || '');
   const [name, setName] = useState(template?.name || '');
   const [content, setContent] = useState(template?.current_version?.content || '');
+  const [requiresApproval, setRequiresApproval] = useState(template?.requires_approval || false);
   const { data: registry } = useGetPlaceholderRegistry();
   const { data: versions } = useGetTemplateVersions(template?.id);
   const [showVersions, setShowVersions] = useState(false);
@@ -36,8 +38,8 @@ function TemplateModal({ template, onClose }: { template?: DocumentTemplate; onC
       return;
     }
     const payload = isEdit
-      ? { id: template!.id, name, content }
-      : { category_id: categoryId, type_id: typeId, name, content };
+      ? { id: template!.id, name, content, requires_approval: requiresApproval }
+      : { category_id: categoryId, type_id: typeId, name, content, requires_approval: requiresApproval };
     mutation.mutate(payload as any, {
       onSuccess: () => { toast.success(isEdit ? 'New version saved' : 'Template created'); onClose(); },
       onError: (e: any) => setErr(e?.message || 'Failed to save'),
@@ -76,6 +78,10 @@ function TemplateModal({ template, onClose }: { template?: DocumentTemplate; onC
               <label className={labelCls}>Template Name <span className="text-red-500">*</span></label>
               <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Standard Employment Contract" />
             </div>
+            <label className="flex items-center gap-2 text-xs font-semibold text-gray-600 cursor-pointer">
+              <input type="checkbox" checked={requiresApproval} onChange={(e) => setRequiresApproval(e.target.checked)} />
+              Requires HR approval before generating
+            </label>
             <div>
               <label className={labelCls}>
                 Content <span className="text-red-500">*</span>
@@ -148,10 +154,40 @@ function TemplateModal({ template, onClose }: { template?: DocumentTemplate; onC
 }
 
 export default function HrDocumentTemplatesPage() {
+  const toast = useToastContext();
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [includeInactive, setIncludeInactive] = useState(false);
   const [modal, setModal] = useState<any>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: 'archive' | 'restore' | 'delete'; template: DocumentTemplate } | null>(null);
   const { data: categories } = useGetDocumentCategories();
-  const { data: templates, isLoading } = useGetTemplates(categoryFilter || undefined);
+  const { data: templates, isLoading } = useGetTemplates(categoryFilter || undefined, undefined, includeInactive);
+
+  const duplicateMutation = useDuplicateTemplate();
+  const archiveMutation = useUpdateTemplate();
+  const deleteMutation = useDeleteTemplate();
+
+  const handleDuplicate = (t: DocumentTemplate) => {
+    duplicateMutation.mutate({ id: t.id }, {
+      onSuccess: () => toast.success('Template duplicated'),
+      onError: (e: any) => toast.error(e?.message || 'Failed to duplicate template'),
+    });
+  };
+
+  const handleConfirm = () => {
+    if (!confirmAction) return;
+    const { type, template } = confirmAction;
+    if (type === 'delete') {
+      deleteMutation.mutate(template.id, {
+        onSuccess: () => { toast.success('Template deleted'); setConfirmAction(null); },
+        onError: (e: any) => toast.error(e?.message || 'Failed to delete template'),
+      });
+    } else {
+      archiveMutation.mutate({ id: template.id, is_active: type === 'restore' } as any, {
+        onSuccess: () => { toast.success(type === 'restore' ? 'Template restored' : 'Template archived'); setConfirmAction(null); },
+        onError: (e: any) => toast.error(e?.message || 'Failed to update template'),
+      });
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -166,11 +202,17 @@ export default function HrDocumentTemplatesPage() {
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        <div className="mb-4 max-w-xs">
-          <select className={inputCls} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-            <option value="">All Categories</option>
-            {(categories || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+        <div className="mb-4 flex items-center gap-4">
+          <div className="max-w-xs">
+            <select className={inputCls} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+              <option value="">All Categories</option>
+              {(categories || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <label className="flex items-center gap-2 text-xs font-semibold text-gray-500 cursor-pointer">
+            <input type="checkbox" checked={includeInactive} onChange={(e) => setIncludeInactive(e.target.checked)} />
+            Show archived
+          </label>
         </div>
 
         <div className="overflow-x-auto">
@@ -208,9 +250,26 @@ export default function HrDocumentTemplatesPage() {
                     </span>
                   </td>
                   <td className="py-3 px-2">
-                    <button onClick={() => setModal(t)} className="px-3 h-7 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
-                      Edit
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => setModal(t)} className="px-3 h-7 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+                        Edit
+                      </button>
+                      <button onClick={() => handleDuplicate(t)} title="Duplicate" className="h-7 w-7 flex items-center justify-center border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors">
+                        <Copy size={13} />
+                      </button>
+                      {t.is_active ? (
+                        <button onClick={() => setConfirmAction({ type: 'archive', template: t })} title="Archive" className="h-7 w-7 flex items-center justify-center border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors">
+                          <Archive size={13} />
+                        </button>
+                      ) : (
+                        <button onClick={() => setConfirmAction({ type: 'restore', template: t })} title="Restore" className="h-7 w-7 flex items-center justify-center border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors">
+                          <RotateCcw size={13} />
+                        </button>
+                      )}
+                      <button onClick={() => setConfirmAction({ type: 'delete', template: t })} title="Delete" className="h-7 w-7 flex items-center justify-center border border-red-200 rounded-lg text-red-500 hover:bg-red-50 transition-colors">
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -220,6 +279,28 @@ export default function HrDocumentTemplatesPage() {
       </div>
 
       {modal !== null && <TemplateModal template={modal?.id ? modal : undefined} onClose={() => setModal(null)} />}
+
+      <ActionModal
+        isOpen={!!confirmAction}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={handleConfirm}
+        title={
+          confirmAction?.type === 'delete' ? 'Delete Template?'
+          : confirmAction?.type === 'restore' ? 'Restore Template?'
+          : 'Archive Template?'
+        }
+        description={
+          confirmAction?.type === 'delete'
+            ? `"${confirmAction?.template.name}" will be permanently deleted. Documents already generated from it are unaffected.`
+            : confirmAction?.type === 'restore'
+            ? `"${confirmAction?.template.name}" will become active and available again for generating new documents.`
+            : `"${confirmAction?.template.name}" will no longer be available for generating new documents. Existing documents are unaffected.`
+        }
+        confirmText={confirmAction?.type === 'delete' ? 'Delete' : confirmAction?.type === 'restore' ? 'Restore' : 'Archive'}
+        confirmVariant={confirmAction?.type === 'delete' ? 'danger' : confirmAction?.type === 'restore' ? 'primary' : 'warning'}
+        icon={confirmAction?.type === 'delete' ? 'delete' : 'warning'}
+        loading={deleteMutation.isPending || archiveMutation.isPending}
+      />
     </div>
   );
 }

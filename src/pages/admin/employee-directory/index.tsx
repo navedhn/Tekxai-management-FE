@@ -155,7 +155,7 @@ export default function EmployeeDirectory() {
     setQ(''); setDiv(''); setDept(''); setTeam('');
     setStatus(''); setEmpStatus(''); setPage(1);
     setEmployeeIdFilter(''); setRoleFilter(''); setDesignationFilter('');
-    navigate('/hr/employee-directory', { replace: true });
+    navigate('/admin/employee-directory', { replace: true });
   };
 
   const activeFilterCount = [q, divisionId, deptId, teamId, status, employmentStatus, urlFilter, urlLifecycle, employeeIdFilter, roleFilter, designationFilter].filter(Boolean).length;
@@ -287,7 +287,7 @@ export default function EmployeeDirectory() {
             <UserPlus size={16} />Quick Create User
           </button>
           <button
-            onClick={() => navigate('/hr/add-employee')}
+            onClick={() => navigate('/admin/add-employee')}
             className="flex items-center gap-2 px-4 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition-colors"
           >
             <Plus size={16} />Add Employee
@@ -495,14 +495,14 @@ export default function EmployeeDirectory() {
                     <td className="py-3 px-2">
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => navigate(`/hr/employee/${emp.employee_id || emp.id}`)}
+                          onClick={() => navigate(`/admin/employee/${emp.employee_id || emp.id}`)}
                           className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                           title="View Profile"
                         >
                           <Eye size={14} />
                         </button>
                         <button
-                          onClick={() => navigate(`/hr/add-employee/${emp.id}`)}
+                          onClick={() => navigate(`/admin/add-employee/${emp.id}`)}
                           className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Edit Employee"
                         >

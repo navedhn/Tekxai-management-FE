@@ -8,6 +8,8 @@ import { uploadFile } from '@/lib/upload';
 import { cn } from '@/utils/cn';
 import { EMPLOYMENT_STATUS_OPTIONS, EMPLOYMENT_STATUS_LABELS } from '@/constants/employmentStatus';
 import { useGetEmployeeFullRecord } from '@/services/hrService';
+import { useGetDesignationsQuery } from '@/services/designationService';
+import { useGetGradesQuery } from '@/services/gradeService';
 
 const DRAFT_KEY = 'add_employee_draft';
 
@@ -849,21 +851,9 @@ export default function AddEmployee() {
     staleTime: 300000,
   });
 
-  const { data: designations } = useQuery({
-    queryKey: ['designations', employment.department_id || 'all'],
-    queryFn: () => apiRequest<any>(
-      employment.department_id ? `${API_ENDPOINTS.DESIGNATION.LIST}?department_id=${employment.department_id}` : API_ENDPOINTS.DESIGNATION.LIST
-    ),
-    select: (r: any) => r?.payload || [],
-    staleTime: 300000,
-  });
+  const { data: designations } = useGetDesignationsQuery(employment.department_id || undefined);
 
-  const { data: grades } = useQuery({
-    queryKey: ['grades'],
-    queryFn: () => apiRequest<any>(API_ENDPOINTS.GRADE.LIST),
-    select: (r: any) => r?.payload || [],
-    staleTime: 300000,
-  });
+  const { data: grades } = useGetGradesQuery();
 
   const { data: users } = useQuery({
     queryKey: ['user-list-brief'],
@@ -1008,10 +998,10 @@ export default function AddEmployee() {
       if (isEditMode) {
         qc.invalidateQueries({ queryKey: ['employee-full', employeeId] });
         qc.invalidateQueries({ queryKey: ['hr-profile', employeeId] });
-        navigate('/hr/employee-directory');
+        navigate('/admin/employee-directory');
       } else {
         clearDraft();
-        navigate(`/hr/employees`);
+        navigate('/admin/employee-directory');
       }
     },
     onError: (err: any) => {
@@ -1070,7 +1060,7 @@ export default function AddEmployee() {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-32">
         <p className="text-sm font-semibold text-gray-500">Employee not found.</p>
-        <button onClick={() => navigate('/hr/employee-directory')} className="text-sm text-primary-600 font-semibold hover:underline">
+        <button onClick={() => navigate('/admin/employee-directory')} className="text-sm text-primary-600 font-semibold hover:underline">
           Back to Employee Directory
         </button>
       </div>

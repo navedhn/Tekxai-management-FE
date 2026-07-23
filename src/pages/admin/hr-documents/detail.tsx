@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText, Download, Send, Ban, Archive, X, RotateCw, PenLine } from 'lucide-react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { ArrowLeft, FileText, Download, Send, Ban, Archive, X, RotateCw, PenLine, Check } from 'lucide-react';
 import {
   useGetDocumentDetail, useGetDocumentPdf, useSendDocument, useViewDocument,
   useRejectDocument, useCancelDocument, useArchiveDocument, useSignDocument,
-  useRenewDocument,
+  useRenewDocument, useApproveDraftDocument, download_document_docx,
 } from '@/services/hrDocumentsService';
 import { useAuthStore } from '@/stores/authStore';
 import { useToastContext } from '@/components/toast/ToastProvider';
@@ -24,8 +24,10 @@ const STATUS_STYLE: Record<string, string> = {
 
 const HR_ROLES = ['ADMIN', 'SUPER_ADMIN', 'HR', 'DIVISION_MANAGER'];
 
-function SignModal({ role, onClose, onSign, isPending }: { role: 'EMPLOYEE' | 'HR'; onClose: () => void; onSign: (typedName: string) => void; isPending: boolean }) {
+function SignModal({ role, onClose, onSign, isPending, cnicError }: { role: 'EMPLOYEE' | 'HR'; onClose: () => void; onSign: (typedName: string, cnic: string) => void; isPending: boolean; cnicError?: string | null }) {
   const [typedName, setTypedName] = useState('');
+  const [cnic, setCnic] = useState('');
+  const needsCnic = role === 'EMPLOYEE';
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
@@ -41,11 +43,28 @@ function SignModal({ role, onClose, onSign, isPending }: { role: 'EMPLOYEE' | 'H
           value={typedName}
           onChange={(e) => setTypedName(e.target.value)}
         />
+        {needsCnic && (
+          <div className="mt-3">
+            <label className="text-xs font-semibold text-gray-500 block mb-1.5">CNIC / National ID</label>
+            <input
+              className={cn(
+                'w-full h-11 px-3 border rounded-xl text-sm focus:outline-none focus:border-primary-400',
+                cnicError ? 'border-red-300' : 'border-gray-200'
+              )}
+              placeholder="12345-1234567-1"
+              value={cnic}
+              onChange={(e) => setCnic(e.target.value)}
+            />
+            <p className={cn('text-xs mt-1', cnicError ? 'text-red-500' : 'text-gray-400')}>
+              {cnicError || 'Only required the first time you sign — leave blank if already on file.'}
+            </p>
+          </div>
+        )}
         <div className="flex gap-3 mt-5">
           <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
           <button
             disabled={!typedName.trim() || isPending}
-            onClick={() => onSign(typedName.trim())}
+            onClick={() => onSign(typedName.trim(), cnic.trim())}
             className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40"
           >
             {isPending ? 'Signing…' : 'Apply Signature'}
@@ -59,13 +78,16 @@ function SignModal({ role, onClose, onSign, isPending }: { role: 'EMPLOYEE' | 'H
 export default function HrDocumentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToastContext();
   const { user, role } = useAuthStore();
   const isHr = !!role && HR_ROLES.includes(role);
+  const backPath = location.pathname.startsWith('/employee') ? '/employee/documents' : '/admin/documents';
 
   const { data: doc, isLoading } = useGetDocumentDetail(id);
   const pdfMutation = useGetDocumentPdf();
   const sendMutation = useSendDocument();
+  const approveDraftMutation = useApproveDraftDocument();
   const viewMutation = useViewDocument();
   const rejectMutation = useRejectDocument();
   const cancelMutation = useCancelDocument();
@@ -73,6 +95,8 @@ export default function HrDocumentDetailPage() {
   const signMutation = useSignDocument();
   const renewMutation = useRenewDocument();
   const [signAs, setSignAs] = useState<'EMPLOYEE' | 'HR' | null>(null);
+  const [cnicError, setCnicError] = useState<string | null>(null);
+  const [docxDownloading, setDocxDownloading] = useState(false);
 
   // Employee portal: opening a SENT document marks it VIEWED — mirrors the
   // "read receipt" every doc-signing product has, done once per load.
@@ -90,7 +114,7 @@ export default function HrDocumentDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center py-32 gap-3">
         <p className="text-sm font-semibold text-gray-500">Document not found.</p>
-        <button onClick={() => navigate('/hr/documents')} className="text-sm text-primary-600 font-semibold hover:underline">Back to Documents</button>
+        <button onClick={() => navigate(backPath)} className="text-sm text-primary-600 font-semibold hover:underline">Back to Documents</button>
       </div>
     );
   }
@@ -107,6 +131,13 @@ export default function HrDocumentDetailPage() {
     });
   };
 
+  const handleDownloadDocx = () => {
+    setDocxDownloading(true);
+    download_document_docx(doc.id, `${doc.title || 'document'}.docx`)
+      .catch(() => toast.error('Failed to download DOCX'))
+      .finally(() => setDocxDownloading(false));
+  };
+
   const runAction = (mutation: any, label: string, extra?: Record<string, any>) => {
     mutation.mutate({ id: doc.id, ...extra }, {
       onSuccess: () => toast.success(label),
@@ -114,13 +145,20 @@ export default function HrDocumentDetailPage() {
     });
   };
 
-  const handleSign = (typedName: string) => {
+  const handleSign = (typedName: string, cnic: string) => {
     if (!signAs) return;
+    setCnicError(null);
     signMutation.mutate(
-      { id: doc.id, signer_role: signAs, signature_data: typedName },
+      { id: doc.id, signer_role: signAs, signature_data: typedName, ...(cnic ? { cnic } : {}) },
       {
         onSuccess: () => { toast.success('Signature applied'); setSignAs(null); },
-        onError: (e: any) => toast.error(e?.message || 'Failed to sign'),
+        onError: (e: any) => {
+          if (e?.data?.code === 'CNIC_REQUIRED') {
+            setCnicError(e?.message || 'CNIC confirmation is required before signing');
+            return;
+          }
+          toast.error(e?.message || 'Failed to sign');
+        },
       }
     );
   };
@@ -128,13 +166,13 @@ export default function HrDocumentDetailPage() {
   return (
     <div className="flex flex-col gap-6 max-w-4xl">
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate('/hr/documents')} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
+        <button onClick={() => navigate(backPath)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
           <ArrowLeft size={18} />
         </button>
         <div className="flex-1">
           <h1 className="text-xl font-black text-gray-900">{doc.title}</h1>
           <p className="text-xs text-gray-400 mt-0.5">
-            {doc.user ? `${doc.user.first_name} ${doc.user.last_name}` : '—'} · {doc.category?.name} · {doc.type?.name}
+            {doc.user ? [doc.user.first_name, doc.user.last_name].filter(Boolean).join(' ') : '—'} · {doc.category?.name} · {doc.type?.name}
           </p>
         </div>
         <span className={cn('text-xs font-semibold px-3 py-1.5 rounded-full', STATUS_STYLE[doc.status])}>{doc.status}</span>
@@ -145,6 +183,20 @@ export default function HrDocumentDetailPage() {
           <button onClick={handleDownload} disabled={pdfMutation.isPending} className="flex items-center gap-2 px-3.5 h-9 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40">
             <Download size={14} />{pdfMutation.isPending ? 'Preparing…' : 'Download PDF'}
           </button>
+          <button onClick={handleDownloadDocx} disabled={docxDownloading} className="flex items-center gap-2 px-3.5 h-9 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40">
+            <Download size={14} />{docxDownloading ? 'Preparing…' : 'Download DOCX'}
+          </button>
+
+          {isHr && doc.status === 'DRAFT' && (
+            <>
+              <button onClick={() => runAction(approveDraftMutation, 'Approved')} className="flex items-center gap-2 px-3.5 h-9 bg-green-600 text-white rounded-xl text-xs font-semibold hover:bg-green-700">
+                <Check size={14} />Approve
+              </button>
+              <button onClick={() => runAction(cancelMutation, 'Rejected')} className="flex items-center gap-2 px-3.5 h-9 border border-red-200 text-red-600 rounded-xl text-xs font-semibold hover:bg-red-50">
+                <Ban size={14} />Reject
+              </button>
+            </>
+          )}
 
           {isHr && doc.status === 'GENERATED' && (
             <button onClick={() => runAction(sendMutation, 'Sent')} className="flex items-center gap-2 px-3.5 h-9 bg-primary-600 text-white rounded-xl text-xs font-semibold hover:bg-primary-700">
@@ -219,19 +271,19 @@ export default function HrDocumentDetailPage() {
 
       {doc.previous_document && (
         <p className="text-xs text-gray-400">
-          This is a renewal of <button className="text-primary-600 font-semibold hover:underline" onClick={() => navigate(`/hr/documents/${doc.previous_document!.id}`)}>{doc.previous_document.title}</button>
+          This is a renewal of <button className="text-primary-600 font-semibold hover:underline" onClick={() => navigate(`${backPath}/${doc.previous_document!.id}`)}>{doc.previous_document.title}</button>
         </p>
       )}
       {!!doc.renewals?.length && (
         <p className="text-xs text-gray-400">
           Renewed by: {doc.renewals.map((r) => (
-            <button key={r.id} className="text-primary-600 font-semibold hover:underline mr-2" onClick={() => navigate(`/hr/documents/${r.id}`)}>{r.title}</button>
+            <button key={r.id} className="text-primary-600 font-semibold hover:underline mr-2" onClick={() => navigate(`${backPath}/${r.id}`)}>{r.title}</button>
           ))}
         </p>
       )}
 
       {signAs && (
-        <SignModal role={signAs} onClose={() => setSignAs(null)} onSign={handleSign} isPending={signMutation.isPending} />
+        <SignModal role={signAs} onClose={() => { setSignAs(null); setCnicError(null); }} onSign={handleSign} isPending={signMutation.isPending} cnicError={cnicError} />
       )}
     </div>
   );

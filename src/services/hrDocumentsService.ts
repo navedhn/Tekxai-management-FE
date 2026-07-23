@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, BASE_URL } from '@/lib/queryClient';
 import { API_ENDPOINTS } from './api/endpoints';
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -42,6 +42,7 @@ export interface DocumentTemplate {
   type_id: string;
   name: string;
   is_active: boolean;
+  requires_approval: boolean;
   current_version_id: string | null;
   current_version?: TemplateVersion | null;
   category?: { id: string; name: string; code: string };
@@ -216,7 +217,7 @@ export const useGetTemplateVersions = (id?: string) =>
 export const useCreateTemplate = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { category_id: string; type_id: string; name: string; content: string; placeholders?: string[] }) =>
+    mutationFn: (data: { category_id: string; type_id: string; name: string; content: string; placeholders?: string[]; requires_approval?: boolean }) =>
       apiRequest(API_ENDPOINTS.HR_DOCUMENTS.TEMPLATES, { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['hr-document-templates'] }),
   });
@@ -232,6 +233,24 @@ export const useUpdateTemplate = () => {
       qc.invalidateQueries({ queryKey: ['hr-document-template', variables.id] });
       qc.invalidateQueries({ queryKey: ['hr-document-template-versions', variables.id] });
     },
+  });
+};
+
+export const useDuplicateTemplate = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }: { id: string; name?: string }) =>
+      apiRequest(API_ENDPOINTS.HR_DOCUMENTS.TEMPLATE_DUPLICATE(id), { method: 'POST', body: JSON.stringify({ name }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['hr-document-templates'] }),
+  });
+};
+
+export const useDeleteTemplate = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiRequest(API_ENDPOINTS.HR_DOCUMENTS.TEMPLATE_DELETE(id), { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['hr-document-templates'] }),
   });
 };
 
@@ -307,6 +326,7 @@ function make_status_mutation(endpoint: (id: string) => string) {
 }
 
 export const useSendDocument = make_status_mutation(API_ENDPOINTS.HR_DOCUMENTS.SEND);
+export const useApproveDraftDocument = make_status_mutation(API_ENDPOINTS.HR_DOCUMENTS.APPROVE_DRAFT);
 export const useViewDocument = make_status_mutation(API_ENDPOINTS.HR_DOCUMENTS.VIEW);
 export const useRejectDocument = make_status_mutation(API_ENDPOINTS.HR_DOCUMENTS.REJECT);
 export const useCancelDocument = make_status_mutation(API_ENDPOINTS.HR_DOCUMENTS.CANCEL);
@@ -322,10 +342,32 @@ export const useGetDocumentPdf = () =>
         .then((r) => r?.payload as { url: string; file_key: string }),
   });
 
+// DOCX isn't a JSON endpoint (it streams the file directly), so this can't
+// go through apiRequest/useMutation like everything else here — same
+// authenticated-blob-download pattern already used in reportService.ts.
+export function download_document_docx(id: string, filename?: string) {
+  const token = localStorage.getItem('tekxai_access_token');
+  const endpoint = API_ENDPOINTS.HR_DOCUMENTS.DOCX(id);
+  const url = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${endpoint}`;
+  return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    .then((res) => {
+      if (!res.ok) throw new Error('Failed to download DOCX');
+      return res.blob();
+    })
+    .then((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || 'document.docx';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+}
+
 export const useSignDocument = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; signer_role: 'EMPLOYEE' | 'HR' | 'COMPANY'; signature_data: string; required_roles?: string[] }) =>
+    mutationFn: ({ id, ...data }: { id: string; signer_role: 'EMPLOYEE' | 'HR' | 'COMPANY'; signature_data: string; required_roles?: string[]; cnic?: string }) =>
       apiRequest<any>(API_ENDPOINTS.HR_DOCUMENTS.SIGN(id), { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: (_d, variables: any) => invalidate_document_lists(qc, variables.id),
   });

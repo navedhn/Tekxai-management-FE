@@ -26,9 +26,9 @@ const STATUS_STYLE: Record<DocumentStatus, string> = {
 };
 
 // New Document: Employee -> Category -> Type -> Template -> Preview -> Generate
-function NewDocumentModal({ onClose, onGenerated }: { onClose: () => void; onGenerated: (id: string) => void }) {
+export function NewDocumentModal({ onClose, onGenerated, initialUserId, initialUserName }: { onClose: () => void; onGenerated: (id: string) => void; initialUserId?: string; initialUserName?: string }) {
   const toast = useToastContext();
-  const [userId, setUserId] = useState('');
+  const [userId, setUserId] = useState(initialUserId || '');
   const [categoryId, setCategoryId] = useState('');
   const [typeId, setTypeId] = useState('');
   const [templateId, setTemplateId] = useState('');
@@ -95,10 +95,16 @@ function NewDocumentModal({ onClose, onGenerated }: { onClose: () => void; onGen
         <div className="space-y-4">
           <div>
             <label className={labelCls}>Employee <span className="text-red-500">*</span></label>
-            <select className={inputCls} value={userId} onChange={(e) => setUserId(e.target.value)}>
-              <option value="">Select employee</option>
-              {(users || []).map((u: any) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
-            </select>
+            {initialUserId ? (
+              <div className={cn(inputCls, 'flex items-center bg-gray-50 text-gray-700 font-semibold')}>
+                {initialUserName || 'Selected employee'}
+              </div>
+            ) : (
+              <select className={inputCls} value={userId} onChange={(e) => setUserId(e.target.value)}>
+                <option value="">Select employee</option>
+                {(users || []).map((u: any) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
+              </select>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -194,7 +200,7 @@ export default function HrDocumentsPage() {
           <p className="text-sm text-gray-400 mt-0.5">Generate, send, and track employee documents from versioned templates.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => navigate('/hr/document-templates')} className="flex items-center gap-2 px-4 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+          <button onClick={() => navigate('/admin/document-templates')} className="flex items-center gap-2 px-4 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
             Manage Templates
           </button>
           <button onClick={() => setShowNewModal(true)} className="flex items-center gap-2 px-4 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition-colors">
@@ -243,7 +249,7 @@ export default function HrDocumentsPage() {
                       {d.previous_document_id && <RotateCw size={12} className="text-gray-400" titleAccess="Renewal" />}
                     </div>
                   </td>
-                  <td className="py-3 px-2 text-gray-700">{d.user ? `${d.user.first_name} ${d.user.last_name}` : '—'}</td>
+                  <td className="py-3 px-2 text-gray-700">{d.user ? [d.user.first_name, d.user.last_name].filter(Boolean).join(' ') : '—'}</td>
                   <td className="py-3 px-2 text-gray-700">{d.category?.name || '—'}</td>
                   <td className="py-3 px-2 text-gray-700">{d.type?.name || '—'}</td>
                   <td className="py-3 px-2">
@@ -253,7 +259,7 @@ export default function HrDocumentsPage() {
                     {new Date(d.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                   </td>
                   <td className="py-3 px-2">
-                    <button onClick={() => navigate(`/hr/documents/${d.id}`)} className="px-3 h-7 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+                    <button onClick={() => navigate(`/admin/documents/${d.id}`)} className="px-3 h-7 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
                       View
                     </button>
                   </td>
@@ -267,7 +273,7 @@ export default function HrDocumentsPage() {
       {showNewModal && (
         <NewDocumentModal
           onClose={() => setShowNewModal(false)}
-          onGenerated={(id) => id && navigate(`/hr/documents/${id}`)}
+          onGenerated={(id) => id && navigate(`/admin/documents/${id}`)}
         />
       )}
     </div>

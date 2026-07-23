@@ -1,5 +1,5 @@
 import React, { lazy } from 'react';
-import { createBrowserRouter, RouteObject, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouteObject, Navigate, useParams } from 'react-router-dom';
 import PublicLayout from '@/layouts/publicLayout';
 import AdminLayout from '@/layouts/adminLayout';
 import EmployeeLayout from '@/layouts/employeeLayout';
@@ -8,8 +8,15 @@ import PublicRoute from '@/pages/layout/PublicRoute';
 import AuthLayout from '@/layouts/authLayout';
 import MarketingLayout from '@/layouts/marketingLayout';
 import CRMLayout from '@/layouts/crmLayout';
-import HRLayout from '@/layouts/hrLayout';
 import { ADMIN_ROLES, USER_ROLES } from '@/constants/roles';
+
+// Redirects a retired /hr/* URL (which may carry route params) to its new
+// /admin/* home — <Navigate> alone can't interpolate params, so this reads
+// them via useParams() and lets the caller build the target path.
+const ParamRedirect: React.FC<{ build: (params: Record<string, string | undefined>) => string }> = ({ build }) => {
+  const params = useParams();
+  return <Navigate to={build(params)} replace />;
+};
 
 // Public
 const HomePage               = lazy(() => import('@/pages/public/homePage'));
@@ -68,7 +75,6 @@ const AdminGrades            = lazy(() => import('@/pages/admin/grades'));
 const AdminTicketCategories  = lazy(() => import('@/pages/admin/ticket-categories'));
 const AdminTicketTypes       = lazy(() => import('@/pages/admin/ticket-types'));
 const AdminOrgChart          = lazy(() => import('@/pages/admin/org-chart'));
-const AdminHRDashboard       = lazy(() => import('@/pages/admin/hr-dashboard'));
 const AdminRequisitions      = lazy(() => import('@/pages/admin/requisitions'));
 
 // HR new pages
@@ -167,7 +173,7 @@ const routes: RouteObject[] = [
     element: <AdminLayout />,
     children: [
       {
-        element: <ProtectedRoute roles={adminRoles} permission="erp.workspace.access" />,
+        element: <ProtectedRoute roles={hrRoles} permission="erp.workspace.access" />,
         children: [
           { path: '/admin',                      element: <AdminDashboard /> },
           { path: '/admin/projects',             element: <AdminProjects /> },
@@ -195,7 +201,7 @@ const routes: RouteObject[] = [
           { path: '/admin/ticket-categories',   element: <AdminTicketCategories /> },
           { path: '/admin/ticket-types',        element: <AdminTicketTypes /> },
           { path: '/admin/org-chart',           element: <AdminOrgChart /> },
-          { path: '/admin/hr',                  element: <AdminHRDashboard /> },
+          { path: '/admin/hr',                  element: <Navigate to="/admin" replace /> },
           { path: '/admin/attendance',          element: <AdminAttendance /> },
           { path: '/admin/job-descriptions',    element: <AdminJobDescriptions /> },
           { path: '/admin/crm',                 element: <AdminCRM /> },
@@ -217,6 +223,18 @@ const routes: RouteObject[] = [
           { path: '/admin/payroll',            element: <PayrollPage /> },
           { path: '/admin/webhooks',           element: <WebhooksPage /> },
           { path: '/admin/report-builder',     element: <ReportBuilderPage /> },
+          // Former HR-workspace-only pages, folded in as part of the HR/Admin merge
+          { path: '/admin/business-units',        element: <AdminBusinessUnits /> },
+          { path: '/admin/documents',             element: <AdminHrDocuments /> },
+          { path: '/admin/documents/:id',         element: <AdminHrDocumentDetail /> },
+          { path: '/admin/document-templates',    element: <AdminHrDocumentTemplates /> },
+          { path: '/admin/my-salaries',           element: <MarketingMySalaries /> },
+          { path: '/admin/employee-directory',    element: <EmployeeDirectory /> },
+          { path: '/admin/add-employee/:employeeId?', element: <AddEmployee /> },
+          { path: '/admin/hr-reports',            element: <HRReports /> },
+          { path: '/admin/overtime',              element: <OvertimePage /> },
+          { path: '/admin/increments',            element: <IncrementsPage /> },
+          { path: '/admin/download-app',          element: <DownloadApp /> },
           {
             element: <ProtectedRoute roles={adminRoles} permission="erp.executive-analytics.view" />,
             children: [
@@ -273,50 +291,41 @@ const routes: RouteObject[] = [
       { path: '/crm/*', element: <NotFound /> },
     ],
   },
-  // ── HR Workspace (/hr) ─────────────────────────────────────────────────────
-  {
-    element: <HRLayout />,
-    children: [
-      {
-        element: <ProtectedRoute roles={hrRoles} />,
-        children: [
-          { path: '/hr',                          element: <AdminHRDashboard /> },
-          { path: '/hr/employees',                element: <Navigate to="/hr/employee-directory" replace /> },
-          { path: '/hr/business-units',           element: <AdminBusinessUnits /> },
-          { path: '/hr/departments',              element: <AdminDepartments /> },
-          { path: '/hr/divisions',                element: <AdminDivisions /> },
-          { path: '/hr/designations',             element: <AdminDesignations /> },
-          { path: '/hr/grades',                   element: <AdminGrades /> },
-          { path: '/hr/org-chart',                element: <AdminOrgChart /> },
-          { path: '/hr/attendance',               element: <AdminAttendance /> },
-          { path: '/hr/timesheet',                element: <AdminTimesheet /> },
-          { path: '/hr/performance',              element: <AdminPerformance /> },
-          { path: '/hr/performance-scoring',     element: <AdminPerformanceScoring /> },
-          { path: '/hr/assets',                   element: <AdminAssets /> },
-          { path: '/hr/requisitions',             element: <AdminRequisitions /> },
-          { path: '/hr/contracts',                element: <AdminContracts /> },
-          { path: '/hr/documents',                element: <AdminHrDocuments /> },
-          { path: '/hr/documents/:id',            element: <AdminHrDocumentDetail /> },
-          { path: '/hr/document-templates',       element: <AdminHrDocumentTemplates /> },
-          { path: '/hr/onboarding',               element: <AdminOnboarding /> },
-          { path: '/hr/policies',                 element: <AdminPolicies /> },
-          { path: '/hr/job-descriptions',         element: <AdminJobDescriptions /> },
-          { path: '/hr/my-salaries',              element: <MarketingMySalaries /> },
-          { path: '/hr/employee/:employeeId',     element: <AdminEmployeeProfile /> },
-          { path: '/hr/employee-directory',       element: <EmployeeDirectory /> },
-          { path: '/hr/add-employee/:employeeId?', element: <AddEmployee /> },
-          { path: '/hr/reports',                  element: <HRReports /> },
-          { path: '/hr/overtime',                 element: <OvertimePage /> },
-          { path: '/hr/increments',               element: <IncrementsPage /> },
-          { path: '/hr/notifications',            element: <SharedNotifications /> },
-          { path: '/hr/profile/:memberId?',       element: <ProfilePage /> },
-          { path: '/hr/monitoring',               element: <AdminMonitoring /> },
-          { path: '/hr/download-app',             element: <DownloadApp /> },
-        ],
-      },
-      { path: '/hr/*', element: <NotFound /> },
-    ],
-  },
+  // ── HR Workspace (/hr) — retired, folded into /admin. Old bookmarks/links ──
+  // redirect to their new /admin/* home instead of 404ing.
+  { path: '/hr',                           element: <Navigate to="/admin" replace /> },
+  { path: '/hr/employees',                 element: <Navigate to="/admin/employee-directory" replace /> },
+  { path: '/hr/business-units',            element: <Navigate to="/admin/business-units" replace /> },
+  { path: '/hr/departments',               element: <Navigate to="/admin/departments" replace /> },
+  { path: '/hr/divisions',                 element: <Navigate to="/admin/divisions" replace /> },
+  { path: '/hr/designations',              element: <Navigate to="/admin/designations" replace /> },
+  { path: '/hr/grades',                    element: <Navigate to="/admin/grades" replace /> },
+  { path: '/hr/org-chart',                 element: <Navigate to="/admin/org-chart" replace /> },
+  { path: '/hr/attendance',                element: <Navigate to="/admin/attendance" replace /> },
+  { path: '/hr/timesheet',                 element: <Navigate to="/admin/timesheet" replace /> },
+  { path: '/hr/performance',               element: <Navigate to="/admin/performance" replace /> },
+  { path: '/hr/performance-scoring',       element: <Navigate to="/admin/performance-scoring" replace /> },
+  { path: '/hr/assets',                    element: <Navigate to="/admin/assets" replace /> },
+  { path: '/hr/requisitions',              element: <Navigate to="/admin/requisitions" replace /> },
+  { path: '/hr/contracts',                 element: <Navigate to="/admin/contracts" replace /> },
+  { path: '/hr/documents',                 element: <Navigate to="/admin/documents" replace /> },
+  { path: '/hr/documents/:id',             element: <ParamRedirect build={(p) => `/admin/documents/${p.id}`} /> },
+  { path: '/hr/document-templates',        element: <Navigate to="/admin/document-templates" replace /> },
+  { path: '/hr/onboarding',                element: <Navigate to="/admin/onboarding" replace /> },
+  { path: '/hr/policies',                  element: <Navigate to="/admin/policies" replace /> },
+  { path: '/hr/job-descriptions',          element: <Navigate to="/admin/job-descriptions" replace /> },
+  { path: '/hr/my-salaries',               element: <Navigate to="/admin/my-salaries" replace /> },
+  { path: '/hr/employee/:employeeId',      element: <ParamRedirect build={(p) => `/admin/employee/${p.employeeId}`} /> },
+  { path: '/hr/employee-directory',        element: <Navigate to="/admin/employee-directory" replace /> },
+  { path: '/hr/add-employee/:employeeId?', element: <ParamRedirect build={(p) => p.employeeId ? `/admin/add-employee/${p.employeeId}` : '/admin/add-employee'} /> },
+  { path: '/hr/reports',                   element: <Navigate to="/admin/hr-reports" replace /> },
+  { path: '/hr/overtime',                  element: <Navigate to="/admin/overtime" replace /> },
+  { path: '/hr/increments',                element: <Navigate to="/admin/increments" replace /> },
+  { path: '/hr/notifications',             element: <Navigate to="/admin/notifications" replace /> },
+  { path: '/hr/profile/:memberId?',        element: <ParamRedirect build={(p) => p.memberId ? `/admin/profile/${p.memberId}` : '/admin/profile'} /> },
+  { path: '/hr/monitoring',                element: <Navigate to="/admin/monitoring" replace /> },
+  { path: '/hr/download-app',              element: <Navigate to="/admin/download-app" replace /> },
+  { path: '/hr/*',                         element: <NotFound /> },
   // ── Employee Workspace (/employee) ─────────────────────────────────────────
   {
     element: <EmployeeLayout />,
@@ -333,6 +342,7 @@ const routes: RouteObject[] = [
           { path: '/employee/settings',            element: <EmployeeSettings /> },
           { path: '/employee/daily-report',        element: <DailyReport /> },
           { path: '/employee/documents',           element: <EmployeeDocuments /> },
+          { path: '/employee/documents/:id',       element: <AdminHrDocumentDetail /> },
           { path: '/employee/download-app',        element: <DownloadApp /> },
           { path: '/employee/requisitions',        element: <AdminRequisitions /> },
           { path: '/employee/notifications',       element: <SharedNotifications /> },
