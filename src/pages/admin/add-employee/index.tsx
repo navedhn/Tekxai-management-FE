@@ -10,6 +10,7 @@ import { EMPLOYMENT_STATUS_OPTIONS, EMPLOYMENT_STATUS_LABELS } from '@/constants
 import { useGetEmployeeFullRecord } from '@/services/hrService';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetGradesQuery } from '@/services/gradeService';
+import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
 
 const DRAFT_KEY = 'add_employee_draft';
 
@@ -141,7 +142,7 @@ const initEmployment = {
   employment_type: '', employment_status: 'ACTIVE',
   probation_start: '', probation_end: '',
   notice_period_days: '30', work_email: '',
-  department_id: '', team_id: '', designation: '', designation_id: '',
+  business_unit_id: '', department_id: '', team_id: '', designation: '', designation_id: '',
   grade: '', grade_id: '', supervisor_id: '',
   base_salary: '', salary_currency: 'PKR', pay_frequency: 'MONTHLY',
   effective_salary_date: '',
@@ -259,7 +260,7 @@ function StepPersonal({ data, onChange, errorField, errorMessage, registerRef }:
 }
 
 // ── Step 2: Employment Details ───────────────────────────────────────────────
-function StepEmployment({ data, onChange, departments, teams, users, designations, grades, errorField, errorMessage, registerRef }: any) {
+function StepEmployment({ data, onChange, businessUnits, departments, teams, users, designations, grades, errorField, errorMessage, registerRef }: any) {
   return (
     <div className="space-y-6">
       <div>
@@ -268,9 +269,10 @@ function StepEmployment({ data, onChange, departments, teams, users, designation
           <Field label="Employee ID">
             <input
               className={`${inputCls} bg-gray-50 text-gray-500 cursor-not-allowed select-all`}
-              value={data.employee_id || 'Generating…'}
+              value="Auto-generated on save"
               readOnly
               tabIndex={-1}
+              title="Derived from Business Unit + Department — not editable"
             />
           </Field>
           <Field label="Joining Date" required>
@@ -326,10 +328,33 @@ function StepEmployment({ data, onChange, departments, teams, users, designation
       <div>
         <h3 className="font-bold text-gray-900 mb-4">Organization Details</h3>
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Department">
-            <select className={selectCls} value={data.department_id} onChange={e => onChange('department_id', e.target.value)}>
-              <option value="">Select department</option>
-              {(departments || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          <Field label="Business Unit">
+            <select
+              className={selectCls}
+              value={data.business_unit_id}
+              onChange={e => {
+                onChange('business_unit_id', e.target.value);
+                // Department must belong to the selected Business Unit —
+                // the Employee ID prefix is derived from both together, so
+                // a stale department from a different unit can't linger.
+                onChange('department_id', '');
+              }}
+            >
+              <option value="">Select business unit</option>
+              {(businessUnits || []).map((bu: any) => <option key={bu.id} value={bu.id}>{bu.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Department (Function)">
+            <select
+              className={selectCls}
+              value={data.department_id}
+              disabled={!data.business_unit_id}
+              onChange={e => onChange('department_id', e.target.value)}
+            >
+              <option value="">{data.business_unit_id ? 'Select department' : 'Select a business unit first'}</option>
+              {(departments || [])
+                .filter((d: any) => (d.business_unit_id || d.business_unit?.id) === data.business_unit_id)
+                .map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </Field>
           <Field label="Team">
@@ -672,7 +697,7 @@ function StepReview({ personal, employment, work }: any) {
       'Gender': personal.gender || '—', 'Blood Group': personal.blood_group || '—',
     }},
     { label: 'Employment Details', data: {
-      'Employee ID': employment.employee_id || '—',
+      'Employee ID': 'Auto-generated on save',
       'Join Date': employment.hire_date || '—',
       'Type': employment.employment_type || '—',
       'Status': STATUS_LABELS[employment.employment_status] || employment.employment_status || '—',
@@ -707,10 +732,6 @@ function StepReview({ personal, employment, work }: any) {
       ))}
     </div>
   );
-}
-
-function generateEmployeeId(count: number) {
-  return `TXI-${String(count + 1).padStart(4, '0')}`;
 }
 
 // ── Main Wizard ──────────────────────────────────────────────────────────────
@@ -844,6 +865,8 @@ export default function AddEmployee() {
     staleTime: 300000,
   });
 
+  const { data: businessUnits } = useGetBusinessUnitsQuery();
+
   const { data: teams } = useQuery({
     queryKey: ['teams'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.TEAM.LIST),
@@ -862,28 +885,9 @@ export default function AddEmployee() {
     staleTime: 300000,
   });
 
-  const { data: userCount } = useQuery({
-    queryKey: ['user-count'],
-    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=1`),
-    select: (r: any) => r?.payload?.total ?? (r?.payload?.records?.length ?? 0),
-    staleTime: 60000,
-  });
-
-  React.useEffect(() => {
-    if (isEditMode) return; // real employee_id comes from the fetched record, never auto-generated
-    if (userCount != null) {
-      setEmployment(p => ({ ...p, employee_id: p.employee_id || generateEmployeeId(userCount) }));
-    } else {
-      // Fallback so field never stays "Generating…" indefinitely
-      const timeout = setTimeout(() => {
-        setEmployment(p => {
-          if (!p.employee_id) return { ...p, employee_id: `TXI-${String(Date.now()).slice(-4)}` };
-          return p;
-        });
-      }, 3000);
-      return () => clearTimeout(timeout);
-    }
-  }, [isEditMode, userCount]);
+  // Employee ID is never generated client-side — it's derived server-side
+  // from Business Unit + Department the moment the employee is created
+  // (see users.service.js generate_employee_id) and is not editable.
 
   const saveMutation = useMutation({
     mutationFn: async (as_draft: boolean) => {
@@ -917,7 +921,6 @@ export default function AddEmployee() {
             last_name:     personal.last_name,
             email:         personal.email,
             phone:         personal.phone || undefined,
-            employee_id:   employment.employee_id || undefined,
             hire_date:     employment.hire_date || undefined,
             designation:   employment.designation || undefined,
             designation_id: employment.designation_id || undefined,
@@ -1126,7 +1129,7 @@ export default function AddEmployee() {
         <div className="flex-1 min-w-0">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
             {step === 1 && <StepPersonal data={personal} onChange={changePersonal} errorField={errorField} errorMessage={errorMessage} registerRef={registerRef} />}
-            {step === 2 && <StepEmployment data={employment} onChange={changeEmployment} departments={departments} teams={teams} users={users} designations={designations} grades={grades} errorField={errorField} errorMessage={errorMessage} registerRef={registerRef} />}
+            {step === 2 && <StepEmployment data={employment} onChange={changeEmployment} businessUnits={businessUnits} departments={departments} teams={teams} users={users} designations={designations} grades={grades} errorField={errorField} errorMessage={errorMessage} registerRef={registerRef} />}
             {step === 3 && <StepWork data={work} onChange={changeWork} />}
             {step === 4 && <StepDocuments docFiles={docFiles} setDocFiles={setDocFiles} existingTypes={existingDocTypes} />}
             {step === 5 && <StepReview personal={personal} employment={employment} work={work} />}
