@@ -214,6 +214,21 @@ function createWindow() {
   });
 }
 
+// Same "destroyed but not null" edge case the second-instance handler above
+// already guards against (Windows session-ending events etc.) — every tray
+// entry point that touches mainWindow needs this, not just app relaunch.
+// Bare `mainWindow?.show()` only guards null/undefined, not a destroyed
+// BrowserWindow, which throws "Object has been destroyed" on any method call.
+function showMainWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  } else {
+    createWindow();
+  }
+}
+
 // ── Tray ──────────────────────────────────────────────────────────────────────
 
 function createTray() {
@@ -224,7 +239,7 @@ function createTray() {
   updateTrayMenu();
 
   tray.on('double-click', () => {
-    mainWindow?.show();
+    showMainWindow();
   });
 }
 
@@ -237,11 +252,24 @@ function updateTrayMenu() {
     { label: user ? `${user.first_name} ${user.last_name}` : 'Not logged in', enabled: false },
     { label: clocked ? '🟢 Clocked In' : '⚫ Not clocked in', enabled: false },
     { type: 'separator' },
-    { label: 'Open Agent', click: () => mainWindow?.show() },
+    { label: 'Open Agent', click: () => showMainWindow() },
     { label: 'Open Dashboard', click: () => shell.openExternal(DASHBOARD_URL) },
     { type: 'separator' },
     ...(token ? [
-      { label: clocked ? 'Clock Out' : 'Clock In', click: () => mainWindow?.webContents.send('tray-toggle-clock') },
+      {
+        label: clocked ? 'Clock Out' : 'Clock In',
+        click: () => {
+          // Toggling clock in/out needs a live renderer to send the IPC
+          // message to — if mainWindow was destroyed, bring up a fresh one
+          // instead of sending into the void (or crashing on the destroyed
+          // reference, per the isDestroyed() note on showMainWindow above).
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('tray-toggle-clock');
+          } else {
+            showMainWindow();
+          }
+        },
+      },
       { type: 'separator' },
     ] : []),
     { label: 'Quit', click: () => app.quit() },
