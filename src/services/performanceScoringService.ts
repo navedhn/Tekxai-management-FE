@@ -119,6 +119,25 @@ export const useDeletePerformanceMutation = () => {
   });
 };
 
+// GET /performance/score/:employeeId — score history for one employee
+// (used by the Employee Profile > Performance tab).
+const fetchScoreForEmployee = async (employeeId: string): Promise<EmployeePerformanceRecord[]> => {
+  const res = await apiRequest<unknown>(API_ENDPOINTS.PERFORMANCE.SCORE_BY_EMP(employeeId));
+  const raw = unwrapApiList<RawScoreRecord>(res);
+  if (raw.length) return raw.map(toRecord);
+  // Some deployments return a single record object rather than a list for this route.
+  const single = unwrapApiData<RawScoreRecord | null>(res);
+  return single && (single as any).id ? [toRecord(single)] : [];
+};
+
+export const useGetPerformanceScoreByEmployee = (employeeId?: string, options?: { enabled?: boolean }) =>
+  useQuery({
+    queryKey: ['performance-score-employee', employeeId],
+    queryFn: () => fetchScoreForEmployee(employeeId!),
+    enabled: !!employeeId && options?.enabled !== false,
+    staleTime: 30_000,
+  });
+
 export const getPerformancePeriods = (records: EmployeePerformanceRecord[]): string[] => {
   const periods = new Set(records.map((r) => r.period));
   periods.add(getCurrentPeriod());
