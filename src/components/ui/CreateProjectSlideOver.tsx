@@ -259,6 +259,9 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
     if (!projectName.trim()) newErrors.projectName = 'Project name is required';
     if (!startDate) newErrors.startDate = 'Start date is required';
     if (!endDate) newErrors.endDate = 'End date is required';
+    if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
+      newErrors.endDate = 'End date cannot be before start date';
+    }
     if (projectOwners.length === 0) newErrors.owner = 'At least one project owner is required';
     if (budget !== '' && Number(budget) < 0) newErrors.budget = 'Budget cannot be negative';
 
