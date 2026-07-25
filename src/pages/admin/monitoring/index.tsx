@@ -4,15 +4,15 @@ import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Tabs from '@/components/ui/Tabs';
 import Select from '@/components/ui/Select';
-import Badge from '@/components/ui/Badge';
 import ActionModal from '@/components/ui/ActionModal';
-import { Activity, Camera, Clock, Cpu, Trash2, BarChart3 } from 'lucide-react';
+import { Activity, Camera, Clock, Cpu } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { apiRequest } from '@/lib/queryClient';
 import { useFetchUsersQuery } from '@/services/userService';
-import { useGetScreenshots, useGetProductivity, useGetAppUsage, useDeleteScreenshot, useBulkDeleteScreenshots, type Screenshot, type ProductivitySession } from '@/services/monitoringService';
+import { useGetProductivity, useGetAppUsage, useDeleteScreenshot, type Screenshot } from '@/services/monitoringService';
 import { useAuthStore } from '@/stores/authStore';
 import { StatSkeleton } from '@/components/skeletons';
+import ScreenshotHistoryPanel from './ScreenshotHistoryPanel';
 
 const TABS = ['Productivity Overview', 'Screenshot History', 'Reports'];
 const v1 = 'api/v1';
@@ -25,7 +25,9 @@ const BUILDER = `${v1}/report/builder`;
 // tab answers the same questions (avg productivity, active vs idle) but
 // correctly across ALL records via KPI AVG/SUM, not just the current page.
 function MonitoringReportsTab() {
-  const { data: users = [] } = useFetchUsersQuery({});
+  // Same pagination-default issue as the main Monitoring dropdown below:
+  // without an explicit limit this only returns the first page of users.
+  const { data: users = [] } = useFetchUsersQuery({ limit: 1000 });
   const [dimKey, setDimKey] = useState<'apps' | 'websites' | 'employee'>('apps');
 
   const kpiCall = (entity: string, metric: string, field?: string) =>
@@ -159,25 +161,28 @@ function aggregateProductivity(records: any[]) {
 const MonitoringPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('Productivity Overview');
   const [selectedUser, setSelectedUser] = useState('');
+  // Screenshot History has its own required, self-contained employee
+  // selector (see ScreenshotHistoryPanel) — deliberately decoupled from the
+  // page-level "All Employees" filter used by Productivity Overview/Reports,
+  // since this tab must never load data for "everyone" at once.
+  const [ssSelectedUser, setSsSelectedUser] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [screenshotToDelete, setScreenshotToDelete] = useState<Screenshot | null>(null);
-  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
-  const [ssPage, setSsPage] = useState(1);
   const [prodPage, setProdPage] = useState(1);
   const PAGE_SIZE = 20;
 
-  useEffect(() => { setSsPage(1); setProdPage(1); }, [selectedUser, dateFrom, dateTo]);
+  useEffect(() => { setProdPage(1); }, [selectedUser, dateFrom, dateTo]);
 
   const { user } = useAuthStore();
   const isSuperAdmin = (user as any)?.roles?.includes('SUPER_ADMIN') || (user as any)?.role_name === 'SUPER_ADMIN';
   const { mutate: deleteScreenshot } = useDeleteScreenshot();
-  const { mutate: bulkDelete } = useBulkDeleteScreenshots();
 
-  const { data: users = [] } = useFetchUsersQuery({});
+  // The users list endpoint defaults to limit=20 (pagination for the Users
+  // admin table). This dropdown needs every employee, not one page of them,
+  // so it must explicitly ask for a limit large enough to cover the org.
+  const { data: users = [] } = useFetchUsersQuery({ limit: 1000 });
 
   const prodParams: Record<string, string> = { page: String(prodPage), limit: String(PAGE_SIZE) };
   if (selectedUser) prodParams.user_id = selectedUser;
@@ -199,14 +204,6 @@ const MonitoringPage: React.FC = () => {
   if (dateTo) summaryParams.to = dateTo;
   const { data: productivitySummaryData } = useGetProductivity(summaryParams);
   const productivitySummary = (productivitySummaryData as any)?.records || [];
-
-  const ssParams: Record<string, string> = { page: String(ssPage), limit: String(PAGE_SIZE) };
-  if (selectedUser) ssParams.user_id = selectedUser;
-  if (dateFrom) ssParams.from = dateFrom;
-  if (dateTo) ssParams.to = dateTo;
-
-  const { data: ssData, isLoading: ssLoading } = useGetScreenshots(ssParams);
-  const screenshots: Screenshot[] = (ssData as any)?.records || [];
 
   const userOptions = [
     { value: '', label: 'All Employees' },
@@ -266,108 +263,6 @@ const MonitoringPage: React.FC = () => {
         </div>
       ),
     },
-  ];
-
-  const allSelected = screenshots.length > 0 && screenshots.every((s) => selectedIds.has(s.id));
-  const toggleAll = () => {
-    if (allSelected) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(screenshots.map((s) => s.id)));
-    }
-  };
-  const toggleOne = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
-  const handleBulkDelete = () => {
-    if (!selectedIds.size) return;
-    setConfirmBulkDelete(true);
-  };
-
-  const confirmBulkDeleteNow = () => {
-    const ids = Array.from(selectedIds);
-    setConfirmBulkDelete(false);
-    setIsBulkDeleting(true);
-    bulkDelete(ids, {
-      onSettled: () => {
-        setIsBulkDeleting(false);
-        setSelectedIds(new Set());
-      },
-    });
-  };
-
-  const ssCols: Column<Screenshot>[] = [
-    ...(isSuperAdmin ? [{
-      header: (
-        <input
-          type="checkbox"
-          checked={allSelected}
-          onChange={toggleAll}
-          className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-        />
-      ) as any,
-      key: '__select__' as keyof Screenshot,
-      render: (r: Screenshot) => (
-        <input
-          type="checkbox"
-          checked={selectedIds.has(r.id)}
-          onChange={() => toggleOne(r.id)}
-          className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-        />
-      ),
-    }] : []),
-    {
-      header: 'Employee',
-      key: 'user_id',
-      render: (r) => (
-        <span className="font-black text-gray-900">
-          {r.user ? `${r.user.first_name} ${r.user.last_name}` : r.user_id.slice(0, 8)}
-        </span>
-      ),
-    },
-    {
-      header: 'Captured At',
-      key: 'captured_at',
-      render: (r) =>
-        new Date(r.captured_at).toLocaleString('en-US', {
-          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-        }),
-    },
-    {
-      header: 'Preview',
-      key: 'file_url',
-      render: (r) =>
-        r.file_url ? (
-          <a href={r.file_url} target="_blank" rel="noopener noreferrer" title="Click to open full screenshot">
-            <img
-              src={r.file_url}
-              alt="Screenshot"
-              className="h-12 w-20 object-cover rounded-lg border border-gray-200 hover:border-primary-400 hover:shadow-md transition-all cursor-pointer"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
-          </a>
-        ) : (
-          <span className="text-xs text-gray-400 font-medium font-mono">{r.file_key.split('/').pop()}</span>
-        ),
-    },
-    ...(isSuperAdmin ? [{
-      header: '',
-      key: 'id' as keyof Screenshot,
-      render: (r: Screenshot) => (
-        <button
-          onClick={() => setScreenshotToDelete(r)}
-          disabled={deletingId === r.id}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
-          title="Delete screenshot"
-        >
-          <Trash2 size={15} />
-        </button>
-      ),
-    }] : []),
   ];
 
   return (
@@ -511,37 +406,13 @@ const MonitoringPage: React.FC = () => {
       )}
 
       {activeTab === 'Screenshot History' && (
-        <Card className="border-none shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm font-medium text-gray-400">
-              Total screenshots: <strong className="text-gray-700">{(ssData as any)?.total || 0}</strong>
-              <span className="ml-2 text-xs">(Screenshots captured by desktop agent)</span>
-            </p>
-            {isSuperAdmin && selectedIds.size > 0 && (
-              <button
-                onClick={handleBulkDelete}
-                disabled={isBulkDeleting}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white text-sm font-bold rounded-xl hover:bg-red-600 disabled:opacity-50 transition-colors"
-              >
-                <Trash2 size={14} />
-                {isBulkDeleting ? 'Deleting…' : `Delete Selected (${selectedIds.size})`}
-              </button>
-            )}
-          </div>
-          <Table
-            columns={ssCols}
-            data={screenshots}
-            isLoading={ssLoading}
-            emptyMessage="No screenshots yet. Desktop agent must be running to capture screenshots."
-            pagination={{
-              currentPage: ssPage,
-              totalPages: Math.max(1, Math.ceil(((ssData as any)?.total || 0) / PAGE_SIZE)),
-              onPageChange: setSsPage,
-              totalEntries: (ssData as any)?.total || 0,
-              entriesPerPage: PAGE_SIZE,
-            }}
-          />
-        </Card>
+        <ScreenshotHistoryPanel
+          userOptions={userOptions}
+          selectedUser={ssSelectedUser}
+          onSelectUser={setSsSelectedUser}
+          isSuperAdmin={isSuperAdmin}
+          onDeleteOne={(s) => setScreenshotToDelete(s)}
+        />
       )}
 
       {activeTab === 'Reports' && <MonitoringReportsTab />}
@@ -560,18 +431,6 @@ const MonitoringPage: React.FC = () => {
         confirmText="Delete"
         confirmVariant="danger"
         icon="delete"
-      />
-
-      <ActionModal
-        isOpen={confirmBulkDelete}
-        onClose={() => setConfirmBulkDelete(false)}
-        onConfirm={confirmBulkDeleteNow}
-        title="Delete Screenshots"
-        description={`Delete ${selectedIds.size} screenshot(s)? They will also be removed from S3.`}
-        confirmText="Delete"
-        confirmVariant="danger"
-        icon="delete"
-        loading={isBulkDeleting}
       />
     </div>
   );
