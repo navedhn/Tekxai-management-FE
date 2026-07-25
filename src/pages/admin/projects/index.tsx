@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { useGetProjects, ProjectDetail, useDeleteProjectMutation, useSaveProjectMutation, useUnsaveProjectMutation } from '@/services/projectService';
+import { useGetProjects, ProjectDetail, useDeleteProjectMutation, useRestoreProjectMutation, useSaveProjectMutation, useUnsaveProjectMutation } from '@/services/projectService';
+import { useAuth } from '@/hooks/useAuth';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
@@ -7,7 +8,7 @@ import Button, { pageActionButtonClass, pageOutlineButtonClass } from '@/compone
 import Input from '@/components/ui/Input';
 import Tabs from '@/components/ui/Tabs';
 import Loader from '@/components/ui/Loader';
-import { Search, Filter, Plus, Edit2, Trash2, MoreVertical, Star } from 'lucide-react';
+import { Search, Filter, Plus, Edit2, Trash2, MoreVertical, Star, Archive, ArchiveRestore } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { getProjectStatusStyle, getProjectStatusLabel } from '@/utils/projectStatus';
 
@@ -39,11 +40,21 @@ import ProjectDashboardKpis from '@/components/ui/ProjectDashboardKpis';
 
 const ProjectManagement: React.FC = () => {
   const toast = useToastContext();
+  const { role } = useAuth();
+  // Matches the backend's exact role gate for archive/restore:
+  // can_or_role('erp.projects.delete', 'ADMIN', 'SUPER_ADMIN') in
+  // be-work/src/modules/projects/routes/projects.routes.js — no owner/leader
+  // exception here (unlike project edit), so only these two roles get the
+  // Archive/Restore buttons.
+  const canArchive = role === 'ADMIN' || role === 'SUPER_ADMIN';
+
+  const [showArchived, setShowArchived] = useState(false);
   // limit: 1000 — the table paginates client-side over `filteredData`, so the full
   // set must be loaded up front; the server default (20) was silently hiding every
   // project past the first page, which client-side "Page 2/3" pagination never surfaced.
-  const { data: projects, isLoading } = useGetProjects({ limit: 1000 });
+  const { data: projects, isLoading } = useGetProjects({ limit: 1000, archived: showArchived });
   const deleteMutation = useDeleteProjectMutation();
+  const restoreMutation = useRestoreProjectMutation();
   const { data: dashboardStats } = useProjectDashboardStats();
 
   const [activeTab, setActiveTab] = useState('UI/UX Design');
@@ -54,6 +65,7 @@ const ProjectManagement: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<ProjectDetail | null>(null);
   const [projectToDelete, setProjectToDelete] = useState<ProjectDetail | null>(null);
+  const [projectToRestore, setProjectToRestore] = useState<ProjectDetail | null>(null);
   const [projectToToggleSave, setProjectToToggleSave] = useState<{ project: ProjectDetail, action: 'save' | 'unsave' } | null>(null);
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTER_STATE);
   const [kpiFilter, setKpiFilter] = useState<string | null>(null);
@@ -113,10 +125,21 @@ const ProjectManagement: React.FC = () => {
     if (!projectToDelete) return;
     try {
       await deleteMutation.mutateAsync(projectToDelete.id);
-      toast.success('Project deleted successfully');
+      toast.success('Project archived successfully');
       setProjectToDelete(null);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to delete project');
+      toast.error(error.message || 'Failed to archive project');
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!projectToRestore) return;
+    try {
+      await restoreMutation.mutateAsync(projectToRestore.id);
+      toast.success('Project restored successfully');
+      setProjectToRestore(null);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to restore project');
     }
   };
 
@@ -254,9 +277,16 @@ const ProjectManagement: React.FC = () => {
       header: 'Status',
       key: 'status',
       render: (item) => (
-        <Badge variant="info" className={cn("rounded-lg px-3 py-1 text-[10px] font-black tracking-tight border", getProjectStatusStyle(item.status))}>
-          {getProjectStatusLabel(item.status)}
-        </Badge>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Badge variant="info" className={cn("rounded-lg px-3 py-1 text-[10px] font-black tracking-tight border", getProjectStatusStyle(item.status))}>
+            {getProjectStatusLabel(item.status)}
+          </Badge>
+          {item.deleted_at && (
+            <Badge variant="warning" className="rounded-lg px-2.5 py-1 text-[10px] font-black tracking-tight border bg-gray-100 text-gray-500 border-gray-200">
+              Archived
+            </Badge>
+          )}
+        </div>
       )
     },
     {
@@ -321,18 +351,31 @@ const ProjectManagement: React.FC = () => {
           </button>
           <button
             onClick={() => { setEditingProject(item); setIsFormOpen(true); }}
-            className="p-2 hover:bg-blue-50 text-gray-400 hover:text-blue-600 rounded-lg transition-all"
+            className="p-2 hover:bg-blue-50 text-gray-400 hover:text-blue-600 rounded-lg transition-all disabled:opacity-30 disabled:pointer-events-none"
             title="Edit Project"
+            disabled={!!item.deleted_at}
           >
             <Edit2 size={16} />
           </button>
-          <button
-            onClick={() => setProjectToDelete(item)}
-            className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-lg transition-all"
-            title="Delete Project"
-          >
-            <Trash2 size={16} />
-          </button>
+          {canArchive && (
+            item.deleted_at ? (
+              <button
+                onClick={() => setProjectToRestore(item)}
+                className="p-2 hover:bg-emerald-50 text-gray-400 hover:text-emerald-600 rounded-lg transition-all"
+                title="Restore Project"
+              >
+                <ArchiveRestore size={16} />
+              </button>
+            ) : (
+              <button
+                onClick={() => setProjectToDelete(item)}
+                className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-lg transition-all"
+                title="Archive Project"
+              >
+                <Archive size={16} />
+              </button>
+            )
+          )}
         </div>
       )
     }
@@ -357,11 +400,23 @@ const ProjectManagement: React.FC = () => {
         isOpen={!!projectToDelete}
         onClose={() => setProjectToDelete(null)}
         onConfirm={handleDelete}
-        title="Delete Project"
-        description={`Are you sure you want to delete "${projectToDelete?.title}"? This action cannot be undone.`}
-        confirmText="Delete Project"
+        title="Archive Project"
+        description={`Are you sure you want to archive "${projectToDelete?.title}"? Its milestones, tasks, discussions and tracking links will be archived along with it. You can restore it later from the Archived tab.`}
+        confirmText="Archive Project"
         loading={deleteMutation.isPending}
         icon="delete"
+      />
+
+      <ActionModal
+        isOpen={!!projectToRestore}
+        onClose={() => setProjectToRestore(null)}
+        onConfirm={handleRestore}
+        title="Restore Project"
+        description={`Restore "${projectToRestore?.title}"? This will also restore any milestones/tasks/discussions/tracking links that were archived as part of the same archive action.`}
+        confirmText="Restore Project"
+        confirmVariant="primary"
+        loading={restoreMutation.isPending}
+        icon="info"
       />
 
       <ActionModal
@@ -384,7 +439,32 @@ const ProjectManagement: React.FC = () => {
         <p className="text-sm text-gray-500 font-medium">Manage and track all your ongoing projects in one place.</p>
       </div>
 
-      <ProjectDashboardKpis stats={dashboardStats} activeFilter={kpiFilter} onFilterChange={(f) => { setKpiFilter(f); setCurrentPage(1); }} />
+      {canArchive && (
+        <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+          <button
+            onClick={() => { setShowArchived(false); setCurrentPage(1); }}
+            className={cn(
+              'px-4 py-2 rounded-lg text-xs font-black transition-all',
+              !showArchived ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+            )}
+          >
+            Active
+          </button>
+          <button
+            onClick={() => { setShowArchived(true); setCurrentPage(1); }}
+            className={cn(
+              'px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-1.5',
+              showArchived ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+            )}
+          >
+            <Archive size={13} /> Archived
+          </button>
+        </div>
+      )}
+
+      {!showArchived && (
+        <ProjectDashboardKpis stats={dashboardStats} activeFilter={kpiFilter} onFilterChange={(f) => { setKpiFilter(f); setCurrentPage(1); }} />
+      )}
 
       <Card isLoading={isLoading} className="flex flex-col gap-8 shadow-2xl border-none">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">

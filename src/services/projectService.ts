@@ -127,6 +127,7 @@ export interface ProjectDetail {
   id: string;
   title: string;
   status: ProjectStatus;
+  deleted_at?: string | null; // non-null => archived (cascading, see delete_project/restore_project)
   progress: number; // always computed from milestone completion — never manually set
   progress_mode?: 'AUTO'; // fixed — MANUAL has been removed
   total_hours: number;
@@ -289,9 +290,17 @@ const updateBudgetApi = async ({ id, data }: { id: string | number; data: Budget
   return unwrapApiData<ProjectDetail>(res);
 };
 
+// DELETE /project/:id is a soft, cascading archive on the backend (not a
+// hard delete) — see be-work's projects.repository.js delete_project().
 const deleteProjectApi = async (id: string | number) => {
   return apiRequest(API_ENDPOINTS.PROJECT.DELETE(id), {
     method: 'DELETE',
+  });
+};
+
+const restoreProjectApi = async (id: string | number) => {
+  return apiRequest(API_ENDPOINTS.PROJECT.RESTORE(id), {
+    method: 'PATCH',
   });
 };
 
@@ -371,7 +380,23 @@ export const useDeleteProjectMutation = () => {
   return useMutation({
     mutationFn: deleteProjectApi,
     onSuccess: () => {
+      // Was missing PROJECT.DASHBOARD invalidation — archiving a project
+      // changes dashboard KPI counts (overdue/blocked/delivered/etc.) but the
+      // dashboard query key was never told to refetch, so it went stale
+      // until an unrelated navigation happened to invalidate it.
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PROJECT.LIST });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PROJECT.DASHBOARD });
+    },
+  });
+};
+
+export const useRestoreProjectMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: restoreProjectApi,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PROJECT.LIST });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PROJECT.DASHBOARD });
     },
   });
 };
