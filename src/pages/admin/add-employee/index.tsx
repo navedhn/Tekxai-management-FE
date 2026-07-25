@@ -128,6 +128,16 @@ const PK_CITIES = [
   'Remote','Other',
 ];
 
+// ── Banks (Pakistan) ──────────────────────────────────────────────────────────
+const BANKS = [
+  'Habib Bank Limited (HBL)', 'United Bank Limited (UBL)', 'MCB Bank Limited',
+  'Allied Bank Limited', 'Bank Alfalah', 'Meezan Bank', 'Faysal Bank',
+  'Standard Chartered Bank Pakistan', 'Bank Al Habib', 'Askari Bank',
+  'National Bank of Pakistan', 'JS Bank', 'Soneri Bank', 'Habib Metropolitan Bank',
+  'Bank of Punjab', 'Bank of Khyber', 'Dubai Islamic Bank Pakistan',
+  'Al Baraka Bank Pakistan', 'MCB Islamic Bank', 'Silkbank', 'Summit Bank', 'Other',
+];
+
 // ── Initial form state ───────────────────────────────────────────────────────
 const initPersonal = {
   first_name: '', last_name: '', email: '', phone: '',
@@ -145,7 +155,7 @@ const initEmployment = {
   business_unit_id: '', department_id: '', team_id: '', designation: '', designation_id: '',
   grade: '', grade_id: '', supervisor_id: '',
   base_salary: '', salary_currency: 'PKR', pay_frequency: 'MONTHLY',
-  effective_salary_date: '',
+  effective_salary_date: '', bank_name: '', bank_account_number: '',
 };
 
 const initWork = {
@@ -260,7 +270,12 @@ function StepPersonal({ data, onChange, errorField, errorMessage, registerRef }:
 }
 
 // ── Step 2: Employment Details ───────────────────────────────────────────────
-function StepEmployment({ data, onChange, businessUnits, departments, teams, users, designations, grades, errorField, errorMessage, registerRef }: any) {
+function StepEmployment({ data, onChange, businessUnits, departments, teams, users, designations, grades, errorField, errorMessage, registerRef, employeeIdPreview, employeeIdPreviewLoading, isEditMode }: any) {
+  const employeeIdDisplay = isEditMode
+    ? (data.employee_id || 'Assigned at creation')
+    : data.department_id
+      ? (employeeIdPreviewLoading ? 'Generating…' : (employeeIdPreview || 'Auto-generated on save'))
+      : 'Select Business Unit + Department first';
   return (
     <div className="space-y-6">
       <div>
@@ -269,10 +284,10 @@ function StepEmployment({ data, onChange, businessUnits, departments, teams, use
           <Field label="Employee ID">
             <input
               className={`${inputCls} bg-gray-50 text-gray-500 cursor-not-allowed select-all`}
-              value="Auto-generated on save"
+              value={employeeIdDisplay}
               readOnly
               tabIndex={-1}
-              title="Derived from Business Unit + Department — not editable"
+              title="Derived from Business Unit + Department (Function) — not editable"
             />
           </Field>
           <Field label="Joining Date" required>
@@ -433,6 +448,21 @@ function StepEmployment({ data, onChange, businessUnits, departments, teams, use
           <Field label="Effective From">
             <input className={inputCls} type="date" value={data.effective_salary_date} onChange={e => onChange('effective_salary_date', e.target.value)} />
           </Field>
+          <Field label="Bank">
+            <select className={selectCls} value={data.bank_name} onChange={e => onChange('bank_name', e.target.value)}>
+              <option value="">Select bank</option>
+              {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </Field>
+          <Field label="Bank Account Number">
+            <input
+              className={inputCls}
+              value={data.bank_account_number}
+              onChange={e => onChange('bank_account_number', e.target.value.replace(/[^0-9A-Za-z-]/g, ''))}
+              placeholder="Account / IBAN number"
+              disabled={!data.bank_name}
+            />
+          </Field>
         </div>
       </div>
     </div>
@@ -526,12 +556,16 @@ function StepWork({ data, onChange }: any) {
 // ── Step 4: Documents ────────────────────────────────────────────────────────
 // CNIC is split into two explicit, required document types (front/back) —
 // the old generic single 'CNIC' catch-all is removed so a submission can
-// never be missing one side of the ID.
-const CNIC_DOC_TYPES = ['CNIC_FRONT', 'CNIC_BACK'];
+// never be missing one side of the ID. Police Verification and Employee
+// Registration are required for every employee too (compliance docs HR
+// must have on file for the record to be considered complete).
+const REQUIRED_DOC_TYPES = ['CNIC_FRONT', 'CNIC_BACK', 'POLICE_VERIFICATION', 'EMPLOYEE_REGISTRATION'];
 
 const DOC_TYPE_OPTIONS = [
   { value: 'CNIC_FRONT',         label: 'CNIC Front' },
   { value: 'CNIC_BACK',          label: 'CNIC Back' },
+  { value: 'POLICE_VERIFICATION',    label: 'Police Verification' },
+  { value: 'EMPLOYEE_REGISTRATION',  label: 'Employee Registration' },
   { value: 'RESUME',             label: 'Resume / CV' },
   { value: 'OFFER_LETTER',       label: 'Offer Letter' },
   { value: 'CONTRACT',           label: 'Contract' },
@@ -557,7 +591,7 @@ const EMPTY_DOC: DocFile = { title: '', document_type: 'OTHER', file_url: '', no
 // doesn't get incorrectly blocked just because docFiles (new uploads only)
 // is empty.
 export function missingRequiredDocs(docFiles: DocFile[], existingTypes: string[] = []): string[] {
-  return CNIC_DOC_TYPES.filter(
+  return REQUIRED_DOC_TYPES.filter(
     type => !docFiles.some(d => d.document_type === type && d.file_url.trim()) && !existingTypes.includes(type)
   ).map(type => DOC_TYPE_OPTIONS.find(o => o.value === type)?.label || type);
 }
@@ -828,6 +862,8 @@ export default function AddEmployee() {
       salary_currency: profile?.salary_currency || prev.salary_currency,
       pay_frequency: profile?.pay_frequency || prev.pay_frequency,
       effective_salary_date: profile?.effective_salary_date ? String(profile.effective_salary_date).slice(0, 10) : '',
+      bank_name: profile?.bank_name || '',
+      bank_account_number: profile?.bank_account_number || '',
     }));
     setWork(prev => ({
       ...prev,
@@ -887,7 +923,18 @@ export default function AddEmployee() {
 
   // Employee ID is never generated client-side — it's derived server-side
   // from Business Unit + Department the moment the employee is created
-  // (see users.service.js generate_employee_id) and is not editable.
+  // (see users.service.js generate_employee_id) and is not editable. This
+  // preview query just shows the admin what it WILL be once both are
+  // selected; it doesn't reserve the sequence number (create time recomputes
+  // it), so it's safe to refetch as the selection changes. Skipped in edit
+  // mode — an existing employee's ID is already assigned and immutable.
+  const { data: employeeIdPreview, isFetching: employeeIdPreviewLoading } = useQuery({
+    queryKey: ['employee-id-preview', employment.department_id],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.USER.EMPLOYEE_ID_PREVIEW(employment.department_id)),
+    select: (r: any) => r?.payload?.employee_id,
+    enabled: !isEditMode && !!employment.department_id,
+    staleTime: 0,
+  });
 
   const saveMutation = useMutation({
     mutationFn: async (as_draft: boolean) => {
@@ -968,6 +1015,8 @@ export default function AddEmployee() {
           salary_currency:   employment.salary_currency,
           pay_frequency:     employment.pay_frequency,
           effective_salary_date: employment.effective_salary_date || undefined,
+          bank_name:         employment.bank_name || undefined,
+          bank_account_number: employment.bank_account_number || undefined,
           work_location:     work.work_location,
           office_branch:     work.office_branch,
           floor_area:        work.floor_area,
@@ -1129,7 +1178,7 @@ export default function AddEmployee() {
         <div className="flex-1 min-w-0">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
             {step === 1 && <StepPersonal data={personal} onChange={changePersonal} errorField={errorField} errorMessage={errorMessage} registerRef={registerRef} />}
-            {step === 2 && <StepEmployment data={employment} onChange={changeEmployment} businessUnits={businessUnits} departments={departments} teams={teams} users={users} designations={designations} grades={grades} errorField={errorField} errorMessage={errorMessage} registerRef={registerRef} />}
+            {step === 2 && <StepEmployment data={employment} onChange={changeEmployment} businessUnits={businessUnits} departments={departments} teams={teams} users={users} designations={designations} grades={grades} errorField={errorField} errorMessage={errorMessage} registerRef={registerRef} employeeIdPreview={employeeIdPreview} employeeIdPreviewLoading={employeeIdPreviewLoading} isEditMode={isEditMode} />}
             {step === 3 && <StepWork data={work} onChange={changeWork} />}
             {step === 4 && <StepDocuments docFiles={docFiles} setDocFiles={setDocFiles} existingTypes={existingDocTypes} />}
             {step === 5 && <StepReview personal={personal} employment={employment} work={work} />}
