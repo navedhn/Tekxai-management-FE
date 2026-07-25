@@ -1,11 +1,11 @@
-import React, { memo, useMemo, useState, useRef, useEffect } from 'react';
-import { Menu, Bell, User, LogOut } from 'lucide-react';
+import React, { memo, useState, useRef, useEffect } from 'react';
+import { Menu, Bell, User, LogOut, Search, HelpCircle, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import Badge from '@/components/ui/Badge';
 import NotificationDropdown from './NotificationDropdown';
 import { useNotifications } from '@/services/notificationService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { getPageTitle } from './pageTitles';
 
 import ActionModal from '@/components/ui/ActionModal';
 
@@ -19,17 +19,34 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [searchValue, setSearchValue] = useState('');
     const { data: notifData } = useNotifications(10);
     const unreadCount = notifData?.unread_count ?? 0;
     const notifBtnRef = useRef<HTMLButtonElement>(null);
     const profileRef = useRef<HTMLDivElement>(null);
+    const searchRef = useRef<HTMLInputElement>(null);
 
-    const greeting = useMemo(() => {
-        const hour = new Date().getHours();
-        if (hour < 12) return 'Good morning';
-        if (hour < 18) return 'Good afternoon';
-        return 'Good evening';
+    const { title, subtitle } = getPageTitle(location.pathname);
+
+    // ⌘K / Ctrl+K focuses the search box, matching the shortcut hint shown
+    // inside it — a common command-palette convention, not a full command
+    // palette here, just a focus shortcut for the search input.
+    useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                searchRef.current?.focus();
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
     }, []);
+
+    const handleSearchSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!searchValue.trim()) return;
+        navigate(`${routePrefix}/employee-directory?search=${encodeURIComponent(searchValue.trim())}`);
+    };
 
     useEffect(() => {
         setIsProfileOpen(false);
@@ -62,26 +79,48 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
     return (
         <div className="fixed top-0 left-0 lg:left-sidebar gap-3 right-0 h-[5.5rem] bg-white backdrop-blur-md border-b border-gray-100 flex items-center justify-between px-6 md:px-5 z-[100] transition-all duration-300">
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 shrink-0">
                 <button className="lg:hidden p-2 hover:bg-gray-100 rounded-xl transition-colors" onClick={onMenu}>
                     <Menu size={20} className="text-gray-600" />
                 </button>
-                <div className="flex flex-col gap-1">
-                    <h1 className="text-lg sm:text-xl md:text-2xl font-poppins font-medium text-gray-900 tracking-tight flex items-center gap-2">
-                        <span className="hidden sm:inline">👋</span> {greeting}, {user?.first_name ? `${user.first_name} ${user.last_name || ''}` : 'User'}
+                <div className="flex items-baseline gap-2 min-w-0">
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-poppins font-semibold text-gray-900 tracking-tight truncate">
+                        {title}
                     </h1>
-                    <p className="text-sm text-gray-500 font-poppins hidden sm:block">
-                        Let's take a look at what needs attention today.
-                    </p>
+                    {subtitle && (
+                        <span className="text-sm text-gray-400 font-poppins hidden sm:inline truncate">
+                            {subtitle}
+                        </span>
+                    )}
                 </div>
             </div>
 
-            <div className="flex items-center gap-5 md:gap-7 relative">
-                {/* Status Badge */}
-                <Badge variant="success" className="bg-[#E7F9ED]  hidden sm:flex items-center text-[#067647] border border-[#ABEFC6]  font-bold text-xs">
-                    <span className="mr-1.5 flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                    Active
-                </Badge>
+            <form onSubmit={handleSearchSubmit} className="hidden md:flex flex-1 max-w-md mx-4">
+                <div className="relative w-full">
+                    <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                        ref={searchRef}
+                        type="text"
+                        value={searchValue}
+                        onChange={(e) => setSearchValue(e.target.value)}
+                        placeholder="Search employees, departments, documents..."
+                        className="w-full h-10 pl-10 pr-14 rounded-xl bg-gray-50 border border-gray-100 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-primary-300 focus:bg-white transition-colors"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400 bg-white border border-gray-200 rounded-md px-1.5 py-0.5">
+                        ⌘K
+                    </span>
+                </div>
+            </form>
+
+            <div className="flex items-center gap-3 md:gap-5 relative shrink-0">
+                {/* Help */}
+                <button
+                    onClick={() => navigate(`${routePrefix}/tickets`)}
+                    title="Raise a support ticket"
+                    className="hidden sm:flex p-2.5 bg-gray-50 text-gray-500 hover:text-primary-500 hover:bg-primary-50 rounded-2xl border border-gray-100 transition-all"
+                >
+                    <HelpCircle size={20} />
+                </button>
 
                 {/* Notifications */}
                 <button
@@ -95,7 +134,9 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
                     />
 
                     {unreadCount > 0 && (
-                      <span className="absolute top-[-3px] right-[-3px] flex h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white ring-2 ring-red-100 group-hover:animate-bounce" />
+                      <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-black border-2 border-white group-hover:animate-bounce">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
                     )}
                 </button>
 
@@ -106,18 +147,29 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
                 />
 
                 {/* Profile with Dropdown */}
-                <div ref={profileRef} className="relative flex items-center gap-3 pl-4 border-l border-gray-100 ml-2">
+                <div ref={profileRef} className="relative flex items-center gap-2.5 pl-3 md:pl-4 border-l border-gray-100 ml-1 md:ml-2">
                     <button
                         onClick={() => setIsProfileOpen(prev => !prev)}
-                        className="h-11 w-11 rounded-full bg-gradient-to-tr from-primary-500 to-blue-400 p-[2px] shadow-lg shadow-primary-100 hover:scale-105 transition-transform active:scale-95"
+                        className="flex items-center gap-2.5"
                     >
-                        <div className="h-full w-full rounded-full bg-white p-[2px]">
-                            <img
-                                src={user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent((user?.first_name || 'U') + '+' + (user?.last_name || ''))}&background=005CDA&color=fff&size=128`}
-                                alt="Profile"
-                                className="h-full w-full rounded-full object-cover"
-                            />
-                        </div>
+                        <span className="h-10 w-10 shrink-0 rounded-full bg-gradient-to-tr from-primary-500 to-blue-400 p-[2px] shadow-lg shadow-primary-100 hover:scale-105 transition-transform active:scale-95">
+                            <span className="h-full w-full rounded-full bg-white p-[2px] flex">
+                                <img
+                                    src={user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent((user?.first_name || 'U') + '+' + (user?.last_name || ''))}&background=005CDA&color=fff&size=128`}
+                                    alt="Profile"
+                                    className="h-full w-full rounded-full object-cover"
+                                />
+                            </span>
+                        </span>
+                        <span className="hidden md:flex flex-col items-start leading-tight">
+                            <span className="text-sm font-bold text-gray-900">
+                                {user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : 'User'}
+                            </span>
+                            <span className="text-xs text-gray-400 font-medium">
+                                {user?.rolesId === '7170d59d-1f19-4bda-b302-245c48dd18f8' ? 'Admin' : 'Employee'}
+                            </span>
+                        </span>
+                        <ChevronDown size={16} className="hidden md:block text-gray-400" />
                     </button>
 
                     <AnimatePresence>
