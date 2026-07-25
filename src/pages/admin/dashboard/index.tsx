@@ -1,257 +1,323 @@
-import React, { useState, useMemo } from 'react';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
-    useGetDashboardStats,
-    useGetTimesheet,
-    TimesheetEntry
-} from '@/services/employeeService';
-import { useGetRecentActivityFeed } from '@/services/timesheetService';
-import { timeAgo } from '@/services/notificationService';
-import { useGetProjects, ProjectDetail } from '@/services/projectService';
+    ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+    PieChart, Pie, Cell,
+} from 'recharts';
+import { apiRequest } from '@/lib/queryClient';
+import { API_ENDPOINTS } from '@/services/api/endpoints';
 import Card from '@/components/ui/Card';
-import Table, { Column } from '@/components/ui/Table';
-import Badge from '@/components/ui/Badge';
-import Input from '@/components/ui/Input';
-import { Search, Play, CheckCircle, Briefcase, FileText, LogIn, LogOut } from 'lucide-react';
-import { cn } from '@/utils/cn';
-import ProjectDetailsSlideOver from '@/components/ui/ProjectDetailsSlideOver';
-import { StatSkeleton, CardSkeleton } from '@/components/skeletons';
+import Select from '@/components/ui/Select';
 import DashboardStatCard from '@/components/ui/DashboardStatCard';
-import WorkforceOverview from './WorkforceOverview';
+import { StatSkeleton, CardSkeleton } from '@/components/skeletons';
+import {
+    Users, UserCheck, CalendarClock, UserPlus, Ticket,
+    Cake, PlusCircle, FileWarning, Banknote, PackagePlus, Upload,
+    BarChart3, CalendarDays, Megaphone, Building2, Receipt, PartyPopper,
+} from 'lucide-react';
+
+interface DashboardSummary {
+    total_employees: number;
+    present_today: number;
+    present_pct: number;
+    on_leave: number;
+    open_recruitment: number;
+    pending_payroll_total: number;
+    open_tickets: number;
+    attendance_today: { present: number; absent: number; late: number; on_leave: number };
+    attendance_week: { day: string; date: string; present: number }[];
+    tickets_by_category: { category: string; count: number; pct: number }[];
+    upcoming_birthdays: { user_id: string; name: string; designation: string | null; date: string }[];
+}
+
+interface Announcement {
+    id: string;
+    title: string;
+    content: string;
+    category: string;
+    is_pinned: boolean;
+    published_at: string;
+    creator: { id: string; first_name: string | null; last_name: string | null } | null;
+}
+
+const ANNOUNCEMENT_ICONS: Record<string, React.ElementType> = {
+    FACILITIES: Building2,
+    HR: Receipt,
+    EVENT: PartyPopper,
+    IT: Megaphone,
+    GENERAL: Megaphone,
+};
+const ANNOUNCEMENT_ICON_STYLE: Record<string, string> = {
+    FACILITIES: 'bg-blue-50 text-blue-600',
+    HR: 'bg-green-50 text-green-600',
+    EVENT: 'bg-purple-50 text-purple-600',
+    IT: 'bg-amber-50 text-amber-600',
+    GENERAL: 'bg-gray-100 text-gray-500',
+};
+
+function timeAgo(iso: string) {
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+}
+
+const PIE_COLORS = ['#2563EB', '#22C55E', '#F59E0B', '#94A3B8'];
+
+const ATTENDANCE_LEGEND = [
+    { key: 'present', label: 'Present', color: 'bg-blue-600' },
+    { key: 'absent', label: 'Absent', color: 'bg-green-500' },
+    { key: 'late', label: 'Late', color: 'bg-amber-500' },
+    { key: 'on_leave', label: 'On Leave', color: 'bg-violet-500' },
+] as const;
+
+const ATTENDANCE_PERIOD_OPTIONS = [
+    { label: 'Today', value: 'today' },
+    { label: 'This Week', value: 'week' },
+    { label: 'This Month', value: 'month' },
+];
+
+const QUICK_ACTIONS = [
+    { label: 'Add Employee', icon: PlusCircle, to: '/admin/add-employee', className: 'bg-blue-50 text-blue-600' },
+    { label: 'Apply Leave', icon: CalendarClock, to: '/admin/attendance', className: 'bg-green-50 text-green-600' },
+    { label: 'Raise Ticket', icon: FileWarning, to: '/admin/tickets', className: 'bg-red-50 text-red-500' },
+    { label: 'Run Payroll', icon: Banknote, to: '/admin/payroll', className: 'bg-indigo-50 text-indigo-600' },
+    { label: 'Add Asset', icon: PackagePlus, to: '/admin/assets', className: 'bg-amber-50 text-amber-600' },
+    { label: 'Upload Document', icon: Upload, to: '/admin/documents', className: 'bg-sky-50 text-sky-600' },
+    { label: 'View Reports', icon: BarChart3, to: '/admin/hr-reports', className: 'bg-purple-50 text-purple-600' },
+    { label: 'View Calendar', icon: CalendarDays, to: '/admin/attendance', className: 'bg-teal-50 text-teal-600' },
+];
 
 const Dashboard: React.FC = () => {
-    const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
-    const { data: activity, isLoading: activityLoading } = useGetRecentActivityFeed();
-    const { data: timesheet, isLoading: timesheetLoading } = useGetTimesheet();
-    const { data: projects, isLoading: projectsLoading } = useGetProjects();
-
-    const [searchTerm, setSearchTerm] = useState('');
-    const [currentPage, setCurrentPage] = useState(1);
-    const [selectedProject, setSelectedProject] = useState<string | null>(null);
-    const itemsPerPage = 8;
-
-    const filteredProjects = useMemo(() => {
-        if (!projects) return [];
-        return projects.filter(project =>
-            (project.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (project.status || '').toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }, [projects, searchTerm]);
-
-    const paginatedProjects = useMemo(() => {
-        const startIndex = (currentPage - 1) * itemsPerPage;
-        return filteredProjects.slice(startIndex, startIndex + itemsPerPage);
-    }, [filteredProjects, currentPage]);
-
-    const totalPages = Math.ceil(filteredProjects.length / itemsPerPage);
-
-    const timesheetColumns: Column<TimesheetEntry>[] = [
-        { header: 'Employee', key: 'employee' },
-        { header: 'Date', key: 'date' },
-        { header: 'Check-in', key: 'checkIn' },
-        { header: 'Check-out', key: 'checkOut' },
-        { header: 'Total', key: 'duration' },
-    ];
-
-    const projectColumns: Column<ProjectDetail>[] = [
-
-        {
-            header: 'Project Title',
-            key: 'title',
-            render: (item) => (
-                <button
-                    onClick={() => setSelectedProject(item.id)}
-                    className="text-left font-black text-gray-900 transition-colors hover:text-primary-500 hover:underline underline-offset-4"
-                >
-                    {item.title}
-                </button>
-            )
+    const navigate = useNavigate();
+    const [attendancePeriod, setAttendancePeriod] = React.useState<string>('week');
+    const { data, isLoading } = useQuery({
+        queryKey: ['dashboard-summary', attendancePeriod],
+        queryFn: async () => {
+            const r = await apiRequest<any>(`${API_ENDPOINTS.HR_REPORT.DASHBOARD_SUMMARY}?period=${attendancePeriod}`);
+            return r?.payload as DashboardSummary;
         },
-        {
-            header: 'Member',
-            key: 'members',
-            render: (item) => (
-                <div className="flex -space-x-2">
-                    {item.members?.map((m: any, i) => (
-                        <div key={i} className="h-7 w-7 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 border-2 border-white flex items-center justify-center text-[10px] font-bold text-gray-600">
-                            {typeof m === 'string' ? m : (m?.first_name ? m.first_name[0] : 'U')}
-                        </div>
-                    ))}
-                </div>
-            )
+        staleTime: 60000,
+    });
+
+    const { data: announcements, isLoading: announcementsLoading } = useQuery({
+        queryKey: ['announcements'],
+        queryFn: async () => {
+            const r = await apiRequest<any>(`${API_ENDPOINTS.ANNOUNCEMENTS.LIST}?limit=5`);
+            return (r?.payload || []) as Announcement[];
         },
-        { header: 'Projects Hours', key: 'total_hours', render: (item) => `${item.total_hours || 0} Hours` },
-        {
-            header: 'Progress',
-            key: 'progress',
-            render: (item) => (
-                <div className="flex flex-col gap-1 w-32">
-                    <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                            className="h-full bg-gradient-to-r from-[#005CDA] to-[#0148FF] rounded-full transition-all duration-1000"
-                            style={{ width: `${item.progress || 0}%` }}
-                        />
-                    </div>
-                    <span className="text-[10px] font-bold text-gray-400">{item.progress || 0}%</span>
-                </div>
-            )
-        },
-        {
-            header: 'Status',
-            key: 'status',
-            render: (item) => {
-                const statusStyles: Record<string, string> = {
-                    'IN_PROGRESS': 'bg-[#EFF8FF] text-[#175CD3] border-[#B2DDFF]',
-                    'OVERDUE': 'bg-[#FFF1F3] text-[#C01048] border-[#FEB3B3]',
-                    'PENDING': 'bg-[#FFF6ED] text-[#C4320A] border-[#FFD6AE]',
-                    'COMPLETED': 'bg-[#ECFDF3] text-[#027A48] border-[#ABEFC6]'
-                };
-                const statusKey = (item.status || 'PENDING').toUpperCase();
-                const style = statusStyles[statusKey] || 'bg-[#FFF6ED] text-[#C4320A] border-[#FFD6AE]';
-                return (
-                    <Badge
-                        variant="info"
-                        className={cn("rounded-lg px-3 py-1 text-[10px] font-bold border", style)}
-                    >
-                        {statusKey.replace('_', ' ')}
-                    </Badge>
-                );
-            }
-        },
-        { header: 'Due Date', key: 'due_date', render: (item) => item.due_date ? new Date(item.due_date).toLocaleDateString() : 'N/A' },
-    ];
+        staleTime: 60000,
+    });
+
+    const attendanceToday = data?.attendance_today;
+    const attendanceTotal = attendanceToday
+        ? attendanceToday.present + attendanceToday.absent + attendanceToday.late + attendanceToday.on_leave
+        : 0;
 
     return (
         <div className="flex flex-col gap-8 pb-10">
-            <ProjectDetailsSlideOver
-                isOpen={!!selectedProject}
-                onClose={() => setSelectedProject(null)}
-                projectId={selectedProject}
-                routePrefix="/admin"
-            />
             <div className="p-3 rounded-[8px] bg-white">
-                <div className='bg-[#F8F8F8] grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-3 py-4'>
-                    {statsLoading ? (
-                        Array.from({ length: 4 }).map((_, i) => <StatSkeleton key={i} />)
+                <div className="bg-[#F8F8F8] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 py-4">
+                    {isLoading ? (
+                        Array.from({ length: 5 }).map((_, i) => <StatSkeleton key={i} />)
                     ) : (
                         <>
                             <DashboardStatCard
-                                showDivider
-                                icon={<CheckCircle size={20} />}
-                                iconClassName="bg-blue-50 text-primary-600"
-                                value={stats?.completedProjects}
-                                label="Completed Projects"
-                                subtext={<>Total Hours: <span className="text-primary-600 font-semibold">{stats?.totalHours}hr</span></>}
+                                className="bg-white border border-gray-100 rounded-xl shadow-sm"
+                                icon={<Users size={20} />}
+                                iconClassName="bg-blue-50 text-blue-600"
+                                value={data?.total_employees ?? '—'}
+                                label="Total Employees"
+                                subtext={<button onClick={() => navigate('/admin/employee-directory')} className="text-blue-600 hover:underline font-semibold">View all employees →</button>}
                             />
                             <DashboardStatCard
-                                showDivider
-                                icon={<FileText size={20} />}
-                                iconClassName="bg-orange-50 text-orange-500"
-                                value={`0${stats?.overdueProjects}`}
-                                label="Overdue Projects"
-                                subtext={<>Total Hours: <span className="text-primary-600 font-semibold">{stats?.totalHours}hr</span></>}
+                                className="bg-white border border-gray-100 rounded-xl shadow-sm"
+                                icon={<UserCheck size={20} />}
+                                iconClassName="bg-green-50 text-green-600"
+                                value={data?.present_today ?? '—'}
+                                label="Present Today"
+                                subtext={`${data?.present_pct ?? 0}% of total`}
                             />
                             <DashboardStatCard
-                                showDivider
-                                icon={<Play size={18} className="fill-red-500" />}
+                                className="bg-white border border-gray-100 rounded-xl shadow-sm"
+                                icon={<CalendarClock size={20} />}
+                                iconClassName="bg-amber-50 text-amber-600"
+                                value={data?.on_leave ?? '—'}
+                                label="On Leave"
+                                subtext={<button onClick={() => navigate('/admin/employee-directory?status=ON_LEAVE')} className="text-blue-600 hover:underline font-semibold">View leaves →</button>}
+                            />
+                            <DashboardStatCard
+                                className="bg-white border border-gray-100 rounded-xl shadow-sm"
+                                icon={<UserPlus size={20} />}
+                                iconClassName="bg-purple-50 text-purple-600"
+                                value={data?.open_recruitment ?? '—'}
+                                label="Open Recruitment"
+                                subtext={<button onClick={() => navigate('/admin/onboarding')} className="text-blue-600 hover:underline font-semibold">View openings →</button>}
+                            />
+                            <DashboardStatCard
+                                className="bg-white border border-gray-100 rounded-xl shadow-sm"
+                                icon={<Ticket size={20} />}
                                 iconClassName="bg-red-50 text-red-500"
-                                value={stats?.latestCheckIn}
-                                label="Latest Check-in"
-                                subtext={<>Active <span className="text-primary-600 font-semibold">2 hours ago</span></>}
-                            />
-                            <DashboardStatCard
-                                icon={<FileText size={20} />}
-                                iconClassName="bg-sky-50 text-sky-600"
-                                value={`0${stats?.pendingTimesheets}`}
-                                label="Timesheet Updates"
-                                subtext="Awaiting review"
+                                value={data?.open_tickets ?? '—'}
+                                label="Open Tickets"
+                                subtext={<button onClick={() => navigate('/admin/tickets')} className="text-blue-600 hover:underline font-semibold">View tickets →</button>}
                             />
                         </>
                     )}
                 </div>
             </div>
 
-            <WorkforceOverview />
-
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-                <Card isLoading={timesheetLoading} className="lg:col-span-3 flex flex-col gap-6 border-none">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <Card isLoading={isLoading} className="flex flex-col gap-6 border-none lg:col-span-2">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-black text-gray-900 tracking-tight">Recent Timesheet</h2>
+                        <h2 className="text-lg font-black text-gray-900 tracking-tight">Attendance Overview</h2>
+                        <div className="w-36">
+                            <Select
+                                options={ATTENDANCE_PERIOD_OPTIONS}
+                                value={attendancePeriod}
+                                onChange={(v) => setAttendancePeriod(String(v))}
+                            />
+                        </div>
                     </div>
-                    <Table
-                        columns={timesheetColumns}
-                        data={(timesheet || []).slice(0, 4)}
-                        isLoading={timesheetLoading}
-                        className="border-none shadow-none"
-                        emptyMessage="No timesheet found."
-                    />
+                    <div className="h-64 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={data?.attendance_week || []} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                                <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fontSize: 12, fill: '#94A3B8' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #F1F5F9', fontSize: 12 }} />
+                                <Line type="monotone" dataKey="present" stroke="#2563EB" strokeWidth={2.5} dot={{ r: 4, fill: '#2563EB' }} activeDot={{ r: 6 }} />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-6 pt-2 border-t border-gray-50">
+                        {ATTENDANCE_LEGEND.map((item) => {
+                            const count = attendanceToday?.[item.key] ?? 0;
+                            const pct = attendanceTotal > 0 ? Math.round((count / attendanceTotal) * 1000) / 10 : 0;
+                            return (
+                                <div key={item.key} className="flex items-center gap-2">
+                                    <span className={`h-2.5 w-2.5 rounded-full ${item.color}`} />
+                                    <div>
+                                        <p className="text-sm font-black text-gray-900">{count}</p>
+                                        <p className="text-[11px] text-gray-400 font-semibold">{item.label} · {pct}%</p>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </Card>
 
-                <Card isLoading={activityLoading} className="lg:col-span-2 flex flex-col gap-6 border-none">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-black text-gray-900 tracking-tight">Recent Activity</h2>
-                    </div>
-                    {activityLoading ? (
-                        <div className="flex flex-col gap-3">
-                            {Array.from({ length: 4 }).map((_, i) => (
-                                <CardSkeleton key={i} className="!h-14" />
-                            ))}
-                        </div>
-                    ) : activity && activity.length > 0 ? (
-                        <div className="flex flex-col gap-1">
-                            {activity.slice(0, 4).map((act) => (
-                                <div key={act.id} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
-                                    <div className={cn(
-                                        'shrink-0 h-9 w-9 rounded-full flex items-center justify-center',
-                                        act.type === 'CHECK_IN' ? 'bg-[#ECFDF3] text-[#12B76A]' : 'bg-[#FFF1F3] text-[#F04438]'
-                                    )}>
-                                        {act.type === 'CHECK_IN' ? <LogIn size={16} /> : <LogOut size={16} />}
-                                    </div>
-                                    <span className="flex-1 text-sm font-bold text-gray-900 truncate">{act.message}</span>
-                                    <span className="shrink-0 text-xs text-gray-400 font-medium">{timeAgo(act.at)}</span>
-                                </div>
-                            ))}
-                        </div>
+                <Card isLoading={announcementsLoading} className="flex flex-col gap-4 border-none">
+                    <h2 className="text-lg font-black text-gray-900 tracking-tight">Recent Announcements</h2>
+                    {!announcements?.length ? (
+                        <p className="text-sm text-gray-400 text-center py-8">No announcements yet</p>
                     ) : (
-                        <p className="text-sm text-gray-400 font-medium py-6 text-center">No recent activity yet.</p>
+                        <div className="flex flex-col gap-4 max-h-64 overflow-y-auto">
+                            {announcements.map((a) => {
+                                const Icon = ANNOUNCEMENT_ICONS[a.category] || Megaphone;
+                                return (
+                                    <div key={a.id} className="flex items-start gap-3">
+                                        <span className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${ANNOUNCEMENT_ICON_STYLE[a.category] || ANNOUNCEMENT_ICON_STYLE.GENERAL}`}>
+                                            <Icon size={16} />
+                                        </span>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-bold text-gray-900 truncate">{a.title}</p>
+                                            <p className="text-xs text-gray-500 line-clamp-2">{a.content}</p>
+                                        </div>
+                                        <span className="text-[11px] text-gray-400 whitespace-nowrap shrink-0">{timeAgo(a.published_at)}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     )}
                 </Card>
             </div>
 
-            <Card isLoading={projectsLoading} className="flex flex-col gap-6 border-none">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-primary-50 text-primary-500 rounded-xl">
-                            <Briefcase size={20} />
-                        </div>
-                        <h2 className="text-lg font-black text-gray-900 tracking-tight">Projects Summary</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <Card isLoading={isLoading} className="flex flex-col gap-4 border-none">
+                    <div className="flex items-center gap-2">
+                        <Cake size={18} className="text-pink-500" />
+                        <h2 className="text-lg font-black text-gray-900 tracking-tight">Upcoming Birthdays</h2>
                     </div>
-                </div>
-                <div className="flex flex-col md:flex-row items-center gap-4 w-full">
-                    <Input
-                        placeholder="Search projects..."
-                        leftIcon={Search}
-                        value={searchTerm}
-                        onChange={(e) => {
-                            setSearchTerm(e.target.value);
-                            setCurrentPage(1);
-                        }}
-                        containerClassName=""
-                    />
-                </div>
-                <Table
-                    columns={projectColumns}
-                    data={paginatedProjects}
-                    isLoading={projectsLoading}
-                    pagination={{
-                        currentPage: currentPage,
-                        totalPages: totalPages,
-                        onPageChange: setCurrentPage,
-                        totalEntries: filteredProjects.length,
-                        entriesPerPage: itemsPerPage
-                    }}
-                    emptyMessage="No projects found."
-                />
-            </Card>
+                    {!data?.upcoming_birthdays?.length ? (
+                        <p className="text-sm text-gray-400 text-center py-8">No upcoming birthdays on file</p>
+                    ) : (
+                        <div className="flex flex-col gap-3">
+                            {data.upcoming_birthdays.map((b) => (
+                                <div key={b.user_id} className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-full bg-pink-100 flex items-center justify-center text-pink-700 font-black text-sm flex-shrink-0">
+                                        {b.name?.[0] || '?'}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-semibold text-gray-900 truncate">{b.name}</p>
+                                        <p className="text-xs text-gray-400 truncate">{b.designation || '—'}</p>
+                                    </div>
+                                    <span className="text-xs text-gray-500 font-semibold whitespace-nowrap">{b.date}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </Card>
+
+                <Card isLoading={isLoading} className="flex flex-col gap-4 border-none">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-lg font-black text-gray-900 tracking-tight">Open Tickets by Category</h2>
+                        <button onClick={() => navigate('/admin/tickets')} className="text-xs text-blue-600 hover:underline font-semibold shrink-0">View all →</button>
+                    </div>
+                    {!data?.tickets_by_category?.length ? (
+                        <p className="text-sm text-gray-400 text-center py-8">No open tickets</p>
+                    ) : (
+                        <div className="flex items-center gap-4">
+                            <div className="h-40 w-40 shrink-0 relative">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie data={data.tickets_by_category} dataKey="count" nameKey="category" innerRadius={45} outerRadius={70} paddingAngle={2}>
+                                            {data.tickets_by_category.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                                        </Pie>
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <p className="text-xl font-black text-gray-900">{data.open_tickets}</p>
+                                    <p className="text-[10px] text-gray-400 font-semibold">Total</p>
+                                </div>
+                            </div>
+                            <div className="flex-1 flex flex-col gap-2 min-w-0">
+                                {data.tickets_by_category.map((c, i) => (
+                                    <div key={c.category} className="flex items-center gap-2 text-xs">
+                                        <span className="h-2 w-2 rounded-full shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                                        <span className="flex-1 truncate text-gray-600 font-medium">{c.category}</span>
+                                        <span className="font-black text-gray-900">{c.count}</span>
+                                        <span className="text-gray-400">{c.pct}%</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </Card>
+
+                <Card className="flex flex-col gap-4 border-none">
+                    <h2 className="text-lg font-black text-gray-900 tracking-tight">Quick Actions</h2>
+                    <div className="grid grid-cols-2 gap-3">
+                        {QUICK_ACTIONS.map((action) => (
+                            <button
+                                key={action.label}
+                                onClick={() => navigate(action.to)}
+                                className="flex items-center gap-2 px-3 py-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors text-left"
+                            >
+                                <span className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${action.className}`}>
+                                    <action.icon size={16} />
+                                </span>
+                                <span className="text-xs font-semibold text-gray-700 truncate">{action.label}</span>
+                            </button>
+                        ))}
+                    </div>
+                </Card>
+            </div>
         </div>
     );
 };
