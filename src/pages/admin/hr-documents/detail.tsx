@@ -173,6 +173,7 @@ export default function HrDocumentDetailPage() {
           <h1 className="text-xl font-black text-gray-900">{doc.title}</h1>
           <p className="text-xs text-gray-400 mt-0.5">
             {doc.user ? [doc.user.first_name, doc.user.last_name].filter(Boolean).join(' ') : '—'} · {doc.category?.name} · {doc.type?.name}
+            {doc.template_version && <> · {doc.template?.name || 'Template'} (v{doc.template_version.version})</>}
           </p>
         </div>
         <span className={cn('text-xs font-semibold px-3 py-1.5 rounded-full', STATUS_STYLE[doc.status])}>{doc.status}</span>
