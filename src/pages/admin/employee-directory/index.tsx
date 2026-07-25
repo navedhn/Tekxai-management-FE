@@ -11,8 +11,18 @@ import QuickCreateUserModal from '@/components/ui/QuickCreateUserModal';
 import Select from '@/components/ui/Select';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetRolesQuery } from '@/services/roleService';
+import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
+import { useGetGradesQuery } from '@/services/gradeService';
 import { cn } from '@/utils/cn';
 import { EMPLOYMENT_STATUS_LABELS } from '@/constants/employmentStatus';
+
+const EMPLOYMENT_TYPE_OPTIONS = [
+  { value: 'FULL_TIME', label: 'Full Time' },
+  { value: 'PART_TIME', label: 'Part Time' },
+  { value: 'CONTRACT', label: 'Contract' },
+  { value: 'INTERN', label: 'Intern' },
+  { value: 'FREELANCE', label: 'Freelance' },
+];
 
 const LIFECYCLE_STAGE_OPTIONS = [
   { value: 'ONBOARDING', label: 'Onboarding' },
@@ -71,6 +81,11 @@ export default function EmployeeDirectory() {
   const [employeeIdFilter, setEmployeeIdFilter] = useState('');
   const [roleFilter, setRoleFilter]             = useState('');
   const [designationFilter, setDesignationFilter] = useState('');
+  const [businessUnitFilter, setBusinessUnitFilter] = useState('');
+  const [employmentTypeFilter, setEmploymentTypeFilter] = useState('');
+  const [workLocationFilter, setWorkLocationFilter] = useState('');
+  const [supervisorFilter, setSupervisorFilter] = useState('');
+  const [gradeFilter, setGradeFilter]           = useState('');
   const [page, setPage]                   = useState(1);
   const [sortBy, setSortBy]               = useState('hire_date');
   const [sortDir, setSortDir]             = useState<'asc'|'desc'>('desc');
@@ -78,6 +93,16 @@ export default function EmployeeDirectory() {
 
   const { data: rolesData = [] } = useGetRolesQuery();
   const { data: designationsData = [] } = useGetDesignationsQuery();
+  const { data: businessUnitsData = [] } = useGetBusinessUnitsQuery();
+  const { data: gradesData = [] } = useGetGradesQuery();
+  // Same query key ('user-list-brief') used by Add Employee's Reporting
+  // Manager picker and others — shares the cache instead of a new fetch.
+  const { data: managersData = [] } = useQuery({
+    queryKey: ['user-list-brief'],
+    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200&status=ACTIVE`),
+    select: (r: any) => r?.payload?.records || r?.payload || [],
+    staleTime: 300000,
+  });
 
   // Selection state
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -104,9 +129,9 @@ export default function EmployeeDirectory() {
   }, [urlStatus, urlEmpStatus]);
 
   // Clear selection when page/filters change
-  useEffect(() => { setSelected(new Set()); }, [page, q, status, employmentStatus, employeeIdFilter, roleFilter, designationFilter]);
+  useEffect(() => { setSelected(new Set()); }, [page, q, status, employmentStatus, employeeIdFilter, roleFilter, designationFilter, businessUnitFilter, employmentTypeFilter, workLocationFilter, supervisorFilter, gradeFilter]);
   // Restart at page 1 whenever a filter changes so results aren't left mid-list.
-  useEffect(() => { setPage(1); }, [employeeIdFilter, roleFilter, designationFilter]);
+  useEffect(() => { setPage(1); }, [employeeIdFilter, roleFilter, designationFilter, businessUnitFilter, employmentTypeFilter, workLocationFilter, supervisorFilter, gradeFilter]);
 
   const filters = useMemo(() => {
     const f: Record<string, any> = {
@@ -120,6 +145,11 @@ export default function EmployeeDirectory() {
       role: roleFilter || undefined,
       designation_id: designationFilter || undefined,
       lifecycle_stage: urlLifecycle || undefined,
+      business_unit_id: businessUnitFilter || undefined,
+      employment_type: employmentTypeFilter || undefined,
+      work_location: workLocationFilter || undefined,
+      supervisor_id: supervisorFilter || undefined,
+      grade_id: gradeFilter || undefined,
       sort_by: sortBy,
       sort_dir: sortDir,
       page,
@@ -130,7 +160,7 @@ export default function EmployeeDirectory() {
       f.hire_from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
     }
     return f;
-  }, [q, divisionId, deptId, teamId, status, employmentStatus, employeeIdFilter, roleFilter, designationFilter, urlFilter, urlLifecycle, sortBy, sortDir, page, limit]);
+  }, [q, divisionId, deptId, teamId, status, employmentStatus, employeeIdFilter, roleFilter, designationFilter, businessUnitFilter, employmentTypeFilter, workLocationFilter, supervisorFilter, gradeFilter, urlFilter, urlLifecycle, sortBy, sortDir, page, limit]);
 
   const { data, isLoading } = useGetEmployeeDirectory(filters);
   const records: any[] = data?.records || [];
@@ -168,10 +198,12 @@ export default function EmployeeDirectory() {
     setQ(''); setDiv(''); setDept(''); setTeam('');
     setStatus(''); setEmpStatus(''); setPage(1);
     setEmployeeIdFilter(''); setRoleFilter(''); setDesignationFilter('');
+    setBusinessUnitFilter(''); setEmploymentTypeFilter(''); setWorkLocationFilter('');
+    setSupervisorFilter(''); setGradeFilter('');
     navigate('/admin/employee-directory', { replace: true });
   };
 
-  const activeFilterCount = [q, divisionId, deptId, teamId, status, employmentStatus, urlFilter, urlLifecycle, employeeIdFilter, roleFilter, designationFilter].filter(Boolean).length;
+  const activeFilterCount = [q, divisionId, deptId, teamId, status, employmentStatus, urlFilter, urlLifecycle, employeeIdFilter, roleFilter, designationFilter, businessUnitFilter, employmentTypeFilter, workLocationFilter, supervisorFilter, gradeFilter].filter(Boolean).length;
 
   const filterLabel = () => {
     if (urlFilter === 'new_this_month') return '  · New This Month';
@@ -383,6 +415,40 @@ export default function EmployeeDirectory() {
             <option value="">All Designations</option>
             {designationsData.map((d) => (
               <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+          <select value={businessUnitFilter} onChange={e => setBusinessUnitFilter(e.target.value)}
+            className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[160px] text-gray-600">
+            <option value="">All Business Units</option>
+            {businessUnitsData.map((bu: any) => (
+              <option key={bu.id} value={bu.id}>{bu.name}</option>
+            ))}
+          </select>
+          <select value={employmentTypeFilter} onChange={e => setEmploymentTypeFilter(e.target.value)}
+            className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[150px] text-gray-600">
+            <option value="">All Employment Types</option>
+            {EMPLOYMENT_TYPE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          <input
+            value={workLocationFilter}
+            onChange={e => setWorkLocationFilter(e.target.value)}
+            placeholder="Work Location"
+            className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[140px] text-gray-600 focus:outline-none focus:border-primary-400"
+          />
+          <select value={supervisorFilter} onChange={e => setSupervisorFilter(e.target.value)}
+            className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[170px] text-gray-600">
+            <option value="">All Reporting Managers</option>
+            {managersData.map((m: any) => (
+              <option key={m.id} value={m.id}>{`${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email}</option>
+            ))}
+          </select>
+          <select value={gradeFilter} onChange={e => setGradeFilter(e.target.value)}
+            className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[130px] text-gray-600">
+            <option value="">All Grades</option>
+            {gradesData.map((g: any) => (
+              <option key={g.id} value={g.id}>{g.name}</option>
             ))}
           </select>
           {activeFilterCount > 0 && (
