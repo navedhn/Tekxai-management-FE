@@ -129,6 +129,46 @@ export function useUnarchiveMilestone(projectId: string | null | undefined) {
   });
 }
 
+// Drag-and-drop reorder — sends the full new id order, backend renumbers
+// 1..N by array position in one transaction (see reorder_milestones_svc /
+// PATCH .../milestones/reorder). Optimistically writes the new order into
+// the cache immediately (so the drag feels instant) and rolls back on error;
+// the follow-up invalidation reconciles with the server-computed sequence.
+export function useReorderMilestones(projectId: string | null | undefined, includeArchived = false) {
+  const qc = useQueryClient();
+  const queryKey = [...QUERY_KEYS.MILESTONE.LIST(projectId || ''), includeArchived];
+  return useMutation({
+    mutationFn: (orderedIds: string[]) => {
+      if (!projectId) throw new Error('No projectId');
+      return apiRequest<any>(API_ENDPOINTS.MILESTONE.REORDER(projectId), {
+        method: 'PATCH',
+        body: JSON.stringify({ ordered_ids: orderedIds }),
+      });
+    },
+    onMutate: async (orderedIds: string[]) => {
+      await qc.cancelQueries({ queryKey });
+      const previous = qc.getQueryData<Milestone[]>(queryKey);
+      if (previous) {
+        const byId = new Map(previous.map((m) => [m.id, m]));
+        const reordered = orderedIds
+          .map((id, i) => {
+            const m = byId.get(id);
+            return m ? { ...m, sequence: i + 1 } : null;
+          })
+          .filter(Boolean) as Milestone[];
+        // keep any rows not included (shouldn't normally happen) at the end
+        const missing = previous.filter((m) => !orderedIds.includes(m.id));
+        qc.setQueryData(queryKey, [...reordered, ...missing]);
+      }
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) qc.setQueryData(queryKey, context.previous);
+    },
+    onSettled: () => invalidateMilestoneQueries(qc, projectId),
+  });
+}
+
 export function useDeleteMilestone(projectId: string | null | undefined) {
   const qc = useQueryClient();
   return useMutation({
