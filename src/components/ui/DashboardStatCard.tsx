@@ -4,9 +4,9 @@ import { cn } from '@/utils/cn';
 /** Shared dashboard stat card sizing — use across admin & employee dashboards */
 export const dashboardStatStyles = {
   iconBox: 'h-12 w-12 rounded-lg shrink-0 flex items-center justify-center',
-  value: 'text-xl font-bold text-gray-900 leading-tight tabular-nums',
-  label: 'text-sm font-medium text-gray-700 tracking-tight',
-  subtext: 'text-xs text-gray-500',
+  value: 'text-lg font-bold text-gray-900 leading-tight tabular-nums',
+  label: 'text-[13px] font-medium text-gray-700 tracking-tight',
+  subtext: 'text-[11px] text-gray-500',
 } as const;
 
 export interface DashboardStatCardProps {

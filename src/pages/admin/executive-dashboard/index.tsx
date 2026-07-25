@@ -280,7 +280,7 @@ export default function ExecutiveDashboard() {
           <KpiCard icon={Briefcase} color="bg-indigo-500" label="Active Projects" value={fmtNum(co?.active_projects)} onClick={() => navigate('/admin/project-tracking')} />
           <KpiCard icon={Ticket} color="bg-orange-500" label="Open Tickets" value={fmtNum(co?.open_tickets)} onClick={() => navigate('/admin/tickets')} />
           <KpiCard icon={Package} color="bg-purple-500" label="Active Assets" value={fmtNum(co?.active_assets)} onClick={() => navigate('/admin/assets')} />
-          <KpiCard icon={DollarSign} color="bg-teal-500" label="Monthly Expense" value={fmtMoney(co?.monthly_expense)} onClick={() => navigate('/admin/expenses')} />
+          <KpiCard icon={DollarSign} color="bg-teal-500" label="Monthly Expense" value={fmtMoney(co?.monthly_expense)} onClick={() => navigate('/admin/finance/expenses')} />
           <KpiCard icon={Wallet} color="bg-green-600" label="Current Payroll" value={fmtMoney(co?.current_payroll)} onClick={() => navigate('/admin/payroll')} />
         </div>
       </div>
@@ -334,7 +334,7 @@ export default function ExecutiveDashboard() {
       <div>
         <SectionHeader title="Financial" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <KpiCard icon={DollarSign} color="bg-teal-500" label="Monthly Expense" value={fmtMoney(fin?.monthly_expense)} onClick={() => navigate('/admin/expenses')} />
+          <KpiCard icon={DollarSign} color="bg-teal-500" label="Monthly Expense" value={fmtMoney(fin?.monthly_expense)} onClick={() => navigate('/admin/finance/expenses')} />
           <KpiCard icon={Wallet} color="bg-green-600" label="Payroll Cost" value={fmtMoney(fin?.payroll_cost)} onClick={() => navigate('/admin/payroll')} />
           <KpiCard icon={Package} color="bg-purple-500" label="Asset Value" value={fmtMoney(fin?.asset_value)} onClick={() => navigate('/admin/assets')} />
           <KpiCard icon={TrendingUp} color="bg-indigo-500" label="Budget Utilization" value={fmtPct(fin?.budget_utilization_pct)} onClick={() => navigate('/admin/project-tracking')} />
@@ -383,7 +383,7 @@ export default function ExecutiveDashboard() {
 
         <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Financial</p>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
-          <TrendCard icon={DollarSign} color="bg-teal-500" label="Expense Trend (30d)" trend={insights?.financial?.expense_trend_30d} format="money" invertGood onClick={() => navigate('/admin/expenses')} />
+          <TrendCard icon={DollarSign} color="bg-teal-500" label="Expense Trend (30d)" trend={insights?.financial?.expense_trend_30d} format="money" invertGood onClick={() => navigate('/admin/finance/expenses')} />
           <TrendCard icon={Wallet} color="bg-green-600" label="Payroll Trend (MoM)" trend={insights?.financial?.payroll_trend_mom} format="money" invertGood onClick={() => navigate('/admin/payroll')} />
           <KpiCard icon={TrendingDown} color="bg-gray-400" label="Budget Utilization Trend" value="No history tracked" onClick={() => navigate('/admin/project-tracking')} />
         </div>
