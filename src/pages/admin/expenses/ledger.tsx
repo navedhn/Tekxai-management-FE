@@ -365,7 +365,7 @@ export default function ExpenseLedgerPage() {
     <div className="flex flex-col gap-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <button onClick={() => navigate('/admin/expenses')} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl">
+        <button onClick={() => navigate('/admin/finance/expenses')} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl">
           <ArrowLeft size={20} />
         </button>
         <div className="flex-1">

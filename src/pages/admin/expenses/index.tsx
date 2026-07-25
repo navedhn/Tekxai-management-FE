@@ -24,6 +24,8 @@ const EXPENSE_DIMENSIONS = [
 ];
 
 // ── Quick Employee Ledger Access ──────────────────────────────────────────────
+// Names are not listed up front — only surfaced once the admin actually
+// searches for someone, so the panel isn't just a wall of every employee.
 function QuickLedgerAccess() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
@@ -34,14 +36,16 @@ function QuickLedgerAccess() {
     select: (r: any) => r?.payload?.records || [],
   });
 
-  const filtered = ((users || []) as any[]).filter((u: any) =>
-    !search || `${u.first_name} ${u.last_name}`.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = search.trim()
+    ? ((users || []) as any[]).filter((u: any) =>
+        `${u.first_name} ${u.last_name}`.toLowerCase().includes(search.toLowerCase())
+      )
+    : [];
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
       <h2 className="text-sm font-black text-gray-700 mb-3">Quick Access — Employee Ledger</h2>
-      <p className="text-xs text-gray-400 mb-3">Open any employee's ledger directly to add or view expenses.</p>
+      <p className="text-xs text-gray-400 mb-3">Search for an employee to open their ledger directly.</p>
       <div className="relative mb-3">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
@@ -51,18 +55,20 @@ function QuickLedgerAccess() {
           onChange={e => setSearch(e.target.value)}
         />
       </div>
-      <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-        {filtered.slice(0, 20).map((u: any) => (
-          <button
-            key={u.id}
-            onClick={() => navigate(`/admin/expenses/${u.employee_id || u.id}`)}
-            className="flex items-center gap-1.5 px-3 h-8 bg-gray-50 hover:bg-primary-50 border border-gray-200 hover:border-primary-300 text-gray-700 hover:text-primary-700 rounded-lg text-xs font-semibold transition-colors"
-          >
-            {u.first_name} {u.last_name}
-          </button>
-        ))}
-        {filtered.length === 0 && <p className="text-xs text-gray-400 py-2">No employees found</p>}
-      </div>
+      {search.trim() && (
+        <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+          {filtered.slice(0, 20).map((u: any) => (
+            <button
+              key={u.id}
+              onClick={() => navigate(`/admin/finance/expenses/${u.employee_id || u.id}`)}
+              className="flex items-center gap-1.5 px-3 h-8 bg-gray-50 hover:bg-primary-50 border border-gray-200 hover:border-primary-300 text-gray-700 hover:text-primary-700 rounded-lg text-xs font-semibold transition-colors"
+            >
+              {u.first_name} {u.last_name}
+            </button>
+          ))}
+          {filtered.length === 0 && <p className="text-xs text-gray-400 py-2">No employees found</p>}
+        </div>
+      )}
     </div>
   );
 }
@@ -444,7 +450,7 @@ export default function ExpensesPage() {
                   <td className="py-3 px-2 text-purple-600 font-semibold text-xs">{pkr(acc.ce_spent)}</td>
                   <td className="py-3 px-2 text-orange-600 font-semibold text-xs">{pkr(acc.tekxai_spent)}</td>
                   <td className="py-3 px-2">
-                    <button onClick={() => navigate(`/admin/expenses/${acc.user?.employee_id || acc.user?.id}`)}
+                    <button onClick={() => navigate(`/admin/finance/expenses/${acc.user?.employee_id || acc.user?.id}`)}
                       className="flex items-center gap-1.5 px-3 h-7 bg-primary-600 text-white rounded-lg text-xs font-semibold hover:bg-primary-700 transition-colors">
                       <Eye size={12} />Ledger
                     </button>
