@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Plus, Clock, Check } from 'lucide-react';
+import React, { useRef, useState, useEffect } from 'react';
+import { X, Plus, Clock, Check, MessageSquare, Paperclip, Link2, Trash2, Download } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { KanbanTask, TaskStatus, TaskPriority } from '@/services/tasksService';
@@ -9,12 +9,23 @@ import {
   useToggleSubTask,
   useTaskTimeLogs,
   useLogTime,
+  useTaskComments,
+  useCreateTaskComment,
+  useDeleteTaskComment,
+  useTaskAttachments,
+  useUploadTaskAttachment,
+  useDeleteTaskAttachment,
+  useSetTaskDependencies,
 } from '@/services/tasksService';
+import { useAuth } from '@/hooks/useAuth';
+import { useToastContext } from '@/components/toast/ToastProvider';
 
 // --- Types ---
 
 interface TaskDrawerProps {
   task: KanbanTask | null;
+  allTasks?: KanbanTask[];
+  projectId?: string | null;
   onClose: () => void;
   onUpdateTask: (taskId: string, updates: Partial<KanbanTask>) => void;
 }
@@ -42,10 +53,10 @@ function formatDuration(seconds: number): string {
 
 // --- Sub-Tasks Section ---
 
-function SubTasksSection({ taskId }: { taskId: string }) {
-  const { data: subTasks = [] } = useSubTasks(taskId);
-  const createMutation = useCreateSubTask(taskId);
-  const toggleMutation = useToggleSubTask(taskId);
+function SubTasksSection({ projectId, taskId }: { projectId: string; taskId: string }) {
+  const { data: subTasks = [] } = useSubTasks(projectId, taskId);
+  const createMutation = useCreateSubTask(projectId, taskId);
+  const toggleMutation = useToggleSubTask(projectId, taskId);
   const [newTitle, setNewTitle] = useState('');
 
   const completed = subTasks.filter(s => s.completed).length;
@@ -118,9 +129,9 @@ function SubTasksSection({ taskId }: { taskId: string }) {
 
 // --- Time Log Section ---
 
-function TimeLogSection({ taskId }: { taskId: string }) {
-  const { data: timeLogs = [] } = useTaskTimeLogs(taskId);
-  const logMutation = useLogTime(taskId);
+function TimeLogSection({ projectId, taskId }: { projectId: string; taskId: string }) {
+  const { data: timeLogs = [] } = useTaskTimeLogs(projectId, taskId);
+  const logMutation = useLogTime(projectId, taskId);
   const [manualSeconds, setManualSeconds] = useState('');
   const [note, setNote] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -207,9 +218,262 @@ function TimeLogSection({ taskId }: { taskId: string }) {
   );
 }
 
+// --- Comments Section (modeled on Project Discussions' comment/discussion UX) ---
+
+function CommentsSection({ projectId, taskId }: { projectId: string; taskId: string }) {
+  const { user, role } = useAuth();
+  const toast = useToastContext();
+  const { data: comments = [] } = useTaskComments(projectId, taskId);
+  const createMutation = useCreateTaskComment(projectId, taskId);
+  const deleteMutation = useDeleteTaskComment(projectId, taskId);
+  const [content, setContent] = useState('');
+
+  const handleAdd = () => {
+    const text = content.trim();
+    if (!text) return;
+    createMutation.mutate({ content: text }, {
+      onSuccess: () => setContent(''),
+      onError: (e: any) => toast.error(e?.message || 'Failed to add comment'),
+    });
+  };
+
+  const handleDelete = (commentId: string) => {
+    deleteMutation.mutate(commentId, {
+      onError: (e: any) => toast.error(e?.message || 'Failed to delete comment'),
+    });
+  };
+
+  // Only list+create exist on the backend task_comments controller (no
+  // update endpoint), so there is no Edit button here — just Delete,
+  // gated the same way the backend gates it: author, or a manager-tier role.
+  const isManager = !!role && ['ADMIN', 'SUPER_ADMIN', 'HR', 'DIVISION_MANAGER'].includes(role);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <MessageSquare size={14} className="text-gray-400" />
+        <h3 className="text-xs font-black text-gray-700 uppercase tracking-wider">Comments</h3>
+        {comments.length > 0 && <span className="text-xs text-gray-400 font-medium">({comments.length})</span>}
+      </div>
+
+      <div className="flex flex-col gap-2 max-h-56 overflow-y-auto custom-scrollbar">
+        {comments.length === 0 && (
+          <p className="text-xs text-gray-400 italic">No comments yet.</p>
+        )}
+        {comments.map((c) => {
+          const canDelete = c.user_id === user?.id || isManager;
+          return (
+            <div key={c.id} className="flex flex-col gap-1 p-2.5 bg-gray-50 rounded-xl group">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-black text-gray-700">
+                  {c.user ? `${c.user.first_name} ${c.user.last_name || ''}`.trim() : 'Unknown'}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-gray-400">
+                    {new Date(c.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  {canDelete && (
+                    <button
+                      onClick={() => handleDelete(c.id)}
+                      className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all"
+                      title="Delete comment"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <p className="text-sm text-gray-700 font-medium whitespace-pre-wrap">{c.content}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex gap-2">
+        <input
+          type="text"
+          placeholder="Add a comment..."
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+          className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-[#005CDA] transition-colors"
+        />
+        <button
+          onClick={handleAdd}
+          disabled={!content.trim() || createMutation.isPending}
+          className="p-2 bg-[#005CDA] text-white rounded-lg hover:bg-[#0048B8] disabled:opacity-50 transition-colors"
+        >
+          <Plus size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// --- Attachments Section (reuses the shared uploadFile() helper — same
+// component used by Project Documents / Employee Documents) ---
+
+function AttachmentsSection({ projectId, taskId }: { projectId: string; taskId: string }) {
+  const toast = useToastContext();
+  const { data: attachments = [] } = useTaskAttachments(projectId, taskId);
+  const uploadMutation = useUploadTaskAttachment(projectId, taskId);
+  const deleteMutation = useDeleteTaskAttachment(projectId, taskId);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    uploadMutation.mutate(file, {
+      onError: (err: any) => toast.error(err?.message || 'Failed to upload attachment'),
+    });
+    e.target.value = '';
+  };
+
+  const handleDelete = (attachmentId: string) => {
+    deleteMutation.mutate(attachmentId, {
+      onError: (e: any) => toast.error(e?.message || 'Failed to delete attachment'),
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Paperclip size={14} className="text-gray-400" />
+          <h3 className="text-xs font-black text-gray-700 uppercase tracking-wider">Attachments</h3>
+          {attachments.length > 0 && <span className="text-xs text-gray-400 font-medium">({attachments.length})</span>}
+        </div>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploadMutation.isPending}
+          className="flex items-center gap-1 text-xs font-bold text-[#005CDA] hover:text-[#0048B8] transition-colors disabled:opacity-50"
+        >
+          <Plus size={13} /> {uploadMutation.isPending ? 'Uploading…' : 'Upload'}
+        </button>
+        <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
+      </div>
+
+      {attachments.length === 0 ? (
+        <p className="text-xs text-gray-400 italic">No files attached yet.</p>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {attachments.map((a) => (
+            <div key={a.id} className="flex items-center justify-between gap-2 p-2 bg-gray-50 rounded-lg group">
+              <a
+                href={a.file_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-[#005CDA] truncate transition-colors"
+                title={a.file_name}
+              >
+                <Download size={13} className="shrink-0 text-gray-400" />
+                <span className="truncate">{a.file_name}</span>
+              </a>
+              <button
+                onClick={() => handleDelete(a.id)}
+                className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all shrink-0"
+                title="Delete attachment"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Dependencies Section (task.depends_on_ids, modeled on how Milestones
+// render/edit milestone.depends_on_ids) ---
+
+const DEP_STATUS_STYLE: Record<string, string> = {
+  TODO: 'bg-gray-100 text-gray-500',
+  IN_PROGRESS: 'bg-blue-50 text-blue-600',
+  REVIEW: 'bg-amber-50 text-amber-600',
+  DONE: 'bg-green-50 text-green-700',
+};
+
+function DependenciesSection({ projectId, task, allTasks }: { projectId: string; task: KanbanTask; allTasks: KanbanTask[] }) {
+  const toast = useToastContext();
+  const setDependenciesMutation = useSetTaskDependencies(projectId);
+  const [open, setOpen] = useState(false);
+  const dependsOnIds = task.depends_on_ids || [];
+
+  // Self-exclusion happens client-side here; the backend additionally
+  // rejects a self-dependency with a 400 as a safety net (verified in the
+  // tasks controller). There is no server-side circular-dependency check —
+  // that's a gap, not something added on the frontend.
+  const options = allTasks.filter((t) => t.id !== task.id);
+  const available = options.filter((t) => !dependsOnIds.includes(t.id));
+
+  const updateDeps = (nextIds: string[]) => {
+    setDependenciesMutation.mutate({ taskId: task.id, depends_on_ids: nextIds }, {
+      onError: (e: any) => toast.error(e?.message || 'Failed to update dependencies'),
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <Link2 size={14} className="text-gray-400" />
+        <h3 className="text-xs font-black text-gray-700 uppercase tracking-wider">Depends On</h3>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {dependsOnIds.map((id) => {
+          const dep = allTasks.find((t) => t.id === id);
+          return (
+            <span key={id} className="inline-flex items-center gap-1.5 bg-primary-50 text-primary-700 text-xs font-bold px-2.5 py-1 rounded-lg">
+              {dep?.title || id}
+              {dep && (
+                <span className={cn('text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase', DEP_STATUS_STYLE[dep.status] || DEP_STATUS_STYLE.TODO)}>
+                  {dep.status.replace('_', ' ')}
+                </span>
+              )}
+              <button type="button" onClick={() => updateDeps(dependsOnIds.filter((s) => s !== id))} className="hover:text-red-500">
+                <X size={11} />
+              </button>
+            </span>
+          );
+        })}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setOpen((s) => !s)}
+            className="inline-flex items-center gap-1 text-xs font-bold text-gray-500 bg-gray-50 hover:bg-gray-100 px-2.5 py-1 rounded-lg"
+          >
+            <Plus size={12} /> Add
+          </button>
+          {open && (
+            <div className="absolute z-20 mt-1 w-56 max-h-48 overflow-y-auto bg-white border border-gray-100 rounded-xl shadow-xl p-1.5">
+              {available.length === 0 ? (
+                <p className="text-xs text-gray-400 italic px-2 py-2">
+                  {options.length === 0 ? 'No other tasks in this project' : 'All tasks added'}
+                </p>
+              ) : (
+                available.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => { updateDeps([...dependsOnIds, t.id]); setOpen(false); }}
+                    className="w-full text-left text-xs font-semibold text-gray-700 hover:bg-gray-50 px-2.5 py-1.5 rounded-lg"
+                  >
+                    {t.title}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --- Drawer ---
 
-const TaskDrawer: React.FC<TaskDrawerProps> = ({ task, onClose, onUpdateTask }) => {
+const TaskDrawer: React.FC<TaskDrawerProps> = ({ task, allTasks = [], projectId, onClose, onUpdateTask }) => {
   const [title, setTitle] = useState('');
   const [editingTitle, setEditingTitle] = useState(false);
 
@@ -345,13 +609,31 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({ task, onClose, onUpdateTask }) 
               <div className="border-t border-gray-100" />
 
               {/* Sub-tasks */}
-              <SubTasksSection taskId={task.id} />
+              {projectId && <SubTasksSection projectId={projectId} taskId={task.id} />}
 
               {/* Divider */}
               <div className="border-t border-gray-100" />
 
               {/* Time log */}
-              <TimeLogSection taskId={task.id} />
+              {projectId && <TimeLogSection projectId={projectId} taskId={task.id} />}
+
+              {/* Divider */}
+              <div className="border-t border-gray-100" />
+
+              {/* Dependencies */}
+              {projectId && <DependenciesSection projectId={projectId} task={task} allTasks={allTasks} />}
+
+              {/* Divider */}
+              <div className="border-t border-gray-100" />
+
+              {/* Attachments */}
+              {projectId && <AttachmentsSection projectId={projectId} taskId={task.id} />}
+
+              {/* Divider */}
+              <div className="border-t border-gray-100" />
+
+              {/* Comments */}
+              {projectId && <CommentsSection projectId={projectId} taskId={task.id} />}
             </div>
           </motion.div>
         </>

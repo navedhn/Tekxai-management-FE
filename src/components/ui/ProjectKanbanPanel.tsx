@@ -12,7 +12,7 @@ const ProjectKanbanPanel: React.FC<ProjectKanbanPanelProps> = ({ projectId }) =>
   const { data: tasks = [], isLoading } = useKanbanTasks(projectId);
   const updateTaskMutation = useUpdateTask(projectId);
   const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null);
-  const logTimeMutation = useLogTime(selectedTask?.id ?? null);
+  const logTimeMutation = useLogTime(projectId, selectedTask?.id ?? null);
 
   const handleUpdateTask = (taskId: string, updates: Partial<KanbanTask>) => {
     updateTaskMutation.mutate({ taskId, updates });
@@ -40,6 +40,8 @@ const ProjectKanbanPanel: React.FC<ProjectKanbanPanelProps> = ({ projectId }) =>
       />
       <TaskDrawer
         task={selectedTask}
+        allTasks={tasks}
+        projectId={projectId}
         onClose={() => setSelectedTask(null)}
         onUpdateTask={handleUpdateTask}
       />

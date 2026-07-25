@@ -94,6 +94,7 @@ export const API_ENDPOINTS = {
     // Deliberately separate from UPDATE (generic profile PUT), which now
     // strips role_id unconditionally on the backend.
     ROLE_CHANGE: (id: string | number) => `${v1}/user/${id}/role`,
+    EMPLOYEE_ID_PREVIEW: (departmentId: string | number) => `${v1}/user/employee-id/preview?department_id=${departmentId}`,
   },
   EMPLOYEE_LIFECYCLE: {
     SET_STAGE: `${v1}/employee-lifecycle/set-stage`,
@@ -106,6 +107,7 @@ export const API_ENDPOINTS = {
     DETAIL: (id: string | number) => `${v1}/project/${id}`,
     UPDATE: (id: string | number) => `${v1}/project/${id}`,
     DELETE: (id: string | number) => `${v1}/project/${id}`,
+    RESTORE:   (id: string | number) => `${v1}/project/${id}/restore`,
     SAVE:      (id: string | number) => `${v1}/project/${id}/save`,
     UNSAVE:    (id: string | number) => `${v1}/project/${id}/save`,
     BUDGET:    (id: string | number) => `${v1}/project/${id}/budget`,
@@ -265,9 +267,26 @@ export const API_ENDPOINTS = {
     DETAIL: (projectId: string, taskId: string) => `${v1}/project/${projectId}/tasks/${taskId}`,
     UPDATE: (projectId: string, taskId: string) => `${v1}/project/${projectId}/tasks/${taskId}`,
     DELETE: (projectId: string, taskId: string) => `${v1}/project/${projectId}/tasks/${taskId}`,
+    ARCHIVE:      (projectId: string, taskId: string) => `${v1}/project/${projectId}/tasks/${taskId}/archive`,
+    UNARCHIVE:    (projectId: string, taskId: string) => `${v1}/project/${projectId}/tasks/${taskId}/unarchive`,
+    DEPENDENCIES: (projectId: string, taskId: string) => `${v1}/project/${projectId}/tasks/${taskId}/dependencies`,
   },
-  SUB_TASKS: (taskId: string) => `${v1}/tasks/${taskId}/sub-tasks`,
-  TIME_LOGS:  (taskId: string) => `${v1}/tasks/${taskId}/time-logs`,
+  TASK_COMMENTS: {
+    LIST:   (projectId: string, taskId: string) => `${v1}/project/${projectId}/tasks/${taskId}/comments`,
+    CREATE: (projectId: string, taskId: string) => `${v1}/project/${projectId}/tasks/${taskId}/comments`,
+    DELETE: (projectId: string, taskId: string, commentId: string) => `${v1}/project/${projectId}/tasks/${taskId}/comments/${commentId}`,
+  },
+  TASK_ATTACHMENTS: {
+    LIST:   (projectId: string, taskId: string) => `${v1}/project/${projectId}/tasks/${taskId}/attachments`,
+    CREATE: (projectId: string, taskId: string) => `${v1}/project/${projectId}/tasks/${taskId}/attachments`,
+    DELETE: (projectId: string, taskId: string, attachmentId: string) => `${v1}/project/${projectId}/tasks/${taskId}/attachments/${attachmentId}`,
+  },
+  // FIX: these were previously `${v1}/tasks/${taskId}/...` (no projectId) —
+  // tasks.routes.js is only ever mounted at /project/:projectId/tasks
+  // (see be-work/src/routes/index.js), so the flat path 404'd for every
+  // sub-task/time-log call. Corrected to match the actual mount point.
+  SUB_TASKS: (projectId: string, taskId: string) => `${v1}/project/${projectId}/tasks/${taskId}/sub-tasks`,
+  TIME_LOGS:  (projectId: string, taskId: string) => `${v1}/project/${projectId}/tasks/${taskId}/time-logs`,
   // Milestones are nested under projects: /project/:projectId/milestones
   MILESTONE: {
     LIST:      (projectId: string) => `${v1}/project/${projectId}/milestones`,
@@ -277,6 +296,7 @@ export const API_ENDPOINTS = {
     DELETE:    (projectId: string, milestoneId: string) => `${v1}/project/${projectId}/milestones/${milestoneId}`,
     ARCHIVE:   (projectId: string, milestoneId: string) => `${v1}/project/${projectId}/milestones/${milestoneId}/archive`,
     UNARCHIVE: (projectId: string, milestoneId: string) => `${v1}/project/${projectId}/milestones/${milestoneId}/unarchive`,
+    REORDER:   (projectId: string) => `${v1}/project/${projectId}/milestones/reorder`,
   },
   // DevOps/client handoff access tracking, nested under projects: /project/:projectId/devops-access
   DEVOPS_ACCESS: {
@@ -294,6 +314,21 @@ export const API_ENDPOINTS = {
     GET:           (userId: string) => `${v1}/hr-profile/${userId}`,
     UPDATE:        (userId: string) => `${v1}/hr-profile/${userId}`,
     FULL_RECORD:   (userId: string) => `${v1}/hr-profile/${userId}/full`,
+  },
+  REPORTING_STRUCTURE: {
+    GET: (userId: string) => `${v1}/user/${userId}/reporting-structure`,
+  },
+  LIFECYCLE_APPROVALS: {
+    LIST: `${v1}/lifecycle-approvals`,
+  },
+  ACTIVITY_LOG: {
+    LIST: `${v1}/activity-log`,
+  },
+  EMPLOYEE_NOTES: {
+    LIST:   (userId: string) => `${v1}/employee-notes/${userId}`,
+    CREATE: (userId: string) => `${v1}/employee-notes/${userId}`,
+    UPDATE: (userId: string, noteId: string) => `${v1}/employee-notes/${userId}/${noteId}`,
+    DELETE: (userId: string, noteId: string) => `${v1}/employee-notes/${userId}/${noteId}`,
   },
   STORAGE: {
     UPLOAD: `${v1}/storage/upload`,
@@ -392,6 +427,13 @@ export const API_ENDPOINTS = {
     ANNUAL:    (userId: string) => `${v1}/hr-report/employee/${userId}/annual`,
     MONTHLY:   (userId: string) => `${v1}/hr-report/employee/${userId}/monthly`,
     AGGREGATE: `${v1}/hr-report/aggregate`,
+    DASHBOARD_SUMMARY: `${v1}/hr-report/dashboard-summary`,
+  },
+  ANNOUNCEMENTS: {
+    LIST:   `${v1}/announcements`,
+    CREATE: `${v1}/announcements`,
+    UPDATE: (id: string) => `${v1}/announcements/${id}`,
+    DELETE: (id: string) => `${v1}/announcements/${id}`,
   },
   REPORTING: {
     PARSE:         `${v1}/reporting/parse`,
@@ -412,6 +454,7 @@ export const API_ENDPOINTS = {
     CALCULATE: (id: string) => `${v1}/payroll/${id}/calculate`,
     STATUS:    (id: string) => `${v1}/payroll/${id}/status`,
     PAYSLIP:   (runId: string, entryId: string) => `${v1}/payroll/${runId}/entries/${entryId}/payslip`,
+    EMPLOYEE_PAYSLIPS: (userId: string) => `${v1}/payroll/employee/${userId}/payslips`,
   },
   CHAT: {
     USERS:       `${v1}/chat/users`,
@@ -508,6 +551,29 @@ export const API_ENDPOINTS = {
 
   EXECUTIVE_ANALYTICS: {
     DASHBOARD: `${v1}/executive-analytics/dashboard`,
+  },
+
+  INTERVIEWS: {
+    LIST_FOR_CANDIDATE: (candidateId: string) => `${v1}/interviews/candidate/${candidateId}`,
+    UPCOMING:           `${v1}/interviews/upcoming`,
+    CREATE:             `${v1}/interviews`,
+    UPDATE:             (id: string) => `${v1}/interviews/${id}`,
+    DELETE:             (id: string) => `${v1}/interviews/${id}`,
+  },
+
+  OFFBOARDING: {
+    TASKS:           (userId: string) => `${v1}/offboarding/tasks/${userId}`,
+    CREATE_TASK:     `${v1}/offboarding/tasks`,
+    COMPLETE_TASK:   (id: string) => `${v1}/offboarding/tasks/${id}/complete`,
+  },
+  JOB_REQUISITIONS: {
+    LIST:        `${v1}/job-requisitions`,
+    CREATE:      `${v1}/job-requisitions`,
+    DETAIL:      (id: string) => `${v1}/job-requisitions/${id}`,
+    REVIEW:      (id: string) => `${v1}/job-requisitions/${id}/review`,
+    STATUS:      (id: string) => `${v1}/job-requisitions/${id}/status`,
+    CANCEL:      (id: string) => `${v1}/job-requisitions/${id}/cancel`,
+    META:        `${v1}/job-requisitions/meta`,
   },
 } as const;
 
