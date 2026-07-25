@@ -62,6 +62,8 @@ const AdminHrDocuments       = lazy(() => import('@/pages/admin/hr-documents'));
 const AdminHrDocumentDetail  = lazy(() => import('@/pages/admin/hr-documents/detail'));
 const AdminHrDocumentTemplates = lazy(() => import('@/pages/admin/hr-document-templates'));
 const AdminOnboarding        = lazy(() => import('@/pages/admin/onboarding'));
+const AdminJobRequisitions   = lazy(() => import('@/pages/admin/job-requisitions'));
+const AdminOffboarding       = lazy(() => import('@/pages/admin/offboarding'));
 const AdminPolicies          = lazy(() => import('@/pages/admin/policies'));
 const AdminAttendance        = lazy(() => import('@/pages/admin/attendance'));
 const AdminJobDescriptions   = lazy(() => import('@/pages/admin/job-descriptions'));
@@ -208,6 +210,8 @@ const routes: RouteObject[] = [
           { path: '/admin/contracts',           element: <AdminContracts /> },
           { path: '/admin/reports',             element: <AdminReports /> },
           { path: '/admin/onboarding',          element: <AdminOnboarding /> },
+          { path: '/admin/job-requisitions',    element: <AdminJobRequisitions /> },
+          { path: '/admin/offboarding',         element: <AdminOffboarding /> },
           { path: '/admin/policies',            element: <AdminPolicies /> },
           { path: '/admin/requisitions',        element: <AdminRequisitions /> },
           { path: '/admin/approvals',           element: <AdminApprovals /> },
@@ -217,8 +221,13 @@ const routes: RouteObject[] = [
           { path: '/admin/meetings/room/:roomId', element: <AdminMeetingRoomDetail /> },
           { path: '/admin/meetings/meeting/:meetingId', element: <AdminMeetingDetail /> },
           { path: '/admin/meetings/action-items', element: <AdminMeetingActionItems /> },
-          { path: '/admin/expenses',            element: <AdminExpenses /> },
-          { path: '/admin/expenses/:userId',    element: <AdminExpenseLedger /> },
+          // Finance module — Expense Claims + Financial Reports live under
+          // /admin/finance/*. Old flat /admin/expenses(/...) paths redirect
+          // below so existing bookmarks/links keep working.
+          { path: '/admin/finance/expenses',            element: <AdminExpenses /> },
+          { path: '/admin/finance/expenses/:userId',    element: <AdminExpenseLedger /> },
+          { path: '/admin/expenses',            element: <Navigate to="/admin/finance/expenses" replace /> },
+          { path: '/admin/expenses/:userId',    element: <ParamRedirect build={(p) => `/admin/finance/expenses/${p.userId}`} /> },
           { path: '/admin/performance-scoring', element: <AdminPerformanceScoring /> },
           { path: '/admin/payroll',            element: <PayrollPage /> },
           { path: '/admin/webhooks',           element: <WebhooksPage /> },
@@ -250,7 +259,8 @@ const routes: RouteObject[] = [
             element: <ProtectedRoute roles={[USER_ROLES.SUPER_ADMIN]} />,
             children: [
               { path: '/admin/permissions',         element: <AdminPermissions /> },
-              { path: '/admin/financial-reports',   element: <AdminFinancialReports /> },
+              { path: '/admin/finance/financial-reports', element: <AdminFinancialReports /> },
+              { path: '/admin/financial-reports',   element: <Navigate to="/admin/finance/financial-reports" replace /> },
               { path: '/admin/email-logs',          element: <EmailLogsPage /> },
               { path: '/admin/system-settings',     element: <SystemSettings /> },
             ],
