@@ -6,6 +6,7 @@ import Textarea from '@/components/ui/Textarea';
 import Select from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Plus, X } from 'lucide-react';
+import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import {
   Milestone, MilestoneStatus, MilestoneUpsertPayload,
@@ -212,18 +213,26 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
           className="h-12 rounded-xl"
         />
 
-        <div className="grid grid-cols-2 gap-4">
-          <Input
-            label="Sequence"
-            name="sequence"
-            type="number"
-            min={1}
-            value={formData.sequence}
-            onChange={handleInputChange}
-            error={errors.sequence}
-            placeholder="1, 2, 3…"
-            className="h-12 rounded-xl"
-          />
+        <div className={cn('grid gap-4', isEdit ? 'grid-cols-1' : 'grid-cols-2')}>
+          {/* Sequence is only meaningful on create, as an optional insertion
+              position (existing milestones from that position on shift down
+              one) — the backend now server-controls sequence entirely and
+              silently ignores it on update. Reordering an existing milestone
+              is done via drag-and-drop in the milestones list, which calls
+              the dedicated reorder endpoint. */}
+          {!isEdit && (
+            <Input
+              label="Insert at Position"
+              name="sequence"
+              type="number"
+              min={1}
+              value={formData.sequence}
+              onChange={handleInputChange}
+              error={errors.sequence}
+              placeholder="Leave blank to append"
+              className="h-12 rounded-xl"
+            />
+          )}
           <Select
             label="Status"
             options={STATUS_OPTIONS}
