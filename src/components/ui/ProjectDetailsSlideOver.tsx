@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ChevronDown, CheckCircle2, Circle, MessageSquare, Plus, Trash2, ArrowRight as ArrowRightIcon, ArrowLeft, Calendar as CalendarIcon, Clock, LayoutDashboard, ListChecks, KanbanSquare, FileText, Activity as ActivityIcon, MessagesSquare, Server, Link2, Users, Wallet, Settings as SettingsIcon } from 'lucide-react';
+import { ArrowRight, ChevronDown, CheckCircle2, Circle, MessageSquare, Plus, Trash2, ArrowRight as ArrowRightIcon, ArrowLeft, Calendar as CalendarIcon, Clock, LayoutDashboard, ListChecks, KanbanSquare, FileText, Activity as ActivityIcon, MessagesSquare, Server, Link2, Users, Wallet, Settings as SettingsIcon, GripVertical } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import Badge from './Badge';
 import Button from './Button';
@@ -19,7 +19,7 @@ import DependenciesPanel from './DependenciesPanel';
 import ActionModal from './ActionModal';
 import StatusDropdown from './StatusDropdown';
 import { useGetProjectDetails, useUpdateProjectMutation } from '@/services/projectService';
-import { useMilestones, useDeleteMilestone, useArchiveMilestone, Milestone } from '@/services/milestonesService';
+import { useMilestones, useDeleteMilestone, useArchiveMilestone, useReorderMilestones, Milestone } from '@/services/milestonesService';
 import { useUpdateTask, useDeleteTask } from '@/services/tasksService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useAuth } from '@/hooks/useAuth';
@@ -60,6 +60,13 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('overview');
   const deleteMilestoneMutation = useDeleteMilestone(projectId);
   const archiveMilestoneMutation = useArchiveMilestone(projectId);
+  const reorderMilestonesMutation = useReorderMilestones(projectId);
+  // Drag-and-drop milestone reorder — dragMilestoneId tracks the row
+  // currently being dragged; on drop we build the full new id order and
+  // send it to PATCH .../milestones/reorder in one call (the endpoint
+  // renumbers 1..N by array position).
+  const [dragMilestoneId, setDragMilestoneId] = useState<string | null>(null);
+  const [dragOverMilestoneId, setDragOverMilestoneId] = useState<string | null>(null);
   const updateTaskMutation = useUpdateTask(projectId);
   const deleteTaskMutation = useDeleteTask(projectId);
   const updateProjectMutation = useUpdateProjectMutation();
@@ -377,13 +384,50 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                         HEALTHY: 'bg-emerald-500', AT_RISK: 'bg-yellow-400', WARNING: 'bg-orange-500', CRITICAL: 'bg-red-500',
                       };
                       return (
-                      <div key={milestone.id} className="flex flex-col bg-white border border-gray-100 rounded-[2rem] shadow-sm overflow-hidden">
+                      <div
+                        key={milestone.id}
+                        draggable={!milestone.archived_at}
+                        onDragStart={() => setDragMilestoneId(milestone.id)}
+                        onDragEnter={() => { if (!milestone.archived_at) setDragOverMilestoneId(milestone.id); }}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDragEnd={() => { setDragMilestoneId(null); setDragOverMilestoneId(null); }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (!dragMilestoneId || dragMilestoneId === milestone.id) return;
+                          const activeOrder = milestones.filter((m) => !m.archived_at);
+                          const fromIdx = activeOrder.findIndex((m) => m.id === dragMilestoneId);
+                          const toIdx = activeOrder.findIndex((m) => m.id === milestone.id);
+                          if (fromIdx === -1 || toIdx === -1) return;
+                          const next = [...activeOrder];
+                          const [moved] = next.splice(fromIdx, 1);
+                          next.splice(toIdx, 0, moved);
+                          reorderMilestonesMutation.mutate(next.map((m) => m.id), {
+                            onError: (err: any) => toast.error(err?.message || 'Failed to reorder milestones'),
+                          });
+                          setDragMilestoneId(null);
+                          setDragOverMilestoneId(null);
+                        }}
+                        className={cn(
+                          'flex flex-col bg-white border border-gray-100 rounded-[2rem] shadow-sm overflow-hidden transition-shadow',
+                          dragOverMilestoneId === milestone.id && dragMilestoneId !== milestone.id && 'ring-2 ring-[#005CDA] ring-offset-2',
+                          dragMilestoneId === milestone.id && 'opacity-50'
+                        )}
+                      >
                         <button
                           onClick={() => toggleExpand(milestone.id)}
                           className="w-full flex items-center justify-between p-6 hover:bg-gray-50/50 transition-colors border-b border-transparent data-[expanded=true]:border-gray-100"
                           data-expanded={expanded[milestone.id]}
                         >
                           <div className="flex items-center gap-3 min-w-0">
+                            {!milestone.archived_at && (
+                              <span
+                                className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 shrink-0"
+                                title="Drag to reorder"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <GripVertical size={16} />
+                              </span>
+                            )}
                             <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', HEALTH_DOT[milestoneHealth])} title={`Health: ${milestoneHealth.replace('_', ' ')}`} />
                             <CheckCircle2 size={18} strokeWidth={2.5} className={milestone.status === 'COMPLETED' ? "text-[#005CDA]" : "text-gray-300"} />
                             {milestone.sequence != null && (
