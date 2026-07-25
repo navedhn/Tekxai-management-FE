@@ -54,6 +54,7 @@ export interface TicketListFilters {
   sla?: 'overdue';
   from?: string;
   to?: string;
+  created_by?: string;
 }
 
 const fetchTickets = async (filters: TicketListFilters = {}): Promise<SupportTicket[]> => {

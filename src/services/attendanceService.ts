@@ -12,8 +12,17 @@ export const useGetViolationsQuery = (params?: Record<string,any>) =>
 export const useGetMyShiftQuery = () =>
   useQuery({ queryKey: ['my-shift'], queryFn: async () => { const r = await apiRequest<any>(`${v1}/attendance/my-shift`); return r?.payload; }, staleTime: 60000 });
 
-export const useGetMyAttendanceSummary = (params?: { start_date?: string; end_date?: string }) =>
-  useQuery({ queryKey: ['attendance-summary', params], queryFn: async () => { const qs = params ? '?' + new URLSearchParams(params as any).toString() : ''; const r = await apiRequest<any>(`${v1}/attendance/my-summary${qs}`); return r?.payload; }, staleTime: 60000 });
+export const useGetMyAttendanceSummary = (params?: { start_date?: string; end_date?: string; user_id?: string }, options?: { enabled?: boolean }) =>
+  useQuery({
+    queryKey: ['attendance-summary', params],
+    queryFn: async () => {
+      const qs = params ? '?' + new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')) as any).toString() : '';
+      const r = await apiRequest<any>(`${v1}/attendance/my-summary${qs}`);
+      return r?.payload;
+    },
+    staleTime: 60000,
+    enabled: options?.enabled,
+  });
 
 export const useUpsertShiftMutation = () => { const qc = useQueryClient(); return useMutation({ mutationFn: (data: any) => apiRequest(`${v1}/attendance/shifts`, { method: 'POST', body: JSON.stringify(data) }), onSuccess: () => qc.invalidateQueries({ queryKey: ['shifts'] }) }); };
 

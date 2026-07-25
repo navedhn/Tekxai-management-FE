@@ -103,6 +103,94 @@ export const useDeleteEmployeeDoc = (userId: string) => {
   });
 };
 
+// ── Reporting Structure ─────────────────────────────────────────────────────────
+
+export const useGetReportingStructure = (userId?: string, options?: { enabled?: boolean }) =>
+  useQuery({
+    queryKey: ['reporting-structure', userId],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.REPORTING_STRUCTURE.GET(userId!)),
+    enabled: !!userId && options?.enabled !== false,
+    select: (r: any) => r?.payload as { manager: any | null; direct_reports: any[] },
+  });
+
+// ── Lifecycle Approvals ──────────────────────────────────────────────────────────
+
+export const useGetLifecycleApprovals = (params?: { status?: string; user_id?: string }, options?: { enabled?: boolean }) =>
+  useQuery({
+    queryKey: ['lifecycle-approvals', params],
+    queryFn: () => {
+      const search = new URLSearchParams();
+      if (params?.status) search.set('status', params.status);
+      if (params?.user_id) search.set('user_id', params.user_id);
+      const qs = search.toString();
+      return apiRequest<any>(`${API_ENDPOINTS.LIFECYCLE_APPROVALS.LIST}${qs ? `?${qs}` : ''}`);
+    },
+    enabled: options?.enabled !== false,
+    select: (r: any) => r?.payload as { records: any[]; total: number },
+  });
+
+// ── Activity Timeline ────────────────────────────────────────────────────────────
+
+export const useGetActivityLog = (params?: { user_id?: string; action?: string; from?: string; to?: string }, options?: { enabled?: boolean }) =>
+  useQuery({
+    queryKey: ['activity-log', params],
+    queryFn: () => {
+      const search = new URLSearchParams();
+      if (params) for (const [k, v] of Object.entries(params)) if (v) search.set(k, String(v));
+      const qs = search.toString();
+      return apiRequest<any>(`${API_ENDPOINTS.ACTIVITY_LOG.LIST}${qs ? `?${qs}` : ''}`);
+    },
+    enabled: options?.enabled !== false,
+    select: (r: any) => (r?.payload?.records || r?.payload || []) as any[],
+  });
+
+// ── Employee Notes ───────────────────────────────────────────────────────────────
+
+export const useGetEmployeeNotes = (userId?: string, options?: { enabled?: boolean }) =>
+  useQuery({
+    queryKey: ['employee-notes', userId],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.EMPLOYEE_NOTES.LIST(userId!)),
+    enabled: !!userId && options?.enabled !== false,
+    select: (r: any) => (r?.payload || []) as any[],
+  });
+
+export const useCreateEmployeeNote = (userId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { body: string; is_private: boolean }) =>
+      apiRequest<any>(API_ENDPOINTS.EMPLOYEE_NOTES.CREATE(userId), { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['employee-notes', userId] }),
+  });
+};
+
+export const useUpdateEmployeeNote = (userId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ noteId, data }: { noteId: string; data: { body: string; is_private: boolean } }) =>
+      apiRequest<any>(API_ENDPOINTS.EMPLOYEE_NOTES.UPDATE(userId, noteId), { method: 'PUT', body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['employee-notes', userId] }),
+  });
+};
+
+export const useDeleteEmployeeNote = (userId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (noteId: string) =>
+      apiRequest<any>(API_ENDPOINTS.EMPLOYEE_NOTES.DELETE(userId, noteId), { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['employee-notes', userId] }),
+  });
+};
+
+// ── Payroll (employee payslips) ───────────────────────────────────────────────────
+
+export const useGetEmployeePayslips = (userId?: string, options?: { enabled?: boolean }) =>
+  useQuery({
+    queryKey: ['employee-payslips', userId],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.PAYROLL.EMPLOYEE_PAYSLIPS(userId!)),
+    enabled: !!userId && options?.enabled !== false,
+    select: (r: any) => (r?.payload || []) as any[],
+  });
+
 // ── Requisitions ───────────────────────────────────────────────────────────────
 
 export const useGetRequisitionMeta = () =>
