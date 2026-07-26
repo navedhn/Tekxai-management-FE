@@ -141,6 +141,7 @@ const BANKS = [
 // ── Initial form state ───────────────────────────────────────────────────────
 const initPersonal = {
   first_name: '', last_name: '', email: '', phone: '',
+  password: '',
   alternate_phone: '', father_name: '', cnic: '',
   dob: '', gender: '', marital_status: '',
   nationality: '', religion: '', blood_group: '',
@@ -207,6 +208,18 @@ function StepPersonal({ data, onChange, errorField, errorMessage, registerRef }:
         </Field>
         <Field label="Phone Number">
           <PhoneInput value={data.phone} onChange={v => onChange('phone', v)} />
+        </Field>
+        <Field label="Initial Password" required>
+          <input
+            ref={(el) => registerRef?.('password', el)}
+            className={cn(inputCls, errorField === 'password' && errorInputCls)}
+            type="password"
+            value={data.password}
+            onChange={e => onChange('password', e.target.value)}
+            placeholder="At least 8 characters"
+            autoComplete="new-password"
+          />
+          <FieldError show={errorField === 'password'} message={errorMessage} />
         </Field>
         <Field label="Alternate Phone">
           <PhoneInput value={data.alternate_phone} onChange={v => onChange('alternate_phone', v)} />
@@ -968,6 +981,7 @@ export default function AddEmployee() {
             last_name:     personal.last_name,
             email:         personal.email,
             phone:         personal.phone || undefined,
+            password:      personal.password,
             hire_date:     employment.hire_date || undefined,
             designation:   employment.designation || undefined,
             designation_id: employment.designation_id || undefined,
@@ -1093,7 +1107,7 @@ export default function AddEmployee() {
   const existingDocTypes = ((record as any)?.documents || []).map((d: any) => d.document_type);
 
   const canNext = () => {
-    if (step === 1) return personal.first_name && personal.last_name && personal.email;
+    if (step === 1) return personal.first_name && personal.last_name && personal.email && (isEditMode || personal.password.length >= 8);
     if (step === 2) return !!employment.hire_date;
     if (step === 4) return missingRequiredDocs(docFiles, existingDocTypes).length === 0;
     return true;

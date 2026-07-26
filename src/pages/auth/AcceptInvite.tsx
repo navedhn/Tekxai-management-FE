@@ -1,12 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { Formik, Form } from 'formik';
+import React from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { usePreviewInviteTokenQuery, useRedeemInviteMutation } from '@/services/inviteService';
-import { Button, FormInput } from '@/components';
+import { Button } from '@/components';
 import { useToastContext } from '@/components/toast/ToastProvider';
-import PasswordValidator from '@/components/ui/PasswordValidator';
 import { useAuth } from '@/hooks/useAuth';
-import { validateRegisterForm } from '@/utils/validationSchemas';
 
 /* ─── UI Helpers ─── */
 const ErrorState: React.FC<{ title: string; subtitle: string; icon?: React.ReactNode }> = ({ title, subtitle, icon }) => (
@@ -163,113 +160,16 @@ const AcceptInvite: React.FC = () => {
         );
     }
 
-    // Case B: Create new account via redemption
-    const handleSubmit = async (values: any) => {
-        try {
-            await redeemMutation.mutateAsync({
-                token,
-                first_name: values.first_name,
-                last_name: values.last_name,
-                password: values.password,
-                email // Optional if already in token, but good to include
-            });
-            toast.success('Account created and invitation accepted!');
-            navigate('/login');
-        } catch (error: any) {
-            const errorMessage = error?.data?.message || error?.message || 'Failed to redeem invitation.';
-            toast.error(errorMessage);
-        }
-    };
-
+    // No account exists for this invite's email. Invites can never create a
+    // user — the only valid account-creation paths are Recruitment -> Hire
+    // Candidate and Add Employee — so this state means HR sent an invite
+    // before adding the person as an employee. Direct them to HR rather
+    // than offering a signup form that would only fail server-side.
     return (
-        <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="flex flex-col gap-3">
-                <h1 className="text-4xl font-black text-gray-900 tracking-tight">Join the Team</h1>
-                <p className="text-gray-500 font-medium leading-relaxed">
-                    Welcome to the workspace! Fill in your details to create your account and accept your invitation.
-                </p>
-            </div>
-
-            <Formik
-                initialValues={{ first_name: '', last_name: '', password: '' }}
-                onSubmit={handleSubmit}
-            >
-                {({ values, handleChange, handleBlur, errors, touched }) => (
-                    <Form className="flex flex-col gap-6">
-                        <div className="grid grid-cols-2 gap-4">
-                            <FormInput
-                                label="FIRST NAME"
-                                name="first_name"
-                                type="text"
-                                placeholder="e.g. John"
-                                value={values.first_name}
-                                onChange={handleChange}
-                                onBlur={handleBlur}
-                                labelClassName="text-[10px] font-black text-gray-400 tracking-widest uppercase mb-1"
-                                error={touched.first_name && errors.first_name ? String(errors.first_name) : undefined}
-                            />
-                            <FormInput
-                                label="LAST NAME"
-                                name="last_name"
-                                type="text"
-                                placeholder="Doe"
-                                value={values.last_name}
-                                onChange={handleChange}
-                                onBlur={handleBlur}
-                                labelClassName="text-[10px] font-black text-gray-400 tracking-widest uppercase mb-1"
-                                error={touched.last_name && errors.last_name ? String(errors.last_name) : undefined}
-                            />
-                        </div>
-
-                        <FormInput
-                            label="YOUR EMAIL"
-                            name="email"
-                            type="email"
-                            value={email}
-                            disabled
-                            labelClassName="text-[10px] font-black text-gray-400 tracking-widest uppercase mb-1"
-                            className="bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed font-medium"
-                        />
-
-                        <div className="flex flex-col gap-4">
-                            <FormInput
-                                label="CREATE PASSWORD"
-                                name="password"
-                                type="password"
-                                placeholder="••••••••"
-                                value={values.password}
-                                onChange={handleChange}
-                                onBlur={handleBlur}
-                                labelClassName="text-[10px] font-black text-gray-400 tracking-widest uppercase mb-1"
-                                error={touched.password && errors.password ? String(errors.password) : undefined}
-                            />
-                            <PasswordValidator password={values.password} />
-                        </div>
-
-                        <div className="pt-4">
-                            <Button
-                                type="submit"
-                                variant="primary"
-                                fullWidth
-                                size="lg"
-                                loading={redeemMutation.isPending}
-                                disabled={redeemMutation.isPending}
-                                className="h-14 rounded-xl shadow-xl shadow-primary-100 font-bold text-lg"
-                            >
-                                Get Started
-                            </Button>
-                        </div>
-                    </Form>
-                )}
-            </Formik>
-
-            <div className="text-center text-sm font-medium text-gray-400 py-2 border-t border-gray-100">
-                Already have an account?{' '}
-                <Link to="/login" className="text-primary-600 font-black hover:text-primary-700 transition-colors underline decoration-2 underline-offset-4 decoration-primary-50 hover:decoration-primary-600">
-                    Log in
-                </Link>
-            </div>
-        </div>
+        <ErrorState
+            title="No Employee Record Found"
+            subtitle={`We couldn't find an employee record for ${email || 'this email'}. Please ask HR to add you via Add Employee or Recruitment before using this invitation.`}
+        />
     );
 };
 
