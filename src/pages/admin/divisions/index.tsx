@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Plus, X, Layers, Users } from 'lucide-react';
+import { Search, Plus, X, Layers, Users, Link2 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import {
   useGetDivisionsQuery, useGetDepartmentsQuery, useCreateDivision, useUpdateDivision,
-  useDeleteDivision, useBulkDeleteDivisions,
+  useDeleteDivision, useBulkDeleteDivisions, useBulkAssignDepartmentsToDivisions,
 } from '@/services/departmentService';
 import { useBulkSelection } from '@/hooks/useBulkSelection';
 import { summarizeBulkDelete } from '@/utils/bulkDeleteSummary';
@@ -13,6 +13,79 @@ import ActionModal from '@/components/ui/ActionModal';
 import BulkDeleteBar from '@/components/ui/BulkDeleteBar';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { cn } from '@/utils/cn';
+
+// Self-contained chip multi-select for the "Bulk Assign Departments" flow —
+// same interaction pattern as the milestone modal's ChipMultiSelect
+// (dropdown-to-add, chip-to-remove), kept local since this picker's
+// options (departments) and copy are specific to this page.
+function DepartmentMultiSelect({ options, selected, onChange }: { options: { id: string; name: string }[]; selected: string[]; onChange: (ids: string[]) => void }) {
+  const [open, setOpen] = useState(false);
+  const available = options.filter(o => !selected.includes(o.id));
+  return (
+    <div>
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {selected.length === 0 ? (
+          <span className="text-xs text-gray-400">No departments selected yet</span>
+        ) : selected.map(id => {
+          const opt = options.find(o => o.id === id);
+          return (
+            <span key={id} className="inline-flex items-center gap-1 bg-primary-50 text-primary-700 text-xs font-bold px-2.5 py-1 rounded-lg">
+              {opt?.name || id}
+              <button type="button" onClick={() => onChange(selected.filter(s => s !== id))} className="hover:text-red-500">
+                <X size={11} />
+              </button>
+            </span>
+          );
+        })}
+      </div>
+      <div className="relative">
+        <button type="button" onClick={() => setOpen(o => !o)}
+          className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm text-left text-gray-500 focus:outline-none focus:border-primary-400">
+          {available.length === 0 ? 'All departments selected' : 'Add a department…'}
+        </button>
+        {open && available.length > 0 && (
+          <div className="absolute z-10 mt-1 w-full max-h-56 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-lg">
+            {available.map(o => (
+              <button key={o.id} type="button"
+                onClick={() => { onChange([...selected, o.id]); setOpen(false); }}
+                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-primary-50">
+                {o.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Step 1 of "Bulk Assign Departments" — multi-select the departments to
+// link. Step 2 (confirmation) reuses the existing ActionModal.
+function BulkAssignDepartmentsModal({ count, departments, onClose, onContinue }: {
+  count: number; departments: { id: string; name: string }[]; onClose: () => void; onContinue: (departmentIds: string[]) => void;
+}) {
+  const [departmentIds, setDepartmentIds] = useState<string[]>([]);
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-black text-gray-900">Assign Departments</h2>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">Link {count} selected division{count > 1 ? 's' : ''} to one or more departments. Already-linked departments are ignored automatically.</p>
+        <label className="text-xs font-semibold text-gray-500 block mb-1.5">Departments <span className="text-red-500">*</span></label>
+        <DepartmentMultiSelect options={departments} selected={departmentIds} onChange={setDepartmentIds} />
+        <div className="flex gap-3 mt-5">
+          <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
+          <button onClick={() => onContinue(departmentIds)} disabled={departmentIds.length === 0}
+            className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40">
+            Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Modal({ division, onClose }: { division?: any; onClose: () => void }) {
   const [form, setForm] = useState({
@@ -93,6 +166,8 @@ export default function DivisionsPage() {
   const [modal, setModal] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkAssignSelectOpen, setBulkAssignSelectOpen] = useState(false);
+  const [bulkAssignTarget, setBulkAssignTarget] = useState<string[] | null>(null);
 
   const { data, isLoading } = useGetDivisionsQuery(departmentFilter || undefined);
   const { data: departments } = useGetDepartmentsQuery();
@@ -107,6 +182,7 @@ export default function DivisionsPage() {
 
   const deleteMutation = useDeleteDivision();
   const bulkDelete = useBulkDeleteDivisions();
+  const bulkAssign = useBulkAssignDepartmentsToDivisions();
 
   const handleDelete = () => {
     if (!deleteTarget) return;
@@ -128,6 +204,24 @@ export default function DivisionsPage() {
         setBulkDeleteOpen(false);
       },
       onError: (e: any) => toast.error(e?.message || 'Bulk delete failed'),
+    });
+  };
+
+  const handleBulkAssignSelect = (departmentIds: string[]) => {
+    setBulkAssignTarget(departmentIds);
+    setBulkAssignSelectOpen(false);
+  };
+
+  const handleBulkAssignConfirm = () => {
+    if (!bulkAssignTarget) return;
+    const division_ids = Array.from(selected);
+    bulkAssign.mutate({ division_ids, department_ids: bulkAssignTarget }, {
+      onSuccess: (res: any) => {
+        toast.success(res?.message || 'Departments assigned');
+        clear();
+        setBulkAssignTarget(null);
+      },
+      onError: (e: any) => toast.error(e?.message || 'Bulk assignment failed — no links were created'),
     });
   };
 
@@ -166,6 +260,14 @@ export default function DivisionsPage() {
           entityLabel="division"
           onClear={clear}
           onDelete={() => setBulkDeleteOpen(true)}
+          extraActions={
+            <button
+              onClick={() => setBulkAssignSelectOpen(true)}
+              className="flex items-center gap-1.5 text-xs font-black text-primary-700 bg-white border border-primary-200 hover:bg-primary-50 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <Link2 size={13} /> Assign Departments
+            </button>
+          }
         />
 
         <div className="overflow-x-auto mt-4">
@@ -213,7 +315,14 @@ export default function DivisionsPage() {
                         <span className="font-semibold text-gray-900">{div.name}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-2 text-gray-700">{div.department?.name || '—'}</td>
+                    <td className="py-3 px-2 text-gray-700">
+                      {div.department?.name || '—'}
+                      {div.division_departments?.length > 0 && (
+                        <span className="ml-1.5 inline-flex items-center gap-1 text-[11px] text-gray-400" title={div.division_departments.map((dd: any) => dd.department?.name).join(', ')}>
+                          <Link2 size={10} /> +{div.division_departments.length}
+                        </span>
+                      )}
+                    </td>
                     <td className="py-3 px-2 text-gray-500 max-w-[240px] truncate">{div.description || '—'}</td>
                     <td className="py-3 px-2">
                       <div className="flex items-center gap-1.5 text-gray-600">
@@ -265,6 +374,27 @@ export default function DivisionsPage() {
         confirmVariant="danger"
         icon="delete"
         loading={bulkDelete.isPending}
+      />
+
+      {bulkAssignSelectOpen && (
+        <BulkAssignDepartmentsModal
+          count={selected.size}
+          departments={(departments || []).map((d: any) => ({ id: d.id, name: d.name }))}
+          onClose={() => setBulkAssignSelectOpen(false)}
+          onContinue={handleBulkAssignSelect}
+        />
+      )}
+
+      <ActionModal
+        isOpen={!!bulkAssignTarget}
+        onClose={() => setBulkAssignTarget(null)}
+        onConfirm={handleBulkAssignConfirm}
+        title="Assign Departments"
+        description={`Link ${selected.size} selected division(s) to ${bulkAssignTarget?.length || 0} department(s)? Existing links are left untouched — only new pairs are created.`}
+        confirmText="Assign"
+        confirmVariant="primary"
+        icon="info"
+        loading={bulkAssign.isPending}
       />
     </div>
   );
