@@ -201,11 +201,23 @@ export const useRejectEditRequestMutation = () => {
   });
 };
 
+// The global QueryClient default (queryClient.ts) sets refetchOnWindowFocus:
+// false and a 5-minute staleTime — right for most pages, but wrong for
+// today's row here specifically: a check-in from the Desktop App (a
+// separate window, not this React tree) has no way to invalidate this
+// query itself, so without overriding these two options, returning to an
+// already-open Timesheet tab within 5 minutes of clocking in via Desktop
+// silently shows the pre-check-in state until a hard reload. Backend data
+// is confirmed correct and immediate (verified directly against
+// GET /timesheet/today right after a clock-in) — this was purely a
+// client-side cache-staleness gap.
 export const useGetWeeklyTimesheet = (params?: Record<string, any>, enabled = true) => {
   return useQuery<WeeklyTimesheetData>({
     queryKey: [...QUERY_KEYS.TIMESHEET.WEEKLY, params],
     queryFn: () => getWeeklyTimesheetApi(params),
-    enabled
+    enabled,
+    refetchOnWindowFocus: true,
+    staleTime: 30 * 1000,
   });
 };
 
