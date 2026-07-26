@@ -5,6 +5,11 @@ import { API_ENDPOINTS } from '@/services/api/endpoints';
 
 const BASE = 'api/v1/permission';
 
+// Data scope this specific grant applies at — see be-work's role_permissions/
+// user_permissions.scope column. 'ALL' is the default everywhere and means
+// "no restriction", matching pre-scope behavior exactly.
+export type PermissionScope = 'ALL' | 'BUSINESS_UNIT' | 'DEPARTMENT' | 'REGION' | 'BRANCH' | 'TEAM' | 'ASSIGNED' | 'OWN';
+
 export interface PermissionDef {
   permission: string;
   label: string;
@@ -12,7 +17,16 @@ export interface PermissionDef {
   module: string;
   action: string;
   granted?: boolean;
-  source?: 'role' | 'override_grant' | 'override_deny' | 'default_deny';
+  scope?: PermissionScope;
+  // 'inherited' (role tab): true when this role holds the permission only
+  // via an ancestor role, not a direct grant of its own.
+  inherited?: boolean;
+  // 'role_direct'/'role_inherited' (user tab) distinguish a grant coming
+  // from a role the user actually holds vs. one of that role's ancestors —
+  // both replace the older single 'role' value; kept as separate union
+  // members (not a breaking rename) since 'role' was never actually
+  // returned by get_user_effective_permissions to begin with.
+  source?: 'role' | 'role_direct' | 'role_inherited' | 'override_grant' | 'override_deny' | 'default_deny';
 }
 
 export interface PermissionsMatrix {
@@ -108,10 +122,10 @@ export function useRolePermissions(roleName: string) {
 
 // ── Save role permissions ─────────────────────────────────────────────────────
 
-interface GrantEntry { permission: string; granted: boolean }
+export interface GrantEntry { permission: string; granted: boolean; scope?: PermissionScope }
 
 const saveRolePermissions = async ({ roleName, grants }: { roleName: string; grants: GrantEntry[] }) => {
-  return apiRequest(API_ENDPOINTS.PERMISSION.ROLE(roleName), {
+  return apiRequest<any>(API_ENDPOINTS.PERMISSION.ROLE(roleName), {
     method: 'PUT',
     body: JSON.stringify({ grants }),
   });
@@ -146,10 +160,10 @@ export function useUserPermissions(userId?: string) {
 export function useSetUserPermission() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ userId, permission, granted, note }: { userId: string; permission: string; granted: boolean; note?: string }) =>
+    mutationFn: ({ userId, permission, granted, note, scope }: { userId: string; permission: string; granted: boolean; note?: string; scope?: PermissionScope }) =>
       apiRequest<any>(API_ENDPOINTS.PERMISSION.SET_USER_OVERRIDE(userId), {
         method: 'PUT',
-        body: JSON.stringify({ permission, granted, note }),
+        body: JSON.stringify({ permission, granted, note, scope }),
       }),
     onSuccess: (_r, { userId }) => {
       qc.invalidateQueries({ queryKey: ['permissions', 'user', userId] });
@@ -179,5 +193,240 @@ export function useClearUserPermissions() {
       qc.invalidateQueries({ queryKey: ['permissions', 'user', userId] });
       qc.invalidateQueries({ queryKey: ['permissions', 'me'] });
     },
+  });
+}
+
+// ── Enterprise RBAC: permission audit log ────────────────────────────────────
+
+export interface PermissionAuditLogEntry {
+  id: string;
+  actor_id: string;
+  target_type: 'ROLE' | 'USER';
+  target_ref: string;
+  permission: string;
+  old_granted: boolean | null;
+  new_granted: boolean | null;
+  old_scope: string | null;
+  new_scope: string | null;
+  reason: string | null;
+  created_at: string;
+}
+
+export interface PermissionAuditLogPage {
+  rows: PermissionAuditLogEntry[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface AuditLogFilters {
+  target_type?: 'ROLE' | 'USER';
+  target_ref?: string;
+  permission?: string;
+  page?: number;
+  limit?: number;
+}
+
+export function usePermissionAuditLog(filters: AuditLogFilters = {}) {
+  return useQuery<PermissionAuditLogPage>({
+    queryKey: ['permissions', 'audit-log', filters],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      Object.entries(filters).forEach(([k, v]) => { if (v !== undefined && v !== '') params.set(k, String(v)); });
+      const qs = params.toString();
+      const res = await apiRequest<any>(`${API_ENDPOINTS.PERMISSION.AUDIT_LOG}${qs ? `?${qs}` : ''}`);
+      return res?.payload;
+    },
+    staleTime: 30_000,
+  });
+}
+
+// ── Enterprise RBAC: configurable approval rules ─────────────────────────────
+
+export type ApprovalRuleKey = 'EXPENSE_APPROVAL' | 'PURCHASE_APPROVAL' | 'DISCOUNT_APPROVAL' | 'LEAVE_APPROVAL' | 'SALARY_APPROVAL' | 'OVERTIME_APPROVAL';
+
+export interface ApprovalRule {
+  id: string;
+  rule_key: ApprovalRuleKey;
+  role_name: string | null;
+  user_id: string | null;
+  max_amount: string | null;
+  currency: string | null;
+  scope: PermissionScope;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export function useApprovalRules(filters: { rule_key?: string; role_name?: string; user_id?: string } = {}) {
+  return useQuery<ApprovalRule[]>({
+    queryKey: ['permissions', 'approval-rules', filters],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
+      const qs = params.toString();
+      const res = await apiRequest<any>(`${API_ENDPOINTS.PERMISSION.APPROVAL_RULES}${qs ? `?${qs}` : ''}`);
+      return res?.payload || [];
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useCreateApprovalRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<ApprovalRule>) =>
+      apiRequest<any>(API_ENDPOINTS.PERMISSION.APPROVAL_RULES, { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['permissions', 'approval-rules'] }),
+  });
+}
+
+export function useUpdateApprovalRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: Partial<ApprovalRule> & { id: string }) =>
+      apiRequest<any>(API_ENDPOINTS.PERMISSION.APPROVAL_RULE(id), { method: 'PUT', body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['permissions', 'approval-rules'] }),
+  });
+}
+
+export function useDeleteApprovalRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiRequest<any>(API_ENDPOINTS.PERMISSION.APPROVAL_RULE(id), { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['permissions', 'approval-rules'] }),
+  });
+}
+
+// ── Dynamic RBAC: Roles (create/delete without touching seed data) ──────────
+
+export interface RoleEntity {
+  id: string;
+  name: string;
+  level: number;
+  is_system: boolean;
+  parent_role_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function useRoleEntities() {
+  return useQuery<RoleEntity[]>({
+    queryKey: ['permissions', 'roles'],
+    queryFn: async () => (await apiRequest<any>(API_ENDPOINTS.PERMISSION.ROLES))?.payload || [],
+    staleTime: 30_000,
+  });
+}
+
+export function useCreateRole() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; level?: number; parent_role_id?: string; copy_from_role?: string; apply_template_id?: string }) =>
+      apiRequest<any>(API_ENDPOINTS.PERMISSION.ROLES, { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['permissions', 'roles'] });
+      qc.invalidateQueries({ queryKey: ['permissions', 'matrix'] });
+    },
+  });
+}
+
+export function useDeleteRole() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiRequest<any>(API_ENDPOINTS.PERMISSION.ROLE_ENTITY(id), { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['permissions', 'roles'] });
+      qc.invalidateQueries({ queryKey: ['permissions', 'matrix'] });
+    },
+  });
+}
+
+// ── Dynamic RBAC: Permission Templates ───────────────────────────────────────
+
+export interface PermissionTemplateItem { id: string; template_id: string; permission: string; granted: boolean; scope: PermissionScope }
+export interface PermissionTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  is_system: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  items?: PermissionTemplateItem[];
+  _count?: { items: number };
+}
+
+export function useTemplates() {
+  return useQuery<PermissionTemplate[]>({
+    queryKey: ['permissions', 'templates'],
+    queryFn: async () => (await apiRequest<any>(API_ENDPOINTS.PERMISSION.TEMPLATES))?.payload || [],
+    staleTime: 30_000,
+  });
+}
+
+export function useCreateTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; description?: string; items?: GrantEntry[]; copy_from_role?: string }) =>
+      apiRequest<any>(API_ENDPOINTS.PERMISSION.TEMPLATES, { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['permissions', 'templates'] }),
+  });
+}
+
+export function useDeleteTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiRequest<any>(API_ENDPOINTS.PERMISSION.TEMPLATE(id), { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['permissions', 'templates'] }),
+  });
+}
+
+export function useApplyTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ templateId, roleName }: { templateId: string; roleName: string }) =>
+      apiRequest<any>(API_ENDPOINTS.PERMISSION.TEMPLATE_APPLY(templateId), { method: 'POST', body: JSON.stringify({ role_name: roleName }) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['permissions', 'matrix'] });
+      qc.invalidateQueries({ queryKey: ['permissions', 'role'] });
+    },
+  });
+}
+
+// ── Dynamic RBAC: Permissions Library (catalog) ──────────────────────────────
+
+export interface CatalogEntry {
+  id: string;
+  permission: string;
+  label: string;
+  workspace: string;
+  module: string;
+  action: string;
+  category: string | null;
+  is_deprecated: boolean;
+  is_system: boolean;
+}
+
+export function usePermissionsCatalog(filters: { workspace?: string; module?: string; is_deprecated?: boolean } = {}) {
+  return useQuery<CatalogEntry[]>({
+    queryKey: ['permissions', 'catalog', filters],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      Object.entries(filters).forEach(([k, v]) => { if (v !== undefined) params.set(k, String(v)); });
+      const qs = params.toString();
+      const res = await apiRequest<any>(`${API_ENDPOINTS.PERMISSION.CATALOG}${qs ? `?${qs}` : ''}`);
+      return res?.payload || [];
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useUpdateCatalogEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: Partial<CatalogEntry> & { id: string }) =>
+      apiRequest<any>(API_ENDPOINTS.PERMISSION.CATALOG_ENTRY(id), { method: 'PUT', body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['permissions', 'catalog'] }),
   });
 }

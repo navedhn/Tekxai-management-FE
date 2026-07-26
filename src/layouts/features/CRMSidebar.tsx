@@ -90,7 +90,6 @@ const CRMSidebar: React.FC<CRMSidebarProps> = memo(({ isOpen, onClose }) => {
         <div className="px-3 pt-3 flex gap-2">
           <button onClick={() => navigate('/admin')} className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">ERP</button>
           <button className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-[#005CDA] text-white">CRM</button>
-          <button onClick={() => navigate('/hr')} className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">HR</button>
         </div>
       )}
 
