@@ -27,8 +27,14 @@
     "mac": {
       "target": "dmg",
       "artifactName": "TekXAI-Agent.dmg",
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "identity": "Tekxai LLC (64GRQF7C5Z)"
     },
+    "afterSign": "scripts/notarize.js",
     "linux": {
       "target": "AppImage",
       "artifactName": "TekXAI-Agent.AppImage"
@@ -49,6 +55,7 @@
     "screenshot-desktop": "^1.15.0"
   },
   "devDependencies": {
+    "@electron/notarize": "^2.5.0",
     "electron": "^31.0.0",
     "electron-builder": "^24.13.3"
   }
