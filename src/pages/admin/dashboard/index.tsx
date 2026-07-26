@@ -103,6 +103,11 @@ const Dashboard: React.FC = () => {
             return r?.payload as DashboardSummary;
         },
         staleTime: 60000,
+        // Same gap as the Employee Timesheet page: a Desktop App check-in
+        // can't invalidate this query from outside the React tree, so an
+        // already-open Dashboard tab needs a real refetch-on-focus to show
+        // it promptly instead of waiting out staleTime.
+        refetchOnWindowFocus: true,
     });
 
     const { data: announcements, isLoading: announcementsLoading } = useQuery({
