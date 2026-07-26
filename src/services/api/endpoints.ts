@@ -42,6 +42,8 @@ export const API_ENDPOINTS = {
     UPDATE:      (id: string | number) => `${v1}/department/${id}`,
     DELETE:      (id: string | number) => `${v1}/department/${id}`,
     BULK_DELETE: `${v1}/department/bulk-delete`,
+    BULK_UPDATE_BUSINESS_UNIT: `${v1}/department/bulk-update-business-unit`,
+    BULK_UPDATE_BUSINESS_FUNCTION: `${v1}/department/bulk-update-business-function`,
     DIVISIONS:   (id: string | number) => `${v1}/department/${id}/divisions`,
   },
   DIVISION: {
@@ -50,6 +52,7 @@ export const API_ENDPOINTS = {
     UPDATE:      (id: string | number) => `${v1}/divisions/${id}`,
     DELETE:      (id: string | number) => `${v1}/divisions/${id}`,
     BULK_DELETE: `${v1}/divisions/bulk-delete`,
+    BULK_ASSIGN_DEPARTMENTS: `${v1}/divisions/bulk-assign-departments`,
   },
   DESIGNATION: {
     LIST:        `${v1}/designations`,

@@ -1,16 +1,86 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Search, Plus, X, Building2, Users } from 'lucide-react';
+import { Search, Plus, X, Building2, Users, Repeat } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import ActionModal from '@/components/ui/ActionModal';
 import BulkDeleteBar from '@/components/ui/BulkDeleteBar';
 import { useToastContext } from '@/components/toast/ToastProvider';
-import { useGetDepartmentsQuery, useCreateDepartment, useUpdateDepartment, useDeleteDepartment, useBulkDeleteDepartments } from '@/services/departmentService';
+import {
+  useGetDepartmentsQuery, useCreateDepartment, useUpdateDepartment, useDeleteDepartment,
+  useBulkDeleteDepartments, useBulkUpdateDepartmentsBusinessUnit, useBulkUpdateDepartmentsBusinessFunction,
+} from '@/services/departmentService';
 import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
 import { useBulkSelection } from '@/hooks/useBulkSelection';
 import { summarizeBulkDelete } from '@/utils/bulkDeleteSummary';
 import { cn } from '@/utils/cn';
+
+// Step 1 of the "Bulk Change Business Unit" flow — pick the target unit.
+// Step 2 (confirmation) reuses the existing ActionModal, same as every
+// other destructive/impactful bulk action on this page.
+function SelectBusinessUnitModal({ count, onClose, onContinue }: { count: number; onClose: () => void; onContinue: (businessUnitId: string) => void }) {
+  const [businessUnitId, setBusinessUnitId] = useState('');
+  const { data: businessUnits } = useGetBusinessUnitsQuery();
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-black text-gray-900">Change Business Unit</h2>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">Move {count} selected department{count > 1 ? 's' : ''} to a different Business Unit.</p>
+        <div>
+          <label className="text-xs font-semibold text-gray-500 block mb-1.5">Business Unit <span className="text-red-500">*</span></label>
+          <select className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 text-gray-700"
+            value={businessUnitId} onChange={e => setBusinessUnitId(e.target.value)}>
+            <option value="">Select business unit</option>
+            {(businessUnits || []).map((bu: any) => <option key={bu.id} value={bu.id}>{bu.name}</option>)}
+          </select>
+        </div>
+        <div className="flex gap-3 mt-5">
+          <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
+          <button onClick={() => onContinue(businessUnitId)} disabled={!businessUnitId}
+            className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40">
+            Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Step 1 of the "Bulk Change Function" flow — same two-step shape as the
+// Business Unit bulk flow above (pick target, then confirm via ActionModal).
+function SelectBusinessFunctionModal({ count, onClose, onContinue }: { count: number; onClose: () => void; onContinue: (businessFunction: string) => void }) {
+  const [businessFunction, setBusinessFunction] = useState('');
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-black text-gray-900">Change Business Function</h2>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">Change the Business Function for {count} selected department{count > 1 ? 's' : ''}. Business Unit and Division assignments are unaffected.</p>
+        <div>
+          <label className="text-xs font-semibold text-gray-500 block mb-1.5">Business Function <span className="text-red-500">*</span></label>
+          <select className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 text-gray-700"
+            value={businessFunction} onChange={e => setBusinessFunction(e.target.value)}>
+            <option value="">Select function</option>
+            <option value="SALES">Sales</option>
+            <option value="OPERATIONS">Operations</option>
+          </select>
+        </div>
+        <div className="flex gap-3 mt-5">
+          <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
+          <button onClick={() => onContinue(businessFunction)} disabled={!businessFunction}
+            className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40">
+            Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Modal({ dept, onClose }: { dept?: any; onClose: () => void }) {
   const [form, setForm] = useState({
@@ -18,6 +88,7 @@ function Modal({ dept, onClose }: { dept?: any; onClose: () => void }) {
     description: dept?.description || '',
     head_user_id: dept?.head_user_id || '',
     business_unit_id: dept?.business_unit_id || dept?.business_unit?.id || '',
+    business_function: dept?.business_function || '',
   });
   const [err, setErr] = useState('');
 
@@ -69,6 +140,18 @@ function Modal({ dept, onClose }: { dept?: any; onClose: () => void }) {
               value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Department description…" />
           </div>
           <div>
+            <label className="text-xs font-semibold text-gray-500 block mb-1.5">
+              Business Function
+              <span className="text-gray-400 font-normal ml-1.5">(drives the Employee ID prefix, e.g. Software House + Sales → SS-1)</span>
+            </label>
+            <select className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 text-gray-700"
+              value={form.business_function} onChange={e => setForm(p => ({ ...p, business_function: e.target.value }))}>
+              <option value="">Select function</option>
+              <option value="SALES">Sales</option>
+              <option value="OPERATIONS">Operations</option>
+            </select>
+          </div>
+          <div>
             <label className="text-xs font-semibold text-gray-500 block mb-1.5">Department Head</label>
             <select className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 text-gray-700"
               value={form.head_user_id} onChange={e => setForm(p => ({ ...p, head_user_id: e.target.value }))}>
@@ -108,9 +191,15 @@ export default function DepartmentsPage() {
   const { selected, allOnPageSelected, toggleAll, toggleOne, clear } =
     useBulkSelection(departments.map(d => d.id));
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkBuSelectOpen, setBulkBuSelectOpen] = useState(false);
+  const [bulkBuTarget, setBulkBuTarget] = useState<{ id: string; name: string } | null>(null);
+  const [bulkFnSelectOpen, setBulkFnSelectOpen] = useState(false);
+  const [bulkFnTarget, setBulkFnTarget] = useState<string>('');
 
   const deleteMutation = useDeleteDepartment();
   const bulkDelete = useBulkDeleteDepartments();
+  const bulkUpdateBusinessUnit = useBulkUpdateDepartmentsBusinessUnit();
+  const bulkUpdateBusinessFunction = useBulkUpdateDepartmentsBusinessFunction();
 
   const handleDelete = () => {
     if (!deleteTarget) return;
@@ -135,6 +224,43 @@ export default function DepartmentsPage() {
         setBulkDeleteOpen(false);
       },
       onError: (e: any) => toast.error(e?.message || 'Bulk delete failed'),
+    });
+  };
+
+  const handleBulkBusinessUnitSelect = (businessUnitId: string) => {
+    const bu = (businessUnits || []).find((b: any) => b.id === businessUnitId);
+    setBulkBuTarget({ id: businessUnitId, name: bu?.name || 'the selected Business Unit' });
+    setBulkBuSelectOpen(false);
+  };
+
+  const handleBulkBusinessUnitConfirm = () => {
+    if (!bulkBuTarget) return;
+    const ids = Array.from(selected);
+    bulkUpdateBusinessUnit.mutate({ ids, business_unit_id: bulkBuTarget.id }, {
+      onSuccess: (res: any) => {
+        toast.success(res?.message || `Business Unit updated for ${ids.length} department(s)`);
+        clear();
+        setBulkBuTarget(null);
+      },
+      onError: (e: any) => toast.error(e?.message || 'Bulk Business Unit update failed — no departments were changed'),
+    });
+  };
+
+  const handleBulkFunctionSelect = (businessFunction: string) => {
+    setBulkFnTarget(businessFunction);
+    setBulkFnSelectOpen(false);
+  };
+
+  const handleBulkFunctionConfirm = () => {
+    if (!bulkFnTarget) return;
+    const ids = Array.from(selected);
+    bulkUpdateBusinessFunction.mutate({ ids, business_function: bulkFnTarget }, {
+      onSuccess: (res: any) => {
+        toast.success(res?.message || `Business Function updated for ${ids.length} department(s)`);
+        clear();
+        setBulkFnTarget('');
+      },
+      onError: (e: any) => toast.error(e?.message || 'Bulk Business Function update failed — no departments were changed'),
     });
   };
 
@@ -170,6 +296,22 @@ export default function DepartmentsPage() {
           entityLabel="department"
           onClear={clear}
           onDelete={() => setBulkDeleteOpen(true)}
+          extraActions={
+            <>
+              <button
+                onClick={() => setBulkBuSelectOpen(true)}
+                className="flex items-center gap-1.5 text-xs font-black text-primary-700 bg-white border border-primary-200 hover:bg-primary-50 px-3 py-1.5 rounded-lg transition-colors"
+              >
+                <Repeat size={13} /> Change Business Unit
+              </button>
+              <button
+                onClick={() => setBulkFnSelectOpen(true)}
+                className="flex items-center gap-1.5 text-xs font-black text-primary-700 bg-white border border-primary-200 hover:bg-primary-50 px-3 py-1.5 rounded-lg transition-colors"
+              >
+                <Repeat size={13} /> Change Function
+              </button>
+            </>
+          }
         />
 
         <div className="overflow-x-auto mt-4">
@@ -185,7 +327,7 @@ export default function DepartmentsPage() {
                     title={allOnPageSelected ? 'Deselect all' : 'Select all'}
                   />
                 </th>
-                {['Department', 'Business Unit', 'Description', 'Head', 'Employees', 'Actions'].map(h => (
+                {['Department', 'Business Unit', 'Function', 'Description', 'Head', 'Employees', 'Actions'].map(h => (
                   <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -193,10 +335,10 @@ export default function DepartmentsPage() {
             <tbody className="divide-y divide-gray-50">
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}><td colSpan={7} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                  <tr key={i}><td colSpan={8} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
                 ))
               ) : departments.length === 0 ? (
-                <tr><td colSpan={7} className="py-12 text-center text-gray-400 text-sm">No departments found</td></tr>
+                <tr><td colSpan={8} className="py-12 text-center text-gray-400 text-sm">No departments found</td></tr>
               ) : departments.map((dept: any) => (
                 <tr key={dept.id} className={cn('hover:bg-gray-50 transition-colors', selected.has(dept.id) && 'bg-primary-50')}>
                   <td className="py-3 px-2">
@@ -216,6 +358,14 @@ export default function DepartmentsPage() {
                     </div>
                   </td>
                   <td className="py-3 px-2 text-gray-600">{dept.business_unit?.name || '—'}</td>
+                  <td className="py-3 px-2">
+                    {dept.business_function ? (
+                      <span className={cn('px-2 py-0.5 rounded-full text-[11px] font-semibold',
+                        dept.business_function === 'SALES' ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600')}>
+                        {dept.business_function === 'SALES' ? 'Sales' : 'Operations'}
+                      </span>
+                    ) : <span className="text-gray-400 text-xs">Not set</span>}
+                  </td>
                   <td className="py-3 px-2 text-gray-500 max-w-[240px] truncate">{dept.description || '—'}</td>
                   <td className="py-3 px-2 text-gray-700">
                     {dept.head ? `${dept.head.first_name} ${dept.head.last_name}` : dept.head_name || '—'}
@@ -269,6 +419,46 @@ export default function DepartmentsPage() {
         confirmVariant="danger"
         icon="delete"
         loading={bulkDelete.isPending}
+      />
+
+      {bulkBuSelectOpen && (
+        <SelectBusinessUnitModal
+          count={selected.size}
+          onClose={() => setBulkBuSelectOpen(false)}
+          onContinue={handleBulkBusinessUnitSelect}
+        />
+      )}
+
+      <ActionModal
+        isOpen={!!bulkBuTarget}
+        onClose={() => setBulkBuTarget(null)}
+        onConfirm={handleBulkBusinessUnitConfirm}
+        title="Change Business Unit"
+        description={`Move ${selected.size} selected department(s) to "${bulkBuTarget?.name}"? This updates every selected department in one transaction — if any fails, none are changed.`}
+        confirmText="Change Business Unit"
+        confirmVariant="primary"
+        icon="info"
+        loading={bulkUpdateBusinessUnit.isPending}
+      />
+
+      {bulkFnSelectOpen && (
+        <SelectBusinessFunctionModal
+          count={selected.size}
+          onClose={() => setBulkFnSelectOpen(false)}
+          onContinue={handleBulkFunctionSelect}
+        />
+      )}
+
+      <ActionModal
+        isOpen={!!bulkFnTarget}
+        onClose={() => setBulkFnTarget('')}
+        onConfirm={handleBulkFunctionConfirm}
+        title="Change Business Function"
+        description={`Change the Business Function to "${bulkFnTarget === 'SALES' ? 'Sales' : 'Operations'}" for ${selected.size} selected department(s)? This updates every selected department in one transaction — if any fails, none are changed.`}
+        confirmText="Change Function"
+        confirmVariant="primary"
+        icon="info"
+        loading={bulkUpdateBusinessFunction.isPending}
       />
     </div>
   );
