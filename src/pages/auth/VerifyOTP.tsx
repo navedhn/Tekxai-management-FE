@@ -44,11 +44,15 @@ const VerifyOTP: React.FC = () => {
         }
 
         try {
-            const res: any = await verifyOTPMutation.mutateAsync({ id, otp: values.otp });
-            // Capture the user id returned by the server — needed for the reset-password endpoint
-            const userId = res?.payload?.id ?? res?.payload?.user?.id ?? res?.id ?? res?.user?.id;
+            await verifyOTPMutation.mutateAsync({ id, otp: values.otp });
+            // `id` was already known before this call (it's what /auth/verify/:id
+            // was called with) — previously this re-derived it from the verify
+            // response using field names (payload.id / payload.user.id / etc.)
+            // that never matched the backend's actual `{ data: { user_id } }`
+            // shape, so it always evaluated to undefined and silently broke the
+            // next step. Forwarding the already-known id is simpler and correct.
             toast.success('OTP verified successfully!');
-            navigate('/reset-password', { state: { id: userId, email } });
+            navigate('/reset-password', { state: { id, email } });
         } catch (error: any) {
             const errorMessage =
                 error?.data?.message ||
