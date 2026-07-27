@@ -102,14 +102,14 @@ const NavItem: React.FC<{ link: SidebarLink }> = ({ link }) => (
       cn(
         'flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-150 group text-[13px] font-medium',
         isActive
-          ? 'bg-[#2563EB] text-white shadow-md shadow-blue-950/40'
-          : 'text-slate-300 hover:bg-white/5 hover:text-white',
+          ? 'bg-(--color-sidebar-active) text-white shadow-md shadow-blue-950/40'
+          : 'text-(--color-sidebar-text) hover:bg-(--color-sidebar-hover) hover:text-white',
       )
     }
   >
     {({ isActive }) => (
       <>
-        <span className={cn('shrink-0 w-5 h-5 flex items-center justify-center transition-colors', isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-200')}>
+        <span className={cn('shrink-0 w-5 h-5 flex items-center justify-center transition-colors', isActive ? 'text-white' : 'text-(--color-sidebar-icon) group-hover:text-slate-200')}>
           {link.icon}
         </span>
         <span className="truncate flex-1">{link.label}</span>
@@ -285,7 +285,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
 
   return (
     <div className={cn(
-      'fixed left-0 top-0 z-110 w-[280px] h-screen flex flex-col bg-[#0B1437] border-r border-white/10',
+      'fixed left-0 top-0 z-110 w-[280px] h-screen flex flex-col bg-(--color-sidebar-bg) border-r border-white/10',
       isOpen !== undefined && !isOpen ? '-translate-x-full lg:translate-x-0' : '',
       'transition-transform duration-300'
     )}>
@@ -331,10 +331,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
                       'w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-150 group text-[13px] font-medium',
                       isGroupActive && !isOpenGroup
                         ? 'bg-blue-500/15 text-blue-300'
-                        : 'text-slate-300 hover:bg-white/5 hover:text-white',
+                        : 'text-(--color-sidebar-text) hover:bg-(--color-sidebar-hover) hover:text-white',
                     )}
                   >
-                    <span className={cn('shrink-0 w-5 h-5 flex items-center justify-center transition-colors', isGroupActive && !isOpenGroup ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200')}>
+                    <span className={cn('shrink-0 w-5 h-5 flex items-center justify-center transition-colors', isGroupActive && !isOpenGroup ? 'text-blue-300' : 'text-(--color-sidebar-icon) group-hover:text-slate-200')}>
                       {group.icon}
                     </span>
                     <span className="truncate flex-1 text-left">{group.module}</span>
