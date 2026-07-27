@@ -2,7 +2,7 @@ import React, { forwardRef } from 'react';
 import { cn } from '@/utils/cn';
 import { LucideIcon } from 'lucide-react';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'dark' | 'outline' | 'ghost' | 'link' | 'transparent';
+export type ButtonVariant = 'primary' | 'secondary' | 'dark' | 'outline' | 'ghost' | 'link' | 'transparent' | 'danger' | 'success';
 export type ButtonSize = 'sm' | 'md' | 'lg' | 'xl';
 export type ButtonAnimation = 'sweep' | 'sweep-black' | 'none';
 
@@ -54,7 +54,9 @@ const variantClasses: Record<ButtonVariant, string> = {
   outline: 'bg-transparent text-gray-600 border border-gray-200 hover:bg-gray-50 font-medium',
   ghost: 'bg-transparent text-gray-500 hover:bg-gray-100 font-medium',
   link: 'bg-transparent text-primary-500 hover:text-primary-600 underline-offset-4 hover:underline',
-  transparent: 'bg-transparent text-primary-600 font-medium !p-0'
+  transparent: 'bg-transparent text-primary-600 font-medium !p-0',
+  danger: 'bg-(--color-danger) hover:bg-(--color-danger)/90 text-white',
+  success: 'bg-(--color-success) hover:bg-(--color-success)/90 text-white'
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
@@ -118,7 +120,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     };
 
     const baseClasses =
-      'font-semibold text-sm font-heading transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:cursor-pointer inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group active:scale-[0.98] hover:-translate-y-[1px] hover:shadow-lg shadow-sm';
+      'font-semibold text-sm font-heading transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:cursor-pointer inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group active:scale-[0.98] hover:-translate-y-[1px] hover:shadow-lg shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--color-brand-primary) focus-visible:ring-offset-2';
     const roundedClass = rounded ? 'rounded-full' : 'rounded-lg';
     const widthClass = fullWidth ? 'w-full' : '';
 
@@ -177,5 +179,43 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 );
 
 Button.displayName = 'Button';
+
+export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  icon: LucideIcon;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  'aria-label': string;
+}
+
+const iconButtonSizeClasses: Record<ButtonSize, { box: string; icon: number }> = {
+  sm: { box: 'h-8 w-8', icon: 16 },
+  md: { box: 'h-9 w-9', icon: 18 },
+  lg: { box: 'h-11 w-11', icon: 20 },
+  xl: { box: 'h-12 w-12', icon: 22 },
+};
+
+/** Icon-only button — same variant palette, focus ring, and disabled state as Button. */
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
+  ({ icon: Icon, variant = 'ghost', size = 'md', className, disabled, ...props }, ref) => {
+    const { box, icon } = iconButtonSizeClasses[size];
+    return (
+      <button
+        ref={ref}
+        disabled={disabled}
+        className={cn(
+          'inline-flex items-center justify-center rounded-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--color-brand-primary) focus-visible:ring-offset-2',
+          box,
+          variantClasses[variant].replace('btn-sweep', '').replace('btn-sweep-black', '').trim(),
+          className,
+        )}
+        {...props}
+      >
+        <Icon size={icon} />
+      </button>
+    );
+  }
+);
+
+IconButton.displayName = 'IconButton';
 
 export default Button;
