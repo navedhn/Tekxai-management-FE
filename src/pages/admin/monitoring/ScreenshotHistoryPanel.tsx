@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { ChevronDown, ChevronRight, Clock, Camera, Activity, MonitorSmartphone, Globe, Trash2 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Select from '@/components/ui/Select';
@@ -15,6 +15,24 @@ interface Props {
 }
 
 const PAGE_SIZE = 30;
+const FILTERS_STORAGE_KEY = 'monitoring.screenshotHistory.filters';
+
+interface PersistedFilters {
+  date?: string;
+  activityFilter?: string;
+  productivityFilter?: string;
+  appFilter?: string;
+  siteFilter?: string;
+}
+
+function loadPersistedFilters(): PersistedFilters {
+  try {
+    const raw = localStorage.getItem(FILTERS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
 
 function fmtHourRange(hourKey: string) {
   const d = new Date(hourKey);
@@ -35,20 +53,41 @@ function hourKeyOf(iso: string) {
   return d.toISOString();
 }
 
+// Restored once, outside the component, so the very first render already
+// has the persisted values (lazy useState initializers below read from this
+// same object) — no "restore after mount" flash of empty filters.
+const persisted = loadPersistedFilters();
+
 const ScreenshotHistoryPanel: React.FC<Props> = ({ userOptions, selectedUser, onSelectUser, isSuperAdmin, onDeleteOne }) => {
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState(persisted.date || '');
   const [timeFrom, setTimeFrom] = useState('');
   const [timeTo, setTimeTo] = useState('');
   const [page, setPage] = useState(1);
   const [accumulated, setAccumulated] = useState<Screenshot[]>([]);
   const [openHours, setOpenHours] = useState<Set<string>>(new Set());
+  // Guards the initial auto-expand so it only ever happens once per
+  // employee/filter selection, not on every "load more" page or re-render —
+  // manual accordion toggling afterward behaves exactly as before.
+  const autoExpandedRef = useRef(false);
 
   // Employee-scoped filters not yet backend-supported — kept purely
-  // presentational ("coming soon") per scope, see report.
-  const [activityFilter, setActivityFilter] = useState('');
-  const [productivityFilter, setProductivityFilter] = useState('');
-  const [appFilter, setAppFilter] = useState('');
-  const [siteFilter, setSiteFilter] = useState('');
+  // presentational ("coming soon") per scope, see report. Still persisted
+  // (harmlessly inert today) so they restore correctly once/if the backend
+  // gains support, without another frontend change.
+  const [activityFilter, setActivityFilter] = useState(persisted.activityFilter || '');
+  const [productivityFilter, setProductivityFilter] = useState(persisted.productivityFilter || '');
+  const [appFilter, setAppFilter] = useState(persisted.appFilter || '');
+  const [siteFilter, setSiteFilter] = useState(persisted.siteFilter || '');
+
+  // Persist filters (not pagination, not expanded cards, not the employee —
+  // that's owned by the parent page) whenever any of them change.
+  useEffect(() => {
+    try {
+      localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify({
+        date, activityFilter, productivityFilter, appFilter, siteFilter,
+      }));
+    } catch { /* localStorage unavailable — not fatal */ }
+  }, [date, activityFilter, productivityFilter, appFilter, siteFilter]);
 
   // Reset pagination/accumulation whenever the employee or a backend-wired
   // filter changes so we never mix old and new results.
@@ -56,6 +95,7 @@ const ScreenshotHistoryPanel: React.FC<Props> = ({ userOptions, selectedUser, on
     setPage(1);
     setAccumulated([]);
     setOpenHours(new Set());
+    autoExpandedRef.current = false;
   }, [selectedUser, date, timeFrom, timeTo]);
 
   const params: Record<string, string> = { page: String(page), limit: String(PAGE_SIZE), user_id: selectedUser };
@@ -75,6 +115,13 @@ const ScreenshotHistoryPanel: React.FC<Props> = ({ userOptions, selectedUser, on
       const seen = new Set(prev.map((r) => r.id));
       return [...prev, ...records.filter((r: Screenshot) => !seen.has(r.id))];
     });
+    // Auto-expand the latest hour group that actually has screenshots, once,
+    // the first time this employee/filter combination's first page loads.
+    // The API already returns captured_at desc, so records[0] is the newest.
+    if (page === 1 && !autoExpandedRef.current && records.length > 0) {
+      autoExpandedRef.current = true;
+      setOpenHours(new Set([hourKeyOf(records[0].captured_at)]));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, page]);
 

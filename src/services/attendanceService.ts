@@ -4,7 +4,7 @@ import { apiRequest } from '@/lib/queryClient';
 const v1 = 'api/v1';
 
 export const useGetShiftsQuery = () =>
-  useQuery({ queryKey: ['shifts'], queryFn: async () => { const r = await apiRequest<any>(`${v1}/attendance/shifts`); return r?.payload || []; } });
+  useQuery({ queryKey: ['shifts'], queryFn: async () => { const r = await apiRequest<any>(`${v1}/attendance/shifts`); return r?.payload || []; }, staleTime: 60000 });
 
 export const useGetViolationsQuery = (params?: Record<string,any>) =>
   useQuery({ queryKey: ['violations', params], queryFn: async () => { const qs = params ? '?' + new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([,v])=>v!=null&&v!=''))).toString() : ''; const r = await apiRequest<any>(`${v1}/attendance/violations${qs}`); return r?.payload || { records: [], total: 0 }; }, staleTime: 30000 });
