@@ -24,7 +24,7 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
     const notifBtnRef = useRef<HTMLButtonElement>(null);
     const profileRef = useRef<HTMLDivElement>(null);
 
-    const { title, subtitle } = getPageTitle(location.pathname);
+    const { title } = getPageTitle(location.pathname);
 
     useEffect(() => {
         setIsProfileOpen(false);
@@ -65,11 +65,6 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
                     <h1 className="text-lg sm:text-xl md:text-2xl font-poppins font-semibold text-gray-900 tracking-tight truncate">
                         {title}
                     </h1>
-                    {subtitle && (
-                        <span className="text-sm text-gray-400 font-poppins hidden sm:inline truncate">
-                            {subtitle}
-                        </span>
-                    )}
                 </div>
             </div>
 
