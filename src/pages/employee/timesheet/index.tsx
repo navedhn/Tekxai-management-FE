@@ -169,11 +169,11 @@ const EmployeeTimesheet: React.FC = () => {
         <div className="h-8 w-px bg-gray-100" />
         <div className="flex flex-col gap-1">
           <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Working Days (This Month)</span>
-          <span className="text-sm font-black text-gray-900">{mySummary?.total_working_days ?? '—'}</span>
+          <span className="text-sm font-black text-gray-900">{mySummary?.present_days ?? '—'}</span>
         </div>
         <div className="flex flex-col gap-1">
           <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Late Count</span>
-          <span className="text-sm font-black text-gray-900">{mySummary?.late_count ?? '—'}</span>
+          <span className="text-sm font-black text-gray-900">{mySummary?.late_days ?? '—'}</span>
         </div>
         <div className="flex flex-col gap-1">
           <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Total Late Minutes</span>

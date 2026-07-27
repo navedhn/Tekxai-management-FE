@@ -17,6 +17,7 @@ import ScreenshotHistoryPanel from './ScreenshotHistoryPanel';
 const TABS = ['Productivity Overview', 'Screenshot History', 'Reports'];
 const v1 = 'api/v1';
 const BUILDER = `${v1}/report/builder`;
+const SS_EMPLOYEE_STORAGE_KEY = 'monitoring.screenshotHistory.employeeId';
 
 // Sprint 1 Milestone 6 — org-wide Monitoring Reports via the generic
 // report_builder engine. Deliberately separate from the existing
@@ -165,7 +166,14 @@ const MonitoringPage: React.FC = () => {
   // selector (see ScreenshotHistoryPanel) — deliberately decoupled from the
   // page-level "All Employees" filter used by Productivity Overview/Reports,
   // since this tab must never load data for "everyone" at once.
-  const [ssSelectedUser, setSsSelectedUser] = useState('');
+  //
+  // Restored from localStorage synchronously (lazy initializer, not a
+  // post-mount effect) so the first render — and the first screenshots
+  // request — already use the last-selected employee. No "flash of no
+  // employee selected" before switching.
+  const [ssSelectedUser, setSsSelectedUser] = useState(() => {
+    try { return localStorage.getItem(SS_EMPLOYEE_STORAGE_KEY) || ''; } catch { return ''; }
+  });
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -209,6 +217,25 @@ const MonitoringPage: React.FC = () => {
     { value: '', label: 'All Employees' },
     ...(users as any[]).map((u: any) => ({ value: u.id, label: `${u.first_name} ${u.last_name}` })),
   ];
+
+  // Persist Screenshot History's employee selection so it survives navigating
+  // away and back. Clearing the key on '' keeps localStorage from holding a
+  // stale empty value that would otherwise no-op restore anyway.
+  useEffect(() => {
+    try {
+      if (ssSelectedUser) localStorage.setItem(SS_EMPLOYEE_STORAGE_KEY, ssSelectedUser);
+      else localStorage.removeItem(SS_EMPLOYEE_STORAGE_KEY);
+    } catch { /* localStorage unavailable (private mode, etc.) — not fatal */ }
+  }, [ssSelectedUser]);
+
+  // Graceful fallback: if the restored employee ID no longer exists (left
+  // the company, account deleted, etc.), drop back to "no employee selected"
+  // once the real user list has loaded — never leave a dead ID selected.
+  useEffect(() => {
+    if (ssSelectedUser && users.length > 0 && !(users as any[]).some((u: any) => u.id === ssSelectedUser)) {
+      setSsSelectedUser('');
+    }
+  }, [users, ssSelectedUser]);
 
   const agg = aggregateProductivity(productivitySummary as any[]);
   const totalAppSecs = appUsage.reduce((s, a) => s + a.duration_seconds, 0);
