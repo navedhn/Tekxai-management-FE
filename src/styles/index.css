@@ -71,6 +71,9 @@
   --color-info: #175cd3;
   --color-info-bg: #eff8ff;
   --color-info-border: #b2ddff;
+  --color-neutral: #475467;
+  --color-neutral-bg: #f2f4f7;
+  --color-neutral-border: #d0d5dd;
 
   --color-surface: #ffffff;
   --color-disabled: #9ca3af;
