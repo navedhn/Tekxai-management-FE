@@ -70,26 +70,26 @@ const CRMSidebar: React.FC<CRMSidebarProps> = memo(({ isOpen, onClose }) => {
   return (
     <aside
       className={
-        `fixed inset-y-0 left-0 w-[280px] bg-white flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] lg:translate-x-0 z-[110] border-r border-gray-100 ` +
+        `fixed inset-y-0 left-0 w-[280px] bg-(--color-sidebar-bg) flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] lg:translate-x-0 z-[110] border-r border-white/10 ` +
         (isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0')
       }
     >
-      <div className="px-5 py-4 flex items-center justify-between border-b border-gray-100">
+      <div className="px-5 py-4 flex items-center justify-between border-b border-white/10">
         <div className="flex items-center gap-3">
-          <img src={tekxaiLogo} alt="TekXAI" className="h-8" />
-          <span className="text-xs font-black uppercase tracking-widest text-[#005CDA] bg-blue-50 px-2 py-1 rounded-lg">
+          <img src={tekxaiLogo} alt="TekXAI" className="h-8 brightness-0 invert" />
+          <span className="text-xs font-bold uppercase tracking-widest text-blue-300 bg-white/10 px-2 py-1 rounded-lg">
             CRM
           </span>
         </div>
-        <button onClick={onClose} className="lg:hidden p-1.5 hover:bg-gray-100 rounded-lg">
-          <X size={18} />
+        <button onClick={onClose} className="lg:hidden p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-all">
+          <X size={18} strokeWidth={1.5} />
         </button>
       </div>
 
       {canSwitchWorkspace && (
         <div className="px-3 pt-3 flex gap-2">
-          <button onClick={() => navigate('/admin')} className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">ERP</button>
-          <button className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-[#005CDA] text-white">CRM</button>
+          <button onClick={() => navigate('/admin')} className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-white/5 text-(--color-sidebar-text) hover:bg-white/10 transition-colors">ERP</button>
+          <button className="flex-1 text-xs font-bold py-1.5 rounded-lg bg-(--color-sidebar-active) text-white">CRM</button>
         </div>
       )}
 
@@ -109,7 +109,7 @@ const CRMSidebar: React.FC<CRMSidebarProps> = memo(({ isOpen, onClose }) => {
             <React.Fragment key={`${link.to}-${link.label}`}>
               {showSection && (
                 <div className="pt-3 pb-1 px-3">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{link.section}</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{link.section}</span>
                 </div>
               )}
               <NavLink
@@ -120,13 +120,13 @@ const CRMSidebar: React.FC<CRMSidebarProps> = memo(({ isOpen, onClose }) => {
                   onClose();
                 }}
                 className={() =>
-                  `flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-150 ` +
+                  `flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-150 group ` +
                   (isActive
-                    ? 'bg-[#005CDA] text-white shadow-md shadow-blue-200'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900')
+                    ? 'bg-(--color-sidebar-active) text-white shadow-md shadow-blue-950/40'
+                    : 'text-(--color-sidebar-text) hover:bg-(--color-sidebar-hover) hover:text-white')
                 }
               >
-                <link.icon size={18} strokeWidth={1.5} className={`shrink-0 ${isActive ? 'text-white' : 'text-gray-400'}`} />
+                <link.icon size={18} strokeWidth={1.5} className={`shrink-0 ${isActive ? 'text-white' : 'text-(--color-sidebar-icon) group-hover:text-slate-200'}`} />
                 <span className="truncate">{link.label}</span>
               </NavLink>
             </React.Fragment>
@@ -134,11 +134,11 @@ const CRMSidebar: React.FC<CRMSidebarProps> = memo(({ isOpen, onClose }) => {
         })}
       </nav>
 
-      <div className="px-3 py-4 border-t border-gray-100">
+      <div className="px-3 py-4 border-t border-white/10">
         <button
           onClick={logout}
           disabled={logoutMutation.isPending}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-medium text-gray-500 hover:bg-red-50 hover:text-red-500 transition-all disabled:opacity-60"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-medium text-(--color-sidebar-text) hover:bg-red-500/10 hover:text-red-400 transition-all disabled:opacity-60"
         >
           <LogOut size={18} strokeWidth={1.5} />
           Sign Out

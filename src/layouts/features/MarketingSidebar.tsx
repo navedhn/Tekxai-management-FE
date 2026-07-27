@@ -46,21 +46,21 @@ const MarketingSidebar: React.FC<MarketingSidebarProps> = memo(({ isOpen, onClos
   return (
     <aside
       className={
-        `fixed inset-y-0 left-0 w-sidebar bg-white flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] lg:translate-x-0 z-110 border-r border-gray-100 ` +
+        `fixed inset-y-0 left-0 w-sidebar bg-(--color-sidebar-bg) flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] lg:translate-x-0 z-110 border-r border-white/10 ` +
         (isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0')
       }
     >
-      <div className="p-[18.5px] flex items-center justify-center relative border-b border-gray-100">
-        <img src={texailogo} className="w-[100px] h-[50px] object-contain" alt="TekXAI" />
+      <div className="p-[18.5px] flex items-center justify-center relative border-b border-white/10">
+        <img src={texailogo} className="w-[100px] h-[50px] object-contain brightness-0 invert" alt="TekXAI" />
         <button
           onClick={onClose}
-          className="lg:hidden absolute right-4 p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-500"
+          className="lg:hidden absolute right-4 p-2 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 transition-colors"
         >
-          <X size={20} />
+          <X size={18} strokeWidth={1.5} />
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1.5 mt-2">
+      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
         {links.map(link => {
           const isWonDealsLink = 'team' in link && link.team;
           const isActive = isWonDealsLink
@@ -79,28 +79,28 @@ const MarketingSidebar: React.FC<MarketingSidebarProps> = memo(({ isOpen, onClos
                 onClose();
               }}
               className={() =>
-                `flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all duration-300 group ` +
+                `flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-150 group ` +
                 (isActive
-                  ? 'bg-gradient-to-b from-[#005CDA] to-[#001F4A] text-white shadow-lg shadow-primary-100'
-                  : 'text-[#252525] hover:bg-blue-50')
+                  ? 'bg-(--color-sidebar-active) text-white shadow-md shadow-blue-950/40'
+                  : 'text-(--color-sidebar-text) hover:bg-(--color-sidebar-hover) hover:text-white')
               }
             >
-              <link.icon size={20} className="shrink-0" />
-              <span className="text-sm tracking-tight leading-snug">{link.label}</span>
+              <link.icon size={18} strokeWidth={1.5} className={`shrink-0 ${isActive ? 'text-white' : 'text-(--color-sidebar-icon) group-hover:text-slate-200'}`} />
+              <span className="truncate">{link.label}</span>
             </NavLink>
           );
         })}
       </nav>
 
-      <div className="px-4 pb-6 pt-4 mt-auto border-t border-gray-100">
+      <div className="px-3 py-4 border-t border-white/10">
         <button
           type="button"
           onClick={logout}
           disabled={logoutMutation.isPending}
-          className="flex w-full items-center gap-3 px-4 py-3 rounded-xl font-bold text-[#252525] hover:bg-red-50 hover:text-red-600 transition-all duration-300 group disabled:opacity-60"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-medium text-(--color-sidebar-text) hover:bg-red-500/10 hover:text-red-400 transition-all disabled:opacity-60"
         >
-          <LogOut size={20} className="shrink-0 group-hover:text-red-600" />
-          <span className="text-sm tracking-tight">
+          <LogOut size={18} strokeWidth={1.5} className="shrink-0" />
+          <span className="truncate">
             {logoutMutation.isPending ? 'Logging out...' : 'Logout'}
           </span>
         </button>
