@@ -24,6 +24,24 @@ export const useGetMyAttendanceSummary = (params?: { start_date?: string; end_da
     enabled: options?.enabled,
   });
 
+// Employee Timesheets (admin browser) — a distinct endpoint from
+// useGetWeeklyTimesheet (timesheetService.ts), not a reimplementation of
+// it: Today/Yesterday/This Week/Last Week resolve server-side to the exact
+// same week-shaped rows that endpoint already returns for the logged-in
+// user's own week; This Month/Last Month/Custom return the same row shape
+// for an arbitrary range instead.
+export const useGetEmployeeTimesheet = (params: { user_id: string; period: string; start_date?: string; end_date?: string }, options?: { enabled?: boolean }) =>
+  useQuery({
+    queryKey: ['employee-timesheet', params],
+    queryFn: async () => {
+      const qs = '?' + new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')) as any).toString();
+      const r = await apiRequest<any>(`${v1}/attendance/employee-timesheet${qs}`);
+      return r?.payload;
+    },
+    staleTime: 30000,
+    enabled: options?.enabled ?? !!params.user_id,
+  });
+
 export const useUpsertShiftMutation = () => { const qc = useQueryClient(); return useMutation({ mutationFn: (data: any) => apiRequest(`${v1}/attendance/shifts`, { method: 'POST', body: JSON.stringify(data) }), onSuccess: () => qc.invalidateQueries({ queryKey: ['shifts'] }) }); };
 
 export const useAssignShiftMutation = () => { const qc = useQueryClient(); return useMutation({ mutationFn: (data: any) => apiRequest(`${v1}/attendance/shifts/assign`, { method: 'POST', body: JSON.stringify(data) }), onSuccess: () => qc.invalidateQueries({ queryKey: ['shifts'] }) }); };
