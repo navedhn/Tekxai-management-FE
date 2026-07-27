@@ -1,5 +1,5 @@
 import React, { memo, useState, useRef, useEffect } from 'react';
-import { Menu, Bell, User, LogOut, Search, HelpCircle, ChevronDown } from 'lucide-react';
+import { Menu, Bell, User, LogOut, HelpCircle, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import NotificationDropdown from './NotificationDropdown';
 import { useNotifications } from '@/services/notificationService';
@@ -19,34 +19,12 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
-    const [searchValue, setSearchValue] = useState('');
     const { data: notifData } = useNotifications(10);
     const unreadCount = notifData?.unread_count ?? 0;
     const notifBtnRef = useRef<HTMLButtonElement>(null);
     const profileRef = useRef<HTMLDivElement>(null);
-    const searchRef = useRef<HTMLInputElement>(null);
 
     const { title, subtitle } = getPageTitle(location.pathname);
-
-    // ⌘K / Ctrl+K focuses the search box, matching the shortcut hint shown
-    // inside it — a common command-palette convention, not a full command
-    // palette here, just a focus shortcut for the search input.
-    useEffect(() => {
-        const handler = (e: KeyboardEvent) => {
-            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-                e.preventDefault();
-                searchRef.current?.focus();
-            }
-        };
-        window.addEventListener('keydown', handler);
-        return () => window.removeEventListener('keydown', handler);
-    }, []);
-
-    const handleSearchSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!searchValue.trim()) return;
-        navigate(`${routePrefix}/employee-directory?search=${encodeURIComponent(searchValue.trim())}`);
-    };
 
     useEffect(() => {
         setIsProfileOpen(false);
@@ -95,24 +73,7 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
                 </div>
             </div>
 
-            <form onSubmit={handleSearchSubmit} className="hidden md:flex flex-1 max-w-md mx-4">
-                <div className="relative w-full">
-                    <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input
-                        ref={searchRef}
-                        type="text"
-                        value={searchValue}
-                        onChange={(e) => setSearchValue(e.target.value)}
-                        placeholder="Search employees, departments, documents..."
-                        className="w-full h-10 pl-10 pr-14 rounded-xl bg-gray-50 border border-gray-100 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-primary-300 focus:bg-white transition-colors"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400 bg-white border border-gray-200 rounded-md px-1.5 py-0.5">
-                        ⌘K
-                    </span>
-                </div>
-            </form>
-
-            <div className="flex items-center gap-3 md:gap-5 relative shrink-0">
+            <div className="flex items-center gap-3 md:gap-5 relative shrink-0 ml-auto">
                 {/* Help */}
                 <button
                     onClick={() => navigate(`${routePrefix}/tickets`)}
