@@ -1,10 +1,9 @@
 // Topbar title/subtitle per route — title is the page name (matches the
-// sidebar item label), subtitle is the module it belongs to, mirroring the
-// "Dashboard / Executive Overview" pattern from the ERP nav mockup. Kept as
-// its own lookup (not derived from Sidebar.tsx's internal data) so the two
+// sidebar item label), subtitle is the module it belongs to. Kept as its
+// own lookup (not derived from Sidebar.tsx's internal data) so the two
 // files don't need to share an import just for this.
 const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
-  '/admin': { title: 'Dashboard', subtitle: 'Executive Overview' },
+  '/admin': { title: 'Dashboard', subtitle: '' },
   '/admin/executive-dashboard': { title: 'Executive Dashboard', subtitle: 'Dashboard' },
 
   '/admin/employee-directory': { title: 'Employee Directory', subtitle: 'Workforce' },
