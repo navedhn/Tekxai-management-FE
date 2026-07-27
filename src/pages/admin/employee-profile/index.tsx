@@ -293,6 +293,7 @@ const ReportingStructureSection: React.FC<{ employeeId?: string }> = ({ employee
 };
 
 const AttendanceSection: React.FC<{ employeeId?: string }> = ({ employeeId }) => {
+  const navigate = useNavigate();
   const { data, isLoading } = useGetMyAttendanceSummary({ user_id: employeeId });
 
   if (isLoading) return <SectionLoader />;
@@ -306,13 +307,25 @@ const AttendanceSection: React.FC<{ employeeId?: string }> = ({ employeeId }) =>
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      {stats.map((s) => (
-        <Card key={s.label} className="text-center py-6">
-          <p className="text-2xl font-black text-gray-900">{s.value}</p>
-          <p className="text-xs text-gray-400 font-bold uppercase tracking-wide mt-1">{s.label}</p>
-        </Card>
-      ))}
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((s) => (
+          <Card key={s.label} className="text-center py-6">
+            <p className="text-2xl font-black text-gray-900">{s.value}</p>
+            <p className="text-xs text-gray-400 font-bold uppercase tracking-wide mt-1">{s.label}</p>
+          </Card>
+        ))}
+      </div>
+      {/* Reuses the exact Employee Timesheets screen (no duplicated UI) —
+          navigates with the employee pre-selected via ?user_id=. */}
+      <Button
+        variant="secondary"
+        size="sm"
+        className="self-start"
+        onClick={() => navigate(`/admin/employee-timesheets?user_id=${employeeId}`)}
+      >
+        Open Full Timesheet
+      </Button>
     </div>
   );
 };

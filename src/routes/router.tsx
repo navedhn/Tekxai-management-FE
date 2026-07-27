@@ -66,6 +66,7 @@ const AdminJobRequisitions   = lazy(() => import('@/pages/admin/job-requisitions
 const AdminOffboarding       = lazy(() => import('@/pages/admin/offboarding'));
 const AdminPolicies          = lazy(() => import('@/pages/admin/policies'));
 const AdminAttendance        = lazy(() => import('@/pages/admin/attendance'));
+const AdminEmployeeTimesheets = lazy(() => import('@/pages/admin/employee-timesheets'));
 const AdminJobDescriptions   = lazy(() => import('@/pages/admin/job-descriptions'));
 const AdminAssets            = lazy(() => import('@/pages/admin/assets'));
 const AdminPerformance       = lazy(() => import('@/pages/admin/performance'));
@@ -205,6 +206,7 @@ const routes: RouteObject[] = [
           { path: '/admin/org-chart',           element: <AdminOrgChart /> },
           { path: '/admin/hr',                  element: <Navigate to="/admin" replace /> },
           { path: '/admin/attendance',          element: <AdminAttendance /> },
+          { path: '/admin/employee-timesheets', element: <AdminEmployeeTimesheets /> },
           { path: '/admin/job-descriptions',    element: <AdminJobDescriptions /> },
           { path: '/admin/crm',                 element: <AdminCRM /> },
           { path: '/admin/contracts',           element: <AdminContracts /> },
