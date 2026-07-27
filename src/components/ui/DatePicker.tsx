@@ -168,7 +168,8 @@ const DatePicker: React.FC<DatePickerProps> = ({
                 onClick={() => setIsOpen(!isOpen)}
                 className={cn(
                     "flex h-11 w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-5 py-2 text-sm text-gray-700 hover:border-gray-300 transition-all cursor-pointer",
-                    error && "border-red-500",
+                    isOpen && !error && "border-primary-500 shadow-[0_0_0_4px_rgba(0,92,218,0.15)]",
+                    error && "border-(--color-danger)",
                     !value && "text-gray-400"
                 )}
             >
@@ -179,7 +180,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
             </div>
 
             {error && (
-                <p className="text-xs text-red-500 ml-1 font-bold">{error}</p>
+                <p className="text-xs text-(--color-danger) ml-1 font-bold">{error}</p>
             )}
 
             <AnimatePresence>
