@@ -68,12 +68,18 @@ const Modal: React.FC<Props> = ({
             onClick={(e) => e.stopPropagation()}
           >
             {title ? (
-              <div className="shrink-0 p-5 border-b border-gray-100 flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">{title}</div>
+              <div className="shrink-0 p-5 border-b border-(--color-border) flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  {typeof title === 'string' ? (
+                    <h3 className="text-h3 text-(--color-text-primary)">{title}</h3>
+                  ) : (
+                    title
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="shrink-0 w-8 h-8 flex items-center justify-center border cursor-pointer border-gray-200 rounded-md hover:bg-gray-50 text-gray-500"
+                  className="shrink-0 w-8 h-8 flex items-center justify-center border cursor-pointer border-(--color-border) rounded-md hover:bg-(--color-state-hover) text-(--color-text-secondary) transition-colors duration-150"
                   aria-label="Close"
                 >
                   <X size={18} />
