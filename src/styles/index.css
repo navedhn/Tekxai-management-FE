@@ -46,6 +46,48 @@
   --spacing-sidebar: 17.75rem;
   --spacing-topbar: 3.375rem;
 
+  /* ============================================================
+     Design System Tokens (Phase 2 foundation)
+     Canonical semantic palette shared across Tekxai ERP + TekPulse
+     CRM. New code should reference these instead of raw hex values
+     or Tailwind's default color scale. Existing tokens above are
+     left untouched to avoid breaking current usage; migration of
+     call sites to these tokens is Phase 13 (future work).
+     ============================================================ */
+  --color-brand-primary: #1a66d6;
+  --color-brand-primary-hover: #1552ad;
+  --color-brand-primary-active: #113f85;
+  --color-brand-secondary: #0f172a;
+
+  --color-success: #067647;
+  --color-success-bg: #ecfdf3;
+  --color-success-border: #abefc6;
+  --color-warning: #c4320a;
+  --color-warning-bg: #fff6ed;
+  --color-warning-border: #ffd6ae;
+  --color-danger: #c01048;
+  --color-danger-bg: #fff1f3;
+  --color-danger-border: #feb3b3;
+  --color-info: #175cd3;
+  --color-info-bg: #eff8ff;
+  --color-info-border: #b2ddff;
+
+  --color-surface: #ffffff;
+  --color-disabled: #9ca3af;
+  --color-disabled-bg: #f3f4f6;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6b7280;
+
+  --color-state-hover: #f1f5f9;
+  --color-state-active: #e2e8f0;
+  --color-state-selected: #eff6ff;
+
+  --color-sidebar-bg: #0f172a;
+  --color-sidebar-hover: rgba(255, 255, 255, 0.08);
+  --color-sidebar-active: var(--color-brand-primary);
+  --color-sidebar-text: #cbd5e1;
+  --color-sidebar-icon: #94a3b8;
+
   /* Fonts */
   --font-body: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
   --font-heading: "Inter", sans-serif;
