@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Plus, X, Save, Send } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import Badge from '@/components/ui/Badge';
 import Textarea from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
@@ -146,7 +146,7 @@ const SalaryBuilderPage: React.FC = () => {
         rightSlot={
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="w-36">
-              <Select label="Period" options={PERIOD_OPTIONS} value={period} onChange={v => { setPeriod(String(v)); setInitialized(false); }} />
+              <SearchableSelect label="Period" options={PERIOD_OPTIONS} value={period} onChange={v => { setPeriod(String(v)); setInitialized(false); }} />
             </div>
             <ExchangeRateWidget />
           </div>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Wallet } from 'lucide-react';
 import Input from './Input';
-import Select from './Select';
+import SearchableSelect from './SearchableSelect';
 import Button from './Button';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useUpdateBudgetMutation } from '@/services/projectService';
@@ -87,7 +87,7 @@ const BudgetPanel: React.FC<BudgetPanelProps> = ({ projectId, budget, budgetCurr
                 error={errors.budget}
                 placeholder="0.00"
               />
-              <Select
+              <SearchableSelect
                 label="Currency"
                 options={CURRENCY_OPTIONS}
                 value={form.budget_currency}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Modal from '@/components/ui/Modal';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Button } from '@/components/ui/Button';
 import Loader from '@/components/ui/Loader';
 import { X } from 'lucide-react';
@@ -49,7 +49,7 @@ const TeamMembersModal: React.FC<Props> = ({ isOpen, onClose, team }) => {
       <div className="flex flex-col gap-5">
         <div className="flex gap-2 items-end">
           <div className="flex-1">
-            <Select
+            <SearchableSelect
               label="Add Member"
               options={[{ label: 'Select employee', value: '' }, ...available.map((u: any) => ({ label: `${u.first_name} ${u.last_name}`, value: u.id }))]}
               value={selectedUser}

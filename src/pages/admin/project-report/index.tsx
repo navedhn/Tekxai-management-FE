@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Download, FileBarChart } from 'lucide-react';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import Loader from '@/components/ui/Loader';
@@ -74,7 +74,7 @@ const AdminProjectReport: React.FC = () => {
 
       <div className="flex flex-wrap items-end gap-4 bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
         <div className="w-48">
-          <Select
+          <SearchableSelect
             label="Status"
             options={[{ label: 'All Statuses', value: '' }, ...PROJECT_STATUS_OPTIONS.map((o) => ({ label: o.label, value: o.value }))]}
             value={status}

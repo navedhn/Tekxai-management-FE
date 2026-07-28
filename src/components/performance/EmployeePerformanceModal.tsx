@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useFetchUsersQuery } from '@/services/userService';
 import {
@@ -133,7 +133,7 @@ const EmployeePerformanceModal: React.FC<Props> = ({ isOpen, onClose, period, re
             <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase mb-2 block">
               Employee *
             </label>
-            <Select
+            <SearchableSelect
               value={employeeId}
               onChange={(v) => setEmployeeId(String(v))}
               options={[{ value: '', label: 'Select employee...' }, ...employeeOptions]}

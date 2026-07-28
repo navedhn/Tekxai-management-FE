@@ -3,7 +3,7 @@ import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Tabs from '@/components/ui/Tabs';
 import Button from '@/components/ui/Button';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Download, BarChart3, Users, Clock, TrendingUp } from 'lucide-react';
 import { useAttendanceReport, useLeaveReport, usePerformanceReport, useProjectsReport, download_report } from '@/services/reportService';
 import { useFetchUsersQuery } from '@/services/userService';
@@ -100,7 +100,7 @@ const ReportsPage: React.FC = () => {
       {/* Filters */}
       <div className="flex items-center gap-4 flex-wrap">
         <div className="w-52">
-          <Select
+          <SearchableSelect
             options={userOptions}
             value={selectedUser}
             onChange={(v) => setSelectedUser(v as string)}
@@ -119,7 +119,7 @@ const ReportsPage: React.FC = () => {
         </div>
         {activeTab === 'Performance' && (
           <div className="w-36">
-            <Select options={[{ value: 'June 2026', label: 'Jun 2026' }, { value: 'May 2026', label: 'May 2026' }]}
+            <SearchableSelect options={[{ value: 'June 2026', label: 'Jun 2026' }, { value: 'May 2026', label: 'May 2026' }]}
               value={period} onChange={(v) => setPeriod(v as string)} className="h-9 !rounded-xl text-xs" />
           </div>
         )}

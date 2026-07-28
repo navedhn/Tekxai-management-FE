@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { GraduationCap, Briefcase, Plus, Trash2 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Button } from '@/components/ui/Button';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import {
@@ -170,7 +170,7 @@ const ExperienceCard: React.FC<{ userId: string }> = ({ userId }) => {
             <Input label="Designation" value={newRecord.designation} onChange={e => setNewRecord((p: any) => ({ ...p, designation: e.target.value }))} className="h-10 rounded-xl col-span-2" />
             <Input label="From Date" type="date" value={newRecord.from_date} onChange={e => setNewRecord((p: any) => ({ ...p, from_date: e.target.value }))} className="h-10 rounded-xl" />
             <Input label="To Date" type="date" value={newRecord.to_date} onChange={e => setNewRecord((p: any) => ({ ...p, to_date: e.target.value }))} className="h-10 rounded-xl" disabled={newRecord.is_current === 'true'} />
-            <Select label="Currently Working Here?" options={CURRENT_OPTIONS} value={newRecord.is_current} onChange={(v: any) => setNewRecord((p: any) => ({ ...p, is_current: String(v) }))} className="h-10 !rounded-xl col-span-2" />
+            <SearchableSelect label="Currently Working Here?" options={CURRENT_OPTIONS} value={newRecord.is_current} onChange={(v: any) => setNewRecord((p: any) => ({ ...p, is_current: String(v) }))} className="h-10 !rounded-xl col-span-2" />
             <Input label="Notes (optional)" value={newRecord.notes} onChange={e => setNewRecord((p: any) => ({ ...p, notes: e.target.value }))} className="h-10 rounded-xl col-span-2" />
           </div>
           <div className="flex gap-2 mt-3">

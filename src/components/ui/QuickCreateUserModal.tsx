@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Button } from '@/components/ui/Button';
 import { useCreateUserMutation } from '@/services/userService';
 import { useGetDesignationsQuery } from '@/services/designationService';
@@ -203,33 +203,36 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
         />
 
         <div className="grid grid-cols-2 gap-4">
-          <Select
+          <SearchableSelect
             label="Designation *"
             options={designationOptions}
             value={formData.designation_id}
-            onChange={handleSelectChange('designation_id')}
+            onChange={(v) => handleSelectChange('designation_id')(v ?? '')}
             error={errors.designation_id}
             placeholder="Select Designation"
             className="h-12 !rounded-xl"
+            clearable={false}
           />
-          <Select
+          <SearchableSelect
             label="Role *"
             options={roleOptions}
             value={formData.role_id}
-            onChange={handleSelectChange('role_id')}
+            onChange={(v) => handleSelectChange('role_id')(v ?? '')}
             error={errors.role_id}
             placeholder="Select Role"
             className="h-12 !rounded-xl"
+            clearable={false}
           />
         </div>
 
-        <Select
+        <SearchableSelect
           label="Department"
           options={departmentOptions}
           value={formData.department_id}
-          onChange={handleSelectChange('department_id')}
+          onChange={(v) => handleSelectChange('department_id')(v ?? '')}
           placeholder="Select Department"
           className="h-12 !rounded-xl"
+          clearable={false}
         />
 
         <Input

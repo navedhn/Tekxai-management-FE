@@ -3,7 +3,7 @@ import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Button, { pageActionButtonClass } from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Search, Plus, Edit2, Trash2, Users, UserPlus } from 'lucide-react';
 import { useGetTeamsQuery, useDeleteTeamMutation } from '@/services/adminService';
 import { useToastContext } from '@/components/toast/ToastProvider';
@@ -171,7 +171,7 @@ const TeamManagement: React.FC = () => {
                             className="h-12 rounded-xl"
                         />
                         <div className="w-[220px]">
-                            <Select
+                            <SearchableSelect
                                 options={teamTypes}
                                 value={filterType}
                                 onChange={(val) => setFilterType(val as string)}

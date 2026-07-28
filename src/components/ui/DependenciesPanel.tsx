@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { AlertTriangle, Link2, Plus, Trash2 } from 'lucide-react';
 import Input from './Input';
-import Select from './Select';
+import SearchableSelect from './SearchableSelect';
 import Textarea from './Textarea';
 import Button from './Button';
 import Loader from './Loader';
@@ -115,10 +115,10 @@ const DependenciesPanel: React.FC<DependenciesPanelProps> = ({ projectId, canEdi
           <div className="flex flex-col gap-3 p-4 bg-gray-50/60 rounded-2xl">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input label="Name *" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Production Server" />
-              <Select label="Type *" options={DEPENDENCY_TYPE_OPTIONS} value={form.type} onChange={(v) => setForm((f) => ({ ...f, type: v as DependencyType }))} />
+              <SearchableSelect label="Type *" options={DEPENDENCY_TYPE_OPTIONS} value={form.type} onChange={(v) => setForm((f) => ({ ...f, type: v as DependencyType }))} />
               <Input label="Category" value={form.category || ''} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} placeholder="e.g. Infrastructure" />
               <Input label="Owner" value={form.owner || ''} onChange={(e) => setForm((f) => ({ ...f, owner: e.target.value }))} placeholder="Who owns access" />
-              <Select label="Status" options={STATUS_OPTIONS} value={form.status} onChange={(v) => setForm((f) => ({ ...f, status: v as DependencyStatus }))} />
+              <SearchableSelect label="Status" options={STATUS_OPTIONS} value={form.status} onChange={(v) => setForm((f) => ({ ...f, status: v as DependencyStatus }))} />
               <Input label="Vendor" value={form.vendor || ''} onChange={(e) => setForm((f) => ({ ...f, vendor: e.target.value }))} placeholder="Vendor name" />
               <Input label="External URL" value={form.external_url || ''} onChange={(e) => setForm((f) => ({ ...f, external_url: e.target.value }))} placeholder="https://..." containerClassName="sm:col-span-2" />
             </div>

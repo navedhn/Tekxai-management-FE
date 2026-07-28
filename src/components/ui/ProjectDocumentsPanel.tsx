@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { FileText, Plus, Trash2, Download } from 'lucide-react';
-import Select from './Select';
+import SearchableSelect from './SearchableSelect';
 import Input from './Input';
 import Button from './Button';
 import Loader from './Loader';
@@ -76,7 +76,7 @@ const ProjectDocumentsPanel: React.FC<ProjectDocumentsPanelProps> = ({ projectId
       <div className="flex flex-col gap-4 p-6">
         {showForm && (
           <div className="flex flex-col gap-3 p-4 bg-gray-50/60 rounded-2xl">
-            <Select
+            <SearchableSelect
               label="Document Type"
               options={docTypes.length ? docTypes : [{ label: 'Other', value: 'OTHER' }]}
               value={form.document_type}

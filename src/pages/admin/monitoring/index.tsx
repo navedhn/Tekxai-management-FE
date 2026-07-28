@@ -3,7 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Tabs from '@/components/ui/Tabs';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import ActionModal from '@/components/ui/ActionModal';
 import { Activity, Camera, Clock, Cpu } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -304,7 +304,7 @@ const MonitoringPage: React.FC = () => {
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="w-52">
-          <Select
+          <SearchableSelect
             options={userOptions}
             value={selectedUser}
             onChange={(v) => setSelectedUser(v as string)}

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Server, Plus, ExternalLink, Trash2 } from 'lucide-react';
-import Select from './Select';
+import SearchableSelect from './SearchableSelect';
 import Textarea from './Textarea';
 import Button from './Button';
 import Input from './Input';
@@ -257,7 +257,7 @@ const DevopsAccessPanel: React.FC<DevopsAccessPanelProps> = ({ projectId, ownerI
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Point of Communication</span>
             {canEdit ? (
-              <Select
+              <SearchableSelect
                 options={COMM_CHANNEL_OPTIONS}
                 value={data.point_of_communication}
                 onChange={(v) => update({ point_of_communication: v as CommChannel })}
@@ -389,7 +389,7 @@ const DevopsAccessPanel: React.FC<DevopsAccessPanelProps> = ({ projectId, ownerI
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <Input placeholder="Provider (e.g. AWS, Vercel)" value={infraForm.hosting_provider || ''} disabled={!canEdit} onChange={(e) => setInfraForm((f) => ({ ...f, hosting_provider: e.target.value }))} />
             {canEdit ? (
-              <Select options={HOSTING_ENV_OPTIONS} value={data.hosting_environment || ''} onChange={(v) => update({ hosting_environment: v as HostingEnvironment })} placeholder="Environment" />
+              <SearchableSelect options={HOSTING_ENV_OPTIONS} value={data.hosting_environment || ''} onChange={(v) => update({ hosting_environment: v as HostingEnvironment })} placeholder="Environment" />
             ) : (
               <span className="text-sm font-bold text-gray-900 self-center">{HOSTING_ENV_OPTIONS.find(o => o.value === data.hosting_environment)?.label || '—'}</span>
             )}
@@ -527,7 +527,7 @@ const DevopsAccessPanel: React.FC<DevopsAccessPanelProps> = ({ projectId, ownerI
 
           {showAddLink && (
             <div className="flex flex-col sm:flex-row gap-2 p-3 bg-gray-50/60 rounded-xl">
-              <Select
+              <SearchableSelect
                 options={LINK_TYPE_OPTIONS}
                 value={linkForm.link_type}
                 onChange={(v) => setLinkForm((f) => ({ ...f, link_type: String(v) }))}

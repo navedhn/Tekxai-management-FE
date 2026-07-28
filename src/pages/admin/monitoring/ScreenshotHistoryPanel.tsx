@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { ChevronDown, ChevronRight, Clock, Camera, Activity, MonitorSmartphone, Globe, Trash2 } from 'lucide-react';
 import Card from '@/components/ui/Card';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import Badge from '@/components/ui/Badge';
 import { cn } from '@/utils/cn';
 import { useGetScreenshots, type Screenshot } from '@/services/monitoringService';
@@ -154,7 +154,7 @@ const ScreenshotHistoryPanel: React.FC<Props> = ({ userOptions, selectedUser, on
         <div className="flex flex-wrap gap-3 items-end">
           <div className="w-56">
             <label className="text-xs font-bold text-gray-500 mb-1 block">EMPLOYEE (required)</label>
-            <Select
+            <SearchableSelect
               options={[{ value: '', label: 'Select an employee…' }, ...userOptions.filter((o) => o.value)]}
               value={selectedUser}
               onChange={(v) => onSelectUser(v as string)}

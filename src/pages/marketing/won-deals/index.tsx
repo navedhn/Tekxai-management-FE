@@ -3,7 +3,7 @@ import { Trophy, Search, Download } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import Badge from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { MarketingPageHeader, WonDealsStatPills } from '@/components/marketing';
@@ -108,8 +108,8 @@ const WonDealsPage: React.FC = () => {
       <Card className="!p-4 sm:!p-5">
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <Select options={SOURCE_OPTIONS} value={source} onChange={v => setSource(String(v))} />
-            <Select options={PERIOD_OPTIONS} value={period} onChange={v => setPeriod(String(v))} />
+            <SearchableSelect options={SOURCE_OPTIONS} value={source} onChange={v => setSource(String(v))} />
+            <SearchableSelect options={PERIOD_OPTIONS} value={period} onChange={v => setPeriod(String(v))} />
             <Input
               placeholder="Search lead, company, job..."
               value={search}
