@@ -28,6 +28,8 @@ const STATUS_TONE: Record<string, BadgeTone> = {
   completed: 'success',
   paid: 'success',
   confirmed: 'success',
+  available: 'success',
+  permanent: 'success',
 
   pending: 'warning',
   late: 'warning',
