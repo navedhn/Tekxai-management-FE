@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import FormInput from '@/components/form/FormInput';
@@ -6,9 +7,15 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Lock, Globe, User } from 'lucide-react';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useGetMySettingsQuery, useUpdatePreferencesMutation, useChangePasswordMutation } from '@/services/settingsService';
+import { useLogoutMutation } from '@/services/authService';
+import { useAuthStore } from '@/stores/authStore';
+import { clearAuthTokens } from '@/utils/tokenMemory';
 
 const EmployeeSetting: React.FC = () => {
     const toast = useToastContext();
+    const navigate = useNavigate();
+    const { userLogout } = useAuthStore();
+    const logoutMutation = useLogoutMutation();
     const [notifications, setNotifications] = useState(true);
     const [oldPassword, setOldPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -51,11 +58,21 @@ const EmployeeSetting: React.FC = () => {
             new_password: newPassword,
             confirm_new_password: confirmNewPassword
         }, {
-            onSuccess: () => {
-                toast.success('Password updated successfully!');
+            onSuccess: async () => {
+                toast.success('Password updated. Please sign in again with your new password.');
                 setOldPassword('');
                 setNewPassword('');
                 setConfirmNewPassword('');
+                // The backend already revokes every refresh token session for this
+                // user on password change (see change_password() in
+                // settings.service.js) — the current access token would otherwise
+                // keep working until it naturally expires, silently leaving the
+                // old session active for up to its lifetime. Log out immediately
+                // instead of waiting for that.
+                try { await logoutMutation.mutateAsync(); } catch { /* best-effort */ }
+                clearAuthTokens();
+                userLogout();
+                navigate('/login');
             },
             onError: (err: any) => {
                 toast.error(err.message || 'Failed to update password');

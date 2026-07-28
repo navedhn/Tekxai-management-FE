@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Card from '@/components/ui/Card';
 import Button, { pageActionButtonClass } from '@/components/ui/Button';
 import FormInput from '@/components/form/FormInput';
@@ -10,6 +11,8 @@ import { apiRequest } from '@/lib/queryClient';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useGetInvitesQuery, useDeleteInviteMutation } from '@/services/inviteService';
 import { useGetMySettingsQuery, useUpdatePreferencesMutation, useChangePasswordMutation } from '@/services/settingsService';
+import { useLogoutMutation } from '@/services/authService';
+import { clearAuthTokens } from '@/utils/tokenMemory';
 import InviteMemberModal from '@/components/ui/InviteMemberModal';
 import ActionModal from '@/components/ui/ActionModal';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -206,7 +209,9 @@ const MonitoringSettings: React.FC = () => {
 
 const Setting: React.FC = () => {
     const toast = useToastContext();
-    const { role } = useAuthStore();
+    const navigate = useNavigate();
+    const { role, userLogout } = useAuthStore();
+    const logoutMutation = useLogoutMutation();
     const isSuperAdmin = role === 'SUPER_ADMIN';
     const [activeTab, setActiveTab] = useState('security');
 
@@ -321,11 +326,21 @@ const Setting: React.FC = () => {
             new_password: newPassword,
             confirm_new_password: confirmNewPassword
         }, {
-            onSuccess: () => {
-                toast.success('Password updated successfully!');
+            onSuccess: async () => {
+                toast.success('Password updated. Please sign in again with your new password.');
                 setOldPassword('');
                 setNewPassword('');
                 setConfirmNewPassword('');
+                // The backend already revokes every refresh token session for this
+                // user on password change (see change_password() in
+                // settings.service.js) — the current access token would otherwise
+                // keep working until it naturally expires, silently leaving the
+                // old session active for up to its lifetime. Log out immediately
+                // instead of waiting for that.
+                try { await logoutMutation.mutateAsync(); } catch { /* best-effort */ }
+                clearAuthTokens();
+                userLogout();
+                navigate('/login');
             },
             onError: (err: any) => {
                 toast.error(err.message || 'Failed to update password');
