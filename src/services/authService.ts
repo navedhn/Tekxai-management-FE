@@ -36,6 +36,7 @@ export type VerifyOTPDto = {
 export type ResetPasswordDto = {
   id: string | number;
   password: string;
+  otp: string;
 };
 
 // --- API Functions ---
@@ -110,11 +111,11 @@ const resendOTPApi = async (id: string | number) => {
   });
 };
 
-const resetPasswordApi = async ({ id, password }: ResetPasswordDto) => {
+const resetPasswordApi = async ({ id, password, otp }: ResetPasswordDto) => {
   return apiRequest(API_ENDPOINTS.AUTH.RESET_PASSWORD(id), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password }),
+    body: JSON.stringify({ password, otp }),
   });
 };
 
