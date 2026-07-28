@@ -15,6 +15,7 @@ import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
 import { useGetGradesQuery } from '@/services/gradeService';
 import { cn } from '@/utils/cn';
 import { EMPLOYMENT_STATUS_LABELS } from '@/constants/employmentStatus';
+import StatusBadge from '@/components/ui/StatusBadge';
 
 const EMPLOYMENT_TYPE_OPTIONS = [
   { value: 'FULL_TIME', label: 'Full Time' },
@@ -32,19 +33,6 @@ const LIFECYCLE_STAGE_OPTIONS = [
   { value: 'EXIT_CLEARANCE', label: 'Exit Clearance' },
   { value: 'ARCHIVED', label: 'Archived' },
 ];
-
-const STATUS_STYLE: Record<string, string> = {
-  ACTIVE:      'bg-green-100 text-green-700',
-  INACTIVE:    'bg-gray-100 text-gray-500',
-  ON_LEAVE:    'bg-amber-100 text-amber-700',
-  SUSPENDED:   'bg-blue-100 text-blue-700',
-  TERMINATED:  'bg-red-100 text-red-600',
-  DECEASED:    'bg-gray-200 text-gray-600',
-  PENDING:     'bg-purple-100 text-purple-700',
-};
-
-// Employment Status shares the same 6-value vocabulary as users.status.
-const EMP_STATUS_STYLE: Record<string, string> = STATUS_STYLE;
 
 const EMP_STATUS_LABEL: Record<string, string> = EMPLOYMENT_STATUS_LABELS;
 
@@ -604,17 +592,11 @@ export default function EmployeeDirectory() {
                     </td>
                     <td className="py-3 px-2">
                       {emp.profile_status === 'DRAFT' ? (
-                        <span className={cn('text-xs font-semibold px-2.5 py-1 rounded-full', STATUS_STYLE.PENDING)}>
-                          Pending
-                        </span>
+                        <StatusBadge status="PENDING" label="Pending" size="sm" />
                       ) : emp.employment_status ? (
-                        <span className={cn('text-xs font-semibold px-2.5 py-1 rounded-full', EMP_STATUS_STYLE[emp.employment_status] || 'bg-gray-100 text-gray-500')}>
-                          {EMP_STATUS_LABEL[emp.employment_status] || emp.employment_status}
-                        </span>
+                        <StatusBadge status={emp.employment_status} label={EMP_STATUS_LABEL[emp.employment_status] || emp.employment_status} size="sm" />
                       ) : (
-                        <span className={cn('text-xs font-semibold px-2.5 py-1 rounded-full', STATUS_STYLE[emp.status] || 'bg-gray-100 text-gray-500')}>
-                          {EMP_STATUS_LABEL[emp.status] || emp.status || '—'}
-                        </span>
+                        <StatusBadge status={emp.status} label={EMP_STATUS_LABEL[emp.status] || emp.status || '—'} size="sm" />
                       )}
                     </td>
                     <td className="py-3 px-2 text-gray-500 text-xs whitespace-nowrap">

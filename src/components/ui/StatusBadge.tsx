@@ -34,6 +34,8 @@ const STATUS_TONE: Record<string, BadgeTone> = {
   onleave: 'warning',
   probation: 'warning',
   inreview: 'warning',
+  earlyout: 'warning',
+  maintenance: 'warning',
 
   rejected: 'danger',
   cancelled: 'danger',
@@ -41,14 +43,20 @@ const STATUS_TONE: Record<string, BadgeTone> = {
   overdue: 'danger',
   failed: 'danger',
   blocked: 'danger',
+  terminated: 'danger',
+  lost: 'danger',
 
   leave: 'info',
   inprogress: 'info',
   scheduled: 'info',
+  suspended: 'info',
+  assigned: 'info',
 
   inactive: 'neutral',
   draft: 'neutral',
   archived: 'neutral',
+  deceased: 'neutral',
+  retired: 'neutral',
 };
 
 function normalize(status: string): string {

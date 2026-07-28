@@ -7,6 +7,7 @@ import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
+import StatusBadge from '@/components/ui/StatusBadge';
 import ActionModal from '@/components/ui/ActionModal';
 import { Clock, AlertTriangle, Settings, Plus, Pencil, Trash2, BarChart3 } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -107,12 +108,6 @@ function AttendanceReportsTab({ users }: { users: any[] }) {
   );
 }
 
-const VIOLATION_COLORS: Record<string, string> = {
-  LATE:      'bg-yellow-50 text-yellow-700 border-yellow-100',
-  ABSENT:    'bg-red-50 text-red-700 border-red-100',
-  EARLY_OUT: 'bg-orange-50 text-orange-700 border-orange-100',
-};
-
 const AttendancePage: React.FC = () => {
   const toast = useToastContext();
   const [activeTab, setActiveTab] = useState('Late Coming / Violations');
@@ -139,9 +134,7 @@ const AttendancePage: React.FC = () => {
     { header: 'Date', key: 'date', render: (item) => new Date(item.date).toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) },
     { header: 'Late (mins)', key: 'late_mins', render: (item) => <span className="font-black text-red-500">{item.late_mins || 0}</span> },
     { header: 'Type', key: 'violation_type', render: (item) => (
-      <Badge variant="info" className={cn('text-[10px] font-bold border rounded-lg px-2 py-0.5', VIOLATION_COLORS[item.violation_type] || '')}>
-        {item.violation_type}
-      </Badge>
+      <StatusBadge status={item.violation_type} label={item.violation_type} size="sm" className="rounded-lg" />
     )},
     { header: 'Remarks', key: 'remarks', render: (item) => <span className="text-gray-500">{item.remarks || '—'}</span> },
   ];

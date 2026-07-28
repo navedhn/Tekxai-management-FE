@@ -6,6 +6,7 @@ import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import StatusBadge from '@/components/ui/StatusBadge';
 
 const v1 = 'api/v1';
 const BUILDER = `${v1}/report/builder`;
@@ -32,20 +33,11 @@ const ASSET_DETAIL_REPORTS = [
   { key: 'MAINTENANCE', label: 'Under Repair', icon: Wrench },
 ];
 
-const STATUS_STYLE: Record<string, string> = {
-  AVAILABLE:   'bg-green-100 text-green-700',
-  ASSIGNED:    'bg-blue-100 text-blue-700',
-  MAINTENANCE: 'bg-amber-100 text-amber-700',
-  RETIRED:     'bg-gray-100 text-gray-500',
-  LOST:        'bg-red-100 text-red-700',
-};
-
-const REQUEST_STATUS_STYLE: Record<string, string> = {
-  PENDING:  'bg-amber-100 text-amber-700',
-  APPROVED: 'bg-green-100 text-green-700',
-  REJECTED: 'bg-red-100 text-red-700',
-};
-
+// Asset physical condition (NEW/GOOD/FAIR/POOR) is a different vocabulary
+// from status/state badges — "NEW" here means "brand new item," not the
+// unrelated "NEW" pipeline stage used elsewhere, so it's intentionally kept
+// out of the shared StatusBadge STATUS_TONE map to avoid cross-domain
+// collisions. Left as local color logic.
 const CONDITION_STYLE: Record<string, string> = {
   NEW:  'bg-green-100 text-green-700',
   GOOD: 'bg-blue-100 text-blue-700',
@@ -1148,9 +1140,7 @@ export default function AssetsPage() {
                           ) : '—'}
                         </td>
                         <td className="py-3 px-2">
-                          <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full', STATUS_STYLE[asset.status] || 'bg-gray-100 text-gray-500')}>
-                            {asset.status || '—'}
-                          </span>
+                          <StatusBadge status={asset.status || '—'} />
                         </td>
                         <td className="py-3 px-2">
                           <div className="flex items-center gap-1.5">
@@ -1229,9 +1219,7 @@ export default function AssetsPage() {
                         {req.requester ? `${req.requester.first_name} ${req.requester.last_name || ''}`.trim() : '—'}
                       </td>
                       <td className="py-3 px-2">
-                        <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full', REQUEST_STATUS_STYLE[req.status] || 'bg-gray-100 text-gray-500')}>
-                          {req.status}
-                        </span>
+                        <StatusBadge status={req.status} />
                       </td>
                       <td className="py-3 px-2 text-gray-500 whitespace-nowrap">
                         {req.reviewer ? `${req.reviewer.first_name} ${req.reviewer.last_name || ''}`.trim() : '—'}
@@ -1332,9 +1320,7 @@ export default function AssetsPage() {
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {inventoryByStatus.map((s: any) => (
-                    <span key={s.status} className={cn('text-xs font-semibold px-2.5 py-1 rounded-full', STATUS_STYLE[s.status] || 'bg-gray-100 text-gray-500')}>
-                      {s.status}: {s.count}
-                    </span>
+                    <StatusBadge key={s.status} status={s.status} label={`${s.status}: ${s.count}`} />
                   ))}
                 </div>
               )}
@@ -1387,9 +1373,7 @@ export default function AssetsPage() {
                       </td>
                       <td className="py-3 px-2 text-gray-500 whitespace-nowrap">{a.category?.name || '—'}</td>
                       <td className="py-3 px-2">
-                        <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full', STATUS_STYLE[a.status] || 'bg-gray-100 text-gray-500')}>
-                          {a.status || '—'}
-                        </span>
+                        <StatusBadge status={a.status || '—'} />
                       </td>
                       <td className="py-3 px-2 text-gray-500 whitespace-nowrap">
                         {a.warranty_expiry ? new Date(a.warranty_expiry).toLocaleDateString() : '—'}
