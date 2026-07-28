@@ -12,11 +12,15 @@ const ResetPassword: React.FC = () => {
     const location = useLocation();
     const toast = useToastContext();
 
-    // id is passed from VerifyOTP after a successful OTP check
+    // id and otp are passed from VerifyOTP after a successful OTP check.
+    // The backend's reset endpoint re-validates (and consumes) the same OTP
+    // code, so it has to be carried forward here rather than dropped once
+    // verification passes.
     const id = (location.state as any)?.id || '';
+    const otp = (location.state as any)?.otp || '';
 
     const handleSubmit = async (values: { password: string; confirmPassword: string }) => {
-        if (!id) {
+        if (!id || !otp) {
             toast.error('Session expired. Please start the password reset process again.');
             navigate('/forget-password');
             return;
@@ -26,6 +30,7 @@ const ResetPassword: React.FC = () => {
             await resetPasswordMutation.mutateAsync({
                 id,
                 password: values.password,
+                otp,
             });
             toast.success('Password reset successfully! Please login with your new password.');
             navigate('/login');

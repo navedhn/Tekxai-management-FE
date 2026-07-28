@@ -51,8 +51,16 @@ const VerifyOTP: React.FC = () => {
             // that never matched the backend's actual `{ data: { user_id } }`
             // shape, so it always evaluated to undefined and silently broke the
             // next step. Forwarding the already-known id is simpler and correct.
+            //
+            // The OTP code itself must also be forwarded: /auth/verify/:id only
+            // checks the code's validity, it never marks it used — /auth/reset/:id
+            // is what actually consumes it, and requires the same code again in
+            // its own payload. Dropping it here (as this used to) meant the final
+            // reset call always failed with "OTP is required", which read to the
+            // user as being asked for the OTP a second time right after they'd
+            // already entered their new password.
             toast.success('OTP verified successfully!');
-            navigate('/reset-password', { state: { id, email } });
+            navigate('/reset-password', { state: { id, email, otp: values.otp } });
         } catch (error: any) {
             const errorMessage =
                 error?.data?.message ||
