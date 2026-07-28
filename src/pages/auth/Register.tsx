@@ -5,7 +5,7 @@ import { useRegisterMutation } from '@/services/authService';
 import { validateRegisterForm } from '@/utils/validationSchemas';
 import { Button, FormInput } from '@/components';
 import { useToastContext } from '@/components/toast/ToastProvider';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import PasswordValidator from '@/components/ui/PasswordValidator';
 
 const Register: React.FC = () => {
@@ -136,7 +136,7 @@ const Register: React.FC = () => {
 
             {/* Row 3: Role & Department */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Select
+              <SearchableSelect
                 label="REGISTER AS *"
                 value={values.role_id}
                 onChange={(val) => setFieldValue('role_id', val)}
@@ -146,7 +146,7 @@ const Register: React.FC = () => {
                 ]}
                 error={touched.role_id && errors.role_id ? (errors.role_id as string) : undefined}
               />
-              <Select
+              <SearchableSelect
                 label="DEPARTMENT *"
                 value={values.department}
                 onChange={(val) => {
@@ -160,7 +160,7 @@ const Register: React.FC = () => {
 
             {/* Row 4: Position (Dependent) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Select
+              <SearchableSelect
                 label="POSITION *"
                 value={values.position}
                 onChange={(val) => setFieldValue('position', val)}

@@ -21,7 +21,7 @@ import Input from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import ReviewEditRequestModal from '@/components/modals/ReviewEditRequestModal';
 import { useDebounce } from '@/hooks/useDebounce';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { CardSkeleton } from '@/components/skeletons';
 
@@ -194,7 +194,7 @@ const TimesheetManagement: React.FC = () => {
                                         containerClassName="min-w-[300px]"
                                         className="h-10 rounded-xl text-sm"
                                     />
-                                    <Select
+                                    <SearchableSelect
                                         options={[
                                             { value: 'ALL', label: 'All Status' },
                                             { value: 'Completed', label: 'Completed' },

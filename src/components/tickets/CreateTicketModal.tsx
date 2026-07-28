@@ -3,7 +3,7 @@ import { ArrowLeft, ChevronRight, Send } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Button } from '@/components/ui/Button';
 import DynamicFormRenderer from './DynamicFormRenderer';
 import { CreateTicketPayload, TicketCategory, TicketPriority, TicketTypeSummary } from '@/types/ticket';
@@ -242,9 +242,9 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
       />
 
       <div className="grid grid-cols-2 gap-4">
-        <Select label="Priority" options={PRIORITY_OPTIONS} value={priority} onChange={v => setPriority(v as TicketPriority)} />
+        <SearchableSelect label="Priority" options={PRIORITY_OPTIONS} value={priority} onChange={v => setPriority(v as TicketPriority)} />
         {needsProject && (
-          <Select
+          <SearchableSelect
             label={selectedType?.project_association === 'REQUIRED' ? 'Project *' : 'Project (optional)'}
             options={PROJECT_OPTIONS}
             value={projectId}
@@ -307,7 +307,7 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
         Raise a ticket against your Team Lead, Office Boy, HR, Admin, or anyone else.
       </p>
 
-      <Select label="Raise ticket to" options={RECIPIENT_OPTIONS} value={recipientId} onChange={v => setRecipientId(String(v))} />
+      <SearchableSelect label="Raise ticket to" options={RECIPIENT_OPTIONS} value={recipientId} onChange={v => setRecipientId(String(v))} />
 
       {recipientId === 'other' && (
         <Input
@@ -319,13 +319,13 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
       )}
 
       <div className="grid grid-cols-2 gap-4">
-        <Select label="Category (optional)" options={TICKET_CATEGORIES} value={category} onChange={v => setCategory(v as TicketCategory)} />
-        <Select label="Department (optional)" options={DEPARTMENT_OPTIONS} value={departmentId} onChange={v => setDepartmentId(String(v))} />
+        <SearchableSelect label="Category (optional)" options={TICKET_CATEGORIES} value={category} onChange={v => setCategory(v as TicketCategory)} />
+        <SearchableSelect label="Department (optional)" options={DEPARTMENT_OPTIONS} value={departmentId} onChange={v => setDepartmentId(String(v))} />
       </div>
 
       <Input label="Subject" placeholder="Brief summary of your issue" value={subject} onChange={e => setSubject(e.target.value)} />
       <Textarea label="Description" placeholder="Describe your issue or request in detail..." value={description} onChange={e => setDescription(e.target.value)} rows={4} />
-      <Select label="Priority" options={PRIORITY_OPTIONS} value={priority} onChange={v => setPriority(v as TicketPriority)} />
+      <SearchableSelect label="Priority" options={PRIORITY_OPTIONS} value={priority} onChange={v => setPriority(v as TicketPriority)} />
     </div>
   );
 

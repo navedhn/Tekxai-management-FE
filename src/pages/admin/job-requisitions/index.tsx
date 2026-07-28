@@ -4,7 +4,7 @@ import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import Modal from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import Textarea from '@/components/ui/Textarea';
@@ -211,7 +211,7 @@ const JobRequisitionsPage: React.FC = () => {
 
       <Card className="flex flex-wrap gap-3 !py-3">
         <div className="w-44">
-          <Select options={deptOptions} value={filters.department_id || ''} onChange={v => setFilters((f: any) => ({ ...f, department_id: v }))} placeholder="Department" className="h-9 !rounded-xl" />
+          <SearchableSelect options={deptOptions} value={filters.department_id || ''} onChange={v => setFilters((f: any) => ({ ...f, department_id: v }))} placeholder="Department" className="h-9 !rounded-xl" />
         </div>
         {filters.status || filters.department_id ? (
           <Button variant="outline" size="sm" animation="none" rounded={false} className="rounded-xl" onClick={() => setFilters({})}>
@@ -229,12 +229,12 @@ const JobRequisitionsPage: React.FC = () => {
         <div className="flex flex-col gap-4 p-2">
           <Input label="Title *" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="e.g. Senior Backend Developer" className="h-11 rounded-xl" />
           <div className="grid grid-cols-2 gap-3">
-            <Select label="Department" options={[{ value: '', label: 'None' }, ...deptOptions]} value={form.department_id} onChange={v => setForm(p => ({ ...p, department_id: String(v) }))} className="h-11 !rounded-xl" />
-            <Select label="Business Unit" options={[{ value: '', label: 'None' }, ...buOptions]} value={form.business_unit_id} onChange={v => setForm(p => ({ ...p, business_unit_id: String(v) }))} className="h-11 !rounded-xl" />
+            <SearchableSelect label="Department" options={[{ value: '', label: 'None' }, ...deptOptions]} value={form.department_id} onChange={v => setForm(p => ({ ...p, department_id: String(v) }))} className="h-11 !rounded-xl" />
+            <SearchableSelect label="Business Unit" options={[{ value: '', label: 'None' }, ...buOptions]} value={form.business_unit_id} onChange={v => setForm(p => ({ ...p, business_unit_id: String(v) }))} className="h-11 !rounded-xl" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Input label="Headcount" type="number" min={1} value={String(form.headcount)} onChange={e => setForm(p => ({ ...p, headcount: +e.target.value }))} className="h-11 rounded-xl" />
-            <Select label="Employment Type" options={employmentTypes.map((t: string) => ({ value: t, label: t.replace(/_/g, ' ') }))} value={form.employment_type} onChange={v => setForm(p => ({ ...p, employment_type: String(v) }))} className="h-11 !rounded-xl" />
+            <SearchableSelect label="Employment Type" options={employmentTypes.map((t: string) => ({ value: t, label: t.replace(/_/g, ' ') }))} value={form.employment_type} onChange={v => setForm(p => ({ ...p, employment_type: String(v) }))} className="h-11 !rounded-xl" />
           </div>
           <Textarea label="Justification *" value={form.justification} onChange={e => setForm(p => ({ ...p, justification: e.target.value }))} rows={3} placeholder="Why is this headcount needed?" />
           <div className="grid grid-cols-3 gap-3">

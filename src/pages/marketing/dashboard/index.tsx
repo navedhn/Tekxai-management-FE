@@ -4,7 +4,7 @@ import { Search } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import Badge from '@/components/ui/Badge';
 import {
   MarketingPageHeader,
@@ -139,7 +139,7 @@ const MarketingDashboard: React.FC = () => {
           <p className="text-sm text-gray-500 font-medium">Showing {teamLabel}</p>
         </div>
         <div className="w-full sm:w-44">
-          <Select
+          <SearchableSelect
             options={PERIOD_OPTIONS}
             value={period}
             onChange={v => setPeriod(String(v))}

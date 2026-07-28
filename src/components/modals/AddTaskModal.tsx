@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
-import Select, { SelectOption } from '@/components/ui/Select';
+import SearchableSelect, { SearchableSelectOption as SelectOption } from '@/components/ui/SearchableSelect';
 import Textarea from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { Plus } from 'lucide-react';
@@ -99,13 +99,14 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, projectId,
           className="h-12 rounded-xl"
         />
 
-        <Select
+        <SearchableSelect
           label="Assignee *"
           options={memberOptions}
           value={formData.assignee}
-          onChange={handleSelectChange}
+          onChange={(v) => handleSelectChange(v ?? '')}
           error={errors.assignee}
           placeholder="Select a team member"
+          clearable={false}
         />
 
         <Textarea

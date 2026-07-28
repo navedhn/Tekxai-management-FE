@@ -9,7 +9,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 
 const STATUS_OPTIONS = ['DRAFT', 'SENT', 'PAID', 'OVERDUE', 'CANCELLED'];
 const STATUS_VARIANT: Record<string, any> = { DRAFT: 'default', SENT: 'warning', PAID: 'success', OVERDUE: 'error', CANCELLED: 'error' };
@@ -129,12 +129,13 @@ const CRMInvoices: React.FC = () => {
           <Input label="TITLE *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="h-11 rounded-xl" placeholder="e.g. Website Development - Phase 1" />
           <div className="grid grid-cols-2 gap-3">
             <Input label="AMOUNT *" type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} className="h-11 rounded-xl" />
-            <Select
+            <SearchableSelect
               label="CURRENCY"
               options={[{ value: 'USD', label: 'USD' }, { value: 'PKR', label: 'PKR' }, { value: 'EUR', label: 'EUR' }]}
               value={form.currency}
-              onChange={(v: string) => setForm(f => ({ ...f, currency: v }))}
+              onChange={(v) => setForm(f => ({ ...f, currency: (v ?? 'USD') as string }))}
               className="h-11 !rounded-xl"
+              clearable={false}
             />
           </div>
           <Input label="DUE DATE" type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} className="h-11 rounded-xl" />

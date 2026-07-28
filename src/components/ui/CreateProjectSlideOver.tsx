@@ -4,7 +4,7 @@ import {Clock, X, Plus, Search, User ,Loader2, ArrowRight } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import Button from './Button';
 import Input from './Input';
-import Select from './Select';
+import SearchableSelect from './SearchableSelect';
 import Textarea from './Textarea';
 import DatePicker from './DatePicker';
 import { ProjectDetail, ProjectDto, ProjectMemberRole, PROJECT_MEMBER_ROLES, useCreateProjectMutation, useUpdateProjectMutation } from '@/services/projectService';
@@ -378,7 +378,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
 
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Status</label>
-                  <Select
+                  <SearchableSelect
                     options={PROJECT_STATUS_OPTIONS.map((o) => ({ label: o.label, value: o.value }))}
                     value={status}
                     onChange={(v) => setStatus(String(v))}
@@ -387,7 +387,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
 
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Priority</label>
-                  <Select
+                  <SearchableSelect
                     options={[
                       { label: 'Low', value: 'LOW' },
                       { label: 'Medium', value: 'MEDIUM' },
@@ -401,7 +401,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
 
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Business Unit</label>
-                  <Select
+                  <SearchableSelect
                     options={[{ label: 'Unassigned', value: '' }, ...businessUnits.map((bu: any) => ({ label: bu.name, value: bu.id }))]}
                     value={businessUnitId}
                     onChange={(v) => setBusinessUnitId(String(v))}
@@ -458,7 +458,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
                   />
                   <div className="flex flex-col gap-2">
                     <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Currency</label>
-                    <Select
+                    <SearchableSelect
                       options={[
                         { label: 'PKR', value: 'PKR' },
                         { label: 'USD', value: 'USD' },

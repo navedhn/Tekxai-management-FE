@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { useGetTeamsQuery } from '@/services/adminService';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
@@ -189,40 +189,43 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
           {/* Dropdowns Section */}
           <div className="grid grid-cols-1 gap-5">
             {/* Department */}
-            <Select
+            <SearchableSelect
               label="DEPARTMENT *"
               options={departmentOptions}
               value={department}
-              onChange={handleDepartmentChange}
+              onChange={(v) => handleDepartmentChange(v ?? '')}
               error={errors.department}
               placeholder="Select Department"
               className="h-12 !rounded-xl"
               containerClassName="w-full"
+              clearable={false}
             />
 
             {/* Team */}
-            <Select
+            <SearchableSelect
               label="TEAM *"
               options={teamsOptions}
               value={team}
-              onChange={handleTeamChange}
+              onChange={(v) => handleTeamChange(v ?? '')}
               error={errors.team}
               placeholder={department ? "Select Team" : "Select Department First"}
               disabled={!department}
               className="h-12 !rounded-xl"
               containerClassName="w-full"
+              clearable={false}
             />
 
             {/* Designation — loaded from the real Designations API, not a hardcoded list */}
-            <Select
+            <SearchableSelect
               label="DESIGNATION *"
               options={designationOptions}
               value={designation}
-              onChange={(val) => setDesignation(val as string)}
+              onChange={(val) => setDesignation((val ?? '') as string)}
               error={errors.designation}
               placeholder="Select Designation"
               className="h-12 !rounded-xl"
               containerClassName="w-full"
+              clearable={false}
             />
           </div>
 

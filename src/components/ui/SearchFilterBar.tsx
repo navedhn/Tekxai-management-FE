@@ -1,9 +1,9 @@
 import React from 'react';
 import { ArrowUpDown, Search } from 'lucide-react';
-import Select, { SelectOption } from './Select';
+import SearchableSelect, { SearchableSelectOption } from './SearchableSelect';
 
 interface FilterConfig {
-  options: SelectOption[];
+  options: SearchableSelectOption[];
   value: string | number;
   onChange: (value: string | number) => void;
   containerClassName?: string;
@@ -41,12 +41,13 @@ const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
         />
       </div>
       {filters.map((filter, i) => (
-        <Select
+        <SearchableSelect
           key={i}
           options={filter.options}
           value={filter.value}
-          onChange={filter.onChange}
+          onChange={(v) => filter.onChange(v ?? '')}
           containerClassName={filter.containerClassName}
+          clearable={false}
         />
       ))}
       {sort && (

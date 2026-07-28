@@ -8,7 +8,7 @@ import {
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import Card from '@/components/ui/Card';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import DashboardStatCard from '@/components/ui/DashboardStatCard';
 import { StatSkeleton, CardSkeleton } from '@/components/skeletons';
 import {
@@ -182,7 +182,7 @@ const Dashboard: React.FC = () => {
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg font-black text-gray-900 tracking-tight">Attendance Overview</h2>
                         <div className="w-36">
-                            <Select
+                            <SearchableSelect
                                 options={ATTENDANCE_PERIOD_OPTIONS}
                                 value={attendancePeriod}
                                 onChange={(v) => setAttendancePeriod(String(v))}

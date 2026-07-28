@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import FormInput from '@/components/form/FormInput';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Lock, Globe, User } from 'lucide-react';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useGetMySettingsQuery, useUpdatePreferencesMutation, useChangePasswordMutation } from '@/services/settingsService';

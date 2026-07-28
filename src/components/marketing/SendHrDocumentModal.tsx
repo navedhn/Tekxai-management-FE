@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { FileText, Send, Eye } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import Textarea from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { HrDocumentType, TeamMember } from '@/types/marketing';
@@ -124,7 +124,7 @@ ${message}
           </div>
         </div>
 
-        <Select
+        <SearchableSelect
           label="Document template"
           options={templates}
           value={templateId}

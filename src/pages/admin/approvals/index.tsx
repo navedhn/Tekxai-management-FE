@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Textarea from '@/components/ui/Textarea';
 import Table, { Column } from '@/components/ui/Table';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import {
@@ -461,7 +461,7 @@ const ApprovalsPage: React.FC = () => {
       {/* Status update modal */}
       <Modal isOpen={!!statusReqId} onClose={() => setStatusReqId(null)} title="Update Requisition Status" size="sm">
         <div className="flex flex-col gap-4 p-2">
-          <Select label="New Status" options={REQ_STATUSES.filter(s => !['DRAFT','SUBMITTED'].includes(s)).map(s => ({ value: s, label: s.replace(/_/g,' ') }))}
+          <SearchableSelect label="New Status" options={REQ_STATUSES.filter(s => !['DRAFT','SUBMITTED'].includes(s)).map(s => ({ value: s, label: s.replace(/_/g,' ') }))}
             value={newStatus} onChange={v => setNewStatus(String(v))} placeholder="Select status" className="h-11 !rounded-xl" />
           <Textarea label="Comment" value={statusComment} onChange={e => setStatusComment(e.target.value)} rows={2} placeholder="Optional context..." />
           <div className="flex gap-3">

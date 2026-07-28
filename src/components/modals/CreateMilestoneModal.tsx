@@ -3,7 +3,7 @@ import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import DatePicker from '@/components/ui/DatePicker';
 import Textarea from '@/components/ui/Textarea';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Button } from '@/components/ui/Button';
 import ChipMultiSelect from '@/components/ui/ChipMultiSelect';
 import { Plus } from 'lucide-react';
@@ -174,7 +174,7 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
               className="h-12 rounded-xl"
             />
           )}
-          <Select
+          <SearchableSelect
             label="Status"
             options={STATUS_OPTIONS}
             value={formData.status}

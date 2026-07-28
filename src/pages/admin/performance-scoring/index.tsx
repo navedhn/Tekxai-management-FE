@@ -3,7 +3,7 @@ import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Button, { pageActionButtonClass, pageOutlineButtonClass } from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import ActionModal from '@/components/ui/ActionModal';
 import ScoringConfigPanel from '@/components/performance/ScoringConfigPanel';
 import EmployeePerformanceModal from '@/components/performance/EmployeePerformanceModal';
@@ -257,7 +257,7 @@ const PerformanceScoringPage: React.FC = () => {
           <h2 className="text-lg font-extrabold text-gray-900 shrink-0">Monthly Scores</h2>
           <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto lg:max-w-md">
             <div className="w-full sm:min-w-[160px]">
-              <Select
+              <SearchableSelect
                 value={period}
                 onChange={(v) => setPeriod(String(v))}
                 options={periods.map((p) => ({ value: p, label: p }))}

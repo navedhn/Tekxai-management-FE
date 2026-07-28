@@ -4,7 +4,7 @@ import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import Modal from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import Textarea from '@/components/ui/Textarea';
@@ -240,10 +240,10 @@ const RequisitionsPage: React.FC = () => {
           </div>
         )}
         <div className="w-36">
-          <Select options={categories} value={filters.category || ''} onChange={v => setFilters((f: any) => ({ ...f, category: v }))} placeholder="Category" className="h-9 !rounded-xl" />
+          <SearchableSelect options={categories} value={filters.category || ''} onChange={v => setFilters((f: any) => ({ ...f, category: v }))} placeholder="Category" className="h-9 !rounded-xl" />
         </div>
         <div className="w-32">
-          <Select options={priorities.map((p: string) => ({ value: p, label: p }))} value={filters.priority || ''} onChange={v => setFilters((f: any) => ({ ...f, priority: v }))} placeholder="Priority" className="h-9 !rounded-xl" />
+          <SearchableSelect options={priorities.map((p: string) => ({ value: p, label: p }))} value={filters.priority || ''} onChange={v => setFilters((f: any) => ({ ...f, priority: v }))} placeholder="Priority" className="h-9 !rounded-xl" />
         </div>
         {(filters.category || filters.priority || filters.status) && (
           <Button variant="outline" size="sm" animation="none" rounded={false} className="rounded-xl" onClick={() => setFilters(isAdmin ? {} : { mine: 'true' })}>
@@ -261,8 +261,8 @@ const RequisitionsPage: React.FC = () => {
         <div className="flex flex-col gap-4 p-2">
           <Input label="Title *" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="e.g. Dell Laptop for Developer" className="h-11 rounded-xl" />
           <div className="grid grid-cols-2 gap-3">
-            <Select label="Category" options={categories} value={form.category} onChange={v => setForm(p => ({ ...p, category: String(v) }))} className="h-11 !rounded-xl" />
-            <Select label="Priority" options={priorities.map((p: string) => ({ value: p, label: p }))} value={form.priority} onChange={v => setForm(p => ({ ...p, priority: String(v) }))} className="h-11 !rounded-xl" />
+            <SearchableSelect label="Category" options={categories} value={form.category} onChange={v => setForm(p => ({ ...p, category: String(v) }))} className="h-11 !rounded-xl" />
+            <SearchableSelect label="Priority" options={priorities.map((p: string) => ({ value: p, label: p }))} value={form.priority} onChange={v => setForm(p => ({ ...p, priority: String(v) }))} className="h-11 !rounded-xl" />
           </div>
           <Textarea label="Description / Justification" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={3} placeholder="Explain why this is needed..." />
           <div className="grid grid-cols-2 gap-3">
@@ -275,7 +275,7 @@ const RequisitionsPage: React.FC = () => {
             <Input label="Delivery Location" value={form.delivery_location} onChange={e => setForm(p => ({ ...p, delivery_location: e.target.value }))} className="h-11 rounded-xl" />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Select label="Department" options={[{ value: '', label: 'None' }, ...deptOptions]} value={form.department_id} onChange={v => setForm(p => ({ ...p, department_id: String(v) }))} className="h-11 !rounded-xl" />
+            <SearchableSelect label="Department" options={[{ value: '', label: 'None' }, ...deptOptions]} value={form.department_id} onChange={v => setForm(p => ({ ...p, department_id: String(v) }))} className="h-11 !rounded-xl" />
           </div>
           <div className="flex items-center gap-2">
             <input type="checkbox" id="convert_asset" checked={form.convert_to_asset} onChange={e => setForm(p => ({ ...p, convert_to_asset: e.target.checked }))} className="rounded" />
@@ -307,7 +307,7 @@ const RequisitionsPage: React.FC = () => {
       {/* Status Update Modal */}
       <Modal isOpen={!!newStatusFor} onClose={() => setNewStatusFor(null)} title="Update Requisition Status" size="sm">
         <div className="flex flex-col gap-4 p-2">
-          <Select
+          <SearchableSelect
             label="New Status"
             options={statuses.filter((s: string) => !['DRAFT', 'SUBMITTED'].includes(s)).map((s: string) => ({ value: s, label: s.replace(/_/g, ' ') }))}
             value={newStatusVal}

@@ -1,7 +1,7 @@
 import React from 'react';
 import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { TicketFieldDef, TicketFormSection } from '@/types/ticket';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
 
@@ -65,7 +65,7 @@ const FieldControl: React.FC<{
 
     case 'select':
       return (
-        <Select
+        <SearchableSelect
           label={label}
           options={(field.options || []).map((o) => ({ label: o, value: o }))}
           value={(value as string) || ''}
@@ -102,7 +102,7 @@ const FieldControl: React.FC<{
 
     case 'department':
       return (
-        <Select
+        <SearchableSelect
           label={label}
           options={departments.map((d: { id: string; name: string }) => ({ label: d.name, value: d.id }))}
           value={(value as string) || ''}

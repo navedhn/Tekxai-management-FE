@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Button } from '@/components/ui/Button';
 import { useCreateTeamMutation, useUpdateTeamMutation } from '@/services/adminService';
 import { useGetDepartmentsQuery, useGetDivisionsQuery } from '@/services/departmentService';
@@ -230,13 +230,13 @@ const TeamFormModal: React.FC<Props> = ({ isOpen, onClose, team }) => {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <Select
+          <SearchableSelect
             label="Department"
             options={[{ label: 'None', value: '' }, ...(departments || []).map((d: any) => ({ label: d.name, value: d.id }))]}
             value={formData.department_id}
             onChange={(v) => setFormData(p => ({ ...p, department_id: String(v), division_id: '' }))}
           />
-          <Select
+          <SearchableSelect
             label="Division"
             options={[{ label: 'None', value: '' }, ...(divisions || []).map((d: any) => ({ label: d.name, value: d.id }))]}
             value={formData.division_id}
@@ -244,7 +244,7 @@ const TeamFormModal: React.FC<Props> = ({ isOpen, onClose, team }) => {
           />
         </div>
 
-        <Select
+        <SearchableSelect
           label="Team Manager"
           options={[{ label: 'No manager assigned', value: '' }, ...(users || []).map((u: any) => ({ label: `${u.first_name} ${u.last_name}`, value: u.id }))]}
           value={formData.manager_id}

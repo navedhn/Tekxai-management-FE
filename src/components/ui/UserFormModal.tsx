@@ -3,7 +3,7 @@ import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import FormInput from '@/components/form/FormInput';
 import { Button } from '@/components/ui/Button';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { useGetTeamsQuery } from '@/services/adminService';
 import { useCreateUserMutation, useUpdateUserMutation, useChangeUserRoleMutation } from '@/services/userService';
 import { useToastContext } from '@/components/toast/ToastProvider';
@@ -227,23 +227,23 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
           placeholder="••••••••" type="password" autoComplete="new-password" />
 
         <div className="grid grid-cols-2 gap-4">
-          <Select label="ROLE *" options={roleOptions} value={formData.role_id}
-            onChange={handleSelectChange('role_id')} error={errors.role_id}
+          <SearchableSelect label="ROLE *" options={roleOptions} value={formData.role_id}
+            onChange={(v) => handleSelectChange('role_id')(v ?? '')} clearable={false} error={errors.role_id}
             placeholder="Select Role" className="h-12 !rounded-xl" />
-          <Select label="STATUS *" options={statuses} value={formData.status}
-            onChange={handleSelectChange('status')} className="h-12 !rounded-xl" />
+          <SearchableSelect label="STATUS *" options={statuses} value={formData.status}
+            onChange={(v) => handleSelectChange('status')(v ?? '')} clearable={false} className="h-12 !rounded-xl" />
         </div>
 
-        <Select label="DEPARTMENT *" options={departmentOptions} value={formData.department_id}
-          onChange={handleSelectChange('department_id')} error={errors.department_id}
+        <SearchableSelect label="DEPARTMENT *" options={departmentOptions} value={formData.department_id}
+          onChange={(v) => handleSelectChange('department_id')(v ?? '')} clearable={false} error={errors.department_id}
           placeholder="Select Department" className="h-12 !rounded-xl" />
 
         <div className="grid grid-cols-2 gap-4">
-          <Select label="TEAM" options={teamsOptions} value={formData.team_id}
-            onChange={handleSelectChange('team_id')} placeholder="Select Team"
+          <SearchableSelect label="TEAM" options={teamsOptions} value={formData.team_id}
+            onChange={(v) => handleSelectChange('team_id')(v ?? '')} clearable={false} placeholder="Select Team"
             className="h-12 !rounded-xl" />
-          <Select label="DESIGNATION" options={designationOptions} value={formData.designation_id}
-            onChange={handleSelectChange('designation_id')} placeholder="Select Designation"
+          <SearchableSelect label="DESIGNATION" options={designationOptions} value={formData.designation_id}
+            onChange={(v) => handleSelectChange('designation_id')(v ?? '')} clearable={false} placeholder="Select Designation"
             className="h-12 !rounded-xl" />
         </div>
 

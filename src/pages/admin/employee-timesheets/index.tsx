@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import Button from '@/components/ui/Button';
 import EmployeeSearchInput, { EmployeeSearchResult } from '@/components/ui/EmployeeSearchInput';
 import { Download, FileSpreadsheet, FileText, Eye, Pencil, CheckCircle2, ShieldAlert } from 'lucide-react';
@@ -237,7 +237,7 @@ const EmployeeTimesheets: React.FC = () => {
           </div>
           <div className="w-full md:w-56">
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Period</label>
-            <Select options={PERIODS} value={period} onChange={(v) => setPeriod(String(v))} />
+            <SearchableSelect options={PERIODS} value={period} onChange={(v) => setPeriod(String(v))} />
           </div>
         </div>
 

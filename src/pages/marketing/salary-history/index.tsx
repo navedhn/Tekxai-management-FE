@@ -3,7 +3,7 @@ import { Search, Pencil, FileDown } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import Badge from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { MarketingPageHeader } from '@/components/marketing';
@@ -133,12 +133,12 @@ const SalaryHistoryPage: React.FC = () => {
             onChange={e => setSearch(e.target.value)}
             leftIcon={Search}
           />
-          <Select
+          <SearchableSelect
             options={[{ label: 'All periods', value: 'all' }, ...PERIOD_OPTIONS]}
             value={periodFilter}
             onChange={v => setPeriodFilter(String(v))}
           />
-          <Select
+          <SearchableSelect
             options={STATUS_OPTIONS}
             value={statusFilter}
             onChange={v => setStatusFilter(String(v))}

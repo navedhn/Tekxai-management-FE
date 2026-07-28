@@ -10,7 +10,7 @@ import Tabs from '@/components/ui/Tabs';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Button } from '@/components/ui/Button';
 import Loader from '@/components/ui/Loader';
 import { cn } from '@/utils/cn';
@@ -387,11 +387,11 @@ const PayrollSection: React.FC<{
         <h3 className="text-base font-black text-gray-900 mb-4 flex items-center gap-2"><DollarSign size={16} />Salary Information</h3>
         {hrEditing ? (
           <div className="grid grid-cols-2 gap-3">
-            <Select label="Currency" options={[{ value: 'PKR', label: 'PKR' }, { value: 'USD', label: 'USD' }]} value={hrForm.salary_currency || 'PKR'} onChange={(v: any) => setHrForm((p: any) => ({ ...p, salary_currency: v }))} className="h-10 !rounded-xl" />
+            <SearchableSelect label="Currency" options={[{ value: 'PKR', label: 'PKR' }, { value: 'USD', label: 'USD' }]} value={hrForm.salary_currency || 'PKR'} onChange={(v: any) => setHrForm((p: any) => ({ ...p, salary_currency: v }))} className="h-10 !rounded-xl" />
             <Input label="Base Salary" type="number" value={hrForm.base_salary || ''} onChange={e => setHrForm((p: any) => ({ ...p, base_salary: e.target.value }))} className="h-10 rounded-xl" />
             <Input label="Gross Salary" type="number" value={hrForm.gross_salary || ''} onChange={e => setHrForm((p: any) => ({ ...p, gross_salary: e.target.value }))} className="h-10 rounded-xl" />
             <Input label="Effective Date" type="date" value={hrForm.effective_salary_date ? hrForm.effective_salary_date.slice(0, 10) : ''} onChange={e => setHrForm((p: any) => ({ ...p, effective_salary_date: e.target.value }))} className="h-10 rounded-xl" />
-            <Select label="Bank" options={[{ value: '', label: 'Select bank' }, ...BANKS.map(b => ({ value: b, label: b }))]} value={hrForm.bank_name || ''} onChange={(v: any) => setHrForm((p: any) => ({ ...p, bank_name: v }))} className="h-10 !rounded-xl" />
+            <SearchableSelect label="Bank" options={[{ value: '', label: 'Select bank' }, ...BANKS.map(b => ({ value: b, label: b }))]} value={hrForm.bank_name || ''} onChange={(v: any) => setHrForm((p: any) => ({ ...p, bank_name: v }))} className="h-10 !rounded-xl" />
             <Input label="Bank Account Number" value={hrForm.bank_account_number || ''} onChange={e => setHrForm((p: any) => ({ ...p, bank_account_number: e.target.value.replace(/[^0-9A-Za-z-]/g, '') }))} className="h-10 rounded-xl" disabled={!hrForm.bank_name} />
           </div>
         ) : (
@@ -546,21 +546,21 @@ const EmploymentSection: React.FC<{
       </div>
       {orgEditing ? (
         <div className="grid grid-cols-1 gap-3">
-          <Select
+          <SearchableSelect
             label="Designation"
             options={[{ label: 'None', value: '' }, ...(designations || []).map((d: any) => ({ label: d.name, value: d.id }))]}
             value={orgForm.designation_id}
             onChange={(v: any) => setOrgForm((p: any) => ({ ...p, designation_id: String(v) }))}
             className="h-10 !rounded-xl"
           />
-          <Select
+          <SearchableSelect
             label="Grade"
             options={[{ label: 'None', value: '' }, ...(grades || []).map((g: any) => ({ label: g.name, value: g.id }))]}
             value={orgForm.grade_id}
             onChange={(v: any) => setOrgForm((p: any) => ({ ...p, grade_id: String(v) }))}
             className="h-10 !rounded-xl"
           />
-          <Select
+          <SearchableSelect
             label="Reporting Manager"
             options={[{ label: 'None', value: '' }, ...(managers || []).filter((m: any) => m.id !== employeeId).map((m: any) => ({ label: `${m.first_name} ${m.last_name}`, value: m.id }))]}
             value={orgForm.supervisor_id}
@@ -583,8 +583,8 @@ const EmploymentSection: React.FC<{
       <h3 className="text-base font-black text-gray-900 mb-4 flex items-center gap-2"><Briefcase size={16} />Employment Details</h3>
       {hrEditing ? (
         <div className="grid grid-cols-2 gap-3">
-          <Select label="Employment Type" options={EMPLOYMENT_TYPES} value={hrForm.employment_type || ''} onChange={(v: any) => setHrForm((p: any) => ({ ...p, employment_type: v }))} placeholder="Select" className="h-10 !rounded-xl" />
-          <Select label="Work Mode" options={WORK_MODES} value={hrForm.work_mode || ''} onChange={(v: any) => setHrForm((p: any) => ({ ...p, work_mode: v }))} placeholder="Select" className="h-10 !rounded-xl" />
+          <SearchableSelect label="Employment Type" options={EMPLOYMENT_TYPES} value={hrForm.employment_type || ''} onChange={(v: any) => setHrForm((p: any) => ({ ...p, employment_type: v }))} placeholder="Select" className="h-10 !rounded-xl" />
+          <SearchableSelect label="Work Mode" options={WORK_MODES} value={hrForm.work_mode || ''} onChange={(v: any) => setHrForm((p: any) => ({ ...p, work_mode: v }))} placeholder="Select" className="h-10 !rounded-xl" />
           <Input label="Office Location" value={hrForm.office_location || ''} onChange={e => setHrForm((p: any) => ({ ...p, office_location: e.target.value }))} className="h-10 rounded-xl" />
           <Input label="Notice Period (days)" type="number" value={hrForm.notice_period_days || ''} onChange={e => setHrForm((p: any) => ({ ...p, notice_period_days: e.target.value }))} className="h-10 rounded-xl" />
           <Input label="Joining Date" type="date" value={hrForm.confirmation_date ? hrForm.confirmation_date.slice(0, 10) : ''} onChange={e => setHrForm((p: any) => ({ ...p, confirmation_date: e.target.value }))} className="h-10 rounded-xl" />
@@ -609,7 +609,7 @@ const EmploymentSection: React.FC<{
         <div className="grid grid-cols-2 gap-3">
           <Input label="Probation Start" type="date" value={hrForm.probation_start ? hrForm.probation_start.slice(0, 10) : ''} onChange={e => setHrForm((p: any) => ({ ...p, probation_start: e.target.value }))} className="h-10 rounded-xl" />
           <Input label="Probation End" type="date" value={hrForm.probation_end ? hrForm.probation_end.slice(0, 10) : ''} onChange={e => setHrForm((p: any) => ({ ...p, probation_end: e.target.value }))} className="h-10 rounded-xl" />
-          <Select label="Probation Status" options={PROBATION_STATUSES} value={hrForm.probation_status || ''} onChange={(v: any) => setHrForm((p: any) => ({ ...p, probation_status: v }))} placeholder="Select" className="h-10 !rounded-xl" />
+          <SearchableSelect label="Probation Status" options={PROBATION_STATUSES} value={hrForm.probation_status || ''} onChange={(v: any) => setHrForm((p: any) => ({ ...p, probation_status: v }))} placeholder="Select" className="h-10 !rounded-xl" />
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4">
@@ -692,7 +692,7 @@ const DocumentsSection: React.FC<{
           <h3 className="text-sm font-black text-gray-900 mb-3">Add New Document</h3>
           <div className="grid grid-cols-2 gap-3">
             <Input label="Title *" value={newDoc.title} onChange={e => setNewDoc((p: any) => ({ ...p, title: e.target.value }))} className="h-10 rounded-xl" placeholder="e.g. Employment Contract 2024" />
-            <Select label="Document Type" options={docTypes} value={newDoc.document_type} onChange={(v: any) => setNewDoc((p: any) => ({ ...p, document_type: String(v) }))} className="h-10 !rounded-xl" />
+            <SearchableSelect label="Document Type" options={docTypes} value={newDoc.document_type} onChange={(v: any) => setNewDoc((p: any) => ({ ...p, document_type: String(v) }))} className="h-10 !rounded-xl" />
             <div className="col-span-2">
               <p className="text-xs font-bold text-gray-500 mb-1">Upload File *</p>
               <label className={cn(
@@ -1270,7 +1270,7 @@ const EmployeeProfilePage: React.FC = () => {
             </Badge>
             {profile?.lifecycle_stage && (
               editingLifecycle ? (
-                <Select
+                <SearchableSelect
                   options={Object.entries(LIFECYCLE_LABELS).map(([value, label]) => ({ value, label }))}
                   value={profile.lifecycle_stage}
                   onChange={(value) => {

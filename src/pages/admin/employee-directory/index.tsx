@@ -8,7 +8,7 @@ import { useGetEmployeeDirectory } from '@/services/employeeService';
 import { useDeleteUserMutation, useBulkDeleteUsersMutation, useSetLifecycleStageMutation } from '@/services/userService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import QuickCreateUserModal from '@/components/ui/QuickCreateUserModal';
-import Select from '@/components/ui/Select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetRolesQuery } from '@/services/roleService';
 import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
@@ -482,7 +482,7 @@ export default function EmployeeDirectory() {
               <p className="text-sm text-gray-500 mb-4">
                 This directly overrides the lifecycle stage for the selected employee{selected.size > 1 ? 's' : ''}, bypassing the normal approval workflow. Use for correcting stuck/incorrect stages, not routine transitions.
               </p>
-              <Select
+              <SearchableSelect
                 options={LIFECYCLE_STAGE_OPTIONS}
                 value={bulkLifecycleStage}
                 onChange={(value) => setBulkLifecycleStage(String(value))}

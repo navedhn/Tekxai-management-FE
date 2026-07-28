@@ -3,7 +3,7 @@ import {
   MessageSquare, Video, Gavel, CheckSquare, Activity as ActivityIcon,
   Plus, ExternalLink,
 } from 'lucide-react';
-import Select from './Select';
+import SearchableSelect from './SearchableSelect';
 import Textarea from './Textarea';
 import Button from './Button';
 import Loader from './Loader';
@@ -123,7 +123,7 @@ const ClientCommunicationPanel: React.FC<ClientCommunicationPanelProps> = ({ pro
       <div className="flex flex-col gap-4 p-6">
         {showUpdateForm && (
           <div className="flex flex-col gap-3 p-4 bg-gray-50/60 rounded-2xl">
-            <Select label="Method" options={METHOD_OPTIONS} value={updateForm.method} onChange={(v) => setUpdateForm((f) => ({ ...f, method: v as CommChannel }))} />
+            <SearchableSelect label="Method" options={METHOD_OPTIONS} value={updateForm.method} onChange={(v) => setUpdateForm((f) => ({ ...f, method: v as CommChannel }))} />
             <Textarea label="Summary *" value={updateForm.summary} onChange={(e) => setUpdateForm((f) => ({ ...f, summary: e.target.value }))} placeholder="What was shared with the client..." className="min-h-[70px]" />
             <Textarea label="Client Response (optional)" value={updateForm.client_response} onChange={(e) => setUpdateForm((f) => ({ ...f, client_response: e.target.value }))} placeholder="How did the client respond..." className="min-h-[50px]" />
             <input
