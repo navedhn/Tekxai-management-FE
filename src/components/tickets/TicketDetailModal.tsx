@@ -40,6 +40,13 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ ticket, onClose, 
   const [message, setMessage] = useState('');
   const qc = useQueryClient();
 
+  // `initialData: ticket` means this query shows the prop it was opened with
+  // immediately — but combined with the global 5-minute staleTime and no
+  // polling, it would then sit there unrefreshed for the whole time the
+  // modal stays open, so a status change or reply made by the other party
+  // (admin vs. employee, or a second admin) in another session never
+  // reaches an already-open modal. Same fix as useGetTickets/
+  // useTicketTimelineQuery: poll while the modal is open.
   const { data: fullTicket } = useQuery<SupportTicket>({
     queryKey: ['ticket', ticket?.id],
     queryFn: async () => {
@@ -48,6 +55,8 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ ticket, onClose, 
     },
     enabled: !!ticket?.id,
     initialData: ticket ?? undefined,
+    staleTime: 15_000,
+    refetchInterval: !!ticket?.id ? 20_000 : false,
   });
 
   const replyMutation = useMutation({

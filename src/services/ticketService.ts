@@ -110,10 +110,24 @@ const createTicket = async (payload: CreateTicketPayload): Promise<SupportTicket
   return (res?.payload || res) as SupportTicket;
 };
 
+// Root cause of "employee still sees Pending after admin changes status":
+// the global QueryClient default (staleTime: 5min, refetchOnWindowFocus:
+// false) meant this query only ever refetched on a fresh mount more than
+// 5 minutes after the last one — an admin's status change in a completely
+// separate browser session never reached an already-open employee tab. No
+// websocket infrastructure exists in this app (checked: no socket.io/ws
+// dependency anywhere), so per-query polling is the correct fix here. 20s
+// is frequent enough to feel "live" for a support-ticket workflow without
+// hammering the API — override the global staleTime too, since a value
+// shorter than the poll interval would otherwise let a manual refetch (e.g.
+// window refocus) serve a cached response instead of hitting the network.
 export const useGetTickets = (filters: TicketListFilters = {}) =>
   useQuery({
     queryKey: [...QUERY_KEYS.TICKETS.LIST, filters],
     queryFn: () => fetchTickets(filters),
+    staleTime: 15_000,
+    refetchInterval: 20_000,
+    refetchOnWindowFocus: true,
   });
 
 // ─── Service Desk configuration (categories + types with field_schema) ──────
@@ -174,6 +188,11 @@ export const useTicketTimelineQuery = (ticketId?: string) =>
       return (res?.payload?.records || []) as TicketTimelineEntry[];
     },
     enabled: !!ticketId,
+    // Same staleness problem as useGetTickets above — a reply or status
+    // change made by the other party (admin vs. employee) must show up in
+    // an already-open detail view without a manual reload.
+    staleTime: 15_000,
+    refetchInterval: !!ticketId ? 20_000 : false,
   });
 
 export const useCreateTicketMutation = () => {

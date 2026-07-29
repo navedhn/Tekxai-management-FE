@@ -40,7 +40,15 @@ const EmployeeTicketsPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusTab, setStatusTab] = useState('all');
   const [createOpen, setCreateOpen] = useState(false);
-  const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
+  // Store just the id, not a snapshot of the ticket object — `tickets` polls
+  // every 20s (see useGetTickets), and holding a frozen object here would
+  // keep showing e.g. "Pending" in an already-open modal even after the
+  // list itself refetched the real "In Progress" status underneath it.
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const selectedTicket = useMemo(
+    () => tickets.find(t => t.id === selectedTicketId) ?? null,
+    [tickets, selectedTicketId]
+  );
 
   const employeeName = user?.first_name
     ? `${user.first_name} ${user.last_name || ''}`.trim()
@@ -122,7 +130,7 @@ const EmployeeTicketsPage: React.FC = () => {
           animation="none"
           rounded={false}
           className="rounded-lg text-xs h-8 px-2.5 bg-white"
-          onClick={() => setSelectedTicket(item)}
+          onClick={() => setSelectedTicketId(item.id)}
         >
           <Eye size={13} />
           View
@@ -218,7 +226,7 @@ const EmployeeTicketsPage: React.FC = () => {
         createdByEmail={employeeEmail}
       />
 
-      <TicketDetailModal ticket={selectedTicket} onClose={() => setSelectedTicket(null)} />
+      <TicketDetailModal ticket={selectedTicket} onClose={() => setSelectedTicketId(null)} />
     </div>
   );
 };
