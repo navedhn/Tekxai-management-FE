@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS as ENDPOINTS } from '@/services/api/endpoints';
 import { SupportTicket } from '@/types/ticket';
@@ -224,29 +226,35 @@ export default function AdminTickets() {
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#005CDA]/30"
           />
         </div>
-        <select
+        <SearchableSelect
+          options={[
+            { label: 'All Priorities', value: 'all' },
+            { label: 'High', value: 'high' },
+            { label: 'Medium', value: 'medium' },
+            { label: 'Low', value: 'low' },
+          ]}
           value={priorityFilter}
-          onChange={(e) => setPriorityFilter(e.target.value)}
-          className="text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#005CDA]/30"
-        >
-          <option value="all">All Priorities</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-        </select>
-        <button
+          onChange={(v) => setPriorityFilter((v as string) ?? 'all')}
+          clearable={false}
+          containerClassName="w-auto"
+          className="text-sm"
+        />
+        <Button
           type="button"
+          variant="outline"
+          animation="none"
+          rounded={false}
+          leftIcon={Clock}
           onClick={() => setSlaOverdueOnly((v) => !v)}
           className={cn(
-            'flex items-center gap-1.5 text-sm font-semibold border rounded-xl px-3 py-2 transition-colors',
+            '!text-sm h-auto !px-3 !py-2 !shadow-none',
             slaOverdueOnly
-              ? 'bg-red-50 text-red-600 border-red-200'
-              : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300',
+              ? '!bg-red-50 !text-red-600 !border-red-200'
+              : '!bg-white !text-gray-500 !border-gray-200 hover:!border-gray-300',
           )}
         >
-          <Clock size={14} />
           SLA Overdue
-        </button>
+        </Button>
       </div>
 
       {/* Table */}
@@ -280,68 +288,82 @@ export default function AdminTickets() {
                   <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{formatTicketDate(t.createdAt)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <button
+                      <Button
+                        variant="link"
+                        size="sm"
+                        animation="none"
+                        rounded={false}
                         onClick={() => setSelectedTicket(t)}
-                        className="text-xs font-semibold text-[#005CDA] hover:underline"
+                        className="!p-0 h-auto !shadow-none text-xs !text-[#005CDA]"
                       >
                         View / Reply
-                      </button>
+                      </Button>
                       {currentStep(t)?.requires_approval ? (
                         // Approval-gated workflow step — status can only move via approve/reject
                         <>
-                          <button
+                          <Button
+                            variant="link"
+                            size="sm"
+                            animation="none"
+                            rounded={false}
+                            leftIcon={CheckCircle2}
                             onClick={() => setPendingApproval({ id: t.id, action: 'APPROVE' })}
                             disabled={approvalMutation.isPending}
-                            className="flex items-center gap-1 text-xs font-semibold text-green-600 hover:underline disabled:opacity-50"
+                            className="!p-0 h-auto !shadow-none gap-1 text-xs !text-green-600"
                           >
-                            <CheckCircle2 size={12} /> Approve
-                          </button>
-                          <button
+                            Approve
+                          </Button>
+                          <Button
+                            variant="link"
+                            size="sm"
+                            animation="none"
+                            rounded={false}
+                            leftIcon={XCircle}
                             onClick={() => setPendingApproval({ id: t.id, action: 'REJECT' })}
                             disabled={approvalMutation.isPending}
-                            className="flex items-center gap-1 text-xs font-semibold text-red-600 hover:underline disabled:opacity-50"
+                            className="!p-0 h-auto !shadow-none gap-1 text-xs !text-red-600"
                           >
-                            <XCircle size={12} /> Reject
-                          </button>
+                            Reject
+                          </Button>
                         </>
                       ) : nextSteps(t) ? (
                         // Service-desk ticket — statuses come from its workflow snapshot
                         !t.closedAt && (
-                          <select
-                            defaultValue=""
-                            onChange={(e) => {
-                              if (!e.target.value) return;
-                              updateMutation.mutate({ id: t.id, status: e.target.value });
-                              e.target.value = '';
+                          <SearchableSelect
+                            options={nextSteps(t)!.map((s) => ({ label: s.label, value: s.key }))}
+                            value={null}
+                            onChange={(v) => {
+                              if (!v) return;
+                              updateMutation.mutate({ id: t.id, status: v as string });
                             }}
-                            className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none"
-                          >
-                            <option value="" disabled>Change status</option>
-                            {nextSteps(t)!.map((s) => (
-                              <option key={s.key} value={s.key}>{s.label}</option>
-                            ))}
-                          </select>
+                            clearable={false}
+                            placeholder="Change status"
+                            containerClassName="w-auto"
+                            className="text-xs h-auto py-1"
+                          />
                         )
                       ) : (
                         // Legacy ticket — original free-status behavior
                         t.status !== 'resolved' && (
-                          <select
-                            defaultValue=""
-                            onChange={(e) => {
-                              if (!e.target.value) return;
-                              if (e.target.value === 'resolved') {
+                          <SearchableSelect
+                            options={[
+                              ...(t.status !== 'in_progress' ? [{ label: 'Mark In Progress', value: 'in_progress' }] : []),
+                              { label: 'Mark Resolved', value: 'resolved' },
+                            ]}
+                            value={null}
+                            onChange={(v) => {
+                              if (!v) return;
+                              if (v === 'resolved') {
                                 setPendingResolveId(t.id);
                               } else {
-                                updateMutation.mutate({ id: t.id, status: e.target.value });
+                                updateMutation.mutate({ id: t.id, status: v as string });
                               }
-                              e.target.value = '';
                             }}
-                            className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none"
-                          >
-                            <option value="" disabled>Change status</option>
-                            {t.status !== 'in_progress' && <option value="in_progress">Mark In Progress</option>}
-                            <option value="resolved">Mark Resolved</option>
-                          </select>
+                            clearable={false}
+                            placeholder="Change status"
+                            containerClassName="w-auto"
+                            className="text-xs h-auto py-1"
+                          />
                         )
                       )}
                     </div>

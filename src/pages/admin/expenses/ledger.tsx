@@ -7,6 +7,7 @@ import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import ActionModal from '@/components/ui/ActionModal';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 
 const pkr = (v: number) => `PKR ${(v || 0).toLocaleString('en-PK')}`;
 const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white';

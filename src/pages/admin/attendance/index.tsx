@@ -4,7 +4,7 @@ import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Tabs from '@/components/ui/Tabs';
 import SearchableSelect from '@/components/ui/SearchableSelect';
-import Button from '@/components/ui/Button';
+import Button, { IconButton } from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -174,8 +174,8 @@ const AttendancePage: React.FC = () => {
     { header: 'Default', key: 'is_default', render: (item) => item.is_default ? <Badge variant="success" className="text-[10px] px-2 py-0.5 bg-green-50 text-green-600 border border-green-100 rounded-lg">Default</Badge> : null },
     { header: 'Actions', key: 'actions', render: (item) => (
       <div className="flex items-center gap-2">
-        <button onClick={() => openEditShift(item)} className="cursor-pointer text-gray-500 hover:text-primary-600 transition-colors p-1 rounded"><Pencil size={14} /></button>
-        <button onClick={() => handleDeleteShift(item)} className="cursor-pointer text-gray-500 hover:text-red-500 transition-colors p-1 rounded"><Trash2 size={14} /></button>
+        <IconButton icon={Pencil} variant="ghost" size="sm" aria-label="Edit shift" onClick={() => openEditShift(item)} className="!h-auto !w-auto p-1 text-gray-500 hover:text-primary-600" />
+        <IconButton icon={Trash2} variant="ghost" size="sm" aria-label="Delete shift" onClick={() => handleDeleteShift(item)} className="!h-auto !w-auto p-1 text-gray-500 hover:text-red-500" />
       </div>
     )},
   ];
@@ -220,24 +220,26 @@ const AttendancePage: React.FC = () => {
         <Card className="border-none shadow-sm">
           <h2 className="text-lg font-black text-gray-900 mb-4">Attendance Violations</h2>
           <div className="flex flex-col sm:flex-row gap-3 mb-4">
-            <select
-              value={violationFilters.user_id}
-              onChange={(e) => setViolationFilters(p => ({ ...p, user_id: e.target.value }))}
-              className="h-10 px-3 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none sm:w-56"
-            >
-              <option value="">All Employees</option>
-              {users.map((u: any) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
-            </select>
-            <select
-              value={violationFilters.violation_type}
-              onChange={(e) => setViolationFilters(p => ({ ...p, violation_type: e.target.value }))}
-              className="h-10 px-3 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none sm:w-44"
-            >
-              <option value="">All Types</option>
-              <option value="LATE">Late</option>
-              <option value="ABSENT">Absent</option>
-              <option value="EARLY_OUT">Early Out</option>
-            </select>
+            <SearchableSelect
+              options={users.map((u: any) => ({ label: `${u.first_name} ${u.last_name}`, value: u.id }))}
+              value={violationFilters.user_id || null}
+              onChange={(v) => setViolationFilters(p => ({ ...p, user_id: (v as string) ?? '' }))}
+              placeholder="All Employees"
+              containerClassName="sm:w-56"
+              className="h-10"
+            />
+            <SearchableSelect
+              options={[
+                { label: 'Late', value: 'LATE' },
+                { label: 'Absent', value: 'ABSENT' },
+                { label: 'Early Out', value: 'EARLY_OUT' },
+              ]}
+              value={violationFilters.violation_type || null}
+              onChange={(v) => setViolationFilters(p => ({ ...p, violation_type: (v as string) ?? '' }))}
+              placeholder="All Types"
+              containerClassName="sm:w-44"
+              className="h-10"
+            />
             <input
               type="date"
               value={violationFilters.start_date}
@@ -314,19 +316,23 @@ const AttendancePage: React.FC = () => {
         <form onSubmit={handleAssign} className="flex flex-col gap-4 mt-4">
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Employee</label>
-            <select value={assignForm.user_id} onChange={(e) => setAssignForm(p => ({ ...p, user_id: e.target.value }))}
-              className="h-11 px-4 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none">
-              <option value="">Select employee</option>
-              {users.map((u: any) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
-            </select>
+            <SearchableSelect
+              options={users.map((u: any) => ({ label: `${u.first_name} ${u.last_name}`, value: u.id }))}
+              value={assignForm.user_id || null}
+              onChange={(v) => setAssignForm(p => ({ ...p, user_id: (v as string) ?? '' }))}
+              placeholder="Select employee"
+              className="h-11"
+            />
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Shift</label>
-            <select value={assignForm.shift_id} onChange={(e) => setAssignForm(p => ({ ...p, shift_id: e.target.value }))}
-              className="h-11 px-4 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none">
-              <option value="">Select shift</option>
-              {shifts.map((s: any) => <option key={s.id} value={s.id}>{s.name} ({s.start_time}–{s.end_time})</option>)}
-            </select>
+            <SearchableSelect
+              options={shifts.map((s: any) => ({ label: `${s.name} (${s.start_time}–${s.end_time})`, value: s.id }))}
+              value={assignForm.shift_id || null}
+              onChange={(v) => setAssignForm(p => ({ ...p, shift_id: (v as string) ?? '' }))}
+              placeholder="Select shift"
+              className="h-11"
+            />
           </div>
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" fullWidth onClick={closeAssignModal}>Cancel</Button>

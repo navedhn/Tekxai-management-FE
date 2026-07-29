@@ -1,5 +1,6 @@
 import React, { forwardRef } from 'react';
 import { cn } from '@/utils/cn';
+import SearchableSelect from './SearchableSelect';
 
 /**
  * Phase 7 (Inputs): simple phone number field — a fixed/selectable
@@ -64,19 +65,15 @@ const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
             disabled && 'opacity-50 cursor-not-allowed bg-(--color-disabled-bg)'
           )}
         >
-          <select
-            aria-label="Country code"
-            disabled={disabled}
+          <SearchableSelect
+            options={countryOptions.map((opt) => ({ label: opt.code, value: opt.code }))}
             value={countryCode}
-            onChange={(e) => onCountryCodeChange?.(e.target.value)}
-            className="shrink-0 bg-transparent border-r border-gray-200 px-3 text-[14px] text-gray-600 focus-visible:outline-none disabled:cursor-not-allowed"
-          >
-            {countryOptions.map((opt) => (
-              <option key={opt.code} value={opt.code}>
-                {opt.code}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => onCountryCodeChange?.((v as string) ?? countryCode)}
+            disabled={disabled}
+            clearable={false}
+            containerClassName="shrink-0 w-[92px]"
+            className="h-full rounded-none border-0 border-r border-gray-200 px-3 shadow-none text-[14px] text-gray-600"
+          />
           <input
             ref={ref}
             type="tel"

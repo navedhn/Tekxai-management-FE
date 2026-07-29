@@ -3,6 +3,7 @@ import Modal from './Modal';
 import DatePicker from './DatePicker';
 import Textarea from './Textarea';
 import Button from './Button';
+import SearchableSelect from './SearchableSelect';
 import { useGetTimeOffPolicies, useCreateTimeOffRequestMutation } from '@/services/timesheetService';
 import { useGetMyLeaveBalances } from '@/services/leaveBalanceService';
 import { useToastContext } from '@/components/toast/ToastProvider';
@@ -68,15 +69,13 @@ const RequestTimeOffModal: React.FC<RequestTimeOffModalProps> = ({ isOpen, onClo
         {policies.length > 0 && (
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Leave Type *</label>
-            <select
+            <SearchableSelect
+              options={policies.map((p: any) => ({ label: p.name, value: p.id }))}
               value={policyId || policies[0]?.id || ''}
-              onChange={e => setPolicyId(e.target.value)}
-              className="h-11 px-3 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 focus:outline-none focus:border-primary-400"
-            >
-              {policies.map((p: any) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+              onChange={v => setPolicyId((v as string) ?? '')}
+              clearable={false}
+              className="h-11 text-sm font-semibold text-gray-700"
+            />
             {selectedBalance && (
               <p className="text-xs font-semibold text-gray-500">
                 Remaining: <span className="text-gray-900 font-black">{selectedBalance.remaining_days}</span> of {selectedBalance.total_days} days

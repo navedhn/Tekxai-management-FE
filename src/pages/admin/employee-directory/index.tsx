@@ -16,6 +16,7 @@ import { useGetGradesQuery } from '@/services/gradeService';
 import { cn } from '@/utils/cn';
 import { EMPLOYMENT_STATUS_LABELS } from '@/constants/employmentStatus';
 import StatusBadge from '@/components/ui/StatusBadge';
+import Button, { IconButton } from '@/components/ui/Button';
 
 const EMPLOYMENT_TYPE_OPTIONS = [
   { value: 'FULL_TIME', label: 'Full Time' },
@@ -281,14 +282,18 @@ export default function EmployeeDirectory() {
               This will deactivate <strong>{deleteTarget.full_name || deleteTarget.email}</strong> and revoke their access.
             </p>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setDeleteTarget(null)} className="px-4 py-2 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-100">Cancel</button>
-              <button
+              <Button variant="ghost" size="sm" animation="none" rounded={false} onClick={() => setDeleteTarget(null)} className="!px-4 !py-2 h-auto !shadow-none text-sm !text-gray-500">Cancel</Button>
+              <Button
+                variant="danger"
+                size="sm"
+                animation="none"
+                rounded={false}
                 onClick={handleDelete}
-                disabled={deleteUser.isPending}
-                className="px-4 py-2 rounded-xl text-sm font-black bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
+                loading={deleteUser.isPending}
+                className="!px-4 !py-2 h-auto !shadow-none text-sm"
               >
-                {deleteUser.isPending ? 'Removing…' : 'Remove'}
-              </button>
+                Remove
+              </Button>
             </div>
           </div>
         </div>
@@ -303,14 +308,18 @@ export default function EmployeeDirectory() {
               This will deactivate <strong>{selected.size} selected employee{selected.size > 1 ? 's' : ''}</strong> and revoke their access. This action can be reversed by re-activating accounts individually.
             </p>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setBulkDeleteOpen(false)} className="px-4 py-2 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-100">Cancel</button>
-              <button
+              <Button variant="ghost" size="sm" animation="none" rounded={false} onClick={() => setBulkDeleteOpen(false)} className="!px-4 !py-2 h-auto !shadow-none text-sm !text-gray-500">Cancel</Button>
+              <Button
+                variant="danger"
+                size="sm"
+                animation="none"
+                rounded={false}
                 onClick={handleBulkDelete}
-                disabled={bulkDelete.isPending}
-                className="px-4 py-2 rounded-xl text-sm font-black bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
+                loading={bulkDelete.isPending}
+                className="!px-4 !py-2 h-auto !shadow-none text-sm"
               >
-                {bulkDelete.isPending ? 'Removing…' : `Remove ${selected.size}`}
-              </button>
+                {`Remove ${selected.size}`}
+              </Button>
             </div>
           </div>
         </div>
@@ -325,21 +334,15 @@ export default function EmployeeDirectory() {
           <p className="text-sm text-gray-400 mt-0.5">View and manage all employees across the organization</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={handleExport} className="flex items-center gap-2 px-4 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer">
-            <Download size={16} />Export
-          </button>
-          <button
-            onClick={() => setQuickCreateOpen(true)}
-            className="flex items-center gap-2 px-4 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
-          >
-            <UserPlus size={16} />Quick Create User
-          </button>
-          <button
-            onClick={() => navigate('/admin/add-employee')}
-            className="flex items-center gap-2 px-4 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition-colors"
-          >
-            <Plus size={16} />Add Employee
-          </button>
+          <Button variant="outline" size="sm" animation="none" leftIcon={Download} onClick={handleExport} className="!h-10">
+            Export
+          </Button>
+          <Button variant="outline" size="sm" animation="none" leftIcon={UserPlus} onClick={() => setQuickCreateOpen(true)} className="!h-10">
+            Quick Create User
+          </Button>
+          <Button variant="primary" size="sm" leftIcon={Plus} onClick={() => navigate('/admin/add-employee')} className="!h-10">
+            Add Employee
+          </Button>
         </div>
       </div>
 
@@ -364,85 +367,101 @@ export default function EmployeeDirectory() {
               onChange={e => { setQ(e.target.value); setPage(1); }}
             />
           </div>
-          <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}
-            className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[130px] text-gray-600">
-            <option value="">All Status</option>
-            <option value="PENDING">Pending</option>
-            <option value="ACTIVE">Permanent</option>
-            <option value="INACTIVE">Inactive</option>
-            <option value="ON_LEAVE">On Leave</option>
-            <option value="SUSPENDED">Suspended</option>
-            <option value="TERMINATED">Terminated</option>
-            <option value="DECEASED">Deceased</option>
-          </select>
-          <select value={employmentStatus} onChange={e => { setEmpStatus(e.target.value); setPage(1); }}
-            className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[150px] text-gray-600">
-            <option value="">All Employment Status</option>
-            <option value="ACTIVE">Permanent</option>
-            <option value="INACTIVE">Inactive</option>
-            <option value="ON_LEAVE">On Leave</option>
-            <option value="SUSPENDED">Suspended</option>
-            <option value="TERMINATED">Terminated</option>
-            <option value="DECEASED">Deceased</option>
-          </select>
+          <SearchableSelect
+            options={[
+              { label: 'Pending', value: 'PENDING' },
+              { label: 'Permanent', value: 'ACTIVE' },
+              { label: 'Inactive', value: 'INACTIVE' },
+              { label: 'On Leave', value: 'ON_LEAVE' },
+              { label: 'Suspended', value: 'SUSPENDED' },
+              { label: 'Terminated', value: 'TERMINATED' },
+              { label: 'Deceased', value: 'DECEASED' },
+            ]}
+            value={status || null}
+            onChange={v => { setStatus((v as string) ?? ''); setPage(1); }}
+            placeholder="All Status"
+            containerClassName="min-w-[130px] w-auto"
+            className="h-10"
+          />
+          <SearchableSelect
+            options={[
+              { label: 'Permanent', value: 'ACTIVE' },
+              { label: 'Inactive', value: 'INACTIVE' },
+              { label: 'On Leave', value: 'ON_LEAVE' },
+              { label: 'Suspended', value: 'SUSPENDED' },
+              { label: 'Terminated', value: 'TERMINATED' },
+              { label: 'Deceased', value: 'DECEASED' },
+            ]}
+            value={employmentStatus || null}
+            onChange={v => { setEmpStatus((v as string) ?? ''); setPage(1); }}
+            placeholder="All Employment Status"
+            containerClassName="min-w-[150px] w-auto"
+            className="h-10"
+          />
           <input
             value={employeeIdFilter}
             onChange={e => setEmployeeIdFilter(e.target.value)}
             placeholder="Employee ID"
             className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[130px] text-gray-600 focus:outline-none focus:border-primary-400"
           />
-          <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
-            className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[130px] text-gray-600">
-            <option value="">All Roles</option>
-            {rolesData.map((r) => (
-              <option key={r.id} value={r.name}>{r.name.replace(/_/g, ' ')}</option>
-            ))}
-          </select>
-          <select value={designationFilter} onChange={e => setDesignationFilter(e.target.value)}
-            className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[160px] text-gray-600">
-            <option value="">All Designations</option>
-            {designationsData.map((d) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
-          </select>
-          <select value={businessUnitFilter} onChange={e => setBusinessUnitFilter(e.target.value)}
-            className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[160px] text-gray-600">
-            <option value="">All Business Units</option>
-            {businessUnitsData.map((bu: any) => (
-              <option key={bu.id} value={bu.id}>{bu.name}</option>
-            ))}
-          </select>
-          <select value={employmentTypeFilter} onChange={e => setEmploymentTypeFilter(e.target.value)}
-            className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[150px] text-gray-600">
-            <option value="">All Employment Types</option>
-            {EMPLOYMENT_TYPE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
+          <SearchableSelect
+            options={rolesData.map((r) => ({ label: r.name.replace(/_/g, ' '), value: r.name }))}
+            value={roleFilter || null}
+            onChange={v => setRoleFilter((v as string) ?? '')}
+            placeholder="All Roles"
+            containerClassName="min-w-[130px] w-auto"
+            className="h-10"
+          />
+          <SearchableSelect
+            options={designationsData.map((d) => ({ label: d.name, value: d.id }))}
+            value={designationFilter || null}
+            onChange={v => setDesignationFilter((v as string) ?? '')}
+            placeholder="All Designations"
+            containerClassName="min-w-[160px] w-auto"
+            className="h-10"
+          />
+          <SearchableSelect
+            options={businessUnitsData.map((bu: any) => ({ label: bu.name, value: bu.id }))}
+            value={businessUnitFilter || null}
+            onChange={v => setBusinessUnitFilter((v as string) ?? '')}
+            placeholder="All Business Units"
+            containerClassName="min-w-[160px] w-auto"
+            className="h-10"
+          />
+          <SearchableSelect
+            options={EMPLOYMENT_TYPE_OPTIONS.map((o) => ({ label: o.label, value: o.value }))}
+            value={employmentTypeFilter || null}
+            onChange={v => setEmploymentTypeFilter((v as string) ?? '')}
+            placeholder="All Employment Types"
+            containerClassName="min-w-[150px] w-auto"
+            className="h-10"
+          />
           <input
             value={workLocationFilter}
             onChange={e => setWorkLocationFilter(e.target.value)}
             placeholder="Work Location"
             className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[140px] text-gray-600 focus:outline-none focus:border-primary-400"
           />
-          <select value={supervisorFilter} onChange={e => setSupervisorFilter(e.target.value)}
-            className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[170px] text-gray-600">
-            <option value="">All Reporting Managers</option>
-            {managersData.map((m: any) => (
-              <option key={m.id} value={m.id}>{`${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email}</option>
-            ))}
-          </select>
-          <select value={gradeFilter} onChange={e => setGradeFilter(e.target.value)}
-            className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[130px] text-gray-600">
-            <option value="">All Grades</option>
-            {gradesData.map((g: any) => (
-              <option key={g.id} value={g.id}>{g.name}</option>
-            ))}
-          </select>
+          <SearchableSelect
+            options={managersData.map((m: any) => ({ label: `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email, value: m.id }))}
+            value={supervisorFilter || null}
+            onChange={v => setSupervisorFilter((v as string) ?? '')}
+            placeholder="All Reporting Managers"
+            containerClassName="min-w-[170px] w-auto"
+            className="h-10"
+          />
+          <SearchableSelect
+            options={gradesData.map((g: any) => ({ label: g.name, value: g.id }))}
+            value={gradeFilter || null}
+            onChange={v => setGradeFilter((v as string) ?? '')}
+            placeholder="All Grades"
+            containerClassName="min-w-[130px] w-auto"
+            className="h-10"
+          />
           {activeFilterCount > 0 && (
-            <button onClick={clearFilters} className="h-10 px-3 text-sm text-gray-400 hover:text-gray-600 underline">
+            <Button variant="link" size="sm" animation="none" rounded={false} onClick={clearFilters} className="!h-10 !px-3 !shadow-none text-sm !text-gray-400 hover:!text-gray-600">
               Clear filters
-            </button>
+            </Button>
           )}
         </div>
 
@@ -453,24 +472,38 @@ export default function EmployeeDirectory() {
               {selected.size} employee{selected.size > 1 ? 's' : ''} selected
             </span>
             <div className="flex-1" />
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
+              animation="none"
+              rounded={false}
               onClick={() => setSelected(new Set())}
-              className="text-xs font-semibold text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-white transition-colors"
+              className="!px-3 !py-1.5 h-auto !shadow-none text-xs !text-gray-500 hover:!text-gray-700 hover:!bg-white"
             >
               Clear selection
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              animation="none"
+              rounded={false}
+              leftIcon={RefreshCw}
               onClick={() => setBulkLifecycleOpen(true)}
-              className="flex items-center gap-1.5 text-xs font-black text-primary-700 bg-white border border-primary-200 hover:bg-primary-50 px-3 py-1.5 rounded-lg transition-colors"
+              className="!px-3 !py-1.5 h-auto !shadow-none text-xs !text-primary-700 !bg-white !border-primary-200 hover:!bg-primary-50"
             >
-              <RefreshCw size={13} /> Set Lifecycle Stage
-            </button>
-            <button
+              Set Lifecycle Stage
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              animation="none"
+              rounded={false}
+              leftIcon={Trash2}
               onClick={() => setBulkDeleteOpen(true)}
-              className="flex items-center gap-1.5 text-xs font-black text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg transition-colors"
+              className="!px-3 !py-1.5 h-auto !shadow-none text-xs"
             >
-              <Trash2 size={13} /> Remove {selected.size} selected
-            </button>
+              Remove {selected.size} selected
+            </Button>
           </div>
         )}
 
@@ -489,14 +522,17 @@ export default function EmployeeDirectory() {
                 className="mb-5"
               />
               <div className="flex justify-end gap-2">
-                <button onClick={() => setBulkLifecycleOpen(false)} className="px-4 py-2 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-100">Cancel</button>
-                <button
+                <Button variant="ghost" size="sm" animation="none" rounded={false} onClick={() => setBulkLifecycleOpen(false)} className="!px-4 !py-2 h-auto !shadow-none text-sm !text-gray-500">Cancel</Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  rounded={false}
                   onClick={handleBulkLifecycle}
-                  disabled={setLifecycleStage.isPending}
-                  className="px-4 py-2 rounded-xl text-sm font-black bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50"
+                  loading={setLifecycleStage.isPending}
+                  className="!px-4 !py-2 h-auto text-sm"
                 >
-                  {setLifecycleStage.isPending ? 'Updating…' : `Update ${selected.size}`}
-                </button>
+                  {`Update ${selected.size}`}
+                </Button>
               </div>
             </div>
           </div>
@@ -604,27 +640,33 @@ export default function EmployeeDirectory() {
                     </td>
                     <td className="py-3 px-2">
                       <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => navigate(`/admin/employee/${emp.employee_id || emp.id}`)}
-                          className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                        <IconButton
+                          icon={Eye}
+                          variant="ghost"
+                          size="sm"
+                          aria-label="View Profile"
                           title="View Profile"
-                        >
-                          <Eye size={14} />
-                        </button>
-                        <button
-                          onClick={() => navigate(`/admin/add-employee/${emp.id}`)}
-                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          onClick={() => navigate(`/admin/employee/${emp.employee_id || emp.id}`)}
+                          className="!h-auto !w-auto p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50"
+                        />
+                        <IconButton
+                          icon={Edit2}
+                          variant="ghost"
+                          size="sm"
+                          aria-label="Edit Employee"
                           title="Edit Employee"
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                        <button
-                          onClick={() => setDeleteTarget(emp)}
-                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          onClick={() => navigate(`/admin/add-employee/${emp.id}`)}
+                          className="!h-auto !w-auto p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                        />
+                        <IconButton
+                          icon={Trash2}
+                          variant="ghost"
+                          size="sm"
+                          aria-label="Remove Employee"
                           title="Remove Employee"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                          onClick={() => setDeleteTarget(emp)}
+                          className="!h-auto !w-auto p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50"
+                        />
                       </div>
                     </td>
                   </tr>
@@ -641,16 +683,16 @@ export default function EmployeeDirectory() {
               {someSelected && <span className="ml-2 text-primary-600 font-semibold">· {selected.size} selected</span>}
             </p>
             <div className="flex items-center gap-1">
-              <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
-                className="h-8 w-8 border border-gray-200 rounded-lg text-sm disabled:opacity-40 hover:bg-gray-50">‹</button>
+              <Button variant="outline" size="sm" animation="none" rounded={false} disabled={page <= 1} onClick={() => setPage(p => p - 1)}
+                className="!h-8 !w-8 !p-0 !shadow-none text-sm">‹</Button>
               {Array.from({ length: Math.min(pages, 7) }, (_, i) => i + 1).map(p => (
-                <button key={p} onClick={() => setPage(p)}
-                  className={cn('h-8 w-8 border rounded-lg text-sm font-semibold', page === p ? 'bg-primary-600 text-white border-primary-600' : 'border-gray-200 hover:bg-gray-50')}>
+                <Button key={p} variant={page === p ? 'primary' : 'outline'} size="sm" animation="none" rounded={false} onClick={() => setPage(p)}
+                  className="!h-8 !w-8 !p-0 !shadow-none text-sm font-semibold">
                   {p}
-                </button>
+                </Button>
               ))}
-              <button disabled={page >= pages} onClick={() => setPage(p => p + 1)}
-                className="h-8 w-8 border border-gray-200 rounded-lg text-sm disabled:opacity-40 hover:bg-gray-50">›</button>
+              <Button variant="outline" size="sm" animation="none" rounded={false} disabled={page >= pages} onClick={() => setPage(p => p + 1)}
+                className="!h-8 !w-8 !p-0 !shadow-none text-sm">›</Button>
             </div>
           </div>
         )}

@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
-import Button, { pageActionButtonClass } from '@/components/ui/Button';
+import Button, { IconButton, pageActionButtonClass } from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { apiRequest } from '@/lib/queryClient';
@@ -219,7 +219,7 @@ const NewRunModal: React.FC<{ open: boolean; onClose: () => void; onCreate: (m: 
       <div className="relative bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm z-10 flex flex-col gap-5">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-black text-gray-900">New Payroll Run</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><X size={18} /></button>
+          <IconButton icon={X} variant="ghost" size="sm" aria-label="Close" onClick={onClose} className="!h-auto !w-auto p-1.5 text-gray-400" />
         </div>
         <div className="flex gap-3">
           <div className="flex flex-col gap-1 flex-1">
@@ -326,16 +326,28 @@ const PayrollPage: React.FC = () => {
       header: 'Actions', key: 'id', align: 'right',
       render: (r) => (
         <div className="flex items-center justify-end gap-2">
-          <button onClick={() => setSelectedRunId(r.id)}
-            className="px-3 py-1.5 text-xs font-black rounded-lg bg-primary-50 text-primary-600 hover:bg-primary-100 transition-colors">
+          <Button
+            variant="ghost"
+            size="sm"
+            animation="none"
+            rounded={false}
+            onClick={() => setSelectedRunId(r.id)}
+            className="!px-3 !py-1.5 h-auto !shadow-none text-xs !bg-primary-50 !text-primary-600 hover:!bg-primary-100"
+          >
             View
-          </button>
+          </Button>
           {(r.status === 'DRAFT' || r.status === 'PROCESSING') && (
-            <button onClick={() => calculateRun.mutate(r.id)}
+            <Button
+              variant="ghost"
+              size="sm"
+              animation="none"
+              rounded={false}
+              onClick={() => calculateRun.mutate(r.id)}
               disabled={calculateRun.isPending}
-              className="px-3 py-1.5 text-xs font-black rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-50">
+              className="!px-3 !py-1.5 h-auto !shadow-none text-xs !bg-amber-50 !text-amber-700 hover:!bg-amber-100"
+            >
               Calculate
-            </button>
+            </Button>
           )}
         </div>
       ),
@@ -387,12 +399,17 @@ const PayrollPage: React.FC = () => {
     {
       header: '', key: 'id', align: 'right',
       render: (r) => (
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
+          animation="none"
+          rounded={false}
+          leftIcon={Printer}
           onClick={() => printPayslip({ ...r, run: selectedRun ? { period_month: selectedRun.period_month, period_year: selectedRun.period_year } : r.run })}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black rounded-lg bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors"
+          className="!px-3 !py-1.5 h-auto !shadow-none text-xs !bg-gray-50 !text-gray-600 hover:!bg-gray-100"
         >
-          <Printer size={13} /> Payslip
-        </button>
+          Payslip
+        </Button>
       ),
     },
   ];
@@ -437,9 +454,17 @@ const PayrollPage: React.FC = () => {
         <>
           {/* Run Detail */}
           <div className="flex items-center gap-3">
-            <button onClick={() => setSelectedRunId(null)} className="flex items-center gap-1.5 text-sm font-bold text-gray-500 hover:text-gray-800 transition-colors">
-              <ChevronLeft size={16} /> Back to runs
-            </button>
+            <Button
+              variant="ghost"
+              size="sm"
+              animation="none"
+              rounded={false}
+              leftIcon={ChevronLeft}
+              onClick={() => setSelectedRunId(null)}
+              className="!p-0 h-auto !shadow-none text-sm !text-gray-500 hover:!text-gray-800"
+            >
+              Back to runs
+            </Button>
             <div className="h-4 w-px bg-gray-200" />
             <h2 className="text-lg font-black text-gray-900">
               {new Date(selectedRun.period_year, selectedRun.period_month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}

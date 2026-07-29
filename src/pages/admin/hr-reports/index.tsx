@@ -8,6 +8,7 @@ import { useGetDepartmentsQuery } from '@/services/departmentService';
 import { useGetGradesQuery } from '@/services/gradeService';
 import { useGetTeamsQuery } from '@/services/adminService';
 import { cn } from '@/utils/cn';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 
 const v1 = 'api/v1';
 const BUILDER = `${v1}/report/builder`;
@@ -65,14 +66,22 @@ function AggregateView() {
   return (
     <div className="space-y-5">
       <div className="flex gap-3 items-center">
-        <select value={year} onChange={e => setYear(+e.target.value)}
-          className="h-10 px-3 border border-gray-200 rounded-xl text-sm">
-          {[THIS_YEAR - 1, THIS_YEAR].map(y => <option key={y} value={y}>{y}</option>)}
-        </select>
-        <select value={month} onChange={e => setMonth(+e.target.value)}
-          className="h-10 px-3 border border-gray-200 rounded-xl text-sm">
-          {MONTHS.map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
-        </select>
+        <SearchableSelect
+          options={[THIS_YEAR - 1, THIS_YEAR].map(y => ({ label: String(y), value: y }))}
+          value={year}
+          onChange={v => setYear((v as number) ?? year)}
+          clearable={false}
+          containerClassName="w-auto"
+          className="h-10"
+        />
+        <SearchableSelect
+          options={MONTHS.map((m, i) => ({ label: m, value: i + 1 }))}
+          value={month}
+          onChange={v => setMonth((v as number) ?? month)}
+          clearable={false}
+          containerClassName="w-auto"
+          className="h-10"
+        />
       </div>
 
       {isLoading ? (
@@ -183,22 +192,31 @@ function EmployeeView() {
     <div className="space-y-5">
       {/* Controls */}
       <div className="flex flex-wrap gap-3 items-center">
-        <select value={selectedUser} onChange={e => setSelectedUser(e.target.value)}
-          className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[200px]">
-          <option value="">Select Employee</option>
-          {(users || []).map((u: any) => (
-            <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({u.employee_id || u.email})</option>
-          ))}
-        </select>
-        <select value={year} onChange={e => setYear(+e.target.value)}
-          className="h-10 px-3 border border-gray-200 rounded-xl text-sm">
-          {[THIS_YEAR - 1, THIS_YEAR].map(y => <option key={y} value={y}>{y}</option>)}
-        </select>
+        <SearchableSelect
+          options={(users || []).map((u: any) => ({ label: `${u.first_name} ${u.last_name} (${u.employee_id || u.email})`, value: u.id }))}
+          value={selectedUser || null}
+          onChange={v => setSelectedUser((v as string) ?? '')}
+          placeholder="Select Employee"
+          containerClassName="min-w-[200px] w-auto"
+          className="h-10"
+        />
+        <SearchableSelect
+          options={[THIS_YEAR - 1, THIS_YEAR].map(y => ({ label: String(y), value: y }))}
+          value={year}
+          onChange={v => setYear((v as number) ?? year)}
+          clearable={false}
+          containerClassName="w-auto"
+          className="h-10"
+        />
         {mode === 'monthly' && (
-          <select value={month} onChange={e => setMonth(+e.target.value)}
-            className="h-10 px-3 border border-gray-200 rounded-xl text-sm">
-            {MONTHS.map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
-          </select>
+          <SearchableSelect
+            options={MONTHS.map((m, i) => ({ label: m, value: i + 1 }))}
+            value={month}
+            onChange={v => setMonth((v as number) ?? month)}
+            clearable={false}
+            containerClassName="w-auto"
+            className="h-10"
+          />
         )}
         <div className="flex border border-gray-200 rounded-xl overflow-hidden">
           <button onClick={() => setMode('annual')}
