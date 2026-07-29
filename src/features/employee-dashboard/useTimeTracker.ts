@@ -39,9 +39,12 @@ export function useTimeTracker() {
           // Active session (started from the desktop app) — tick forward
           // from the check-in time + any prior session seconds today.
           const checkIn = new Date(data.entry?.check_in).getTime();
-          const elapsed = Math.floor((Date.now() - checkIn) / 1000);
+          // Guard against a skewed/behind local clock — check_in is a server
+          // timestamp, so a wrong local clock could otherwise make `now`
+          // appear to be before check_in and show a negative elapsed time.
+          const elapsed = Math.max(0, Math.floor((Date.now() - checkIn) / 1000));
           const priorSeconds = data.entry?.prior_seconds || 0;
-          setSeconds(priorSeconds + (elapsed > 0 ? elapsed : 0));
+          setSeconds(priorSeconds + elapsed);
           setTrackerState('tracking');
         } else if (data?.clocked_in && data?.clocked_out) {
           // Already checked out for the day — show the completed total.
