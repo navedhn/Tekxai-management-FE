@@ -98,6 +98,11 @@ const PRIORITY_STYLES: Record<string, string> = {
   medium: 'bg-orange-100 text-orange-600',
   high:   'bg-red-100 text-red-700',
 };
+// Values are stored/entered with inconsistent casing (e.g. a stray 'MEDIUM'
+// alongside the normal 'medium'), so these style lookups must be
+// case-insensitive or a badge silently renders with no color/background at
+// all — normalize before indexing rather than assuming lowercase everywhere.
+const styleFor = (map: Record<string, string>, value?: string | null) => (value ? map[value.toLowerCase()] : undefined) || 'bg-gray-100 text-gray-600';
 
 export default function AdminTickets() {
   const qc = useQueryClient();
@@ -115,7 +120,10 @@ export default function AdminTickets() {
     queryKey: ['tickets', 'admin-list', statusFilter, priorityFilter, debouncedSearch, slaOverdueOnly],
     queryFn: async () => {
       const params = new URLSearchParams({ limit: '100' });
-      if (statusFilter !== 'all') params.set('status', statusFilter);
+      // statusFilter here is always one of the 3 abstract stat-card buckets
+      // (or 'all') — resolved server-side to the concrete per-type status
+      // literals it covers, same as the stat cards themselves.
+      if (statusFilter !== 'all') params.set('bucket', statusFilter);
       if (priorityFilter !== 'all') params.set('priority', priorityFilter);
       if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
       if (slaOverdueOnly) params.set('sla', 'overdue');
@@ -130,6 +138,7 @@ export default function AdminTickets() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tickets'] });
+      qc.invalidateQueries({ queryKey: ['ticket-stats'] });
       if (selectedTicket) {
         qc.invalidateQueries({ queryKey: ['ticket', selectedTicket.id] });
         qc.invalidateQueries({ queryKey: ['ticket-timeline', selectedTicket.id] });
@@ -144,6 +153,7 @@ export default function AdminTickets() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tickets'] });
+      qc.invalidateQueries({ queryKey: ['ticket-stats'] });
       if (selectedTicket) {
         qc.invalidateQueries({ queryKey: ['ticket', selectedTicket.id] });
         qc.invalidateQueries({ queryKey: ['ticket-timeline', selectedTicket.id] });
@@ -167,20 +177,23 @@ export default function AdminTickets() {
     return wf.filter((_, i) => i !== idx);
   };
 
-  // Previously computed by filtering the current paginated `data.records`
-  // page (max 100 rows) — wrong once there were more than 100 tickets, since
-  // it only counted whatever page happened to be loaded. Now backed by the
-  // generic KPI engine's COUNT, which reflects the true total regardless of
-  // pagination/filters on the list below.
-  const kpiCount = (status: string) =>
-    apiRequest<any>(`${BUILDER}/kpi`, { method: 'POST', body: JSON.stringify({ entity: 'support_tickets', metric: 'COUNT', filters: { status } }) }).then((r: any) => r?.payload?.value ?? 0);
-  const pendingQ = useQuery({ queryKey: ['ticket-kpi-pending'], queryFn: () => kpiCount('pending') });
-  const inProgressQ = useQuery({ queryKey: ['ticket-kpi-in_progress'], queryFn: () => kpiCount('in_progress') });
-  const resolvedQ = useQuery({ queryKey: ['ticket-kpi-resolved'], queryFn: () => kpiCount('resolved') });
+  // Previously computed via 3 separate report_builder KPI calls filtering
+  // on the literal status values 'pending'/'in_progress'/'resolved' — wrong
+  // because workflow-driven tickets use per-type status keys like OPEN,
+  // MANAGER_APPROVAL, PURCHASE, CLOSED, etc., none of which are those three
+  // literals, so every card always read 0. /ticket/stats now returns a
+  // `by_bucket` breakdown computed server-side from each ticket type's own
+  // workflow (first step = pending, last step = resolved, else in progress),
+  // which is the single source of truth also used by the stat-card
+  // click-through filter below (`bucket` query param).
+  const statsQ = useQuery({
+    queryKey: ['ticket-stats'],
+    queryFn: () => apiRequest<any>(ENDPOINTS.TICKET.STATS).then((r: any) => r?.payload),
+  });
   const stats = {
-    pending: pendingQ.data ?? 0,
-    in_progress: inProgressQ.data ?? 0,
-    resolved: resolvedQ.data ?? 0,
+    pending: statsQ.data?.by_bucket?.pending ?? 0,
+    in_progress: statsQ.data?.by_bucket?.in_progress ?? 0,
+    resolved: statsQ.data?.by_bucket?.resolved ?? 0,
   };
 
   return (
@@ -280,10 +293,10 @@ export default function AdminTickets() {
                   <td className="px-4 py-3 text-gray-600 text-xs">{t.createdBy}</td>
                   <td className="px-4 py-3 text-gray-600 text-xs">{t.recipientName}</td>
                   <td className="px-4 py-3">
-                    <span className={cn('text-[10px] font-black px-2 py-0.5 rounded-full capitalize', PRIORITY_STYLES[t.priority] || '')}>{t.priority}</span>
+                    <span className={cn('text-[10px] font-black px-2 py-0.5 rounded-full capitalize', styleFor(PRIORITY_STYLES, t.priority))}>{t.priority}</span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={cn('text-[10px] font-black px-2 py-0.5 rounded-full capitalize', STATUS_STYLES[t.status] || '')}>{t.status.replace('_', ' ')}</span>
+                    <span className={cn('text-[10px] font-black px-2 py-0.5 rounded-full capitalize', styleFor(STATUS_STYLES, t.status))}>{t.status.replace('_', ' ')}</span>
                   </td>
                   <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{formatTicketDate(t.createdAt)}</td>
                   <td className="px-4 py-3">
