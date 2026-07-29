@@ -29,11 +29,33 @@ export const TICKET_RECIPIENTS: TicketRecipient[] = [
   { id: 'other',      role: 'other',      label: 'Other',           name: ''              },
 ];
 
+// Workflow-driven tickets carry per-type status keys (OPEN, MANAGER_APPROVAL,
+// PURCHASE, CLOSED, ...) instead of the legacy 'pending'/'in_progress'/
+// 'resolved' literals, so comparing t.status directly against those three
+// strings undercounts almost every ticket. Classify using the ticket's own
+// typeSnapshot.workflow position instead — same 3-way rule the backend's
+// get_ticket_stats() `by_bucket` uses: first step = pending, last step =
+// resolved, anything else = in progress. Legacy tickets (no typeSnapshot)
+// fall back to their original literal status.
+export type TicketBucket = 'pending' | 'in_progress' | 'resolved';
+export const bucketForTicket = (t: SupportTicket): TicketBucket => {
+  const wf = t.typeSnapshot?.workflow;
+  if (wf?.length) {
+    const idx = wf.findIndex(s => s.key === t.status);
+    if (idx === 0) return 'pending';
+    if (idx === wf.length - 1) return 'resolved';
+    if (idx > 0) return 'in_progress';
+  }
+  if (t.status === 'resolved' || t.status === 'closed') return 'resolved';
+  if (t.status === 'pending') return 'pending';
+  return 'in_progress';
+};
+
 export const getTicketStats = (tickets: SupportTicket[]) => ({
   total: tickets.length,
-  pending: tickets.filter(t => t.status === 'pending').length,
-  inProgress: tickets.filter(t => t.status === 'in_progress').length,
-  resolved: tickets.filter(t => t.status === 'resolved').length,
+  pending: tickets.filter(t => bucketForTicket(t) === 'pending').length,
+  inProgress: tickets.filter(t => bucketForTicket(t) === 'in_progress').length,
+  resolved: tickets.filter(t => bucketForTicket(t) === 'resolved').length,
 });
 
 export const formatTicketDate = (iso: string) =>
@@ -208,7 +230,11 @@ export const useCreateTicketMutation = () => {
   });
 };
 
+// `status` here is always 'all' or one of the 3 abstract stat-tab buckets
+// (see STATUS_TABS) — never a real workflow status key — so this must
+// filter by bucketForTicket(), not by literal t.status equality (which
+// never matched real tickets; see getTicketStats above for why).
 export const filterTicketsByStatus = (
   tickets: SupportTicket[],
   status: TicketStatus | 'all'
-) => (status === 'all' ? tickets : tickets.filter(t => t.status === status));
+) => (status === 'all' ? tickets : tickets.filter(t => bucketForTicket(t) === status));
