@@ -21,8 +21,8 @@ vi.mock('@/lib/queryClient', () => ({
 
 describe('formatTrackerTime', () => {
   it('formats seconds into h:m:s', () => {
-    expect(formatTrackerTime(3661)).toBe('1h:1m:1s');
-    expect(formatTrackerTime(0)).toBe('0h:0m:0s');
+    expect(formatTrackerTime(3661)).toBe('1h:01m:01s');
+    expect(formatTrackerTime(0)).toBe('0h:00m:00s');
   });
 });
 
