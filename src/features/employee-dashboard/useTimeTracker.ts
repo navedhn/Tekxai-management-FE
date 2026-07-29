@@ -10,11 +10,17 @@ import { API_ENDPOINTS } from '@/services/api/endpoints';
 // endpoints from the web UI.
 export type TrackerState = 'idle' | 'tracking';
 
+// Canonical duration display format: `${h}h:${mm}m:${ss}s`, zero-padded
+// minutes/seconds. Must match the desktop app's fmtHms() (renderer.js)
+// exactly — the two apps can't literally share this function (no monorepo/
+// shared package links them, and a 4-line pure formatter doesn't justify
+// introducing one), so this comment IS the contract: change one, change
+// the other, and update both test suites in the same commit.
 export function formatTrackerTime(totalSeconds: number): string {
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
   const s = totalSeconds % 60;
-  return `${h}h:${m}m:${s}s`;
+  return `${h}h:${String(m).padStart(2, '0')}m:${String(s).padStart(2, '0')}s`;
 }
 
 export function useTimeTracker() {
