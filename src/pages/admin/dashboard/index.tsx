@@ -10,6 +10,7 @@ import { API_ENDPOINTS } from '@/services/api/endpoints';
 import Card from '@/components/ui/Card';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import DashboardStatCard from '@/components/ui/DashboardStatCard';
+import Button from '@/components/ui/Button';
 import { StatSkeleton, CardSkeleton } from '@/components/skeletons';
 import {
     Users, UserCheck, CalendarClock, UserPlus, Ticket,
@@ -138,7 +139,7 @@ const Dashboard: React.FC = () => {
                                 iconClassName="bg-blue-50 text-blue-600"
                                 value={data?.total_employees ?? '—'}
                                 label="Total Employees"
-                                subtext={<button onClick={() => navigate('/admin/employee-directory')} className="text-blue-600 hover:underline font-semibold">View all employees →</button>}
+                                subtext={<Button variant="link" size="sm" animation="none" rounded={false} className="!p-0 !shadow-none !hover:shadow-none h-auto text-blue-600 font-semibold" onClick={() => navigate('/admin/employee-directory')}>View all employees →</Button>}
                             />
                             <DashboardStatCard
                                 className="bg-white border border-gray-100 rounded-xl shadow-sm"
@@ -154,7 +155,7 @@ const Dashboard: React.FC = () => {
                                 iconClassName="bg-amber-50 text-amber-600"
                                 value={data?.on_leave ?? '—'}
                                 label="On Leave"
-                                subtext={<button onClick={() => navigate('/admin/employee-directory?status=ON_LEAVE')} className="text-blue-600 hover:underline font-semibold">View leaves →</button>}
+                                subtext={<Button variant="link" size="sm" animation="none" rounded={false} className="!p-0 !shadow-none !hover:shadow-none h-auto text-blue-600 font-semibold" onClick={() => navigate('/admin/employee-directory?status=ON_LEAVE')}>View leaves →</Button>}
                             />
                             <DashboardStatCard
                                 className="bg-white border border-gray-100 rounded-xl shadow-sm"
@@ -162,7 +163,7 @@ const Dashboard: React.FC = () => {
                                 iconClassName="bg-purple-50 text-purple-600"
                                 value={data?.open_recruitment ?? '—'}
                                 label="Open Recruitment"
-                                subtext={<button onClick={() => navigate('/admin/onboarding')} className="text-blue-600 hover:underline font-semibold">View openings →</button>}
+                                subtext={<Button variant="link" size="sm" animation="none" rounded={false} className="!p-0 !shadow-none !hover:shadow-none h-auto text-blue-600 font-semibold" onClick={() => navigate('/admin/onboarding')}>View openings →</Button>}
                             />
                             <DashboardStatCard
                                 className="bg-white border border-gray-100 rounded-xl shadow-sm"
@@ -170,7 +171,7 @@ const Dashboard: React.FC = () => {
                                 iconClassName="bg-red-50 text-red-500"
                                 value={data?.open_tickets ?? '—'}
                                 label="Open Tickets"
-                                subtext={<button onClick={() => navigate('/admin/tickets')} className="text-blue-600 hover:underline font-semibold">View tickets →</button>}
+                                subtext={<Button variant="link" size="sm" animation="none" rounded={false} className="!p-0 !shadow-none !hover:shadow-none h-auto text-blue-600 font-semibold" onClick={() => navigate('/admin/tickets')}>View tickets →</Button>}
                             />
                         </>
                     )}
@@ -272,7 +273,7 @@ const Dashboard: React.FC = () => {
                 <Card isLoading={isLoading} className="flex flex-col gap-4 border-none">
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg font-black text-gray-900 tracking-tight">Open Tickets by Category</h2>
-                        <button onClick={() => navigate('/admin/tickets')} className="text-xs text-blue-600 hover:underline font-semibold shrink-0">View all →</button>
+                        <Button variant="link" size="sm" animation="none" rounded={false} className="!p-0 !shadow-none !hover:shadow-none h-auto text-xs text-blue-600 font-semibold shrink-0" onClick={() => navigate('/admin/tickets')}>View all →</Button>
                     </div>
                     {!data?.tickets_by_category?.length ? (
                         <p className="text-sm text-gray-400 text-center py-8">No open tickets</p>
@@ -309,16 +310,19 @@ const Dashboard: React.FC = () => {
                     <h2 className="text-lg font-black text-gray-900 tracking-tight">Quick Actions</h2>
                     <div className="grid grid-cols-2 gap-3">
                         {QUICK_ACTIONS.map((action) => (
-                            <button
+                            <Button
                                 key={action.label}
+                                variant="outline"
+                                animation="none"
+                                rounded={false}
                                 onClick={() => navigate(action.to)}
-                                className="flex items-center gap-2 px-3 py-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors text-left"
+                                className="!justify-start !font-semibold gap-2 !px-3 !py-3 h-auto !shadow-none border-gray-100 text-left"
                             >
                                 <span className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${action.className}`}>
                                     <action.icon size={16} />
                                 </span>
                                 <span className="text-xs font-semibold text-gray-700 truncate">{action.label}</span>
-                            </button>
+                            </Button>
                         ))}
                     </div>
                 </Card>

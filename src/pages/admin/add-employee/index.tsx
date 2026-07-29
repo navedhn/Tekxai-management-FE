@@ -11,6 +11,7 @@ import { useGetEmployeeFullRecord } from '@/services/hrService';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetGradesQuery } from '@/services/gradeService';
 import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 
 const DRAFT_KEY = 'add_employee_draft';
 
@@ -101,13 +102,14 @@ function PhoneInput({ value, onChange }: { value: string; onChange: (v: string) 
 
   return (
     <div className="flex gap-2">
-      <select
+      <SearchableSelect
+        options={COUNTRY_CODES.map(c => ({ label: c.label, value: c.code }))}
         value={selectedCode}
-        onChange={e => { setSelectedCode(e.target.value); onChange(`${e.target.value}${localNumber}`); }}
-        className="h-10 px-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white text-gray-700 w-28 flex-shrink-0"
-      >
-        {COUNTRY_CODES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
-      </select>
+        onChange={v => { const code = (v as string) ?? selectedCode; setSelectedCode(code); onChange(`${code}${localNumber}`); }}
+        clearable={false}
+        containerClassName="w-28 flex-shrink-0"
+        className="h-10"
+      />
       <input
         className={inputCls}
         value={displayed}
@@ -241,21 +243,31 @@ function StepPersonal({ data, onChange, errorField, errorMessage, registerRef }:
           <input className={inputCls} type="date" value={data.dob} onChange={e => onChange('dob', e.target.value)} />
         </Field>
         <Field label="Gender">
-          <select className={selectCls} value={data.gender} onChange={e => onChange('gender', e.target.value)}>
-            <option value="">Select gender</option>
-            <option value="MALE">Male</option>
-            <option value="FEMALE">Female</option>
-            <option value="OTHER">Other</option>
-          </select>
+          <SearchableSelect
+            className={selectCls}
+            options={[
+              { label: 'Male', value: 'MALE' },
+              { label: 'Female', value: 'FEMALE' },
+              { label: 'Other', value: 'OTHER' },
+            ]}
+            value={data.gender || null}
+            onChange={v => onChange('gender', (v as string) ?? '')}
+            placeholder="Select gender"
+          />
         </Field>
         <Field label="Marital Status">
-          <select className={selectCls} value={data.marital_status} onChange={e => onChange('marital_status', e.target.value)}>
-            <option value="">Select status</option>
-            <option value="SINGLE">Single</option>
-            <option value="MARRIED">Married</option>
-            <option value="DIVORCED">Divorced</option>
-            <option value="WIDOWED">Widowed</option>
-          </select>
+          <SearchableSelect
+            className={selectCls}
+            options={[
+              { label: 'Single', value: 'SINGLE' },
+              { label: 'Married', value: 'MARRIED' },
+              { label: 'Divorced', value: 'DIVORCED' },
+              { label: 'Widowed', value: 'WIDOWED' },
+            ]}
+            value={data.marital_status || null}
+            onChange={v => onChange('marital_status', (v as string) ?? '')}
+            placeholder="Select status"
+          />
         </Field>
         <Field label="Nationality">
           <input className={inputCls} value={data.nationality} onChange={e => onChange('nationality', e.target.value)} placeholder="Pakistani" />
@@ -264,10 +276,13 @@ function StepPersonal({ data, onChange, errorField, errorMessage, registerRef }:
           <input className={inputCls} value={data.religion} onChange={e => onChange('religion', e.target.value)} placeholder="Religion" />
         </Field>
         <Field label="Blood Group">
-          <select className={selectCls} value={data.blood_group} onChange={e => onChange('blood_group', e.target.value)}>
-            <option value="">Select</option>
-            {['A+','A-','B+','B-','O+','O-','AB+','AB-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
-          </select>
+          <SearchableSelect
+            className={selectCls}
+            options={['A+','A-','B+','B-','O+','O-','AB+','AB-'].map(bg => ({ label: bg, value: bg }))}
+            value={data.blood_group || null}
+            onChange={v => onChange('blood_group', (v as string) ?? '')}
+            placeholder="Select"
+          />
         </Field>
       </div>
       <div className="grid grid-cols-1 gap-4">
@@ -317,24 +332,30 @@ function StepEmployment({ data, onChange, businessUnits, departments, teams, use
             <input className={inputCls} type="date" value={data.confirmation_date} onChange={e => onChange('confirmation_date', e.target.value)} />
           </Field>
           <Field label="Employment Type">
-            <select className={selectCls} value={data.employment_type} onChange={e => onChange('employment_type', e.target.value)}>
-              <option value="">Select type</option>
-              <option value="FULL_TIME">Full Time</option>
-              <option value="PART_TIME">Part Time</option>
-              <option value="CONTRACT">Contract</option>
-              <option value="INTERN">Intern</option>
-              <option value="FREELANCE">Freelance</option>
-            </select>
+            <SearchableSelect
+              className={selectCls}
+              options={[
+                { label: 'Full Time', value: 'FULL_TIME' },
+                { label: 'Part Time', value: 'PART_TIME' },
+                { label: 'Contract', value: 'CONTRACT' },
+                { label: 'Intern', value: 'INTERN' },
+                { label: 'Freelance', value: 'FREELANCE' },
+              ]}
+              value={data.employment_type || null}
+              onChange={v => onChange('employment_type', (v as string) ?? '')}
+              placeholder="Select type"
+            />
           </Field>
           <Field label="Employment Status">
-            <select
-              ref={(el) => registerRef?.('employment_status', el)}
-              className={cn(selectCls, (errorField === 'employment_status' || errorField === 'status') && errorInputCls)}
-              value={data.employment_status}
-              onChange={e => onChange('employment_status', e.target.value)}
-            >
-              {EMPLOYMENT_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            <div ref={(el) => registerRef?.('employment_status', el)}>
+              <SearchableSelect
+                className={cn(selectCls, (errorField === 'employment_status' || errorField === 'status') && errorInputCls)}
+                options={EMPLOYMENT_STATUS_OPTIONS.map(o => ({ label: o.label, value: o.value }))}
+                value={data.employment_status}
+                onChange={v => onChange('employment_status', (v as string) ?? data.employment_status)}
+                clearable={false}
+              />
+            </div>
             <FieldError show={errorField === 'employment_status' || errorField === 'status'} message={errorMessage} />
           </Field>
           <Field label="Notice Period">
@@ -357,77 +378,78 @@ function StepEmployment({ data, onChange, businessUnits, departments, teams, use
         <h3 className="font-bold text-gray-900 mb-4">Organization Details</h3>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Business Unit">
-            <select
+            <SearchableSelect
               className={selectCls}
-              value={data.business_unit_id}
-              onChange={e => {
-                onChange('business_unit_id', e.target.value);
+              options={(businessUnits || []).map((bu: any) => ({ label: bu.name, value: bu.id }))}
+              value={data.business_unit_id || null}
+              onChange={v => {
+                onChange('business_unit_id', (v as string) ?? '');
                 // Department must belong to the selected Business Unit —
                 // the Employee ID prefix is derived from both together, so
                 // a stale department from a different unit can't linger.
                 onChange('department_id', '');
               }}
-            >
-              <option value="">Select business unit</option>
-              {(businessUnits || []).map((bu: any) => <option key={bu.id} value={bu.id}>{bu.name}</option>)}
-            </select>
+              placeholder="Select business unit"
+            />
           </Field>
           <Field label="Department (Function)">
-            <select
+            <SearchableSelect
               className={selectCls}
-              value={data.department_id}
-              disabled={!data.business_unit_id}
-              onChange={e => onChange('department_id', e.target.value)}
-            >
-              <option value="">{data.business_unit_id ? 'Select department' : 'Select a business unit first'}</option>
-              {(departments || [])
+              options={(departments || [])
                 .filter((d: any) => (d.business_unit_id || d.business_unit?.id) === data.business_unit_id)
-                .map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
+                .map((d: any) => ({ label: d.name, value: d.id }))}
+              value={data.department_id || null}
+              disabled={!data.business_unit_id}
+              onChange={v => onChange('department_id', (v as string) ?? '')}
+              placeholder={data.business_unit_id ? 'Select department' : 'Select a business unit first'}
+            />
           </Field>
           <Field label="Team">
-            <select className={selectCls} value={data.team_id} onChange={e => onChange('team_id', e.target.value)}>
-              <option value="">Select team</option>
-              {(teams || []).map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
+            <SearchableSelect
+              className={selectCls}
+              options={(teams || []).map((t: any) => ({ label: t.name, value: t.id }))}
+              value={data.team_id || null}
+              onChange={v => onChange('team_id', (v as string) ?? '')}
+              placeholder="Select team"
+            />
           </Field>
           <Field label="Designation" required>
-            <select
-              ref={(el) => registerRef?.('designation_id', el)}
-              className={cn(selectCls, errorField === 'designation_id' && errorInputCls)}
-              value={data.designation_id}
-              onChange={e => {
-                const chosen = (designations || []).find((d: any) => d.id === e.target.value);
-                onChange('designation_id', e.target.value);
-                onChange('designation', chosen?.name || '');
-              }}
-            >
-              <option value="">Select designation</option>
-              {(designations || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
+            <div ref={(el) => registerRef?.('designation_id', el)}>
+              <SearchableSelect
+                className={cn(selectCls, errorField === 'designation_id' && errorInputCls)}
+                options={(designations || []).map((d: any) => ({ label: d.name, value: d.id }))}
+                value={data.designation_id || null}
+                onChange={v => {
+                  const chosen = (designations || []).find((d: any) => d.id === v);
+                  onChange('designation_id', (v as string) ?? '');
+                  onChange('designation', chosen?.name || '');
+                }}
+                placeholder="Select designation"
+              />
+            </div>
             <FieldError show={errorField === 'designation_id'} message={errorMessage} />
           </Field>
           <Field label="Grade">
-            <select
+            <SearchableSelect
               className={selectCls}
-              value={data.grade_id}
-              onChange={e => {
-                const chosen = (grades || []).find((g: any) => g.id === e.target.value);
-                onChange('grade_id', e.target.value);
+              options={(grades || []).map((g: any) => ({ label: g.name, value: g.id }))}
+              value={data.grade_id || null}
+              onChange={v => {
+                const chosen = (grades || []).find((g: any) => g.id === v);
+                onChange('grade_id', (v as string) ?? '');
                 onChange('grade', chosen?.name || '');
               }}
-            >
-              <option value="">Select grade</option>
-              {(grades || []).map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
+              placeholder="Select grade"
+            />
           </Field>
           <Field label="Reporting Manager">
-            <select className={selectCls} value={data.supervisor_id} onChange={e => onChange('supervisor_id', e.target.value)}>
-              <option value="">Select manager</option>
-              {(users || []).map((u: any) => (
-                <option key={u.id} value={u.id}>{u.first_name} {u.last_name} — {u.designation || u.position || 'Staff'}</option>
-              ))}
-            </select>
+            <SearchableSelect
+              className={selectCls}
+              options={(users || []).map((u: any) => ({ label: `${u.first_name} ${u.last_name} — ${u.designation || u.position || 'Staff'}`, value: u.id }))}
+              value={data.supervisor_id || null}
+              onChange={v => onChange('supervisor_id', (v as string) ?? '')}
+              placeholder="Select manager"
+            />
           </Field>
         </div>
       </div>
@@ -444,28 +466,43 @@ function StepEmployment({ data, onChange, businessUnits, departments, teams, use
             />
           </Field>
           <Field label="Currency">
-            <select className={selectCls} value={data.salary_currency} onChange={e => onChange('salary_currency', e.target.value)}>
-              <option value="PKR">PKR</option>
-              <option value="USD">USD</option>
-              <option value="AED">AED</option>
-              <option value="GBP">GBP</option>
-            </select>
+            <SearchableSelect
+              className={selectCls}
+              options={[
+                { label: 'PKR', value: 'PKR' },
+                { label: 'USD', value: 'USD' },
+                { label: 'AED', value: 'AED' },
+                { label: 'GBP', value: 'GBP' },
+              ]}
+              value={data.salary_currency}
+              onChange={v => onChange('salary_currency', (v as string) ?? data.salary_currency)}
+              clearable={false}
+            />
           </Field>
           <Field label="Pay Frequency">
-            <select className={selectCls} value={data.pay_frequency} onChange={e => onChange('pay_frequency', e.target.value)}>
-              <option value="MONTHLY">Monthly</option>
-              <option value="WEEKLY">Weekly</option>
-              <option value="BIWEEKLY">Bi-weekly</option>
-            </select>
+            <SearchableSelect
+              className={selectCls}
+              options={[
+                { label: 'Monthly', value: 'MONTHLY' },
+                { label: 'Weekly', value: 'WEEKLY' },
+                { label: 'Bi-weekly', value: 'BIWEEKLY' },
+              ]}
+              value={data.pay_frequency}
+              onChange={v => onChange('pay_frequency', (v as string) ?? data.pay_frequency)}
+              clearable={false}
+            />
           </Field>
           <Field label="Effective From">
             <input className={inputCls} type="date" value={data.effective_salary_date} onChange={e => onChange('effective_salary_date', e.target.value)} />
           </Field>
           <Field label="Bank">
-            <select className={selectCls} value={data.bank_name} onChange={e => onChange('bank_name', e.target.value)}>
-              <option value="">Select bank</option>
-              {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
-            </select>
+            <SearchableSelect
+              className={selectCls}
+              options={BANKS.map(b => ({ label: b, value: b }))}
+              value={data.bank_name || null}
+              onChange={v => onChange('bank_name', (v as string) ?? '')}
+              placeholder="Select bank"
+            />
           </Field>
           <Field label="Bank Account Number">
             <input
@@ -499,10 +536,13 @@ function StepWork({ data, onChange }: any) {
           <input className={inputCls} value={data.work_location} onChange={e => onChange('work_location', e.target.value)} placeholder="Head Office, Remote…" />
         </Field>
         <Field label="Office Branch (City)">
-          <select className={selectCls} value={data.office_branch} onChange={e => onChange('office_branch', e.target.value)}>
-            <option value="">Select city</option>
-            {PK_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
+          <SearchableSelect
+            className={selectCls}
+            options={PK_CITIES.map(c => ({ label: c, value: c }))}
+            value={data.office_branch || null}
+            onChange={v => onChange('office_branch', (v as string) ?? '')}
+            placeholder="Select city"
+          />
         </Field>
         <Field label="Floor / Area">
           <input className={inputCls} value={data.floor_area} onChange={e => onChange('floor_area', e.target.value)} placeholder="3rd Floor, Block A" />
@@ -668,13 +708,13 @@ function StepDocuments({ docFiles, setDocFiles, existingTypes = [] }: { docFiles
                 </div>
                 <div>
                   <label className="text-xs font-bold text-gray-500 mb-1 block">Type</label>
-                  <select
-                    className="w-full h-9 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white"
+                  <SearchableSelect
+                    className="h-9"
+                    options={DOC_TYPE_OPTIONS.map(o => ({ label: o.label, value: o.value }))}
                     value={doc.document_type}
-                    onChange={e => updateRow(idx, 'document_type', e.target.value)}
-                  >
-                    {DOC_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
+                    onChange={v => updateRow(idx, 'document_type', (v as string) ?? doc.document_type)}
+                    clearable={false}
+                  />
                 </div>
               </div>
 

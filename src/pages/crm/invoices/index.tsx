@@ -81,14 +81,15 @@ const CRMInvoices: React.FC = () => {
     { header: 'Due Date', key: 'due_date', render: i => <span className="font-medium text-gray-600">{fmt_date(i.due_date)}</span> },
     {
       header: 'Status', key: 'status', render: i => (
-        <select
-          value={i.status}
-          onChange={e => handleStatusChange(i.id, e.target.value)}
-          className="text-xs border border-gray-200 rounded-lg px-2 py-1 font-bold"
-          onClick={e => e.stopPropagation()}
-        >
-          {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <div onClick={e => e.stopPropagation()}>
+          <SearchableSelect
+            options={STATUS_OPTIONS.map(s => ({ label: s, value: s }))}
+            value={i.status}
+            onChange={v => handleStatusChange(i.id, (v as string) ?? i.status)}
+            clearable={false}
+            className="text-xs font-bold h-auto py-1"
+          />
+        </div>
       )
     },
   ];

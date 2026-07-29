@@ -6,6 +6,7 @@ const get  = (url: string) => apiRequest<any>(url).then((r: any) => r?.payload ?
 const post = (url: string, body?: any) => apiRequest<any>(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 const del  = (url: string) => apiRequest<any>(url, { method: 'DELETE' });
 import { Play, Download, Save, Trash2, BarChart3, FileSpreadsheet, FileText, Printer, ChevronLeft, ChevronRight } from 'lucide-react';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 
 // Base path fix: this page previously called `/reports/builder/*` (plural,
 // no version prefix) while the backend only mounts these routes at
@@ -141,10 +142,12 @@ export default function ReportBuilderPage() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-5 print:hidden">
           <div>
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">Data Source</label>
-            <select value={entity} onChange={e => { setEntity(e.target.value); setColumns([]); setFilters({}); setSortBy(''); }} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="">Select entity...</option>
-              {schemas.map(s => <option key={s.entity} value={s.entity}>{s.entity.replace(/_/g,' ')}</option>)}
-            </select>
+            <SearchableSelect
+              options={schemas.map(s => ({ label: s.entity.replace(/_/g,' '), value: s.entity }))}
+              value={entity || null}
+              onChange={v => { setEntity((v as string) ?? ''); setColumns([]); setFilters({}); setSortBy(''); }}
+              placeholder="Select entity..."
+            />
           </div>
 
           {currentSchema && (
@@ -188,17 +191,21 @@ export default function ReportBuilderPage() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Sort by</label>
-                  <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none">
-                    <option value="">Default</option>
-                    {currentSchema.fields.map(f => <option key={f} value={f}>{f}</option>)}
-                  </select>
+                  <SearchableSelect
+                    options={currentSchema.fields.map(f => ({ label: f, value: f }))}
+                    value={sortBy || null}
+                    onChange={v => setSortBy((v as string) ?? '')}
+                    placeholder="Default"
+                  />
                 </div>
                 <div>
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Direction</label>
-                  <select value={sortDir} onChange={e => setSortDir(e.target.value as any)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none">
-                    <option value="desc">Desc</option>
-                    <option value="asc">Asc</option>
-                  </select>
+                  <SearchableSelect
+                    options={[{ label: 'Desc', value: 'desc' }, { label: 'Asc', value: 'asc' }]}
+                    value={sortDir}
+                    onChange={v => setSortDir(((v as string) ?? sortDir) as any)}
+                    clearable={false}
+                  />
                 </div>
               </div>
 

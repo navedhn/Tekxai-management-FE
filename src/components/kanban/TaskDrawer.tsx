@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { X, Plus, Clock, Check, MessageSquare, Paperclip, Link2, Trash2, Download } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { motion, AnimatePresence } from 'framer-motion';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import type { KanbanTask, TaskStatus, TaskPriority } from '@/services/tasksService';
 import {
   useSubTasks,
@@ -543,29 +544,25 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({ task, allTasks = [], projectId,
                 {/* Status */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[11px] font-black text-gray-500 uppercase tracking-wider">Status</label>
-                  <select
+                  <SearchableSelect
+                    options={STATUS_OPTIONS.map(o => ({ label: o.label, value: o.value }))}
                     value={task.status}
-                    onChange={e => onUpdateTask(task.id, { status: e.target.value as TaskStatus })}
-                    className="text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-[#005CDA] transition-colors bg-white font-medium text-gray-700"
-                  >
-                    {STATUS_OPTIONS.map(o => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
+                    onChange={v => onUpdateTask(task.id, { status: (v as TaskStatus) ?? task.status })}
+                    clearable={false}
+                    className="text-sm"
+                  />
                 </div>
 
                 {/* Priority */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[11px] font-black text-gray-500 uppercase tracking-wider">Priority</label>
-                  <select
+                  <SearchableSelect
+                    options={PRIORITY_OPTIONS.map(o => ({ label: o.label, value: o.value }))}
                     value={task.priority}
-                    onChange={e => onUpdateTask(task.id, { priority: e.target.value as TaskPriority })}
-                    className="text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-[#005CDA] transition-colors bg-white font-medium text-gray-700"
-                  >
-                    {PRIORITY_OPTIONS.map(o => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
+                    onChange={v => onUpdateTask(task.id, { priority: (v as TaskPriority) ?? task.priority })}
+                    clearable={false}
+                    className="text-sm"
+                  />
                 </div>
 
                 {/* Assignee */}

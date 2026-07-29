@@ -7,6 +7,7 @@ import { useGetDepartmentsQuery } from '@/services/departmentService';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import StatusBadge from '@/components/ui/StatusBadge';
+import Button, { IconButton } from '@/components/ui/Button';
 
 const v1 = 'api/v1';
 const BUILDER = `${v1}/report/builder`;
@@ -199,7 +200,7 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-black text-gray-900">Add New Asset</h2>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+          <IconButton icon={X} variant="ghost" size="sm" aria-label="Close" onClick={onClose} className="!h-auto !w-auto p-1.5 text-gray-400" />
         </div>
 
         <div className="space-y-4">
@@ -347,11 +348,10 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
         {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
 
         <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={handleSubmit} disabled={!form.name || isPending}
-            className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40">
-            {isPending ? 'Saving…' : 'Add Asset'}
-          </button>
+          <Button variant="outline" size="sm" animation="none" fullWidth onClick={onClose} className="!h-10 flex-1">Cancel</Button>
+          <Button variant="primary" size="sm" fullWidth onClick={handleSubmit} disabled={!form.name} loading={isPending} className="!h-10 flex-1">
+            Add Asset
+          </Button>
         </div>
       </div>
     </div>
@@ -390,7 +390,7 @@ function AssignModal({ asset, onClose }: { asset: any; onClose: () => void }) {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-black text-gray-900">Assign Asset</h2>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+          <IconButton icon={X} variant="ghost" size="sm" aria-label="Close" onClick={onClose} className="!h-auto !w-auto p-1.5 text-gray-400" />
         </div>
         <p className="text-sm text-gray-500 mb-4">Assigning: <span className="font-semibold text-gray-900">{asset.name}</span></p>
         <div>
@@ -403,11 +403,10 @@ function AssignModal({ asset, onClose }: { asset: any; onClose: () => void }) {
         </div>
         {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
         <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={() => mutation.mutate()} disabled={!userId || mutation.isPending}
-            className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40">
-            {mutation.isPending ? 'Assigning…' : 'Assign'}
-          </button>
+          <Button variant="outline" size="sm" animation="none" fullWidth onClick={onClose} className="!h-10 flex-1">Cancel</Button>
+          <Button variant="primary" size="sm" fullWidth onClick={() => mutation.mutate()} disabled={!userId} loading={mutation.isPending} className="!h-10 flex-1">
+            Assign
+          </Button>
         </div>
       </div>
     </div>
@@ -443,7 +442,7 @@ function ReturnModal({ asset, onClose }: { asset: any; onClose: () => void }) {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-black text-gray-900">Return Asset</h2>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+          <IconButton icon={X} variant="ghost" size="sm" aria-label="Close" onClick={onClose} className="!h-auto !w-auto p-1.5 text-gray-400" />
         </div>
         <p className="text-sm text-gray-500 mb-1">Asset: <span className="font-semibold text-gray-900">{asset.name}</span></p>
         {assignedUser && (
@@ -467,11 +466,10 @@ function ReturnModal({ asset, onClose }: { asset: any; onClose: () => void }) {
         </div>
         {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
         <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={() => mutation.mutate()} disabled={mutation.isPending}
-            className="flex-1 h-10 bg-amber-600 text-white rounded-xl text-sm font-semibold hover:bg-amber-700 disabled:opacity-40">
-            {mutation.isPending ? 'Returning…' : 'Confirm Return'}
-          </button>
+          <Button variant="outline" size="sm" animation="none" fullWidth onClick={onClose} className="!h-10 flex-1">Cancel</Button>
+          <Button variant="primary" size="sm" fullWidth onClick={() => mutation.mutate()} loading={mutation.isPending} className="!h-10 flex-1 !bg-amber-600 hover:!bg-amber-700">
+            Confirm Return
+          </Button>
         </div>
       </div>
     </div>
@@ -507,7 +505,7 @@ function DisposeModal({ asset, onClose }: { asset: any; onClose: () => void }) {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-black text-gray-900">Dispose Asset</h2>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+          <IconButton icon={X} variant="ghost" size="sm" aria-label="Close" onClick={onClose} className="!h-auto !w-auto p-1.5 text-gray-400" />
         </div>
         <p className="text-sm text-gray-500 mb-4">Disposing: <span className="font-semibold text-gray-900">{asset.name}</span></p>
         <div className="space-y-3">
@@ -527,11 +525,10 @@ function DisposeModal({ asset, onClose }: { asset: any; onClose: () => void }) {
         </div>
         {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
         <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={() => mutation.mutate()} disabled={!reason.trim() || mutation.isPending}
-            className="flex-1 h-10 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 disabled:opacity-40">
-            {mutation.isPending ? 'Disposing…' : 'Confirm Disposal'}
-          </button>
+          <Button variant="outline" size="sm" animation="none" fullWidth onClick={onClose} className="!h-10 flex-1">Cancel</Button>
+          <Button variant="danger" size="sm" fullWidth onClick={() => mutation.mutate()} disabled={!reason.trim()} loading={mutation.isPending} className="!h-10 flex-1">
+            Confirm Disposal
+          </Button>
         </div>
       </div>
     </div>
@@ -582,7 +579,7 @@ function CreateRequestModal({ onClose }: { onClose: () => void }) {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-black text-gray-900">Request an Asset</h2>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+          <IconButton icon={X} variant="ghost" size="sm" aria-label="Close" onClick={onClose} className="!h-auto !w-auto p-1.5 text-gray-400" />
         </div>
         <div className="space-y-3">
           <div>
@@ -611,11 +608,10 @@ function CreateRequestModal({ onClose }: { onClose: () => void }) {
         </div>
         {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
         <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={() => mutation.mutate()} disabled={!categoryId || mutation.isPending}
-            className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40">
-            {mutation.isPending ? 'Submitting…' : 'Submit Request'}
-          </button>
+          <Button variant="outline" size="sm" animation="none" fullWidth onClick={onClose} className="!h-10 flex-1">Cancel</Button>
+          <Button variant="primary" size="sm" fullWidth onClick={() => mutation.mutate()} disabled={!categoryId} loading={mutation.isPending} className="!h-10 flex-1">
+            Submit Request
+          </Button>
         </div>
       </div>
     </div>
@@ -657,7 +653,7 @@ function ApproveRequestModal({ request, onClose }: { request: any; onClose: () =
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-black text-gray-900">Approve Request</h2>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+          <IconButton icon={X} variant="ghost" size="sm" aria-label="Close" onClick={onClose} className="!h-auto !w-auto p-1.5 text-gray-400" />
         </div>
         <p className="text-sm text-gray-500 mb-1">Category: <span className="font-semibold text-gray-900">{request.category?.name}</span></p>
         <p className="text-sm text-gray-500 mb-4">For: <span className="font-semibold text-gray-900">{requester?.first_name} {requester?.last_name}</span></p>
@@ -675,11 +671,10 @@ function ApproveRequestModal({ request, onClose }: { request: any; onClose: () =
         </div>
         {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
         <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={() => mutation.mutate()} disabled={!assetId || mutation.isPending}
-            className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40">
-            {mutation.isPending ? 'Approving…' : 'Approve & Assign'}
-          </button>
+          <Button variant="outline" size="sm" animation="none" fullWidth onClick={onClose} className="!h-10 flex-1">Cancel</Button>
+          <Button variant="primary" size="sm" fullWidth onClick={() => mutation.mutate()} disabled={!assetId} loading={mutation.isPending} className="!h-10 flex-1">
+            Approve & Assign
+          </Button>
         </div>
       </div>
     </div>
@@ -712,7 +707,7 @@ function RejectRequestModal({ request, onClose }: { request: any; onClose: () =>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-black text-gray-900">Reject Request</h2>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+          <IconButton icon={X} variant="ghost" size="sm" aria-label="Close" onClick={onClose} className="!h-auto !w-auto p-1.5 text-gray-400" />
         </div>
         <p className="text-sm text-gray-500 mb-4">Category: <span className="font-semibold text-gray-900">{request.category?.name}</span></p>
         <div>
@@ -722,11 +717,10 @@ function RejectRequestModal({ request, onClose }: { request: any; onClose: () =>
         </div>
         {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
         <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={() => mutation.mutate()} disabled={mutation.isPending}
-            className="flex-1 h-10 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 disabled:opacity-40">
-            {mutation.isPending ? 'Rejecting…' : 'Confirm Rejection'}
-          </button>
+          <Button variant="outline" size="sm" animation="none" fullWidth onClick={onClose} className="!h-10 flex-1">Cancel</Button>
+          <Button variant="danger" size="sm" fullWidth onClick={() => mutation.mutate()} loading={mutation.isPending} className="!h-10 flex-1">
+            Confirm Rejection
+          </Button>
         </div>
       </div>
     </div>
@@ -1003,16 +997,14 @@ export default function AssetsPage() {
           <p className="text-sm text-gray-400 mt-0.5">Track and manage company assets</p>
         </div>
         {tab === 'assets' && (
-          <button onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-4 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition-colors">
-            <Plus size={16} />Add Asset
-          </button>
+          <Button variant="primary" size="sm" leftIcon={Plus} onClick={() => setShowCreate(true)} className="!h-10">
+            Add Asset
+          </Button>
         )}
         {tab === 'requests' && (
-          <button onClick={() => setShowCreateRequest(true)}
-            className="flex items-center gap-2 px-4 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition-colors">
-            <Plus size={16} />New Request
-          </button>
+          <Button variant="primary" size="sm" leftIcon={Plus} onClick={() => setShowCreateRequest(true)} className="!h-10">
+            New Request
+          </Button>
         )}
       </div>
 
@@ -1092,10 +1084,10 @@ export default function AssetsPage() {
                 <option value="RETIRED">Retired</option>
               </select>
               {(categoryFilter || statusFilter || search) && (
-                <button onClick={() => { setCategoryFilter(''); setStatusFilter(''); setSearch(''); }}
-                  className="h-10 px-3 text-xs text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 flex items-center gap-1">
-                  <X size={12} /> Clear
-                </button>
+                <Button variant="outline" size="sm" animation="none" leftIcon={X} onClick={() => { setCategoryFilter(''); setStatusFilter(''); setSearch(''); }}
+                  className="!h-10 !px-3 text-xs !text-gray-500">
+                  Clear
+                </Button>
               )}
             </div>
 
@@ -1145,22 +1137,22 @@ export default function AssetsPage() {
                         <td className="py-3 px-2">
                           <div className="flex items-center gap-1.5">
                             {asset.status === 'AVAILABLE' && (
-                              <button onClick={() => setAssignTarget(asset)}
-                                className="px-3 h-7 bg-primary-600 text-white rounded-lg text-xs font-semibold hover:bg-primary-700 transition-colors">
+                              <Button variant="primary" size="sm" animation="none" rounded={false} onClick={() => setAssignTarget(asset)}
+                                className="!px-3 !h-7 h-auto !shadow-none text-xs">
                                 Assign
-                              </button>
+                              </Button>
                             )}
                             {asset.status === 'ASSIGNED' && (
-                              <button onClick={() => setReturnTarget(asset)}
-                                className="flex items-center gap-1 px-3 h-7 bg-amber-100 text-amber-700 rounded-lg text-xs font-semibold hover:bg-amber-200 transition-colors">
-                                <RotateCcw size={11} />Return
-                              </button>
+                              <Button variant="ghost" size="sm" animation="none" rounded={false} leftIcon={RotateCcw} onClick={() => setReturnTarget(asset)}
+                                className="!px-3 !h-7 h-auto !shadow-none text-xs !bg-amber-100 !text-amber-700 hover:!bg-amber-200">
+                                Return
+                              </Button>
                             )}
                             {asset.status !== 'RETIRED' && (
-                              <button onClick={() => setDisposeTarget(asset)}
-                                className="flex items-center gap-1 px-3 h-7 bg-red-100 text-red-700 rounded-lg text-xs font-semibold hover:bg-red-200 transition-colors">
-                                <Trash2 size={11} />Dispose
-                              </button>
+                              <Button variant="ghost" size="sm" animation="none" rounded={false} leftIcon={Trash2} onClick={() => setDisposeTarget(asset)}
+                                className="!px-3 !h-7 h-auto !shadow-none text-xs !bg-red-100 !text-red-700 hover:!bg-red-200">
+                                Dispose
+                              </Button>
                             )}
                           </div>
                         </td>

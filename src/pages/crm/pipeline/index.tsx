@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Flame, Briefcase, Linkedin, Mail, Filter, ArrowRight } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -74,32 +75,34 @@ const CRMPipeline: React.FC = () => {
       <Card className="p-4 rounded-2xl border border-gray-100 shadow-sm">
         <div className="flex flex-wrap gap-3 items-center">
           <Filter size={16} className="text-gray-400" />
-          <select
-            value={source}
-            onChange={e => setSource(e.target.value)}
-            className="text-sm border border-gray-200 rounded-xl px-3 py-2 font-bold text-gray-700"
-          >
-            <option value="">All Sources</option>
-            <option value="upwork">Upwork</option>
-            <option value="linkedin">LinkedIn</option>
-            <option value="email">Email</option>
-          </select>
-          <select
-            value={stage}
-            onChange={e => setStage(e.target.value)}
-            className="text-sm border border-gray-200 rounded-xl px-3 py-2 font-bold text-gray-700"
-          >
-            <option value="">All Stages</option>
-            {STAGES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
-          </select>
-          <select
-            value={is_hot}
-            onChange={e => setIsHot(e.target.value)}
-            className="text-sm border border-gray-200 rounded-xl px-3 py-2 font-bold text-gray-700"
-          >
-            <option value="">All Leads</option>
-            <option value="true">Hot Only</option>
-          </select>
+          <SearchableSelect
+            options={[
+              { label: 'Upwork', value: 'upwork' },
+              { label: 'LinkedIn', value: 'linkedin' },
+              { label: 'Email', value: 'email' },
+            ]}
+            value={source || null}
+            onChange={v => setSource((v as string) ?? '')}
+            placeholder="All Sources"
+            containerClassName="w-auto"
+            className="text-sm font-bold text-gray-700 h-auto py-2"
+          />
+          <SearchableSelect
+            options={STAGES.map(s => ({ label: s.replace(/_/g, ' '), value: s }))}
+            value={stage || null}
+            onChange={v => setStage((v as string) ?? '')}
+            placeholder="All Stages"
+            containerClassName="w-auto"
+            className="text-sm font-bold text-gray-700 h-auto py-2"
+          />
+          <SearchableSelect
+            options={[{ label: 'Hot Only', value: 'true' }]}
+            value={is_hot || null}
+            onChange={v => setIsHot((v as string) ?? '')}
+            placeholder="All Leads"
+            containerClassName="w-auto"
+            className="text-sm font-bold text-gray-700 h-auto py-2"
+          />
           {(source || stage || is_hot) && (
             <button
               onClick={() => { setSource(''); setStage(''); setIsHot(''); }}
@@ -165,14 +168,14 @@ const CRMPipeline: React.FC = () => {
               </div>
 
               {/* Stage selector */}
-              <select
+              <SearchableSelect
+                options={STAGES.map(s => ({ label: s.replace(/_/g, ' '), value: s }))}
                 value={lead.pipeline_stage || 'NEW'}
-                onChange={e => handleStageChange(lead, e.target.value)}
+                onChange={v => handleStageChange(lead, (v as string) ?? 'NEW')}
                 disabled={updateStage.isPending}
-                className="text-xs border border-gray-200 rounded-xl px-2 py-1.5 font-bold text-gray-600 w-full bg-gray-50"
-              >
-                {STAGES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
-              </select>
+                clearable={false}
+                className="text-xs font-bold text-gray-600 bg-gray-50 h-auto py-1.5"
+              />
             </Card>
           ))}
         </div>

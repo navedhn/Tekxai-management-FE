@@ -9,6 +9,7 @@ import {
 } from '@/services/hrDocumentsService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { cn } from '@/utils/cn';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 
 const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white';
 const labelCls = 'text-xs font-semibold text-gray-500 block mb-1.5';
@@ -100,36 +101,50 @@ export function NewDocumentModal({ onClose, onGenerated, initialUserId, initialU
                 {initialUserName || 'Selected employee'}
               </div>
             ) : (
-              <select className={inputCls} value={userId} onChange={(e) => setUserId(e.target.value)}>
-                <option value="">Select employee</option>
-                {(users || []).map((u: any) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
-              </select>
+              <SearchableSelect
+                className={inputCls}
+                options={(users || []).map((u: any) => ({ label: `${u.first_name} ${u.last_name}`, value: u.id }))}
+                value={userId || null}
+                onChange={(v) => setUserId((v as string) ?? '')}
+                placeholder="Select employee"
+              />
             )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Category <span className="text-red-500">*</span></label>
-              <select className={inputCls} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-                <option value="">Select category</option>
-                {(categories || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <SearchableSelect
+                className={inputCls}
+                options={(categories || []).map((c) => ({ label: c.name, value: c.id }))}
+                value={categoryId || null}
+                onChange={(v) => setCategoryId((v as string) ?? '')}
+                placeholder="Select category"
+              />
             </div>
             <div>
               <label className={labelCls}>Document Type <span className="text-red-500">*</span></label>
-              <select className={inputCls} value={typeId} disabled={!categoryId} onChange={(e) => setTypeId(e.target.value)}>
-                <option value="">Select type</option>
-                {(types || []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
+              <SearchableSelect
+                className={inputCls}
+                options={(types || []).map((t) => ({ label: t.name, value: t.id }))}
+                value={typeId || null}
+                disabled={!categoryId}
+                onChange={(v) => setTypeId((v as string) ?? '')}
+                placeholder="Select type"
+              />
             </div>
           </div>
 
           <div>
             <label className={labelCls}>Template</label>
-            <select className={inputCls} value={templateId} disabled={!typeId} onChange={(e) => setTemplateId(e.target.value)}>
-              <option value="">No template — write content manually</option>
-              {(templates || []).map((t) => <option key={t.id} value={t.id}>{t.name} (v{t.current_version?.version})</option>)}
-            </select>
+            <SearchableSelect
+              className={inputCls}
+              options={(templates || []).map((t) => ({ label: `${t.name} (v${t.current_version?.version})`, value: t.id }))}
+              value={templateId || null}
+              disabled={!typeId}
+              onChange={(v) => setTemplateId((v as string) ?? '')}
+              placeholder="No template — write content manually"
+            />
           </div>
 
           {!templateId && (
@@ -216,10 +231,14 @@ export default function HrDocumentsPage() {
             <input className="w-full h-10 pl-9 pr-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
               placeholder="Search by title or employee…" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
-          <select className={cn(inputCls, 'w-auto min-w-[160px]')} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="">All Statuses</option>
-            {Object.keys(STATUS_STYLE).map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <SearchableSelect
+            className={cn(inputCls, 'w-auto')}
+            containerClassName="w-auto min-w-[160px]"
+            options={Object.keys(STATUS_STYLE).map((s) => ({ label: s, value: s }))}
+            value={statusFilter || null}
+            onChange={(v) => setStatusFilter((v as string) ?? '')}
+            placeholder="All Statuses"
+          />
         </div>
 
         <div className="overflow-x-auto">

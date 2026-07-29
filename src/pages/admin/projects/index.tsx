@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
-import Button, { pageActionButtonClass, pageOutlineButtonClass } from '@/components/ui/Button';
+import Button, { IconButton, pageActionButtonClass, pageOutlineButtonClass } from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Tabs from '@/components/ui/Tabs';
 import Loader from '@/components/ui/Loader';
@@ -169,12 +169,16 @@ const ProjectManagement: React.FC = () => {
       header: 'Project Title',
       key: 'title',
       render: (item) => (
-        <button
+        <Button
+          variant="link"
+          size="sm"
+          animation="none"
+          rounded={false}
           onClick={() => setSelectedProjectId(item.id)}
-          className="text-left font-black text-gray-900 transition-colors hover:text-primary-500 hover:underline underline-offset-4"
+          className="!p-0 h-auto !shadow-none !text-gray-900 font-black underline-offset-4"
         >
           {item.title}
-        </button>
+        </Button>
       )
     },
     {
@@ -342,38 +346,46 @@ const ProjectManagement: React.FC = () => {
       key: 'actions',
       render: (item) => (
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setProjectToToggleSave({ project: item, action: item.is_saved ? 'unsave' : 'save' })}
-            className="p-2 hover:bg-yellow-50 text-gray-400 hover:text-yellow-500 rounded-lg transition-all"
+          <IconButton
+            icon={Star}
+            variant="ghost"
+            size="sm"
+            aria-label={item.is_saved ? "Unsave Project" : "Save Project"}
             title={item.is_saved ? "Unsave Project" : "Save Project"}
-          >
-            <Star size={16} className={item.is_saved ? "fill-[#EAB308] text-[#EAB308]" : ""} />
-          </button>
-          <button
-            onClick={() => { setEditingProject(item); setIsFormOpen(true); }}
-            className="p-2 hover:bg-blue-50 text-gray-400 hover:text-blue-600 rounded-lg transition-all disabled:opacity-30 disabled:pointer-events-none"
+            onClick={() => setProjectToToggleSave({ project: item, action: item.is_saved ? 'unsave' : 'save' })}
+            className={cn('!h-auto !w-auto p-2 rounded-lg hover:bg-yellow-50 text-gray-400 hover:text-yellow-500', item.is_saved && 'text-[#EAB308]')}
+          />
+          <IconButton
+            icon={Edit2}
+            variant="ghost"
+            size="sm"
+            aria-label="Edit Project"
             title="Edit Project"
+            onClick={() => { setEditingProject(item); setIsFormOpen(true); }}
             disabled={!!item.deleted_at}
-          >
-            <Edit2 size={16} />
-          </button>
+            className="!h-auto !w-auto p-2 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600 disabled:opacity-30 disabled:pointer-events-none"
+          />
           {canArchive && (
             item.deleted_at ? (
-              <button
-                onClick={() => setProjectToRestore(item)}
-                className="p-2 hover:bg-emerald-50 text-gray-400 hover:text-emerald-600 rounded-lg transition-all"
+              <IconButton
+                icon={ArchiveRestore}
+                variant="ghost"
+                size="sm"
+                aria-label="Restore Project"
                 title="Restore Project"
-              >
-                <ArchiveRestore size={16} />
-              </button>
+                onClick={() => setProjectToRestore(item)}
+                className="!h-auto !w-auto p-2 rounded-lg hover:bg-emerald-50 text-gray-400 hover:text-emerald-600"
+              />
             ) : (
-              <button
-                onClick={() => setProjectToDelete(item)}
-                className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-lg transition-all"
+              <IconButton
+                icon={Archive}
+                variant="ghost"
+                size="sm"
+                aria-label="Archive Project"
                 title="Archive Project"
-              >
-                <Archive size={16} />
-              </button>
+                onClick={() => setProjectToDelete(item)}
+                className="!h-auto !w-auto p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600"
+              />
             )
           )}
         </div>

@@ -8,6 +8,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 
 const STATUS_COLORS: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
   PENDING:    'warning',
@@ -189,17 +190,20 @@ const CRMHandoffs: React.FC = () => {
           </div>
           <div>
             <label className="text-xs font-black text-gray-600 uppercase tracking-wider">LEAD SOURCE</label>
-            <select
+            <SearchableSelect
+              options={[
+                { label: 'Upwork', value: 'upwork' },
+                { label: 'LinkedIn', value: 'linkedin' },
+                { label: 'Email', value: 'email' },
+                { label: 'Referral', value: 'referral' },
+                { label: 'Other', value: 'other' },
+              ]}
               value={form.lead_source}
-              onChange={e => setForm(f => ({ ...f, lead_source: e.target.value }))}
-              className="w-full mt-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-bold text-gray-700"
-            >
-              <option value="upwork">Upwork</option>
-              <option value="linkedin">LinkedIn</option>
-              <option value="email">Email</option>
-              <option value="referral">Referral</option>
-              <option value="other">Other</option>
-            </select>
+              onChange={v => setForm(f => ({ ...f, lead_source: (v as string) ?? f.lead_source }))}
+              clearable={false}
+              containerClassName="mt-1"
+              className="text-sm font-bold text-gray-700"
+            />
           </div>
           <div>
             <label className="text-xs font-black text-gray-600 uppercase tracking-wider">NOTES</label>

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {Clock, X, Plus, Search, User ,Loader2, ArrowRight } from 'lucide-react';
 import { cn } from '@/utils/cn';
-import Button from './Button';
+import Button, { IconButton } from './Button';
 import Input from './Input';
 import SearchableSelect from './SearchableSelect';
 import Textarea from './Textarea';
@@ -40,9 +40,14 @@ const AvatarChip: React.FC<{ member: TeamMember; onRemove: () => void }> = ({ me
       alt={member.name}
     />
     <span className="text-[13px] font-bold text-gray-700">{member.name}</span>
-    <button onClick={onRemove} className="ml-1 text-gray-400 hover:text-red-400 transition-colors">
-      <X size={13} strokeWidth={2.5} />
-    </button>
+    <IconButton
+      icon={X}
+      variant="ghost"
+      size="sm"
+      aria-label={`Remove ${member.name}`}
+      onClick={onRemove}
+      className="ml-1 !h-auto !w-auto p-0 text-gray-400 hover:text-red-400"
+    />
   </motion.div>
 );
 
@@ -62,18 +67,22 @@ const MemberRoleRow: React.FC<{ member: TeamMember; onRoleChange: (role: Project
       alt={member.name}
     />
     <span className="text-[13px] font-bold text-gray-700">{member.name}</span>
-    <select
+    <SearchableSelect
+      options={PROJECT_MEMBER_ROLES.map((r) => ({ label: r.label, value: r.value }))}
       value={member.role || 'MEMBER'}
-      onChange={(e) => onRoleChange(e.target.value as ProjectMemberRole)}
-      className="text-[12px] font-semibold text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-2 py-1 focus:outline-none"
-    >
-      {PROJECT_MEMBER_ROLES.map((r) => (
-        <option key={r.value} value={r.value}>{r.label}</option>
-      ))}
-    </select>
-    <button onClick={onRemove} className="text-gray-400 hover:text-red-400 transition-colors">
-      <X size={13} strokeWidth={2.5} />
-    </button>
+      onChange={(v) => onRoleChange((v as ProjectMemberRole) ?? 'MEMBER')}
+      clearable={false}
+      containerClassName="w-auto"
+      className="h-auto text-[12px] font-semibold text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-2 py-1 shadow-none"
+    />
+    <IconButton
+      icon={X}
+      variant="ghost"
+      size="sm"
+      aria-label={`Remove ${member.name}`}
+      onClick={onRemove}
+      className="!h-auto !w-auto p-0 text-gray-400 hover:text-red-400"
+    />
   </motion.div>
 );
 
@@ -140,6 +149,9 @@ const UserSelectDropdown: React.FC<{
                 </div>
               ) : filteredUsers.length > 0 ? (
                 filteredUsers.map((u: any) => (
+                  // Rich multi-line list row (avatar + two text lines), not a plain
+                  // label/icon button — left as a raw <button> rather than forcing
+                  // it into Button's fixed padding/height/rounded styles.
                   <button
                     key={u.id}
                     onClick={() => {
@@ -328,12 +340,14 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
             className="fixed inset-y-0 right-0 w-full md:w-[540px] bg-[#F7F8FC] shadow-2xl z-[141] flex flex-col overflow-hidden md:rounded-l-[3rem]"
           >
             <div className="px-8 pt-8 pb-2 shrink-0 flex items-center justify-between">
-              <button
+              <IconButton
+                icon={ArrowRight}
+                variant="secondary"
+                size="lg"
+                aria-label="Close panel"
                 onClick={onClose}
-                className="h-10 w-10 rounded-full bg-white border border-gray-100 flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm active:scale-95"
-              >
-                <ArrowRight size={18} strokeWidth={2.5} className="text-gray-700" />
-              </button>
+                className="!h-10 !w-10 bg-white border border-gray-100 shadow-sm text-gray-700"
+              />
               <h2 className="text-xl font-black text-gray-900 tracking-tight">
                 {isEdit ? 'Edit Project' : 'New Project'}
               </h2>
