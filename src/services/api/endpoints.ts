@@ -147,6 +147,7 @@ export const API_ENDPOINTS = {
   },
   TIMESHEET: {
     WEEKLY:          `${v1}/timesheet/weekly`,
+    RANGE:           `${v1}/timesheet/range`,
     RECENT_ACTIVITY: `${v1}/timesheet/recent-activity`,
     REQUESTS:        `${v1}/timesheet/requests`,
     MY_REQUESTS:     `${v1}/timesheet/my-requests`,

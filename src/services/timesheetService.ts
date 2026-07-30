@@ -99,6 +99,13 @@ const getWeeklyTimesheetApi = async (params?: Record<string, any>) => {
   return payload as WeeklyTimesheetData;
 };
 
+const getRangeTimesheetApi = async (params: { from: string; to: string }) => {
+  const queryString = new URLSearchParams(params).toString();
+  const res = await apiRequest<any>(`${API_ENDPOINTS.TIMESHEET.RANGE}?${queryString}`);
+  const payload = res?.payload || res;
+  return payload as WeeklyTimesheetData;
+};
+
 const getRecentActivityApi = async () => {
   const res = await apiRequest<any>(API_ENDPOINTS.TIMESHEET.RECENT_ACTIVITY);
   const data = res?.payload || res;
@@ -234,6 +241,21 @@ export const useGetWeeklyTimesheet = (params?: Record<string, any>, enabled = tr
     queryKey: [...QUERY_KEYS.TIMESHEET.WEEKLY, params],
     queryFn: () => getWeeklyTimesheetApi(params),
     enabled,
+    refetchOnWindowFocus: true,
+    staleTime: 30 * 1000,
+  });
+};
+
+// Custom-tab equivalent of useGetWeeklyTimesheet — the Custom tab was
+// wired to the weekly query with only a `from` date, so it silently
+// ignored `to` and always showed the current calendar week no matter
+// what range was picked. This actually respects both ends via the new
+// GET /timesheet/range endpoint.
+export const useGetRangeTimesheet = (params?: { from: string; to: string }, enabled = true) => {
+  return useQuery<WeeklyTimesheetData>({
+    queryKey: [...QUERY_KEYS.TIMESHEET.WEEKLY, 'range', params],
+    queryFn: () => getRangeTimesheetApi(params!),
+    enabled: enabled && !!params,
     refetchOnWindowFocus: true,
     staleTime: 30 * 1000,
   });
