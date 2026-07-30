@@ -159,6 +159,13 @@ const createTimesheetEntryApi = async (data: any) => {
   });
 };
 
+const requestEntryEditApi = async ({ id, data }: { id: string | number; data: { new_check_in?: string; new_check_out?: string; reason: string } }) => {
+  return apiRequest(API_ENDPOINTS.TIMESHEET.REQUEST_EDIT(id), {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
 const approveEditRequestApi = async (id: string | number) => {
    return apiRequest(`api/v1/timesheet/edit-request/${id}/approve`, { method: 'POST' });
 };
@@ -180,6 +187,17 @@ const deleteTimeOffApi = async (id: string | number) => {
 };
 
 // --- Hooks ---
+
+export const useRequestEntryEditMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: requestEntryEditApi,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TIMESHEET.WEEKLY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TIMESHEET.MY_REQUESTS });
+    },
+  });
+};
 
 export const useApproveEditRequestMutation = () => {
   const queryClient = useQueryClient();
