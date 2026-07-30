@@ -79,6 +79,11 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
   const [category, setCategory] = useState<TicketCategory | ''>('');
   const [departmentId, setDepartmentId] = useState('');
 
+  // Surfaced inline in addition to toast.error() — clicking Review with
+  // required fields empty must never leave the user with zero feedback,
+  // so this doesn't depend on the toast rendering to be visible.
+  const [formError, setFormError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!isOpen) return;
     setStep(hasServiceDesk ? 'pick' : 'legacy');
@@ -93,6 +98,7 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
     setCustomName('');
     setCategory('');
     setDepartmentId('');
+    setFormError(null);
   }, [isOpen, hasServiceDesk]);
 
   const DEPARTMENT_OPTIONS = departments.map((d: { id: string; name: string }) => ({
@@ -127,6 +133,7 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
 
   const goToReview = () => {
     const err = validateForm();
+    setFormError(err);
     if (err) { toast.error(err); return; }
     setStep('review');
   };
@@ -232,13 +239,17 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
         <ArrowLeft size={12} /> {categoryLabel} / {selectedType?.label}
       </button>
 
-      <Input label="Subject *" placeholder="Brief summary of your request" value={subject} onChange={e => setSubject(e.target.value)} />
-      <Textarea label="Description *" placeholder="Describe your request in detail…" value={description} onChange={e => setDescription(e.target.value)} rows={3} />
+      {formError && (
+        <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{formError}</p>
+      )}
+
+      <Input label="Subject *" placeholder="Brief summary of your request" value={subject} onChange={e => { setSubject(e.target.value); setFormError(null); }} />
+      <Textarea label="Description *" placeholder="Describe your request in detail…" value={description} onChange={e => { setDescription(e.target.value); setFormError(null); }} rows={3} />
 
       <DynamicFormRenderer
         sections={selectedType?.field_schema || []}
         values={customFields}
-        onChange={(key, value) => setCustomFields(prev => ({ ...prev, [key]: value }))}
+        onChange={(key, value) => { setCustomFields(prev => ({ ...prev, [key]: value })); setFormError(null); }}
       />
 
       <div className="grid grid-cols-2 gap-4">
