@@ -72,14 +72,26 @@ function titleCase(segment: string): string {
   return segment.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function getPageTitle(pathname: string): { title: string } {
-  if (PAGE_TITLES[pathname]) return { title: PAGE_TITLES[pathname] };
+// PAGE_TITLES is keyed by /admin/... paths only. Employee/other layouts
+// reuse this same lookup with their own routePrefix (e.g. '/employee'),
+// but previously the raw employee pathname was looked up directly against
+// admin-only keys — never matched, so a detail route like
+// /employee/documents/:id fell all the way to the generic "last path
+// segment, title-cased" fallback, showing the raw document id as the page
+// title instead of "HR Documents". Normalizing the prefix back to /admin
+// before lookup lets every existing PAGE_TITLES entry (and its prefix-match
+// sub-routes) resolve correctly for any layout without duplicating them.
+export function getPageTitle(pathname: string, routePrefix: string = '/admin'): { title: string } {
+  const normalized = routePrefix !== '/admin' && pathname.startsWith(routePrefix)
+    ? '/admin' + pathname.slice(routePrefix.length)
+    : pathname;
+  if (PAGE_TITLES[normalized]) return { title: PAGE_TITLES[normalized] };
   // Prefix match for detail/sub-routes (e.g. /admin/documents/:id)
   const prefixMatch = Object.keys(PAGE_TITLES)
-    .filter((p) => p !== '/admin' && pathname.startsWith(p + '/'))
+    .filter((p) => p !== '/admin' && normalized.startsWith(p + '/'))
     .sort((a, b) => b.length - a.length)[0];
   if (prefixMatch) return { title: PAGE_TITLES[prefixMatch] };
   // Generic fallback: last path segment, title-cased.
-  const last = pathname.split('/').filter(Boolean).pop() || 'Dashboard';
+  const last = normalized.split('/').filter(Boolean).pop() || 'Dashboard';
   return { title: titleCase(last) };
 }
