@@ -4,12 +4,16 @@ import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
 import Button, { pageActionButtonClass } from '@/components/ui/Button';
 import Tabs from '@/components/ui/Tabs';
+import Modal from '@/components/ui/Modal';
+import Input from '@/components/ui/Input';
+import Textarea from '@/components/ui/Textarea';
 import { ChevronLeft, ChevronRight, Calendar, MoreVertical } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import RequestTimeOffModal from '@/components/ui/RequestTimeOffModal';
-import { useGetTimeOffRequests, useGetWeeklyTimesheet, TimesheetEntry } from '@/services/timesheetService';
+import { useGetTimeOffRequests, useGetWeeklyTimesheet, useRequestEntryEditMutation, TimesheetEntry } from '@/services/timesheetService';
 import { useGetMyShiftQuery, useGetMyAttendanceSummary } from '@/services/attendanceService';
 import { CardSkeleton } from '@/components/skeletons';
+import { useToastContext } from '@/components/toast/ToastProvider';
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -64,6 +68,36 @@ const VIEW_TABS = ['Weekly', 'Monthly', 'Custom', 'My Requests'];
 const EmployeeTimesheet: React.FC = () => {
   const [activeTab, setActiveTab] = useState('Weekly');
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+
+  // Row-level "⋮" action — was a completely unwired button (no onClick at
+  // all) that opened nothing when clicked. The only entry-level action
+  // available today is requesting a correction on an already-clocked entry,
+  // so it opens that directly rather than a menu with a single item.
+  const toast = useToastContext();
+  const [editEntry, setEditEntry] = useState<TimesheetEntry | null>(null);
+  const [editCheckIn, setEditCheckIn] = useState('');
+  const [editCheckOut, setEditCheckOut] = useState('');
+  const [editReason, setEditReason] = useState('');
+  const requestEditMutation = useRequestEntryEditMutation();
+
+  const openEditRequest = (item: TimesheetEntry) => {
+    setEditEntry(item);
+    setEditCheckIn('');
+    setEditCheckOut('');
+    setEditReason('');
+  };
+
+  const submitEditRequest = () => {
+    if (!editEntry?.entry_id) return;
+    if (!editReason.trim()) { toast.error('Please explain why you are requesting this correction.'); return; }
+    requestEditMutation.mutate(
+      { id: editEntry.entry_id, data: { new_check_in: editCheckIn || undefined, new_check_out: editCheckOut || undefined, reason: editReason.trim() } },
+      {
+        onSuccess: () => { toast.success('Edit request submitted.'); setEditEntry(null); },
+        onError: (e: any) => toast.error(e?.response?.data?.message || e?.message || 'Failed to submit edit request.'),
+      }
+    );
+  };
 
   // Week navigation
   const [weekAnchor, setWeekAnchor] = useState(() => startOfWeek(new Date()));
@@ -136,9 +170,15 @@ const EmployeeTimesheet: React.FC = () => {
     },
     {
       header: '', key: 'actions',
-      render: () => (
+      render: (item) => (
         <div className="flex justify-end">
-          <button className="p-1.5 hover:bg-gray-50 text-gray-400 hover:text-gray-600 rounded-lg">
+          <button
+            type="button"
+            disabled={!item.has_entry || !item.entry_id}
+            onClick={() => openEditRequest(item)}
+            title={item.has_entry ? 'Request a correction' : 'No entry to correct'}
+            className="p-1.5 hover:bg-gray-50 text-gray-400 hover:text-gray-600 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+          >
             <MoreVertical size={16} />
           </button>
         </div>
@@ -149,6 +189,31 @@ const EmployeeTimesheet: React.FC = () => {
   return (
     <div className="flex flex-col gap-8 pb-10">
       <RequestTimeOffModal isOpen={isRequestModalOpen} onClose={() => setIsRequestModalOpen(false)} />
+
+      <Modal
+        isOpen={!!editEntry}
+        onClose={() => setEditEntry(null)}
+        title={`Request Correction — ${editEntry?.day_label || ''}`}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" animation="none" rounded={false} className="rounded-lg" onClick={() => setEditEntry(null)}>Cancel</Button>
+            <Button animation="none" rounded={false} className="rounded-lg bg-[#005CDA] text-white border-0 hover:bg-[#0047AB]" loading={requestEditMutation.isPending} onClick={submitEditRequest}>
+              Submit Request
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Current: {editEntry?.check_in || '—'} – {editEntry?.check_out || '—'}
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Corrected Check In" type="time" value={editCheckIn} onChange={(e) => setEditCheckIn(e.target.value)} />
+            <Input label="Corrected Check Out" type="time" value={editCheckOut} onChange={(e) => setEditCheckOut(e.target.value)} />
+          </div>
+          <Textarea label="Reason *" placeholder="Explain why this correction is needed…" value={editReason} onChange={(e) => setEditReason(e.target.value)} rows={3} />
+        </div>
+      </Modal>
 
       {/* Header */}
       <div className="flex items-start justify-between">
