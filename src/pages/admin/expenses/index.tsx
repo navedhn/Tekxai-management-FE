@@ -438,8 +438,17 @@ export default function ExpensesPage() {
               ) : accounts.map((acc: any) => (
                 <tr key={acc.id} className="hover:bg-gray-50 transition-colors">
                   <td className="py-3 px-2">
-                    <div className="font-semibold text-gray-900">{acc.user?.first_name} {acc.user?.last_name}</div>
-                    <div className="text-xs text-gray-400">{acc.user?.designation || ''}</div>
+                    {acc.user ? (
+                      <>
+                        <div className="font-semibold text-gray-900">{acc.user.first_name} {acc.user.last_name}</div>
+                        <div className="text-xs text-gray-400">{acc.user.designation || ''}</div>
+                      </>
+                    ) : (
+                      // user_id is set on the account but the linked users row no longer
+                      // resolves (orphaned FK) — show that plainly instead of a blank cell,
+                      // since a blank name reads as "loading" rather than "broken".
+                      <div className="font-semibold text-gray-400 italic">Unknown Employee</div>
+                    )}
                   </td>
                   <td className="py-3 px-2 text-gray-600 text-xs font-medium">{pkr(acc.opening_balance)}</td>
                   <td className="py-3 px-2 font-semibold text-green-600 text-xs">{pkr(acc.total_received)}</td>
@@ -450,10 +459,17 @@ export default function ExpensesPage() {
                   <td className="py-3 px-2 text-purple-600 font-semibold text-xs">{pkr(acc.ce_spent)}</td>
                   <td className="py-3 px-2 text-orange-600 font-semibold text-xs">{pkr(acc.tekxai_spent)}</td>
                   <td className="py-3 px-2">
-                    <button onClick={() => navigate(`/admin/finance/expenses/${acc.user?.employee_id || acc.user?.id}`)}
-                      className="flex items-center gap-1.5 px-3 h-7 bg-primary-600 text-white rounded-lg text-xs font-semibold hover:bg-primary-700 transition-colors">
-                      <Eye size={12} />Ledger
-                    </button>
+                    {acc.user ? (
+                      <button onClick={() => navigate(`/admin/finance/expenses/${acc.user.employee_id || acc.user.id}`)}
+                        className="flex items-center gap-1.5 px-3 h-7 bg-primary-600 text-white rounded-lg text-xs font-semibold hover:bg-primary-700 transition-colors">
+                        <Eye size={12} />Ledger
+                      </button>
+                    ) : (
+                      <button disabled title="This account's linked employee record no longer exists"
+                        className="flex items-center gap-1.5 px-3 h-7 bg-gray-100 text-gray-400 rounded-lg text-xs font-semibold cursor-not-allowed">
+                        <Eye size={12} />Ledger
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
