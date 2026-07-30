@@ -27,6 +27,14 @@ const IDLE_TIMEOUT_OPTIONS = [
   { value: '120', label: '2 hours' },
 ];
 
+const GRACE_PERIOD_OPTIONS = [
+  { value: '10', label: '10 minutes' },
+  { value: '15', label: '15 minutes' },
+  { value: '30', label: '30 minutes (default)' },
+  { value: '45', label: '45 minutes' },
+  { value: '60', label: '1 hour' },
+];
+
 export default function SystemSettings() {
   const qc = useQueryClient();
   const toast = useToastContext();
@@ -127,8 +135,8 @@ export default function SystemSettings() {
             <Timer size={18} className="text-amber-600" />
           </div>
           <div>
-            <h2 className="font-bold text-gray-900">Idle Auto-Checkout</h2>
-            <p className="text-xs text-gray-400">Automatically check out employees after a period of inactivity in the browser</p>
+            <h2 className="font-bold text-gray-900">Idle &amp; Shift-End Auto-Checkout</h2>
+            <p className="text-xs text-gray-400">Automatically manage forgotten check-outs based on desktop agent activity and assigned shift times</p>
           </div>
         </div>
 
@@ -147,13 +155,25 @@ export default function SystemSettings() {
               ))}
             </select>
             <p className="text-xs text-gray-400 mt-1">
-              If an employee has no mouse, keyboard, or scroll activity in the app for this duration, they will be automatically checked out.
+              If the desktop agent reports no activity for this duration, the open session is marked <strong>On Break</strong> (not closed) — it resumes automatically once activity is seen again.
             </p>
           </div>
-          <div className="flex items-start pt-6">
-            <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-700 leading-relaxed">
-              <strong>Browser-only detection.</strong> This tracks inactivity within the Tekxai web app tab. For device-wide idle detection (e.g. user switches to another app), the desktop agent is required.
-            </div>
+          <div>
+            <label className="text-xs font-bold text-gray-500 mb-1.5 block flex items-center gap-1.5">
+              <Timer size={12} /> Shift-End Grace Period
+            </label>
+            <select
+              value={form.auto_checkout_grace_mins || '30'}
+              onChange={e => set('auto_checkout_grace_mins', e.target.value)}
+              className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
+            >
+              {GRACE_PERIOD_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              If a session (In Progress or On Break) is still open this long after the employee's assigned shift end time, it is automatically checked out.
+            </p>
           </div>
         </div>
       </div>

@@ -67,6 +67,7 @@ function fmtWeekRange(start: Date) {
 
 const STATUS_STYLES: Record<string, string> = {
   'In Progress': 'bg-[#EFF8FF] text-[#175CD3] border-[#B2DDFF]',
+  'On Break':    'bg-[#FFFAEB] text-[#B54708] border-[#FEDF89]',
   'Overdue':     'bg-[#FFF1F3] text-[#C01048] border-[#FEB3B3]',
   'Pending':     'bg-[#FFF6ED] text-[#C4320A] border-[#FFD6AE]',
   'Completed':   'bg-[#EFF8FF] text-[#005CDA] border-[#D1E9FF]',
