@@ -187,8 +187,10 @@ function MembersModal({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
+  const toast = useToastContext();
   const [addSearch, setAddSearch] = useState('');
   const [showAddDropdown, setShowAddDropdown] = useState(false);
+  const [selectedDesignationId, setSelectedDesignationId] = useState('');
   // Mirrors the backend's is_global_admin(req) bypass on add_member/
   // remove_member — a SUPER_ADMIN/ADMIN can manage membership even for a
   // channel they aren't a member (or OWNER/ADMIN member) of themselves.
@@ -228,6 +230,30 @@ function MembersModal({
     mutationFn: (uid: string) =>
       apiRequest<any>(API_ENDPOINTS.CHAT.MEMBER(channelId, uid), { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['chat-members', channelId] }),
+  });
+
+  const { data: designations = [] } = useQuery<Array<{ id: string; name: string }>>({
+    queryKey: ['designations-for-chat'],
+    queryFn: async () => {
+      const r = await apiRequest<any>(API_ENDPOINTS.DESIGNATION.LIST);
+      return r?.payload?.records || r?.payload || [];
+    },
+    enabled: canManage,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const addByDesignationMutation = useMutation({
+    mutationFn: (designation_id: string) =>
+      apiRequest<any>(`${API_ENDPOINTS.CHAT.MEMBERS(channelId)}/by-designation`, {
+        method: 'POST',
+        body: JSON.stringify({ designation_id }),
+      }),
+    onSuccess: (r: any) => {
+      qc.invalidateQueries({ queryKey: ['chat-members', channelId] });
+      setSelectedDesignationId('');
+      toast.success(`Added ${r?.payload?.members_added ?? 0} member(s) — new hires with "${r?.payload?.designation}" will auto-join too`);
+    },
+    onError: (e: any) => toast.error(e?.message || 'Failed to add designation'),
   });
 
   const existingIds = new Set(members.map((m) => m.user_id));
@@ -270,6 +296,29 @@ function MembersModal({
                 ))}
               </div>
             )}
+
+            {/* Add a whole designation — bulk-adds every current holder AND
+                remembers the link so future hires/reassignments into that
+                designation auto-join this channel (channel_designation_links). */}
+            <div className="flex items-center gap-2 mt-2">
+              <select
+                value={selectedDesignationId}
+                onChange={(e) => setSelectedDesignationId(e.target.value)}
+                className="flex-1 h-9 px-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-primary-400"
+              >
+                <option value="">Add a designation…</option>
+                {designations.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => selectedDesignationId && addByDesignationMutation.mutate(selectedDesignationId)}
+                disabled={!selectedDesignationId || addByDesignationMutation.isPending}
+                className="h-9 px-3 bg-primary-600 text-white text-xs font-bold rounded-xl disabled:opacity-40"
+              >
+                {addByDesignationMutation.isPending ? 'Adding…' : 'Add'}
+              </button>
+            </div>
           </div>
         )}
 
@@ -912,11 +961,12 @@ function ChannelSection({
 // ─── Message Bubble ───────────────────────────────────────────────────────────
 
 function MessageBubble({
-  msg, isOwn, showSenderName, currentUserId, channelId,
+  msg, isOwn, showSenderName, currentUserId, channelId, isGlobalAdmin,
   onDelete, onReply, onOpenThread, onEdit,
 }: {
   msg: ChatMessage;
   isOwn: boolean;
+  isGlobalAdmin?: boolean;
   showSenderName: boolean;
   currentUserId: string;
   channelId: string;
@@ -948,10 +998,11 @@ function MessageBubble({
 
   const QUICK_EMOJIS = ['👍', '❤️', '😂', '🔥', '👏'];
 
-  const reactionMap = (msg.reactions || []).reduce((acc: Record<string, { count: number; mine: boolean }>, r) => {
-    if (!acc[r.emoji]) acc[r.emoji] = { count: 0, mine: false };
+  const reactionMap = (msg.reactions || []).reduce((acc: Record<string, { count: number; mine: boolean; names: string[] }>, r) => {
+    if (!acc[r.emoji]) acc[r.emoji] = { count: 0, mine: false, names: [] };
     acc[r.emoji].count++;
     if (r.user?.id === currentUserId) acc[r.emoji].mine = true;
+    if (r.user?.first_name) acc[r.emoji].names.push(r.user.first_name);
     return acc;
   }, {});
 
@@ -996,12 +1047,18 @@ function MessageBubble({
                 <CornerDownRight size={13} />
               </button>
               {isOwn && (
-                <>
-                  <button onClick={() => onEdit(msg)} className="p-0.5 text-gray-400 hover:text-blue-500 rounded text-xs font-bold" title="Edit">✏️</button>
-                  <button onClick={onDelete} className="p-0.5 text-gray-400 hover:text-red-500 rounded" title="Delete">
-                    <X size={13} />
-                  </button>
-                </>
+                <button onClick={() => onEdit(msg)} className="p-0.5 text-gray-400 hover:text-blue-500 rounded text-xs font-bold" title="Edit">✏️</button>
+              )}
+              {/* Delete: message owner, or any global admin (mirrors the
+                  backend's already-existing owner-or-ADMIN/SUPER_ADMIN gate
+                  on DELETE /chat/channels/:id/messages/:msgId — this button
+                  was previously only ever shown to the owner, so an admin
+                  had no way to actually reach a capability the API already
+                  granted them). */}
+              {(isOwn || isGlobalAdmin) && (
+                <button onClick={onDelete} className="p-0.5 text-gray-400 hover:text-red-500 rounded" title="Delete">
+                  <X size={13} />
+                </button>
               )}
             </div>
           )}
@@ -1043,10 +1100,11 @@ function MessageBubble({
         {/* Reactions */}
         {Object.keys(reactionMap).length > 0 && (
           <div className="flex gap-1 mt-1 flex-wrap">
-            {Object.entries(reactionMap).map(([emoji, { count, mine }]) => (
+            {Object.entries(reactionMap).map(([emoji, { count, mine, names }]) => (
               <button
                 key={emoji}
                 onClick={() => mine ? removeReactionMutation.mutate(emoji) : reactionMutation.mutate(emoji)}
+                title={names.join(', ')}
                 className={cn('text-xs px-2 py-0.5 rounded-full font-medium border transition-colors',
                   mine ? 'bg-primary-100 border-primary-300 text-primary-700' : 'bg-gray-100 border-transparent text-gray-700 hover:border-gray-300')}
               >
@@ -1571,6 +1629,7 @@ export default function ChatPage() {
                     showSenderName={showName}
                     currentUserId={currentUserId}
                     channelId={selectedChannelId!}
+                    isGlobalAdmin={isGlobalAdmin}
                     onDelete={() => deleteMutation.mutate(msg.id)}
                     onReply={() => setThreadMsgId(msg.id)}
                     onOpenThread={() => setThreadMsgId(msg.id)}
