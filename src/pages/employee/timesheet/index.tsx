@@ -46,6 +46,17 @@ function fmtMonthYear(d: Date) {
   return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
+// The time-off-request card relied on `req.date_range_label`, a field the
+// backend never actually returns (only start_date/end_date), so it always
+// rendered blank instead of a date range. Format it here from the real
+// fields instead of trusting a label the API doesn't send.
+function fmtRequestDateRange(startIso?: string, endIso?: string) {
+  if (!startIso || !endIso) return null;
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  return `${fmtLabel(start)} – ${fmtLabel(end)}`;
+}
+
 function fmtWeekRange(start: Date) {
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
@@ -379,11 +390,10 @@ const EmployeeTimesheet: React.FC = () => {
                         {req.status_label || req.status}
                       </Badge>
                     </div>
-                    <span className="text-xs text-gray-400 font-bold">{req.date_range_label}</span>
+                    <span className="text-xs text-gray-400 font-bold">{fmtRequestDateRange(req.start_date, req.end_date) || '—'}</span>
                   </div>
                   <div className="flex flex-col items-end gap-0.5">
                     <span className="text-base font-black text-gray-900">{req.days ? `${req.days} days` : 'N/A'}</span>
-                    <span className="text-base text-gray-400 font-bold">{req.total_hours_label || 'N/A'}</span>
                   </div>
                 </div>
                 <div className="flex flex-col gap-3">
