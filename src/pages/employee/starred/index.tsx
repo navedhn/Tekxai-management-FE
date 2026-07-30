@@ -159,10 +159,19 @@ const StarredQueries: React.FC = () => {
         ? rawStarredData
         : (rawStarredData?.[activeTab.toLowerCase()] || []);
 
+    // Was hardcoded to 16 on every tab regardless of actual data (confirmed
+    // via the API response — GET /starred/queries always returns all three
+    // {comments,projects,tasks} arrays in one payload, independent of the
+    // `tab` query param) — badges showed 16 even when a tab's list was
+    // empty. Since the backend already returns all three arrays together,
+    // real per-tab counts are available without extra requests.
+    const counts = Array.isArray(rawStarredData)
+        ? { comments: 0, projects: 0, tasks: 0 }
+        : { comments: rawStarredData?.comments?.length || 0, projects: rawStarredData?.projects?.length || 0, tasks: rawStarredData?.tasks?.length || 0 };
     const tabs = [
-        { label: 'Comments', value: 'Comments', count: 16 },
-        { label: 'Projects', value: 'Projects', count: 16 },
-        { label: 'Tasks', value: 'Tasks', count: 16 }
+        { label: 'Comments', value: 'Comments', count: counts.comments },
+        { label: 'Projects', value: 'Projects', count: counts.projects },
+        { label: 'Tasks', value: 'Tasks', count: counts.tasks }
     ];
 
     const renderComments = () => (
