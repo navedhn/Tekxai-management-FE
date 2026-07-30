@@ -115,12 +115,12 @@ const ScreenshotHistoryPanel: React.FC<Props> = ({ userOptions, selectedUser, on
       const seen = new Set(prev.map((r) => r.id));
       return [...prev, ...records.filter((r: Screenshot) => !seen.has(r.id))];
     });
-    // Auto-expand the latest hour group that actually has screenshots, once,
-    // the first time this employee/filter combination's first page loads.
-    // The API already returns captured_at desc, so records[0] is the newest.
+    // Expand every hour group by default, once, the first time this
+    // employee/filter combination's first page loads (previously only the
+    // latest hour auto-expanded, leaving every earlier hour collapsed).
     if (page === 1 && !autoExpandedRef.current && records.length > 0) {
       autoExpandedRef.current = true;
-      setOpenHours(new Set([hourKeyOf(records[0].captured_at)]));
+      setOpenHours(new Set(records.map((r: Screenshot) => hourKeyOf(r.captured_at))));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, page]);
@@ -132,9 +132,12 @@ const ScreenshotHistoryPanel: React.FC<Props> = ({ userOptions, selectedUser, on
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(s);
     }
-    // Newest hour first; within an hour, newest screenshot first (API
-    // already returns captured_at desc, so insertion order is preserved).
-    return Array.from(map.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
+    // Chronological order: earliest hour first (e.g. a 7pm check-in shows
+    // the 7-8pm group first, with later hours appended below as they
+    // happen), and within each hour, earliest screenshot first. The API
+    // returns captured_at desc, so each hour's array must be reversed.
+    for (const shots of map.values()) shots.reverse();
+    return Array.from(map.entries()).sort((a, b) => (a[0] < b[0] ? -1 : 1));
   }, [accumulated]);
 
   const toggleHour = (k: string) => {
