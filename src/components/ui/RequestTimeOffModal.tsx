@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Modal from './Modal';
 import DatePicker from './DatePicker';
 import Textarea from './Textarea';
@@ -20,6 +20,13 @@ const RequestTimeOffModal: React.FC<RequestTimeOffModalProps> = ({ isOpen, onClo
   const [policyId, setPolicyId]   = useState('');
   const [errors, setErrors]       = useState<Record<string, string>>({});
   const toast = useToastContext();
+
+  // A previous attempt's validation errors must not linger into a fresh
+  // open of the modal (e.g. cancel, reopen) — they used to stay visible
+  // even after the underlying fields were filled in correctly.
+  useEffect(() => {
+    if (isOpen) setErrors({});
+  }, [isOpen]);
 
   const { data: policiesData } = useGetTimeOffPolicies(isOpen);
   const policies = policiesData || [];
@@ -98,14 +105,14 @@ const RequestTimeOffModal: React.FC<RequestTimeOffModalProps> = ({ isOpen, onClo
               label="Start Date *"
               placeholder="Pick date"
               value={startDate}
-              onChange={date => setStartDate(date)}
+              onChange={date => { setStartDate(date); setErrors(prev => ({ ...prev, startDate: '' })); }}
               error={errors.startDate}
             />
             <DatePicker
               label="End Date *"
               placeholder="Pick date"
               value={endDate}
-              onChange={date => setEndDate(date)}
+              onChange={date => { setEndDate(date); setErrors(prev => ({ ...prev, endDate: '' })); }}
               error={errors.endDate}
             />
           </div>
@@ -114,7 +121,7 @@ const RequestTimeOffModal: React.FC<RequestTimeOffModalProps> = ({ isOpen, onClo
             label="Reason *"
             placeholder="Explain the reason for your leave request…"
             value={reason}
-            onChange={e => setReason(e.target.value)}
+            onChange={e => { setReason(e.target.value); setErrors(prev => ({ ...prev, reason: '' })); }}
             error={errors.reason}
             className="min-h-[120px]"
           />
