@@ -44,7 +44,13 @@ const RequisitionsPage: React.FC = () => {
   const { user } = useAuth();
   const isAdmin = ADMIN_ROLES.includes((user as any)?.role_name || (user as any)?.role || '');
 
-  const [filters, setFilters] = useState<any>({ mine: isAdmin ? '' : 'true' });
+  // Non-admin (employee) view previously started with no status filter at
+  // all, so the very first fetch (GET /requisition?mine=true) returned every
+  // status including DRAFT — a requisition that hasn't been submitted yet —
+  // even though the "Submitted" pill below is the one visually implied as
+  // the default view. Defaulting to status: 'SUBMITTED' for non-admins
+  // makes the first fetch match what's shown as selected.
+  const [filters, setFilters] = useState<any>({ mine: isAdmin ? '' : 'true', status: isAdmin ? '' : 'SUBMITTED' });
   const [createOpen, setCreateOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [approveId, setApproveId] = useState<string | null>(null);
