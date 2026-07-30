@@ -323,12 +323,12 @@ function MembersModal({
         )}
 
         <div className="flex-1 overflow-y-auto p-3 space-y-1">
-          {members.map((m) => (
+          {members.filter((m) => m.user).map((m) => (
             <div key={m.id} className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-gray-50">
               <Avatar user={m.user} size="sm" />
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-900 text-sm truncate">{m.user.first_name} {m.user.last_name}</p>
-                <p className="text-xs text-gray-400 truncate">{m.user.designation}</p>
+                <p className="font-semibold text-gray-900 text-sm truncate">{m.user?.first_name} {m.user?.last_name}</p>
+                <p className="text-xs text-gray-400 truncate">{m.user?.designation}</p>
               </div>
               <span className={cn('px-2 py-0.5 rounded-md text-xs font-bold', ROLE_BADGE[m.role])}>{m.role}</span>
               {canManage && m.user_id !== currentUserId && (
