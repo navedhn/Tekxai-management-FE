@@ -24,7 +24,7 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
     const notifBtnRef = useRef<HTMLButtonElement>(null);
     const profileRef = useRef<HTMLDivElement>(null);
 
-    const { title } = getPageTitle(location.pathname);
+    const { title } = getPageTitle(location.pathname, routePrefix);
 
     useEffect(() => {
         setIsProfileOpen(false);
