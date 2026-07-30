@@ -51,6 +51,7 @@ const FieldControl: React.FC<{
 
     case 'checkbox':
     case 'switch':
+    case 'boolean':
       return (
         <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer py-2">
           <input
