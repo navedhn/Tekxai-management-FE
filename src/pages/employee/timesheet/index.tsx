@@ -10,7 +10,7 @@ import Textarea from '@/components/ui/Textarea';
 import { ChevronLeft, ChevronRight, Calendar, MoreVertical } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import RequestTimeOffModal from '@/components/ui/RequestTimeOffModal';
-import { useGetTimeOffRequests, useGetWeeklyTimesheet, useRequestEntryEditMutation, TimesheetEntry } from '@/services/timesheetService';
+import { useGetTimeOffRequests, useGetWeeklyTimesheet, useGetRangeTimesheet, useRequestEntryEditMutation, TimesheetEntry } from '@/services/timesheetService';
 import { useGetMyShiftQuery, useGetMyAttendanceSummary } from '@/services/attendanceService';
 import { CardSkeleton } from '@/components/skeletons';
 import { useToastContext } from '@/components/toast/ToastProvider';
@@ -110,19 +110,26 @@ const EmployeeTimesheet: React.FC = () => {
   const [customTo, setCustomTo]     = useState(toDateStr(new Date()));
   const [customApplied, setCustomApplied] = useState({ from: customFrom, to: customTo });
 
-  // Derive the `date` query param the backend needs (week start date)
+  // Derive the `date` query param the backend needs (week start date) —
+  // Custom is handled separately below since it needs both ends of the
+  // range, not a single week-start date.
   const queryDate = (() => {
     if (activeTab === 'Weekly')  return toDateStr(weekAnchor);
     if (activeTab === 'Monthly') return toDateStr(monthAnchor);
-    if (activeTab === 'Custom')  return customApplied.from;
     return undefined;
   })();
 
   const isTimesheetTab = activeTab !== 'My Requests';
-  const { data: timesheet, isLoading } = useGetWeeklyTimesheet(
+  const isCustomTab = activeTab === 'Custom';
+  const { data: weeklyTimesheet, isLoading: isWeeklyLoading } = useGetWeeklyTimesheet(
     queryDate ? { date: queryDate } : undefined,
-    isTimesheetTab
+    isTimesheetTab && !isCustomTab
   );
+  const { data: rangeTimesheet, isLoading: isRangeLoading } = useGetRangeTimesheet(
+    customApplied, isTimesheetTab && isCustomTab
+  );
+  const timesheet = isCustomTab ? rangeTimesheet : weeklyTimesheet;
+  const isLoading = isCustomTab ? isRangeLoading : isWeeklyLoading;
   const { data: timeOffRequests, isLoading: isLoadingRequests } = useGetTimeOffRequests(
     activeTab === 'My Requests'
   );
