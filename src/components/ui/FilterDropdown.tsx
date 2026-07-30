@@ -135,7 +135,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
             {/* Filter By Latest Update */}
             <div className="mb-4">
               <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-1">Filter By Latest Update</p>
-              <CheckRow checked={filters.last24Hours} onChange={(v) => set('last24Hours', v)} label="Last 24 hourss" />
+              <CheckRow checked={filters.last24Hours} onChange={(v) => set('last24Hours', v)} label="Last 24 hours" />
               <CheckRow checked={filters.lastWeek} onChange={(v) => set('lastWeek', v)} label="Last week" />
               <CheckRow checked={filters.lastMonth} onChange={(v) => set('lastMonth', v)} label="Last month" />
               <CheckRow checked={filters.lastYear} onChange={(v) => set('lastYear', v)} label="Last Year" />
