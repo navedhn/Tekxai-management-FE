@@ -9,7 +9,7 @@ import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 import { useAuthStore } from '@/stores/authStore';
 import ActionModal from '@/components/ui/ActionModal';
-import { uploadFile } from '@/lib/upload';
+import { uploadFile, type UploadFileResult } from '@/lib/upload';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useDebounce } from '@/hooks/useDebounce';
 
@@ -962,7 +962,7 @@ function ChannelSection({
 
 function MessageBubble({
   msg, isOwn, showSenderName, currentUserId, channelId, isGlobalAdmin,
-  onDelete, onReply, onOpenThread, onEdit,
+  onDelete, onReply, onOpenThread, onEdit, onImageClick,
 }: {
   msg: ChatMessage;
   isOwn: boolean;
@@ -974,6 +974,7 @@ function MessageBubble({
   onReply: () => void;
   onOpenThread: () => void;
   onEdit: (msg: ChatMessage) => void;
+  onImageClick?: (url: string, name?: string | null) => void;
 }) {
   const qc = useQueryClient();
   const [hovered, setHovered] = useState(false);
@@ -1071,7 +1072,12 @@ function MessageBubble({
             {msg.file_url && (
               <div className="mb-1">
                 {isImage ? (
-                  <img src={msg.file_url} alt={msg.file_name || 'image'} className="max-h-48 rounded-xl object-contain" />
+                  <img
+                    src={msg.file_url}
+                    alt={msg.file_name || 'image'}
+                    className="max-h-48 rounded-xl object-contain cursor-zoom-in"
+                    onClick={() => onImageClick?.(msg.file_url!, msg.file_name)}
+                  />
                 ) : isAudio ? (
                   <audio src={msg.file_url} controls className="h-9 max-w-[220px]" />
                 ) : isVideo ? (
@@ -1268,8 +1274,10 @@ export default function ChatPage() {
   const [showSearch, setShowSearch] = useState(false);
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [uploadedAttachment, setUploadedAttachment] = useState<UploadFileResult | null>(null);
   const [editingMsg, setEditingMsg] = useState<ChatMessage | null>(null);
   const [editDraft, setEditDraft] = useState('');
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string | null } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -1359,34 +1367,49 @@ export default function ChatPage() {
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
+  const handleAttachmentSelect = async (file: File | null) => {
+    setAttachmentFile(file);
+    setUploadedAttachment(null);
+    if (!file) return;
+    setIsUploadingAttachment(true);
+    try {
+      const uploaded = await uploadFile(file);
+      setUploadedAttachment(uploaded);
+    } catch (e: any) {
+      toast.error(e?.message || 'Attachment upload failed');
+      setAttachmentFile(null);
+    } finally {
+      setIsUploadingAttachment(false);
+    }
+  };
+
+  const clearAttachment = () => {
+    setAttachmentFile(null);
+    setUploadedAttachment(null);
+    setIsUploadingAttachment(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const handleSend = async () => {
     if (!selectedChannelId || sendMutation.isPending || isUploadingAttachment) return;
     if (!draft.trim() && !attachmentFile) return;
+    // Attachment already uploaded at selection time (handleAttachmentSelect) —
+    // if it's still in flight, isUploadingAttachment above already blocks Send.
+    if (attachmentFile && !uploadedAttachment) return;
 
-    let file_url: string | undefined;
-    let file_key: string | undefined;
-    let file_name: string | undefined;
-    let file_size: number | undefined;
-    let mime_type: string | undefined;
+    const payload = uploadedAttachment
+      ? {
+          content: draft.trim(),
+          file_url: uploadedAttachment.file_url,
+          file_key: uploadedAttachment.file_key,
+          file_name: attachmentFile!.name,
+          file_size: attachmentFile!.size,
+          mime_type: attachmentFile!.type,
+        }
+      : { content: draft.trim() };
 
-    if (attachmentFile) {
-      setIsUploadingAttachment(true);
-      try {
-        const uploaded = await uploadFile(attachmentFile);
-        file_url = uploaded.file_url;
-        file_key = uploaded.file_key;
-        file_name = attachmentFile.name;
-        file_size = attachmentFile.size;
-        mime_type = attachmentFile.type;
-      } catch (e: any) {
-        toast.error(e?.message || 'Attachment upload failed');
-        setIsUploadingAttachment(false);
-        return;
-      }
-      setIsUploadingAttachment(false);
-    }
-
-    sendMutation.mutate({ content: draft.trim(), file_url, file_key, file_name, file_size, mime_type });
+    sendMutation.mutate(payload);
+    setUploadedAttachment(null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1634,6 +1657,7 @@ export default function ChatPage() {
                     onReply={() => setThreadMsgId(msg.id)}
                     onOpenThread={() => setThreadMsgId(msg.id)}
                     onEdit={(m) => { setEditingMsg(m); setEditDraft(m.content); }}
+                    onImageClick={(url, name) => setLightboxImage({ url, name: name ?? null })}
                   />
                 );
               })
@@ -1649,14 +1673,18 @@ export default function ChatPage() {
                 <div className="flex items-center gap-2 mb-2 px-3 py-1.5 bg-gray-50 rounded-xl border border-gray-200 text-sm">
                   {isUploadingAttachment ? <Loader2 size={13} className="text-gray-400 shrink-0 animate-spin" /> : <Paperclip size={13} className="text-gray-400 shrink-0" />}
                   <span className="text-gray-700 truncate flex-1">{attachmentFile.name}</span>
-                  <span className="text-gray-400 text-xs shrink-0">{fmtSize(attachmentFile.size)}</span>
-                  <button onClick={() => setAttachmentFile(null)} disabled={isUploadingAttachment} className="text-gray-400 hover:text-red-500 disabled:opacity-40">
+                  {isUploadingAttachment ? (
+                    <span className="text-gray-400 text-xs shrink-0">Uploading…</span>
+                  ) : (
+                    <span className="text-gray-400 text-xs shrink-0">{fmtSize(attachmentFile.size)}</span>
+                  )}
+                  <button onClick={clearAttachment} className="text-gray-400 hover:text-red-500">
                     <X size={13} />
                   </button>
                 </div>
               )}
               <div className="flex gap-2 items-end">
-                <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => setAttachmentFile(e.target.files?.[0] || null)} />
+                <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => handleAttachmentSelect(e.target.files?.[0] || null)} />
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl shrink-0"
@@ -1695,6 +1723,54 @@ export default function ChatPage() {
           <MessageSquare size={48} className="mb-3" />
           <p className="font-semibold text-gray-400">Select a conversation</p>
           <p className="text-sm text-gray-300 mt-1">or start a new one with the + button</p>
+        </div>
+      )}
+
+      {/* Image attachment lightbox */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-6"
+          onClick={() => setLightboxImage(null)}
+        >
+          <button
+            onClick={() => setLightboxImage(null)}
+            className="absolute top-4 right-4 text-white/80 hover:text-white p-2"
+            title="Close"
+          >
+            <X size={24} />
+          </button>
+          <img
+            src={lightboxImage.url}
+            alt={lightboxImage.name || 'image'}
+            className="max-h-[85vh] max-w-[90vw] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={async (e) => {
+              e.stopPropagation();
+              // Images are presigned without an attachment Content-Disposition
+              // (so they render inline in <img>), so a plain `<a download>`
+              // is ignored cross-origin — fetch the bytes and force a real
+              // client-side download via a blob URL instead.
+              try {
+                const res = await fetch(lightboxImage.url);
+                const blob = await res.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = lightboxImage.name || 'image';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(blobUrl);
+              } catch {
+                toast.error('Download failed');
+              }
+            }}
+            className="absolute bottom-4 right-4 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5"
+          >
+            <Paperclip size={12} /> Download
+          </button>
         </div>
       )}
 
