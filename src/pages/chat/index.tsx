@@ -257,12 +257,18 @@ function MembersModal({
   });
 
   const existingIds = new Set(members.map((m) => m.user_id));
+  // A channel_members row can outlive the user it points to (account
+  // deleted/deactivated without a cleanup pass) — its `user` include comes
+  // back null and the row list below skips it, so the header count must use
+  // this same filtered set or it shows a member count nothing on screen
+  // backs up (e.g. "3 members" with only 2 rows visible).
+  const visibleMembers = members.filter((m) => m.user);
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h3 className="font-black text-gray-900">Members ({members.length})</h3>
+          <h3 className="font-black text-gray-900">Members ({visibleMembers.length})</h3>
           <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
             <X size={18} />
           </button>
@@ -323,7 +329,7 @@ function MembersModal({
         )}
 
         <div className="flex-1 overflow-y-auto p-3 space-y-1">
-          {members.filter((m) => m.user).map((m) => (
+          {visibleMembers.map((m) => (
             <div key={m.id} className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-gray-50">
               <Avatar user={m.user} size="sm" />
               <div className="flex-1 min-w-0">
@@ -893,22 +899,16 @@ function NewChannelModal({
 // ─── Channel Section ──────────────────────────────────────────────────────────
 
 function ChannelSection({
-  label, channels, currentUserId, selectedId, onSelect, icon,
+  channels, currentUserId, selectedId, onSelect,
 }: {
-  label: string;
   channels: Channel[];
   currentUserId: string;
   selectedId: string | null;
   onSelect: (id: string) => void;
-  icon?: React.ReactNode;
 }) {
   if (channels.length === 0) return null;
   return (
     <div>
-      <div className="pt-3 pb-1 px-4 flex items-center gap-1.5">
-        {icon}
-        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{label}</span>
-      </div>
       {channels.map((ch) => {
         const isSelected = ch.id === selectedId;
         const name = getChannelDisplayName(ch, currentUserId);
@@ -1517,10 +1517,15 @@ export default function ChatPage() {
     return getChannelDisplayName(ch, currentUserId).toLowerCase().includes(channelSearch.toLowerCase());
   });
 
-  const dmChannels = filteredChannels.filter((ch) => ch.type === 'DM');
-  const privateChannels = filteredChannels.filter((ch) => ch.type === 'PRIVATE');
-  const groupChannels = filteredChannels.filter((ch) => ch.type === 'GROUP');
-  const publicChannels = filteredChannels.filter((ch) => ch.type === 'PUBLIC');
+  // Flat list, no Direct/Private/Groups/Channels section split — sorted by
+  // most recent activity (last message, falling back to the channel's own
+  // updated_at) so the sidebar behaves like every other chat app's single
+  // conversation list.
+  const sortedChannels = [...filteredChannels].sort((a, b) => {
+    const aTime = a.messages?.[0]?.created_at || a.updated_at;
+    const bTime = b.messages?.[0]?.created_at || b.updated_at;
+    return new Date(bTime).getTime() - new Date(aTime).getTime();
+  });
 
   const badge = selectedChannel ? PRIVACY_BADGE[selectedChannel.type] : null;
 
@@ -1574,10 +1579,7 @@ export default function ChatPage() {
               <p className="text-xs text-gray-300 mt-1">Start one with the + button</p>
             </div>
           )}
-          <ChannelSection label="Direct Messages" channels={dmChannels} currentUserId={currentUserId} selectedId={selectedChannelId} onSelect={setSelectedChannelId} />
-          <ChannelSection label="Private" channels={privateChannels} currentUserId={currentUserId} selectedId={selectedChannelId} onSelect={setSelectedChannelId} icon={<Lock size={9} className="text-gray-400" />} />
-          <ChannelSection label="Groups" channels={groupChannels} currentUserId={currentUserId} selectedId={selectedChannelId} onSelect={setSelectedChannelId} />
-          <ChannelSection label="Channels" channels={publicChannels} currentUserId={currentUserId} selectedId={selectedChannelId} onSelect={setSelectedChannelId} />
+          <ChannelSection channels={sortedChannels} currentUserId={currentUserId} selectedId={selectedChannelId} onSelect={setSelectedChannelId} />
         </div>
       </div>
 
