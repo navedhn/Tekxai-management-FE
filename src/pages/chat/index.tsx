@@ -351,11 +351,12 @@ function MembersModal({
 // ─── Channel Settings Modal ───────────────────────────────────────────────────
 
 function ChannelSettingsModal({
-  channel, currentUserRole, isGlobalAdmin, onClose, onSaved, onLeftOrDeleted,
+  channel, currentUserRole, isGlobalAdmin, canMakePublic, onClose, onSaved, onLeftOrDeleted,
 }: {
   channel: Channel;
   currentUserRole?: string;
   isGlobalAdmin?: boolean;
+  canMakePublic: boolean;
   onClose: () => void;
   onSaved: () => void;
   onLeftOrDeleted: () => void;
@@ -453,11 +454,17 @@ function ChannelSettingsModal({
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none disabled:bg-gray-50"
             />
           </div>
-          {canEdit && (
+          {canEdit && (canMakePublic || channel.type !== 'PUBLIC') && (
             <div>
               <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1.5">Privacy</label>
               <div className="flex gap-2">
-                {(['PUBLIC', 'PRIVATE'] as const).map((t) => (
+                {(['PUBLIC', 'PRIVATE'] as const)
+                  // Retyping to PUBLIC is Super Admin/Admin/HR only on the
+                  // backend (update_channel) — same gate as creating one
+                  // public in the first place. Hide the option rather than
+                  // let someone pick it and hit a 403 on save.
+                  .filter((t) => t !== 'PUBLIC' || canMakePublic)
+                  .map((t) => (
                   <button
                     key={t}
                     onClick={() => setType(t)}
@@ -1812,6 +1819,7 @@ export default function ChatPage() {
           channel={selectedChannel}
           currentUserRole={myMembership?.role}
           isGlobalAdmin={isGlobalAdmin}
+          canMakePublic={['SUPER_ADMIN', 'ADMIN', 'HR'].includes(currentGlobalRole || '')}
           onClose={() => setShowChannelSettings(false)}
           onSaved={() => setShowChannelSettings(false)}
           onLeftOrDeleted={() => {
