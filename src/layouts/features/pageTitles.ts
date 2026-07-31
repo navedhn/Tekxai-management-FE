@@ -66,6 +66,11 @@ const PAGE_TITLES: Record<string, string> = {
   '/admin/reports': 'Reports',
   '/admin/project-report': 'Project Report',
   '/admin/starred': 'Starred',
+
+  // Not nested under /admin or /employee — chat is one shared route for all
+  // roles (see router.tsx), so this key is looked up as-is (normalization
+  // above only rewrites paths that actually start with routePrefix).
+  '/chat': 'Messages',
 };
 
 function titleCase(segment: string): string {

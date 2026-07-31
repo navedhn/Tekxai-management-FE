@@ -8,6 +8,7 @@ import PublicRoute from '@/pages/layout/PublicRoute';
 import AuthLayout from '@/layouts/authLayout';
 import MarketingLayout from '@/layouts/marketingLayout';
 import CRMLayout from '@/layouts/crmLayout';
+import ChatLayout from '@/layouts/chatLayout';
 import { ADMIN_ROLES, USER_ROLES } from '@/constants/roles';
 
 // Redirects a retired /hr/* URL (which may carry route params) to its new
@@ -389,7 +390,12 @@ const routes: RouteObject[] = [
   // ── Chat (all roles) ────────────────────────────────────────────────────────
   {
     element: <ProtectedRoute roles={allRoles} />,
-    children: [{ path: '/chat', element: <ChatPage /> }],
+    children: [
+      {
+        element: <ChatLayout />,
+        children: [{ path: '/chat', element: <ChatPage /> }],
+      },
+    ],
   },
 ];
 
