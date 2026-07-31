@@ -20,6 +20,28 @@ const TABS = ['Late Coming / Violations', 'Shift Management', 'Reports'];
 const v1 = 'api/v1';
 const BUILDER = `${v1}/report/builder`;
 
+function toDateInputStr(d: Date) {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function getTodayRange() {
+  const today = toDateInputStr(new Date());
+  return { start_date: today, end_date: today };
+}
+
+function getThisWeekRange() {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun..6=Sat
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + (day === 0 ? -6 : 1 - day));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { start_date: toDateInputStr(monday), end_date: toDateInputStr(sunday) };
+}
+
 // Sprint 1 Milestone 5 — Attendance Reports, entirely via the generic
 // report_builder engine against the already-persisted attendance_violations/
 // timesheet_entries/employee_shifts tables (no new attendance-specific logic).
@@ -119,6 +141,17 @@ const AttendancePage: React.FC = () => {
   const EMPTY_ASSIGN_FORM = { user_id: '', shift_id: '' };
   const [assignForm, setAssignForm] = useState(EMPTY_ASSIGN_FORM);
   const [violationFilters, setViolationFilters] = useState({ user_id: '', violation_type: '', start_date: '', end_date: '' });
+  const [quickFilter, setQuickFilter] = useState<'today' | 'week' | null>(null);
+
+  const applyQuickFilter = (which: 'today' | 'week') => {
+    const range = which === 'today' ? getTodayRange() : getThisWeekRange();
+    setQuickFilter(which);
+    setViolationFilters(p => ({ ...p, violation_type: 'LATE', ...range }));
+  };
+  const clearDateFilter = () => {
+    setQuickFilter(null);
+    setViolationFilters(p => ({ ...p, start_date: '', end_date: '' }));
+  };
 
   const { data: violationsData, isLoading: vLoading } = useGetViolationsQuery(violationFilters);
   const { data: shifts = [], isLoading: sLoading } = useGetShiftsQuery();
@@ -219,6 +252,29 @@ const AttendancePage: React.FC = () => {
       {activeTab === 'Late Coming / Violations' && (
         <Card className="border-none shadow-sm">
           <h2 className="text-lg font-black text-gray-900 mb-4">Attendance Violations</h2>
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <Button
+              variant={quickFilter === 'today' ? 'primary' : 'outline'}
+              size="sm"
+              className="rounded-xl h-9"
+              onClick={() => applyQuickFilter('today')}
+            >
+              Late Today
+            </Button>
+            <Button
+              variant={quickFilter === 'week' ? 'primary' : 'outline'}
+              size="sm"
+              className="rounded-xl h-9"
+              onClick={() => applyQuickFilter('week')}
+            >
+              Late This Week
+            </Button>
+            {(quickFilter || violationFilters.start_date || violationFilters.end_date) && (
+              <Button variant="ghost" size="sm" className="rounded-xl h-9 text-gray-500" onClick={clearDateFilter}>
+                Clear
+              </Button>
+            )}
+          </div>
           <div className="flex flex-col sm:flex-row gap-3 mb-4">
             <SearchableSelect
               options={users.map((u: any) => ({ label: `${u.first_name} ${u.last_name}`, value: u.id }))}
@@ -243,13 +299,13 @@ const AttendancePage: React.FC = () => {
             <input
               type="date"
               value={violationFilters.start_date}
-              onChange={(e) => setViolationFilters(p => ({ ...p, start_date: e.target.value }))}
+              onChange={(e) => { setQuickFilter(null); setViolationFilters(p => ({ ...p, start_date: e.target.value })); }}
               className="h-10 px-3 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
             />
             <input
               type="date"
               value={violationFilters.end_date}
-              onChange={(e) => setViolationFilters(p => ({ ...p, end_date: e.target.value }))}
+              onChange={(e) => { setQuickFilter(null); setViolationFilters(p => ({ ...p, end_date: e.target.value })); }}
               className="h-10 px-3 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
             />
           </div>
