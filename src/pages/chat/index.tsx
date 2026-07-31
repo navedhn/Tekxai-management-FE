@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   MessageSquare, Plus, Search, Send, X, Users, User, Loader2,
-  Hash, Lock, Settings, Paperclip, CornerDownRight, ChevronDown,
+  Hash, Lock, Settings, Paperclip, CornerDownRight, ChevronDown, Check,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
@@ -977,7 +977,7 @@ function ChannelSection({
 
 function MessageBubble({
   msg, isOwn, showSenderName, currentUserId, channelId, isGlobalAdmin,
-  onDelete, onReply, onOpenThread, onEdit, onImageClick,
+  onDelete, onReply, onOpenThread, onEdit, onImageClick, seenBy,
 }: {
   msg: ChatMessage;
   isOwn: boolean;
@@ -990,6 +990,12 @@ function MessageBubble({
   onOpenThread: () => void;
   onEdit: (msg: ChatMessage) => void;
   onImageClick?: (url: string, name?: string | null) => void;
+  // Only computed/passed for the sender's own most recent message — names of
+  // other members whose channel_members.last_read_at is on/after this
+  // message's created_at (see chat.controller.js's send_message/get_messages
+  // last_read_at upsert). Undefined everywhere else, matching typical chat
+  // "seen by" UX (you only see who's read what YOU sent).
+  seenBy?: string[];
 }) {
   const qc = useQueryClient();
   const [hovered, setHovered] = useState(false);
@@ -1147,6 +1153,13 @@ function MessageBubble({
         )}
 
         <span className="text-[10px] text-gray-400 mt-0.5 px-1">{fmtTime(msg.created_at)}</span>
+
+        {isOwn && seenBy && seenBy.length > 0 && (
+          <span className="text-[10px] text-gray-400 px-1 flex items-center gap-1">
+            <Check size={11} className="text-primary-500" />
+            Seen by {seenBy.length <= 2 ? seenBy.join(', ') : `${seenBy[0]} and ${seenBy.length - 1} others`}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -1319,6 +1332,20 @@ export default function ChatPage() {
     refetchInterval: 3000,
   });
 
+  // "Seen by" read receipts — reuses channel_members.last_read_at (already
+  // bumped on every get_messages call, see chat.controller.js), no new
+  // backend endpoint needed. Polled at the same cadence as messages so the
+  // indicator updates shortly after someone actually opens the channel.
+  const { data: channelMembers = [] } = useQuery<ChannelMember[]>({
+    queryKey: ['chat-members', selectedChannelId],
+    queryFn: async () => {
+      const r = await apiRequest<any>(API_ENDPOINTS.CHAT.MEMBERS(selectedChannelId!));
+      return r?.payload?.records || r?.payload || [];
+    },
+    enabled: !!selectedChannelId,
+    refetchInterval: 3000,
+  });
+
   // ── Mutations ─────────────────────────────────────────────────────────────
 
   const sendMutation = useMutation({
@@ -1456,6 +1483,16 @@ export default function ChatPage() {
   const publicChannels = filteredChannels.filter((ch) => ch.type === 'PUBLIC');
 
   const badge = selectedChannel ? PRIVACY_BADGE[selectedChannel.type] : null;
+
+  // Find the sender's own most recent message and who's seen it — only that
+  // one message shows a "Seen by" line, matching typical chat UX (you only
+  // care about read status on the latest thing you sent).
+  const lastOwnMsg = [...messages].reverse().find((m) => m.user_id === currentUserId);
+  const seenByForLastOwnMsg = lastOwnMsg
+    ? channelMembers
+        .filter((m) => m.user_id !== currentUserId && m.last_read_at && new Date(m.last_read_at) >= new Date(lastOwnMsg.created_at))
+        .map((m) => m.user.first_name)
+    : [];
 
   return (
     <div className="flex h-[calc(100vh-5.5rem)] bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -1673,6 +1710,7 @@ export default function ChatPage() {
                     onOpenThread={() => setThreadMsgId(msg.id)}
                     onEdit={(m) => { setEditingMsg(m); setEditDraft(m.content); }}
                     onImageClick={(url, name) => setLightboxImage({ url, name: name ?? null })}
+                    seenBy={lastOwnMsg?.id === msg.id ? seenByForLastOwnMsg : undefined}
                   />
                 );
               })
