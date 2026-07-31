@@ -688,6 +688,11 @@ function NewChannelModal({
   onCreated: (id: string) => void;
 }) {
   const qc = useQueryClient();
+  const currentGlobalRole = useAuthStore((s) => s.role);
+  // Public-channel creation is admin/HR-only server-side (see chat.routes.js
+  // CAN_CREATE_CHANNEL) — hide the tab rather than let someone pick it and
+  // hit a 403 on submit.
+  const canCreatePublic = ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(currentGlobalRole || '');
   const [tab, setTab] = useState<NewChatTab>('direct');
   const [userSearch, setUserSearch] = useState('');
   const [channelName, setChannelName] = useState('');
@@ -745,7 +750,7 @@ function NewChannelModal({
     { key: 'direct',  label: 'Direct',  icon: <User size={13} /> },
     { key: 'group',   label: 'Group',   icon: <Users size={13} /> },
     { key: 'private', label: 'Private', icon: <Lock size={13} /> },
-    { key: 'public',  label: 'Public',  icon: <Hash size={13} /> },
+    ...(canCreatePublic ? [{ key: 'public' as NewChatTab, label: 'Public', icon: <Hash size={13} /> }] : []),
   ];
 
   const needsName = tab === 'group' || tab === 'private' || tab === 'public';
