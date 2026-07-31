@@ -1448,7 +1448,7 @@ export default function ChatPage() {
   const badge = selectedChannel ? PRIVACY_BADGE[selectedChannel.type] : null;
 
   return (
-    <div className="flex h-[calc(100vh-5rem)] bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="flex h-[calc(100vh-5.5rem)] bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
 
       {/* ── Left Panel ── */}
       <div className="w-64 border-r border-gray-100 flex flex-col shrink-0">

@@ -9,9 +9,9 @@ import { getPageTitle } from './pageTitles';
 
 import ActionModal from '@/components/ui/ActionModal';
 
-export type AdminTopbarProps = { onMenu: () => void; routePrefix?: string };
+export type AdminTopbarProps = { onMenu: () => void; routePrefix?: string; fullWidth?: boolean };
 
-const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/admin' }) => {
+const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/admin', fullWidth = false }) => {
     const { user, userLogout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
@@ -55,12 +55,14 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
     };
 
     return (
-        <div className="fixed top-0 left-0 lg:left-sidebar gap-3 right-0 h-[5.5rem] bg-white backdrop-blur-md border-b border-gray-100 flex items-center justify-between px-6 md:px-5 z-[100] transition-all duration-300">
+        <div className={`fixed top-0 left-0 ${fullWidth ? '' : 'lg:left-sidebar'} gap-3 right-0 h-[5.5rem] bg-white backdrop-blur-md border-b border-gray-100 flex items-center justify-between px-6 md:px-5 z-[100] transition-all duration-300`}>
 
             <div className="flex items-center gap-4 shrink-0">
-                <button className="lg:hidden p-2 hover:bg-gray-100 rounded-xl transition-colors" onClick={onMenu}>
-                    <Menu size={20} className="text-gray-600" />
-                </button>
+                {!fullWidth && (
+                    <button className="lg:hidden p-2 hover:bg-gray-100 rounded-xl transition-colors" onClick={onMenu}>
+                        <Menu size={20} className="text-gray-600" />
+                    </button>
+                )}
                 <div className="flex items-baseline gap-2 min-w-0">
                     <h1 className="text-lg sm:text-xl md:text-2xl font-poppins font-semibold text-gray-900 tracking-tight truncate">
                         {title}
