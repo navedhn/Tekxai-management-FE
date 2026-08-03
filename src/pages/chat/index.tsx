@@ -1348,8 +1348,13 @@ export default function ChatPage() {
   const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string | null } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Whether the user is scrolled near the bottom of the message list — only
+  // auto-scroll when true, so the 3s message poll (refetchInterval below)
+  // doesn't yank someone back to the bottom while they're reading upward.
+  const isNearBottomRef = useRef(true);
 
   // ── Queries ───────────────────────────────────────────────────────────────
 
@@ -1437,15 +1442,93 @@ export default function ChatPage() {
 
   // ── Effects ───────────────────────────────────────────────────────────────
 
+  // Auto-scroll only if the user was already near the bottom — messages
+  // polls every 3s (refetchInterval above), and without this guard every
+  // poll tick force-scrolled back to the bottom even while someone had
+  // scrolled up to read older messages.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isNearBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
+
+  // Always snap to bottom on a channel switch or right after sending —
+  // "near bottom" tracking only matters while idly reading a channel.
+  useEffect(() => {
+    isNearBottomRef.current = true;
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+  }, [selectedChannelId]);
+
+  const handleMessagesScroll = () => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    isNearBottomRef.current = distanceFromBottom < 120;
+  };
 
   useEffect(() => {
     if (!selectedChannelId && channels.length > 0) {
       setSelectedChannelId(channels[0].id);
     }
   }, [channels, selectedChannelId]);
+
+  // ── Desktop notifications ──────────────────────────────────────────────
+  // Popup a browser Notification for a new incoming message — in a DM, a
+  // group, or any channel — as long as it isn't the channel currently open
+  // and focused (no point popping up for what's already on screen). Driven
+  // off the channels list (already polled every 5s and already carries each
+  // channel's most recent message for the sidebar preview), so this covers
+  // every channel, not just whichever one is open.
+  const prevLastMessageIdRef = useRef<Record<string, string>>({});
+  const hasSeenFirstChannelsLoadRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission === 'default') Notification.requestPermission();
+  }, []);
+
+  useEffect(() => {
+    const supportsNotifications = typeof window !== 'undefined' && 'Notification' in window;
+    const prevIds = prevLastMessageIdRef.current;
+    const nextIds: Record<string, string> = {};
+
+    channels.forEach((ch) => {
+      const lastMsg = ch.messages?.[0];
+      nextIds[ch.id] = lastMsg?.id || '';
+
+      // Skip the initial load — only notify for messages that arrive after
+      // the page is already open, never for history already sitting there.
+      if (!hasSeenFirstChannelsLoadRef.current) return;
+      if (!supportsNotifications || Notification.permission !== 'granted') return;
+      if (!lastMsg || lastMsg.user_id === currentUserId) return;
+      const prevId = prevIds[ch.id];
+      if (prevId === undefined || prevId === lastMsg.id) return;
+
+      const isOpenAndFocused = ch.id === selectedChannelId
+        && document.visibilityState === 'visible'
+        && document.hasFocus();
+      if (isOpenAndFocused) return;
+
+      const senderName = lastMsg.user
+        ? `${lastMsg.user.first_name || ''} ${lastMsg.user.last_name || ''}`.trim() || 'Someone'
+        : 'Someone';
+      const channelLabel = ch.type === 'DM' ? '' : ` in ${ch.type === 'GROUP' ? ch.name : `#${ch.name}`}`;
+      try {
+        const n = new Notification(`${senderName}${channelLabel}`, {
+          body: lastMsg.content || (lastMsg as any).file_name || 'Sent an attachment',
+          icon: '/src/assets/icons/tekxai-logo.svg',
+          tag: `chat-${ch.id}`,
+        });
+        n.onclick = () => { window.focus(); setSelectedChannelId(ch.id); n.close(); };
+      } catch {
+        // Notification constructor can throw in some embedded/iframe contexts —
+        // never let a popup failure break the chat page itself.
+      }
+    });
+
+    prevLastMessageIdRef.current = nextIds;
+    hasSeenFirstChannelsLoadRef.current = true;
+  }, [channels, currentUserId, selectedChannelId]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -1502,6 +1585,22 @@ export default function ChatPage() {
     setDraft(e.target.value);
     e.target.style.height = 'auto';
     e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+  };
+
+  // Copy-pasting a screenshot/image (Cmd/Ctrl+V) attaches it the same way
+  // the paperclip button does — clipboard image items don't come with a
+  // real filename, so one is generated from the mime type.
+  const handleComposerPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items?.length) return;
+    const imageItem = Array.from(items).find((item) => item.type.startsWith('image/'));
+    if (!imageItem) return;
+    const blob = imageItem.getAsFile();
+    if (!blob) return;
+    e.preventDefault();
+    const ext = imageItem.type.split('/')[1] || 'png';
+    const file = new File([blob], `pasted-image-${Date.now()}.${ext}`, { type: imageItem.type });
+    handleAttachmentSelect(file);
   };
 
   // ── Derived ───────────────────────────────────────────────────────────────
@@ -1700,7 +1799,12 @@ export default function ChatPage() {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
+          <div
+            ref={messagesContainerRef}
+            onScroll={handleMessagesScroll}
+            className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3"
+          >
+
             {messagesLoading ? (
               <div className="flex items-center justify-center flex-1">
                 <Loader2 className="animate-spin text-gray-300" size={24} />
@@ -1792,6 +1896,7 @@ export default function ChatPage() {
                   value={draft}
                   onChange={handleTextareaChange}
                   onKeyDown={handleKeyDown}
+                  onPaste={handleComposerPaste}
                   placeholder={
                     selectedChannel.type === 'DM'
                       ? `Message ${getChannelDisplayName(selectedChannel, currentUserId)}…`
