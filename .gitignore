@@ -192,8 +192,6 @@ web_modules/
 # Production readiness audit fix: .env was previously force-tracked in git
 # (via the !.env exception below) — reverted. .env must never be committed;
 # .env.example is the only env file that should be tracked.
-.env
-.env.local
 .env.*.local
 !.env.example
 
