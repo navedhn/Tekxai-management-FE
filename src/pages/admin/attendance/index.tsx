@@ -9,11 +9,13 @@ import Modal from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
 import StatusBadge from '@/components/ui/StatusBadge';
 import ActionModal from '@/components/ui/ActionModal';
+import ChipMultiSelect from '@/components/ui/ChipMultiSelect';
 import { Clock, AlertTriangle, Settings, Plus, Pencil, Trash2, BarChart3 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
-import { useGetShiftsQuery, useGetViolationsQuery, useUpsertShiftMutation, useAssignShiftMutation, useDeleteShiftMutation } from '@/services/attendanceService';
+import { useGetShiftsQuery, useGetViolationsQuery, useUpsertShiftMutation, useAssignShiftMutation, useDeleteShiftMutation, useGetNoCheckinsQuery, useMarkAbsenteesMutation } from '@/services/attendanceService';
 import { useFetchUsersQuery } from '@/services/userService';
+import { useGetTeamsQuery } from '@/services/adminService';
 import { apiRequest } from '@/lib/queryClient';
 
 const TABS = ['Late Coming / Violations', 'Shift Management', 'Reports'];
@@ -140,6 +142,8 @@ const AttendancePage: React.FC = () => {
   const [shiftForm, setShiftForm] = useState({ name: '', start_time: '09:00', end_time: '18:00', grace_period_min: 15, is_default: false });
   const EMPTY_ASSIGN_FORM = { user_id: '', shift_id: '' };
   const [assignForm, setAssignForm] = useState(EMPTY_ASSIGN_FORM);
+  const [assignMode, setAssignMode] = useState<'employee' | 'team'>('employee');
+  const [assignTeamIds, setAssignTeamIds] = useState<string[]>([]);
   const [violationFilters, setViolationFilters] = useState({ user_id: '', violation_type: '', start_date: '', end_date: '' });
   const [quickFilter, setQuickFilter] = useState<'today' | 'week' | null>(null);
 
@@ -156,9 +160,21 @@ const AttendancePage: React.FC = () => {
   const { data: violationsData, isLoading: vLoading } = useGetViolationsQuery(violationFilters);
   const { data: shifts = [], isLoading: sLoading } = useGetShiftsQuery();
   const { data: users = [] } = useFetchUsersQuery({});
+  const { data: teamsData } = useGetTeamsQuery();
+  const teams = (teamsData as any)?.payload?.records || [];
   const upsertShift = useUpsertShiftMutation();
   const assignShift = useAssignShiftMutation();
   const deleteShift = useDeleteShiftMutation();
+  const { data: noCheckinsData, isLoading: noCheckinsLoading } = useGetNoCheckinsQuery();
+  const markAbsentees = useMarkAbsenteesMutation();
+  const noCheckins = (noCheckinsData as any)?.records || [];
+
+  const handleMarkAbsentees = async () => {
+    try {
+      const result: any = await markAbsentees.mutateAsync(undefined);
+      toast.success(result?.message || 'Absentees marked');
+    } catch (e: any) { toast.error(e?.message || 'Failed to mark absentees'); }
+  };
 
   const violations = (violationsData as any)?.records || [];
 
@@ -226,18 +242,28 @@ const AttendancePage: React.FC = () => {
 
   const handleAssign = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (assignMode === 'team') {
+      if (assignTeamIds.length === 0 || !assignForm.shift_id) { toast.error('Select at least one team and a shift'); return; }
+      try {
+        const result: any = await assignShift.mutateAsync({ team_ids: assignTeamIds, shift_id: assignForm.shift_id });
+        toast.success(result?.message || 'Shift assigned to team(s)');
+        closeAssignModal();
+      } catch (e: any) { toast.error(e?.message || 'Failed to assign'); }
+      return;
+    }
     if (!assignForm.user_id || !assignForm.shift_id) { toast.error('Select user and shift'); return; }
     try {
       await assignShift.mutateAsync(assignForm);
       toast.success('Shift assigned');
-      setShowAssignModal(false);
-      setAssignForm(EMPTY_ASSIGN_FORM);
+      closeAssignModal();
     } catch (e: any) { toast.error(e?.message || 'Failed to assign'); }
   };
 
   const closeAssignModal = () => {
     setShowAssignModal(false);
     setAssignForm(EMPTY_ASSIGN_FORM);
+    setAssignTeamIds([]);
+    setAssignMode('employee');
   };
 
   return (
@@ -248,6 +274,36 @@ const AttendancePage: React.FC = () => {
       </div>
 
       <Tabs options={TABS} value={activeTab} onChange={setActiveTab} />
+
+      {activeTab === 'Late Coming / Violations' && (
+        <Card className="border-none shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-black text-gray-900">No Check-In Today</h2>
+              <p className="text-xs text-gray-500 font-medium mt-0.5">Active employees with no check-in and no approved leave today.</p>
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              className="rounded-xl h-9"
+              loading={markAbsentees.isPending}
+              disabled={noCheckins.length === 0}
+              onClick={handleMarkAbsentees}
+            >
+              Add to Violations ({noCheckins.length})
+            </Button>
+          </div>
+          <Table
+            columns={[
+              { header: 'Employee', key: 'first_name', render: (item: any) => <span className="font-bold">{item.first_name} {item.last_name}</span> },
+              { header: 'Email', key: 'email', render: (item: any) => <span className="text-gray-500">{item.email}</span> },
+            ]}
+            data={noCheckins}
+            isLoading={noCheckinsLoading}
+            emptyMessage="Everyone active has checked in today."
+          />
+        </Card>
+      )}
 
       {activeTab === 'Late Coming / Violations' && (
         <Card className="border-none shadow-sm">
@@ -368,18 +424,46 @@ const AttendancePage: React.FC = () => {
       </Modal>
 
       {/* Assign Shift Modal */}
-      <Modal isOpen={showAssignModal} onClose={closeAssignModal} title="Assign Shift to Employee">
+      <Modal isOpen={showAssignModal} onClose={closeAssignModal} title="Assign Shift">
         <form onSubmit={handleAssign} className="flex flex-col gap-4 mt-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Employee</label>
-            <SearchableSelect
-              options={users.map((u: any) => ({ label: `${u.first_name} ${u.last_name}`, value: u.id }))}
-              value={assignForm.user_id || null}
-              onChange={(v) => setAssignForm(p => ({ ...p, user_id: (v as string) ?? '' }))}
-              placeholder="Select employee"
-              className="h-11"
-            />
+          <div className="flex gap-1.5 bg-gray-50 p-1 rounded-xl w-fit">
+            <button
+              type="button"
+              onClick={() => setAssignMode('employee')}
+              className={cn('px-3 h-8 rounded-lg text-xs font-semibold transition-colors', assignMode === 'employee' ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700')}
+            >
+              Single Employee
+            </button>
+            <button
+              type="button"
+              onClick={() => setAssignMode('team')}
+              className={cn('px-3 h-8 rounded-lg text-xs font-semibold transition-colors', assignMode === 'team' ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700')}
+            >
+              Whole Team(s)
+            </button>
           </div>
+
+          {assignMode === 'employee' ? (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Employee</label>
+              <SearchableSelect
+                options={users.map((u: any) => ({ label: `${u.first_name} ${u.last_name}`, value: u.id }))}
+                value={assignForm.user_id || null}
+                onChange={(v) => setAssignForm(p => ({ ...p, user_id: (v as string) ?? '' }))}
+                placeholder="Select employee"
+                className="h-11"
+              />
+            </div>
+          ) : (
+            <ChipMultiSelect
+              label="Teams"
+              options={teams.map((t: any) => ({ id: t.id, label: t.name }))}
+              selected={assignTeamIds}
+              onChange={setAssignTeamIds}
+              emptyText="No teams available"
+            />
+          )}
+
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Shift</label>
             <SearchableSelect

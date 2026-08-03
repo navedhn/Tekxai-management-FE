@@ -47,3 +47,31 @@ export const useUpsertShiftMutation = () => { const qc = useQueryClient(); retur
 export const useAssignShiftMutation = () => { const qc = useQueryClient(); return useMutation({ mutationFn: (data: any) => apiRequest(`${v1}/attendance/shifts/assign`, { method: 'POST', body: JSON.stringify(data) }), onSuccess: () => qc.invalidateQueries({ queryKey: ['shifts'] }) }); };
 
 export const useDeleteShiftMutation = () => { const qc = useQueryClient(); return useMutation({ mutationFn: (id: string) => apiRequest(`${v1}/attendance/shifts/${id}`, { method: 'DELETE' }), onSuccess: () => qc.invalidateQueries({ queryKey: ['shifts'] }) }); };
+
+// "Didn't check in today" — active employees with no timesheet_entries row
+// and no approved leave for the given day. Distinct from useGetViolationsQuery
+// (which only reads already-recorded LATE/ABSENT/EARLY_OUT rows): this is a
+// live, computed no-show list for a day nobody has been marked absent for yet.
+export const useGetNoCheckinsQuery = (date?: string) =>
+  useQuery({
+    queryKey: ['no-checkins', date],
+    queryFn: async () => {
+      const qs = date ? `?date=${date}` : '';
+      const r = await apiRequest<any>(`${v1}/attendance/no-checkins${qs}`);
+      return r?.payload || { date, records: [], total: 0 };
+    },
+    staleTime: 30000,
+  });
+
+// Turns the no-checkins list into real ABSENT violation rows (idempotent —
+// safe to click more than once for the same day).
+export const useMarkAbsenteesMutation = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (date?: string) => apiRequest<any>(`${v1}/attendance/mark-absentees`, { method: 'POST', body: JSON.stringify({ date }) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['violations'] });
+      qc.invalidateQueries({ queryKey: ['no-checkins'] });
+    },
+  });
+};

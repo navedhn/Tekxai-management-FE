@@ -370,7 +370,7 @@ export default function TicketTypeEditor({ type, onClose }: { type?: any; onClos
   const { data: users } = useQuery({
     queryKey: ['users-for-editor'],
     queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200`),
-    select: (r: any) => r?.payload?.records || r?.payload || [],
+    select: (r: any) => [...(r?.payload?.records || r?.payload || [])].sort((a: any, b: any) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)),
   });
 
   const duplicate_keys = useMemo(() => {

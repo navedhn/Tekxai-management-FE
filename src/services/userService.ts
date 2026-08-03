@@ -31,7 +31,10 @@ const fetchUsersApi = async (params?: Record<string, any>) => {
   const url = queryString ? `${API_ENDPOINTS.USER.LIST}?${queryString}` : API_ENDPOINTS.USER.LIST;
   const res = await apiRequest<any>(url);
   const data = res?.payload?.records || res?.payload || res;
-  return Array.isArray(data) ? data : [];
+  const records = Array.isArray(data) ? data : [];
+  return [...records].sort((a, b) =>
+    `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`),
+  );
 };
 
 export const useFetchUsersQuery = (params?: Record<string, any>, enabled: boolean = true) => {

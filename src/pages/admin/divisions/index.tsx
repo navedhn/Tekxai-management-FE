@@ -1,8 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Search, Plus, X, Layers, Users, Link2 } from 'lucide-react';
-import { apiRequest } from '@/lib/queryClient';
-import { API_ENDPOINTS } from '@/services/api/endpoints';
 import {
   useGetDivisionsQuery, useGetDepartmentsQuery, useCreateDivision, useUpdateDivision,
   useDeleteDivision, useBulkDeleteDivisions, useBulkAssignDepartmentsToDivisions,
@@ -95,11 +92,7 @@ function Modal({ division, onClose }: { division?: any; onClose: () => void }) {
   });
   const [err, setErr] = useState('');
 
-  const { data: departments } = useQuery({
-    queryKey: ['departments'],
-    queryFn: () => apiRequest<any>(API_ENDPOINTS.DEPARTMENT.LIST),
-    select: (r: any) => r?.payload?.records || r?.payload || [],
-  });
+  const { data: departments } = useGetDepartmentsQuery();
 
   const createMutation = useCreateDivision();
   const updateMutation = useUpdateDivision();

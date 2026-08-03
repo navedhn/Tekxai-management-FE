@@ -170,7 +170,7 @@ export default function IncrementsPage() {
   const { data: users } = useQuery({
     queryKey: ['user-list-brief'],
     queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200&status=ACTIVE`),
-    select: (r: any) => r?.payload?.records || r?.payload || [],
+    select: (r: any) => [...(r?.payload?.records || r?.payload || [])].sort((a: any, b: any) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)),
     staleTime: 300000,
   });
 
