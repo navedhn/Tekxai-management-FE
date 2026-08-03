@@ -33,7 +33,7 @@ function QuickLedgerAccess() {
   const { data: users } = useQuery({
     queryKey: ['user-list-brief'],
     queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200`),
-    select: (r: any) => r?.payload?.records || [],
+    select: (r: any) => [...(r?.payload?.records || [])].sort((a: any, b: any) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)),
   });
 
   const filtered = search.trim()
@@ -84,7 +84,7 @@ function AddAccountModal({ onClose }: { onClose: () => void }) {
   const { data: users } = useQuery({
     queryKey: ['user-list-brief'],
     queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200`),
-    select: (r: any) => r?.payload?.records || [],
+    select: (r: any) => [...(r?.payload?.records || [])].sort((a: any, b: any) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)),
   });
 
   const mutation = useMutation({
@@ -195,7 +195,7 @@ function ExpenseAggregateBreakdown() {
   const { data: users } = useQuery({
     queryKey: ['user-list-brief'],
     queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200`),
-    select: (r: any) => r?.payload?.records || [],
+    select: (r: any) => [...(r?.payload?.records || [])].sort((a: any, b: any) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)),
   });
 
   const aggregateMutation = useMutation({
@@ -278,7 +278,7 @@ function ExpenseDetailReports() {
   const { data: users } = useQuery({
     queryKey: ['user-list-brief'],
     queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200`),
-    select: (r: any) => r?.payload?.records || [],
+    select: (r: any) => [...(r?.payload?.records || [])].sort((a: any, b: any) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)),
   });
   const [employeeId, setEmployeeId] = useState('');
 

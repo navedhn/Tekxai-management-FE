@@ -14,6 +14,7 @@ import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
 import { useBulkSelection } from '@/hooks/useBulkSelection';
 import { summarizeBulkDelete } from '@/utils/bulkDeleteSummary';
 import { cn } from '@/utils/cn';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 
 // Step 1 of the "Bulk Change Business Unit" flow — pick the target unit.
 // Step 2 (confirmation) reuses the existing ActionModal, same as every
@@ -95,8 +96,15 @@ function Modal({ dept, onClose }: { dept?: any; onClose: () => void }) {
   const { data: users } = useQuery({
     queryKey: ['user-list-brief'],
     queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200&status=ACTIVE`),
-    select: (r: any) => r?.payload?.records || [],
+    select: (r: any) => {
+      const records = r?.payload?.records || [];
+      return [...records].sort((a: any, b: any) =>
+        `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`),
+      );
+    },
   });
+
+  const userOptions = (users || []).map((u: any) => ({ label: `${u.first_name} ${u.last_name}`, value: u.id }));
 
   const { data: businessUnits } = useGetBusinessUnitsQuery();
 
@@ -153,11 +161,13 @@ function Modal({ dept, onClose }: { dept?: any; onClose: () => void }) {
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-500 block mb-1.5">Department Head</label>
-            <select className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 text-gray-700"
-              value={form.head_user_id} onChange={e => setForm(p => ({ ...p, head_user_id: e.target.value }))}>
-              <option value="">Select head</option>
-              {(users || []).map((u: any) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
-            </select>
+            <SearchableSelect
+              options={userOptions}
+              value={form.head_user_id || null}
+              onChange={(v) => setForm(p => ({ ...p, head_user_id: (v as string) || '' }))}
+              placeholder="Select head"
+              searchPlaceholder="Search employees…"
+            />
           </div>
         </div>
         {err && <p className="text-red-500 text-xs mt-3">{err}</p>}

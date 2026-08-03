@@ -93,7 +93,7 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
   const { data: users } = useQuery({
     queryKey: ['user-list-brief'],
     queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200&status=ACTIVE`),
-    select: (r: any) => r?.payload?.records || [],
+    select: (r: any) => [...(r?.payload?.records || [])].sort((a: any, b: any) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)),
   });
 
   const createCategoryMutation = useMutation({
@@ -369,7 +369,7 @@ function AssignModal({ asset, onClose }: { asset: any; onClose: () => void }) {
   const { data: users } = useQuery({
     queryKey: ['user-list-brief'],
     queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200&status=ACTIVE`),
-    select: (r: any) => r?.payload?.records || [],
+    select: (r: any) => [...(r?.payload?.records || [])].sort((a: any, b: any) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)),
   });
 
   const mutation = useMutation({
@@ -554,7 +554,7 @@ function CreateRequestModal({ onClose }: { onClose: () => void }) {
   const { data: users } = useQuery({
     queryKey: ['user-list-brief'],
     queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200&status=ACTIVE`),
-    select: (r: any) => r?.payload?.records || [],
+    select: (r: any) => [...(r?.payload?.records || [])].sort((a: any, b: any) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)),
   });
 
   const mutation = useMutation({
