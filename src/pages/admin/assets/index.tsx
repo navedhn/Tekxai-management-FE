@@ -62,6 +62,7 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
   const [newCategoryIsDevice, setNewCategoryIsDevice] = useState(false);
   const [newCategoryIsAssignable, setNewCategoryIsAssignable] = useState(true);
   const [userId, setUserId] = useState('');
+  const [locationId, setLocationId] = useState('');
 
   const [form, setForm] = useState({
     name: '',
@@ -94,6 +95,12 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
     queryKey: ['user-list-brief'],
     queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200&status=ACTIVE`),
     select: (r: any) => [...(r?.payload?.records || [])].sort((a: any, b: any) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)),
+  });
+
+  const { data: locations } = useQuery({
+    queryKey: ['asset-locations'],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.LOCATIONS),
+    select: (r: any) => r?.payload || [],
   });
 
   const createCategoryMutation = useMutation({
@@ -161,6 +168,7 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
     }
 
     if (!final_category_id) { setErr('Please select a category'); return; }
+    if (!locationId) { setErr('Please select a location'); return; }
 
     const payload: Record<string, any> = {
       name: form.name.trim(),
@@ -173,6 +181,7 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
       notes: form.notes || undefined,
       warranty_expiry: form.warranty_expiry || undefined,
       category_id: final_category_id,
+      location_id: locationId,
     };
 
     // Device fields
@@ -236,6 +245,17 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
           <div>
             <label className={labelCls}>Asset Name <span className="text-red-500">*</span></label>
             <input className={inputCls} value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. MacBook Pro 14-inch" />
+          </div>
+
+          {/* Location — required since assets are tracked across multiple offices */}
+          <div>
+            <label className={labelCls}>Location <span className="text-red-500">*</span></label>
+            <select className={inputCls} value={locationId} onChange={e => setLocationId(e.target.value)}>
+              <option value="">Select location</option>
+              {(locations || []).map((l: any) => (
+                <option key={l.id} value={l.id}>{[l.office, l.floor, l.room].filter(Boolean).join(' — ')}</option>
+              ))}
+            </select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -349,7 +369,7 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
 
         <div className="flex gap-3 mt-5">
           <Button variant="outline" size="sm" animation="none" fullWidth onClick={onClose} className="!h-10 flex-1">Cancel</Button>
-          <Button variant="primary" size="sm" fullWidth onClick={handleSubmit} disabled={!form.name} loading={isPending} className="!h-10 flex-1">
+          <Button variant="primary" size="sm" fullWidth onClick={handleSubmit} disabled={!form.name || !locationId} loading={isPending} className="!h-10 flex-1">
             Add Asset
           </Button>
         </div>
@@ -914,6 +934,7 @@ export default function AssetsPage() {
 
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
   const [search, setSearch] = useState('');
   const [assignTarget, setAssignTarget] = useState<any>(null);
   const [returnTarget, setReturnTarget] = useState<any>(null);
@@ -926,11 +947,12 @@ export default function AssetsPage() {
   const [rejectTarget, setRejectTarget] = useState<any>(null);
 
   const { data: assetsData, isLoading } = useQuery({
-    queryKey: ['assets-list', categoryFilter, statusFilter, search],
+    queryKey: ['assets-list', categoryFilter, statusFilter, locationFilter, search],
     queryFn: () => {
       const params = new URLSearchParams();
       if (categoryFilter) params.set('category_id', categoryFilter);
       if (statusFilter) params.set('status', statusFilter);
+      if (locationFilter) params.set('location_id', locationFilter);
       if (search) params.set('search', search);
       return apiRequest<any>(`${API_ENDPOINTS.ASSET.LIST}?${params}`);
     },
@@ -940,6 +962,12 @@ export default function AssetsPage() {
   const { data: categories } = useQuery({
     queryKey: ['asset-categories'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.CATEGORIES),
+    select: (r: any) => r?.payload || [],
+  });
+
+  const { data: assetLocations } = useQuery({
+    queryKey: ['asset-locations'],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.LOCATIONS),
     select: (r: any) => r?.payload || [],
   });
 
@@ -1083,8 +1111,15 @@ export default function AssetsPage() {
                 <option value="MAINTENANCE">Maintenance</option>
                 <option value="RETIRED">Retired</option>
               </select>
-              {(categoryFilter || statusFilter || search) && (
-                <Button variant="outline" size="sm" animation="none" leftIcon={X} onClick={() => { setCategoryFilter(''); setStatusFilter(''); setSearch(''); }}
+              <select value={locationFilter} onChange={e => setLocationFilter(e.target.value)}
+                className="h-10 px-3 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:border-primary-400">
+                <option value="">All Locations</option>
+                {(assetLocations as any[] || []).map((l: any) => (
+                  <option key={l.id} value={l.id}>{[l.office, l.floor, l.room].filter(Boolean).join(' — ')}</option>
+                ))}
+              </select>
+              {(categoryFilter || statusFilter || locationFilter || search) && (
+                <Button variant="outline" size="sm" animation="none" leftIcon={X} onClick={() => { setCategoryFilter(''); setStatusFilter(''); setLocationFilter(''); setSearch(''); }}
                   className="!h-10 !px-3 text-xs !text-gray-500">
                   Clear
                 </Button>
@@ -1095,7 +1130,7 @@ export default function AssetsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100">
-                    {['Asset', 'Category', 'Brand / Model', 'Serial No.', 'Assigned To', 'Condition', 'Status', 'Actions'].map(h => (
+                    {['Tag', 'Asset', 'Category', 'Location', 'Brand / Model', 'Serial No.', 'Assigned To', 'Condition', 'Status', 'Actions'].map(h => (
                       <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -1103,19 +1138,20 @@ export default function AssetsPage() {
                 <tbody className="divide-y divide-gray-50">
                   {isLoading ? (
                     Array.from({ length: 5 }).map((_, i) => (
-                      <tr key={i}><td colSpan={8} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                      <tr key={i}><td colSpan={10} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
                     ))
                   ) : assets.length === 0 ? (
-                    <tr><td colSpan={8} className="py-12 text-center text-gray-400 text-sm">No assets found</td></tr>
+                    <tr><td colSpan={10} className="py-12 text-center text-gray-400 text-sm">No assets found</td></tr>
                   ) : assets.map((asset: any) => {
                     const assignedUser = asset.assignments?.[0]?.user;
                     return (
                       <tr key={asset.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="py-3 px-2 font-mono text-xs text-gray-500 whitespace-nowrap">{asset.asset_tag || '—'}</td>
                         <td className="py-3 px-2">
                           <p className="font-semibold text-gray-900">{asset.name}</p>
-                          <p className="text-xs text-gray-400 font-mono">{asset.asset_tag}</p>
                         </td>
                         <td className="py-3 px-2 text-gray-500 whitespace-nowrap">{asset.category?.name || '—'}</td>
+                        <td className="py-3 px-2 text-gray-600 whitespace-nowrap">{asset.location?.office || '—'}</td>
                         <td className="py-3 px-2 text-gray-600">
                           <p>{asset.brand || '—'}</p>
                           {asset.model && <p className="text-xs text-gray-400">{asset.model}</p>}
