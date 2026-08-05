@@ -5,12 +5,13 @@ import React from 'react';
 // markdown library, deliberately: this only ever needs to round-trip what
 // this app's own composer writes, not arbitrary external markdown.
 //
-// Supported inline: @[Name](user:ID) mentions, **bold**, *italic*, `code`.
+// Supported inline: @[Name](user:ID) mentions, @here/@channel broadcasts,
+// **bold**, *italic*, `code`.
 // Supported block: ```fenced code blocks```, "- " bullet-list runs, plain
 // paragraphs (newlines preserved as <br/>).
 
 const MENTION_RE = /@\[([^\]]+)\]\(user:([^)]+)\)/g;
-const INLINE_SPLIT_RE = /(@\[[^\]]+\]\(user:[^)]+\)|\*\*[^*\n]+\*\*|`[^`\n]+`|\*[^*\n]+\*)/g;
+const INLINE_SPLIT_RE = /(@\[[^\]]+\]\(user:[^)]+\)|@(?:here|channel)\b|\*\*[^*\n]+\*\*|`[^`\n]+`|\*[^*\n]+\*)/gi;
 
 function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
   return text
@@ -23,6 +24,16 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
         return (
           <span key={key} className="inline-block px-1 rounded bg-primary-50 text-primary-700 font-semibold">
             @{mentionMatch[1]}
+          </span>
+        );
+      }
+      // @here/@channel — a broadcast to everyone in the channel, distinct
+      // (amber, not blue) from a personal @-mention.
+      const broadcastMatch = /^@(here|channel)$/i.exec(part);
+      if (broadcastMatch) {
+        return (
+          <span key={key} className="inline-block px-1 rounded bg-amber-100 text-amber-800 font-semibold">
+            @{broadcastMatch[1].toLowerCase()}
           </span>
         );
       }

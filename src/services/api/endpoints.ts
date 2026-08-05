@@ -497,6 +497,9 @@ export const API_ENDPOINTS = {
     POLL_CLOSE:  (id: string, pollId: string) => `${v1}/chat/channels/${id}/polls/${pollId}/close`,
     TASKS:       (id: string) => `${v1}/chat/channels/${id}/tasks`,
     REMINDERS:   (id: string) => `${v1}/chat/channels/${id}/reminders`,
+    SAVE:        (id: string, msgId: string) => `${v1}/chat/channels/${id}/messages/${msgId}/save`,
+    SAVED:       `${v1}/chat/saved`,
+    EXPORT:      (id: string, format: string) => `${v1}/chat/channels/${id}/export?format=${format}`,
   },
   MEETING: {
     DASHBOARD:        `${v1}/meeting/dashboard`,
