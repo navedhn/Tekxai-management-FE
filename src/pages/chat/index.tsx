@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   MessageSquare, Plus, Search, Send, X, Users, User, Loader2,
@@ -6,8 +6,9 @@ import {
   Mic, Square, Trash2, Camera, RotateCcw, Check, Video, VideoOff,
   Pin, Smile, Bold, Italic, Code, AtSign, Link2,
   BarChart3, CheckSquare, AlarmClock, Slash, XCircle,
+  Bookmark, Megaphone, FolderOpen, Download, FileText,
 } from 'lucide-react';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, BASE_URL } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 import { useAuthStore } from '@/stores/authStore';
@@ -62,6 +63,11 @@ interface Poll {
   votes: PollVote[];
 }
 
+interface SavedMessageEntry {
+  saved_at: string;
+  message: ChatMessage & { channel?: { id: string; name: string; type: string } };
+}
+
 interface ChatMessage {
   id: string;
   channel_id: string;
@@ -92,7 +98,7 @@ interface Channel {
   id: string;
   name: string;
   description?: string;
-  type: 'PUBLIC' | 'PRIVATE' | 'DM' | 'GROUP';
+  type: 'PUBLIC' | 'PRIVATE' | 'DM' | 'GROUP' | 'ANNOUNCEMENT';
   is_archived: boolean;
   entity_type?: string | null;
   entity_id?: string | null;
@@ -162,10 +168,11 @@ function fmtSize(bytes: number): string {
 }
 
 const PRIVACY_BADGE: Record<string, { label: string; cls: string }> = {
-  PUBLIC:  { label: 'Public',  cls: 'bg-green-50 text-green-700' },
-  PRIVATE: { label: 'Private', cls: 'bg-yellow-50 text-yellow-700' },
-  DM:      { label: 'Direct',  cls: 'bg-blue-50 text-blue-700' },
-  GROUP:   { label: 'Group',   cls: 'bg-purple-50 text-purple-700' },
+  PUBLIC:       { label: 'Public',       cls: 'bg-green-50 text-green-700' },
+  PRIVATE:      { label: 'Private',      cls: 'bg-yellow-50 text-yellow-700' },
+  DM:           { label: 'Direct',       cls: 'bg-blue-50 text-blue-700' },
+  GROUP:        { label: 'Group',        cls: 'bg-purple-50 text-purple-700' },
+  ANNOUNCEMENT: { label: 'Announcement', cls: 'bg-amber-50 text-amber-700' },
 };
 
 const ROLE_BADGE: Record<string, string> = {
@@ -389,6 +396,90 @@ function MembersModal({
               )}
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Saved Messages Panel ────────────────────────────────────────────────────
+// Personal, cross-channel — unlike PinnedMessagesPanel (scoped to one
+// channel), this lists everything the current user has bookmarked from any
+// conversation they're in, with a "Jump to channel" action per item.
+
+function SavedMessagesPanel({
+  onClose,
+  onJumpToChannel,
+}: {
+  onClose: () => void;
+  onJumpToChannel: (channelId: string) => void;
+}) {
+  const qc = useQueryClient();
+  const { data: saved = [], isLoading } = useQuery<SavedMessageEntry[]>({
+    queryKey: ['chat-saved'],
+    queryFn: async () => {
+      const r = await apiRequest<any>(API_ENDPOINTS.CHAT.SAVED);
+      return r?.payload?.records || r?.payload || [];
+    },
+  });
+
+  // Channel id in the URL is unused server-side for save/unsave (the
+  // backend derives the channel from the message itself) — "_" is just a
+  // harmless placeholder so this panel doesn't need to know which channel
+  // each saved message came from just to unsave it.
+  const unsaveMutation = useMutation({
+    mutationFn: (msgId: string) => apiRequest<any>(API_ENDPOINTS.CHAT.SAVE('_', msgId), { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['chat-saved'] }),
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h3 className="font-black text-gray-900 flex items-center gap-2"><Bookmark size={16} className="text-blue-500" /> Saved messages ({saved.length})</h3>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-10"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
+          ) : saved.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-gray-300">
+              <Bookmark size={28} className="mb-2" />
+              <p className="text-sm font-semibold text-gray-400">Nothing saved yet</p>
+              <p className="text-xs text-gray-300">Bookmark a message from its hover menu</p>
+            </div>
+          ) : (
+            saved.map(({ message, saved_at }) => (
+              <button
+                key={message.id}
+                onClick={() => { onJumpToChannel(message.channel_id); onClose(); }}
+                className="w-full text-left p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-gray-300 transition-colors"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Avatar user={message.user} size="xs" />
+                  <span className="text-xs font-bold text-gray-800">{message.user?.first_name} {message.user?.last_name}</span>
+                  {message.channel && (
+                    <span className="text-[10px] text-gray-400 truncate">in {message.channel.type === 'DM' ? 'DM' : `#${message.channel.name}`}</span>
+                  )}
+                  <span className="ml-auto text-[10px] text-gray-400 shrink-0">{fmtTime(message.created_at)}</span>
+                  <span
+                    role="button"
+                    onClick={(e) => { e.stopPropagation(); unsaveMutation.mutate(message.id); }}
+                    className="p-1 text-gray-400 hover:text-red-500 rounded shrink-0"
+                    title="Remove from Saved"
+                  >
+                    <X size={13} />
+                  </span>
+                </div>
+                <p className="text-sm text-gray-700 line-clamp-3">
+                  {renderMessageContent(message.content) || <span className="italic text-gray-400">Attachment</span>}
+                </p>
+                <p className="text-[10px] text-gray-300 mt-1">Saved {fmtTime(saved_at)}</p>
+              </button>
+            ))
+          )}
         </div>
       </div>
     </div>
@@ -804,7 +895,7 @@ function SearchModal({
 
 // ─── New Channel Modal ────────────────────────────────────────────────────────
 
-type NewChatTab = 'direct' | 'group' | 'private' | 'public';
+type NewChatTab = 'direct' | 'group' | 'private' | 'public' | 'announcement';
 
 function NewChannelModal({
   onClose,
@@ -870,6 +961,19 @@ function NewChannelModal({
     },
   });
 
+  // Same endpoint publicMutation uses — just a different `type` in the
+  // body. Read access is open to everyone (assert_channel_access treats
+  // ANNOUNCEMENT the same as PUBLIC); only posting is restricted to
+  // OWNER/ADMIN members, enforced in send_message.
+  const announcementMutation = useMutation({
+    mutationFn: ({ name, description }: { name: string; description: string }) =>
+      apiRequest<any>(API_ENDPOINTS.CHAT.CHANNELS, { method: 'POST', body: JSON.stringify({ name, description, type: 'ANNOUNCEMENT' }) }),
+    onSuccess: (data: any) => {
+      qc.invalidateQueries({ queryKey: ['chat-channels'] });
+      onCreated(data?.payload?.id);
+    },
+  });
+
   const toggleMember = (uid: string) =>
     setSelectedMembers((prev) => prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]);
 
@@ -879,17 +983,19 @@ function NewChannelModal({
       { key: 'group' as NewChatTab, label: 'Group', icon: <Users size={13} /> },
       { key: 'private' as NewChatTab, label: 'Private', icon: <Lock size={13} /> },
       { key: 'public' as NewChatTab, label: 'Public', icon: <Hash size={13} /> },
+      { key: 'announcement' as NewChatTab, label: 'Announcement', icon: <Megaphone size={13} /> },
     ] : []),
   ];
 
-  const needsName = tab === 'group' || tab === 'private' || tab === 'public';
+  const needsName = tab === 'group' || tab === 'private' || tab === 'public' || tab === 'announcement';
   const needsMembers = tab === 'direct' || tab === 'group' || tab === 'private';
-  const isLoading = dmMutation.isPending || groupMutation.isPending || privateMutation.isPending || publicMutation.isPending;
+  const isLoading = dmMutation.isPending || groupMutation.isPending || privateMutation.isPending || publicMutation.isPending || announcementMutation.isPending;
 
   const handleCreate = () => {
     if (tab === 'group') groupMutation.mutate({ name: channelName.trim(), member_ids: selectedMembers });
     else if (tab === 'private') privateMutation.mutate({ name: channelName.trim(), description: channelDesc.trim(), member_ids: selectedMembers });
     else if (tab === 'public') publicMutation.mutate({ name: channelName.trim(), description: channelDesc.trim() });
+    else if (tab === 'announcement') announcementMutation.mutate({ name: channelName.trim(), description: channelDesc.trim() });
   };
 
   return (
@@ -923,7 +1029,7 @@ function NewChannelModal({
               autoFocus
             />
           )}
-          {(tab === 'private' || tab === 'public') && (
+          {(tab === 'private' || tab === 'public' || tab === 'announcement') && (
             <input
               value={channelDesc}
               onChange={(e) => setChannelDesc(e.target.value)}
@@ -994,13 +1100,14 @@ function NewChannelModal({
           {tab !== 'direct' && (
             <button
               onClick={handleCreate}
-              disabled={!channelName.trim() || (tab !== 'public' && selectedMembers.length === 0) || isLoading}
+              disabled={!channelName.trim() || (needsMembers && selectedMembers.length === 0) || isLoading}
               className="w-full h-10 bg-primary-600 text-white text-sm font-bold rounded-xl hover:bg-primary-700 disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
             >
               {isLoading ? <Loader2 size={15} className="animate-spin" /> : null}
               {tab === 'group' && `Create Group (${selectedMembers.length} selected)`}
               {tab === 'private' && `Create Private Channel`}
               {tab === 'public' && `Create Public Channel`}
+              {tab === 'announcement' && `Create Announcement Channel`}
             </button>
           )}
         </div>
@@ -1010,6 +1117,68 @@ function NewChannelModal({
 }
 
 // ─── Channel Section ──────────────────────────────────────────────────────────
+
+// ─── Grouped Channel List (sidebar folders) ─────────────────────────────────
+// Groups the flat channel list into collapsible sections using data the app
+// already has (channel.type, channel.entity_type) rather than a new
+// manually-managed folder system — "Projects" is exactly the existing
+// entity_type==='PROJECT' auto-sync channels, same set the header's
+// "Project" badge already identifies elsewhere in this file.
+const CHANNEL_GROUPS: Array<{ key: string; label: string; icon: React.ReactNode; match: (ch: Channel) => boolean }> = [
+  { key: 'dm',       label: 'Direct Messages', icon: <User size={11} />,      match: (ch) => ch.type === 'DM' },
+  { key: 'projects', label: 'Projects',        icon: <FolderOpen size={11} />, match: (ch) => ch.type !== 'DM' && ch.entity_type === 'PROJECT' },
+  { key: 'channels', label: 'Channels',        icon: <Hash size={11} />,      match: (ch) => ch.type !== 'DM' && ch.entity_type !== 'PROJECT' },
+];
+const COLLAPSED_GROUPS_KEY = 'tekxai-chat-collapsed-groups';
+
+function loadCollapsedGroups(): Record<string, boolean> {
+  try { return JSON.parse(localStorage.getItem(COLLAPSED_GROUPS_KEY) || '{}'); } catch { return {}; }
+}
+
+function GroupedChannelList({
+  channels, currentUserId, selectedId, onSelect,
+}: {
+  channels: Channel[];
+  currentUserId: string;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(loadCollapsedGroups);
+
+  const toggle = (key: string) => {
+    setCollapsed((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      localStorage.setItem(COLLAPSED_GROUPS_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+
+  return (
+    <div>
+      {CHANNEL_GROUPS.map((group) => {
+        const groupChannels = channels.filter(group.match);
+        if (groupChannels.length === 0) return null;
+        const isCollapsed = !!collapsed[group.key];
+        return (
+          <div key={group.key}>
+            <button
+              onClick={() => toggle(group.key)}
+              className="w-full flex items-center gap-1.5 px-3 py-1.5 text-left hover:bg-gray-50"
+            >
+              <ChevronDown size={12} className={cn('text-gray-300 transition-transform', isCollapsed && '-rotate-90')} />
+              <span className="text-gray-400">{group.icon}</span>
+              <span className="text-[10px] font-black text-gray-400 tracking-widest uppercase flex-1">{group.label}</span>
+              <span className="text-[10px] text-gray-300">{groupChannels.length}</span>
+            </button>
+            {!isCollapsed && (
+              <ChannelSection channels={groupChannels} currentUserId={currentUserId} selectedId={selectedId} onSelect={onSelect} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function ChannelSection({
   channels, currentUserId, selectedId, onSelect,
@@ -1054,6 +1223,11 @@ function ChannelSection({
               <div className={cn('w-7 h-7 rounded-full flex items-center justify-center shrink-0',
                 isSelected ? 'bg-yellow-200' : 'bg-yellow-50')}>
                 <Lock size={12} className={isSelected ? 'text-yellow-700' : 'text-yellow-500'} />
+              </div>
+            ) : ch.type === 'ANNOUNCEMENT' ? (
+              <div className={cn('w-7 h-7 rounded-full flex items-center justify-center shrink-0',
+                isSelected ? 'bg-amber-200' : 'bg-amber-50')}>
+                <Megaphone size={12} className={isSelected ? 'text-amber-700' : 'text-amber-500'} />
               </div>
             ) : (
               <div className={cn('w-7 h-7 rounded-full flex items-center justify-center shrink-0',
@@ -1187,12 +1361,13 @@ function PollCard({ poll, channelId, currentUserId, isGlobalAdmin }: {
 // ─── Message Bubble ───────────────────────────────────────────────────────────
 
 function MessageBubble({
-  msg, isOwn, showSenderName, currentUserId, channelId, isGlobalAdmin,
+  msg, isOwn, showSenderName, currentUserId, channelId, isGlobalAdmin, isSaved,
   onDelete, onReply, onOpenThread, onEdit, onImageClick, seenBy,
 }: {
   msg: ChatMessage;
   isOwn: boolean;
   isGlobalAdmin?: boolean;
+  isSaved?: boolean;
   showSenderName: boolean;
   currentUserId: string;
   channelId: string;
@@ -1245,6 +1420,15 @@ function MessageBubble({
       qc.invalidateQueries({ queryKey: ['chat-messages', channelId] });
       qc.invalidateQueries({ queryKey: ['chat-pinned', channelId] });
     },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.CHAT.SAVE(channelId, msg.id), { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['chat-saved'] }),
+  });
+  const unsaveMutation = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.CHAT.SAVE(channelId, msg.id), { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['chat-saved'] }),
   });
 
   const reactionMap = (msg.reactions || []).reduce((acc: Record<string, { count: number; mine: boolean; names: string[] }>, r) => {
@@ -1323,6 +1507,13 @@ function MessageBubble({
                 title={msg.is_pinned ? 'Unpin message' : 'Pin message'}
               >
                 <Pin size={13} fill={msg.is_pinned ? 'currentColor' : 'none'} />
+              </button>
+              <button
+                onClick={() => (isSaved ? unsaveMutation.mutate() : saveMutation.mutate())}
+                className={cn('p-0.5 rounded', isSaved ? 'text-blue-600 hover:text-blue-700' : 'text-gray-400 hover:text-blue-600')}
+                title={isSaved ? 'Remove from Saved' : 'Save message'}
+              >
+                <Bookmark size={13} fill={isSaved ? 'currentColor' : 'none'} />
               </button>
               {isOwn && (
                 <button onClick={() => onEdit(msg)} className="p-0.5 text-gray-400 hover:text-blue-500 rounded text-xs font-bold" title="Edit">✏️</button>
@@ -1777,10 +1968,16 @@ export default function ChatPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [recordingError, setRecordingError] = useState<string | null>(null);
+  // Live speech-to-text while recording (Web Speech API) — empty string
+  // whenever unsupported/not yet transcribed anything, in which case the
+  // recording bar just falls back to its plain "Recording…" label.
+  const [liveTranscript, setLiveTranscript] = useState('');
   // @-mention autocomplete — null means "not currently typing a mention".
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [showComposerEmoji, setShowComposerEmoji] = useState(false);
   const [showPinned, setShowPinned] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -1794,6 +1991,10 @@ export default function ChatPage() {
   // MediaRecorder's onstop handler — which fires either way — knows not to
   // turn the just-cancelled clip into an attachment.
   const recordingCancelledRef = useRef(false);
+  // Untyped — SpeechRecognition isn't in the standard DOM lib types, and
+  // only webkitSpeechRecognition exists in Chrome anyway.
+  const speechRecognitionRef = useRef<any>(null);
+  const finalTranscriptRef = useRef('');
   // Whether the user is scrolled near the bottom of the message list — only
   // auto-scroll when true, so the 3s message poll (refetchInterval below)
   // doesn't yank someone back to the bottom while they're reading upward.
@@ -1874,6 +2075,20 @@ export default function ChatPage() {
     enabled: !!selectedChannelId,
     refetchInterval: 5000,
   });
+
+  // Saved/bookmarked messages — cross-channel, so fetched once for the whole
+  // page rather than per-channel. Small personal list; fetching it whole and
+  // deriving a Set client-side is simpler than a per-message "is this saved"
+  // join on every get_messages call.
+  const { data: savedEntries = [] } = useQuery<SavedMessageEntry[]>({
+    queryKey: ['chat-saved'],
+    queryFn: async () => {
+      const r = await apiRequest<any>(API_ENDPOINTS.CHAT.SAVED);
+      return r?.payload?.records || r?.payload || [];
+    },
+    refetchInterval: 10000,
+  });
+  const savedMessageIds = useMemo(() => new Set(savedEntries.map((s) => s.message.id)), [savedEntries]);
 
   // ── Mutations ─────────────────────────────────────────────────────────────
 
@@ -2168,6 +2383,28 @@ export default function ChatPage() {
     });
   };
 
+  // @here / @channel — inserted as plain "@here "/"@channel " text (not a
+  // @[Name](user:ID) token, since it isn't a specific user). The backend
+  // recognizes these two literal words in resolve_mentions() and expands
+  // them to every current channel member at send time.
+  const insertBroadcastMention = (word: 'here' | 'channel') => {
+    const textarea = textareaRef.current;
+    const cursor = textarea?.selectionStart ?? draft.length;
+    const before = draft.slice(0, cursor);
+    const after = draft.slice(cursor);
+    const atIndex = before.lastIndexOf('@');
+    if (atIndex === -1) return;
+    const token = `@${word} `;
+    const next = before.slice(0, atIndex) + token + after;
+    setDraft(next);
+    setMentionQuery(null);
+    requestAnimationFrame(() => {
+      textarea?.focus();
+      const pos = atIndex + token.length;
+      textarea?.setSelectionRange(pos, pos);
+    });
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (mentionQuery !== null) {
       if (e.key === 'Escape') { e.preventDefault(); setMentionQuery(null); return; }
@@ -2240,6 +2477,31 @@ export default function ChatPage() {
     handleAttachmentSelect(file);
   };
 
+  // Authenticated file download — same "fetch the blob with a bearer token,
+  // then click a synthetic <a>" shape reportService.ts's download_report
+  // already uses, since a plain <a href> can't carry an Authorization header.
+  const downloadChannelExport = async (format: 'csv' | 'pdf') => {
+    if (!selectedChannelId || !selectedChannel) return;
+    setShowExportMenu(false);
+    try {
+      const token = localStorage.getItem('tekxai_access_token');
+      const res = await fetch(`${BASE_URL}${API_ENDPOINTS.CHAT.EXPORT(selectedChannelId, format)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const safeName = (selectedChannel.name || 'channel').replace(/[^a-z0-9-_]+/gi, '-').toLowerCase();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${safeName}-export.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      toast.error(e?.message || 'Export failed');
+    }
+  };
+
   const stopRecordingStream = () => {
     if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
     recordingStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -2250,7 +2512,12 @@ export default function ChatPage() {
   // in a File, and feed it into the existing attachment pipeline so it gets
   // uploaded/previewed/sent exactly like any other file (playback on the
   // receiving end already works — MessageBubble renders anything with an
-  // audio/* mime type as an <audio> player).
+  // audio/* mime type as an <audio> player). Alongside the recording, also
+  // run the browser's own live speech-to-text (Web Speech API) — no server
+  // cost, no API key, and it means the clip ships with real searchable
+  // content instead of being an opaque blob. Chrome/Edge only; anywhere
+  // else this silently no-ops and the message still sends as audio-only,
+  // exactly as before this feature existed.
   const startRecording = async () => {
     setRecordingError(null);
     try {
@@ -2261,6 +2528,8 @@ export default function ChatPage() {
       const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       recordedChunksRef.current = [];
       recordingCancelledRef.current = false;
+      finalTranscriptRef.current = '';
+      setLiveTranscript('');
       recorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunksRef.current.push(e.data); };
       recorder.onstop = () => {
         stopRecordingStream();
@@ -2269,6 +2538,8 @@ export default function ChatPage() {
         const ext = baseMime === 'audio/ogg' ? 'ogg' : baseMime === 'audio/mp4' ? 'm4a' : 'webm';
         const blob = new Blob(recordedChunksRef.current, { type: baseMime });
         const file = new File([blob], `voice-message-${Date.now()}.${ext}`, { type: baseMime });
+        const transcript = finalTranscriptRef.current.trim();
+        if (transcript) setDraft((prev) => (prev ? `${prev} ${transcript}` : transcript));
         handleAttachmentSelect(file);
       };
       mediaRecorderRef.current = recorder;
@@ -2276,36 +2547,72 @@ export default function ChatPage() {
       setIsRecording(true);
       setRecordingSeconds(0);
       recordingTimerRef.current = setInterval(() => setRecordingSeconds((s) => s + 1), 1000);
+
+      const SpeechRecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognitionCtor) {
+        const recognition = new SpeechRecognitionCtor();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+        recognition.onresult = (event: any) => {
+          let interim = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const text = event.results[i][0].transcript;
+            if (event.results[i].isFinal) finalTranscriptRef.current += `${text} `;
+            else interim += text;
+          }
+          setLiveTranscript((finalTranscriptRef.current + interim).trim());
+        };
+        // Non-fatal by design — e.g. a brief "no-speech" gap shouldn't kill
+        // the recording, only the transcript. The audio recorder is
+        // completely independent of this.
+        recognition.onerror = () => {};
+        speechRecognitionRef.current = recognition;
+        try { recognition.start(); } catch { /* unsupported/blocked — audio-only, silently */ }
+      }
     } catch (e: any) {
       setRecordingError(e?.name === 'NotAllowedError' ? 'Microphone access denied.' : 'Could not access microphone.');
       stopRecordingStream();
     }
   };
 
+  const stopSpeechRecognition = () => {
+    try { speechRecognitionRef.current?.stop(); } catch { /* noop */ }
+    speechRecognitionRef.current = null;
+  };
+
   const stopRecording = () => {
     recordingCancelledRef.current = false;
     mediaRecorderRef.current?.stop();
+    stopSpeechRecognition();
     setIsRecording(false);
   };
 
   const cancelRecording = () => {
     recordingCancelledRef.current = true;
     mediaRecorderRef.current?.stop();
+    stopSpeechRecognition();
     setIsRecording(false);
     recordedChunksRef.current = [];
+    finalTranscriptRef.current = '';
+    setLiveTranscript('');
   };
 
   // Guard against an in-flight recording/stream surviving a channel switch
   // or unmount (e.g. clicking away mid-recording).
-  useEffect(() => () => { stopRecordingStream(); mediaRecorderRef.current?.stop(); }, []);
+  useEffect(() => () => { stopRecordingStream(); mediaRecorderRef.current?.stop(); stopSpeechRecognition(); }, []);
 
   // ── Derived ───────────────────────────────────────────────────────────────
 
   const selectedChannel = channels.find((ch) => ch.id === selectedChannelId) || null;
   const isMember = selectedChannel
-    ? selectedChannel.members?.some((m) => m.user_id === currentUserId) || selectedChannel.type === 'PUBLIC'
+    ? selectedChannel.members?.some((m) => m.user_id === currentUserId) || selectedChannel.type === 'PUBLIC' || selectedChannel.type === 'ANNOUNCEMENT'
     : false;
   const myMembership = selectedChannel?.members?.find((m) => m.user_id === currentUserId);
+  // Mirrors the backend's assert_can_post_announcement — everyone can read
+  // an ANNOUNCEMENT channel, only OWNER/ADMIN members (or a global admin)
+  // can post in it.
+  const canPostHere = selectedChannel?.type !== 'ANNOUNCEMENT' || isGlobalAdmin || ['OWNER', 'ADMIN'].includes(myMembership?.role || '');
 
   const filteredChannels = channels.filter((ch) => {
     if (!channelSearch) return true;
@@ -2341,12 +2648,22 @@ export default function ChatPage() {
       <div className="w-64 border-r border-gray-100 flex flex-col shrink-0">
         <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between">
           <h2 className="font-black text-gray-900">Messages</h2>
-          <button
-            onClick={() => setShowNewChat(true)}
-            className="p-1.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors"
-          >
-            <Plus size={14} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setShowSaved(true)}
+              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+              title="Saved messages"
+            >
+              <Bookmark size={14} />
+            </button>
+            <button
+              onClick={() => setShowNewChat(true)}
+              className="p-1.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors"
+              title="New chat"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
         </div>
 
         <div className="px-3 py-2.5 border-b border-gray-50">
@@ -2374,7 +2691,7 @@ export default function ChatPage() {
               <p className="text-xs text-gray-300 mt-1">Start one with the + button</p>
             </div>
           )}
-          <ChannelSection channels={sortedChannels} currentUserId={currentUserId} selectedId={selectedChannelId} onSelect={setSelectedChannelId} />
+          <GroupedChannelList channels={sortedChannels} currentUserId={currentUserId} selectedId={selectedChannelId} onSelect={setSelectedChannelId} />
         </div>
       </div>
 
@@ -2429,6 +2746,19 @@ export default function ChatPage() {
                     )}
                   </div>
                   <p className="text-xs text-gray-400">{selectedChannel._count?.members || selectedChannel.members?.length || 0} members</p>
+                </div>
+              </>
+            ) : selectedChannel.type === 'ANNOUNCEMENT' ? (
+              <>
+                <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                  <Megaphone size={16} className="text-amber-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-black text-gray-900 text-sm truncate"># {selectedChannel.name}</p>
+                    {badge && <span className={cn('px-2 py-0.5 rounded-md text-[10px] font-bold shrink-0', badge.cls)}>{badge.label}</span>}
+                  </div>
+                  <p className="text-xs text-gray-400">{selectedChannel._count?.members || 0} members · only owners/admins can post</p>
                 </div>
               </>
             ) : (
@@ -2503,6 +2833,36 @@ export default function ChatPage() {
                   <Settings size={16} />
                 </button>
               )}
+              {isMember && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowExportMenu((v) => !v)}
+                    className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+                    title="Export chat history"
+                  >
+                    <Download size={16} />
+                  </button>
+                  {showExportMenu && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
+                      <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl border border-gray-200 shadow-xl z-50 overflow-hidden">
+                        <button
+                          onClick={() => downloadChannelExport('csv')}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                        >
+                          <FileText size={13} className="text-gray-400" /> Export as CSV
+                        </button>
+                        <button
+                          onClick={() => downloadChannelExport('pdf')}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                        >
+                          <FileText size={13} className="text-gray-400" /> Export as PDF
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -2559,6 +2919,7 @@ export default function ChatPage() {
                     currentUserId={currentUserId}
                     channelId={selectedChannelId!}
                     isGlobalAdmin={isGlobalAdmin}
+                    isSaved={savedMessageIds.has(msg.id)}
                     onDelete={() => deleteMutation.mutate(msg.id)}
                     onReply={() => setThreadMsgId(msg.id)}
                     onOpenThread={() => setThreadMsgId(msg.id)}
@@ -2589,7 +2950,15 @@ export default function ChatPage() {
           )}
 
           {/* Composer */}
-          {isMember && (
+          {isMember && !canPostHere && (
+            <div className="px-4 py-3 border-t border-gray-100">
+              <div className="flex items-center gap-2 h-[42px] px-3 bg-amber-50 border border-amber-100 rounded-xl text-sm text-amber-700 font-semibold">
+                <Megaphone size={14} />
+                Only this channel's owners/admins can post here
+              </div>
+            </div>
+          )}
+          {isMember && canPostHere && (
             <div className="px-4 py-3 border-t border-gray-100">
               {/* Attachment preview chip */}
               {attachmentFile && !isRecording && (
@@ -2613,16 +2982,20 @@ export default function ChatPage() {
               )}
 
               {isRecording ? (
-                <div className="flex gap-2 items-center h-[42px] px-3 border border-red-200 bg-red-50 rounded-xl">
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0" />
-                  <span className="text-sm font-bold text-red-600 tabular-nums">
+                <div className="flex gap-2 items-center min-h-[42px] px-3 py-2 border border-red-200 bg-red-50 rounded-xl">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0 self-start mt-1.5" />
+                  <span className="text-sm font-bold text-red-600 tabular-nums shrink-0 self-start">
                     {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, '0')}
                   </span>
-                  <span className="text-xs text-red-400 flex-1">Recording voice message…</span>
-                  <button onClick={cancelRecording} title="Cancel" className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-100 rounded-lg">
+                  {/* Live transcript (Web Speech API) if the browser
+                      supports it, otherwise the plain fallback label. */}
+                  <span className="text-xs text-red-400 flex-1 line-clamp-2">
+                    {liveTranscript || 'Recording voice message…'}
+                  </span>
+                  <button onClick={cancelRecording} title="Cancel" className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-100 rounded-lg shrink-0">
                     <Trash2 size={15} />
                   </button>
-                  <button onClick={stopRecording} title="Stop and attach" className="p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                  <button onClick={stopRecording} title="Stop and attach" className="p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 shrink-0">
                     <Square size={13} fill="currentColor" />
                   </button>
                 </div>
@@ -2690,21 +3063,44 @@ export default function ChatPage() {
                       )}
                     </div>
                     <div className="relative flex-1">
-                      {/* @-mention autocomplete dropdown */}
-                      {mentionQuery !== null && mentionResults.length > 0 && (
-                        <div className="absolute bottom-full mb-2 left-0 w-64 max-h-56 overflow-y-auto bg-white rounded-xl border border-gray-200 shadow-xl z-20">
-                          {mentionResults.map((u) => (
-                            <button
-                              key={u.id}
-                              onClick={() => insertMention(u)}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50"
-                            >
-                              <Avatar user={u} size="xs" />
-                              <span className="text-sm font-semibold text-gray-800 truncate">{u.first_name} {u.last_name}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      {/* @-mention autocomplete dropdown — @here/@channel
+                          (broadcast to everyone) are offered above the
+                          per-person matches whenever they fit what's typed
+                          so far. */}
+                      {mentionQuery !== null && (() => {
+                        const q = mentionQuery.toLowerCase();
+                        const broadcasts = (['here', 'channel'] as const).filter((w) => w.startsWith(q));
+                        if (broadcasts.length === 0 && mentionResults.length === 0) return null;
+                        return (
+                          <div className="absolute bottom-full mb-2 left-0 w-64 max-h-56 overflow-y-auto bg-white rounded-xl border border-gray-200 shadow-xl z-20">
+                            {broadcasts.map((word) => (
+                              <button
+                                key={word}
+                                onClick={() => insertBroadcastMention(word)}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-amber-50"
+                              >
+                                <span className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                                  <AtSign size={12} className="text-amber-700" />
+                                </span>
+                                <span className="min-w-0">
+                                  <span className="block text-sm font-bold text-gray-800">@{word}</span>
+                                  <span className="block text-[11px] text-gray-400">Notify everyone in this channel</span>
+                                </span>
+                              </button>
+                            ))}
+                            {mentionResults.map((u) => (
+                              <button
+                                key={u.id}
+                                onClick={() => insertMention(u)}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50"
+                              >
+                                <Avatar user={u} size="xs" />
+                                <span className="text-sm font-semibold text-gray-800 truncate">{u.first_name} {u.last_name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      })()}
                       {/* Slash-command hint — shown while still typing the
                           command word itself (before the first space), so
                           it gets out of the way once you're typing the
@@ -2881,6 +3277,13 @@ export default function ChatPage() {
         <PinnedMessagesPanel
           channelId={selectedChannelId}
           onClose={() => setShowPinned(false)}
+        />
+      )}
+
+      {showSaved && (
+        <SavedMessagesPanel
+          onClose={() => setShowSaved(false)}
+          onJumpToChannel={(channelId) => setSelectedChannelId(channelId)}
         />
       )}
     </div>
