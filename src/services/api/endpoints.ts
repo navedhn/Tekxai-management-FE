@@ -442,6 +442,9 @@ export const API_ENDPOINTS = {
     MONTHLY:   (userId: string) => `${v1}/hr-report/employee/${userId}/monthly`,
     AGGREGATE: `${v1}/hr-report/aggregate`,
     DASHBOARD_SUMMARY: `${v1}/hr-report/dashboard-summary`,
+    MISSING_DOCUMENTS: `${v1}/hr-report/missing-documents`,
+    MISSING_DOCUMENTS_SUMMARY: `${v1}/hr-report/missing-documents/summary`,
+    MISSING_DOCUMENTS_EXPORT: `${v1}/hr-report/missing-documents/export`,
   },
   ANNOUNCEMENTS: {
     LIST:   `${v1}/announcements`,

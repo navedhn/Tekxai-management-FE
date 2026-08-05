@@ -1,14 +1,20 @@
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { BarChart3, Users, AlertTriangle, Clock, Calendar, TrendingUp, PieChart } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { BarChart3, Users, AlertTriangle, Clock, Calendar, TrendingUp, PieChart, FileWarning, Download, ExternalLink } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useGetAnnualReport, useGetMonthlyReport, useGetAggregateReport } from '@/services/employeeService';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
 import { useGetGradesQuery } from '@/services/gradeService';
 import { useGetTeamsQuery } from '@/services/adminService';
+import { useGetDesignationsQuery } from '@/services/designationService';
+import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
+import { useGetMissingDocumentsReport, useGetMissingDocumentsSummary, downloadMissingDocumentsExport } from '@/services/hrService';
+import { EMPLOYMENT_STATUS_LABELS } from '@/constants/employmentStatus';
 import { cn } from '@/utils/cn';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import Button from '@/components/ui/Button';
 
 const v1 = 'api/v1';
 const BUILDER = `${v1}/report/builder`;
@@ -402,9 +408,181 @@ function WorkforceBreakdown() {
   );
 }
 
+// ── Missing Employee Documents report ────────────────────────────────────────
+// Bespoke report (custom columns + gap computation), not the generic
+// entity/group_by DIMENSIONS pattern above — own filter bar + KPI cards +
+// table, following the same SectionCard/StatBadge/SearchableSelect building
+// blocks the rest of this page already uses.
+function MissingDocumentsView() {
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [page, setPage] = useState(1);
+  const limit = 20;
+
+  const { data: departments } = useGetDepartmentsQuery();
+  const { data: designations } = useGetDesignationsQuery();
+  const { data: businessUnits } = useGetBusinessUnitsQuery();
+  const teamsRaw = useGetTeamsQuery().data as any;
+  const teams = teamsRaw?.payload?.records || teamsRaw?.payload || [];
+
+  const activeFilters = useMemo(() => ({ ...filters, page, limit }), [filters, page]);
+  const { data: summary, isLoading: summaryLoading } = useGetMissingDocumentsSummary(filters);
+  const { data: report, isLoading: reportLoading } = useGetMissingDocumentsReport(activeFilters);
+
+  const setFilter = (key: string, value: string) => {
+    setFilters((p) => ({ ...p, [key]: value }));
+    setPage(1);
+  };
+
+  const [exporting, setExporting] = useState<string | null>(null);
+  const handleExport = async (format: 'excel' | 'csv' | 'pdf') => {
+    setExporting(format);
+    try {
+      await downloadMissingDocumentsExport(format, filters);
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* KPI cards */}
+      {summaryLoading ? (
+        <div className="h-20 bg-gray-50 rounded-2xl animate-pulse" />
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <SectionCard title="Total Employees"><span className="text-2xl font-black text-gray-900">{summary?.total_employees ?? '—'}</span></SectionCard>
+          <SectionCard title="Complete Documents"><span className="text-2xl font-black text-green-600">{summary?.employees_complete ?? '—'}</span></SectionCard>
+          <SectionCard title="Missing Documents"><span className="text-2xl font-black text-red-600">{summary?.employees_with_missing ?? '—'}</span></SectionCard>
+          <SectionCard title="Total Missing Docs"><span className="text-2xl font-black text-orange-600">{summary?.total_missing_documents ?? '—'}</span></SectionCard>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <SearchableSelect
+          options={(businessUnits || []).map((b: any) => ({ label: b.name, value: b.id }))}
+          value={filters.business_unit_id || null}
+          onChange={(v) => setFilter('business_unit_id', (v as string) || '')}
+          placeholder="All Business Units"
+          containerClassName="min-w-[160px] w-auto" className="h-10"
+        />
+        <SearchableSelect
+          options={(departments || []).map((d: any) => ({ label: d.name, value: d.id }))}
+          value={filters.department_id || null}
+          onChange={(v) => setFilter('department_id', (v as string) || '')}
+          placeholder="All Departments"
+          containerClassName="min-w-[160px] w-auto" className="h-10"
+        />
+        <SearchableSelect
+          options={teams.map((t: any) => ({ label: t.name, value: t.id }))}
+          value={filters.team_id || null}
+          onChange={(v) => setFilter('team_id', (v as string) || '')}
+          placeholder="All Teams"
+          containerClassName="min-w-[140px] w-auto" className="h-10"
+        />
+        <SearchableSelect
+          options={(designations || []).map((d: any) => ({ label: d.name, value: d.id }))}
+          value={filters.designation_id || null}
+          onChange={(v) => setFilter('designation_id', (v as string) || '')}
+          placeholder="All Designations"
+          containerClassName="min-w-[160px] w-auto" className="h-10"
+        />
+        <SearchableSelect
+          options={Object.entries(EMPLOYMENT_STATUS_LABELS).map(([value, label]) => ({ label, value }))}
+          value={filters.employment_status || null}
+          onChange={(v) => setFilter('employment_status', (v as string) || '')}
+          placeholder="All Employment Status"
+          containerClassName="min-w-[160px] w-auto" className="h-10"
+        />
+        <SearchableSelect
+          options={report?.required_document_types || []}
+          value={filters.missing_document_type || null}
+          onChange={(v) => setFilter('missing_document_type', (v as string) || '')}
+          placeholder="Any Missing Doc Type"
+          containerClassName="min-w-[170px] w-auto" className="h-10"
+        />
+        <div className="flex gap-2 ml-auto">
+          <Button variant="outline" size="sm" animation="none" rounded={false} className="rounded-xl" loading={exporting === 'excel'} onClick={() => handleExport('excel')}>
+            <Download size={13} className="mr-1.5" />Excel
+          </Button>
+          <Button variant="outline" size="sm" animation="none" rounded={false} className="rounded-xl" loading={exporting === 'csv'} onClick={() => handleExport('csv')}>
+            <Download size={13} className="mr-1.5" />CSV
+          </Button>
+          <Button variant="outline" size="sm" animation="none" rounded={false} className="rounded-xl" loading={exporting === 'pdf'} onClick={() => handleExport('pdf')}>
+            <Download size={13} className="mr-1.5" />PDF
+          </Button>
+        </div>
+      </div>
+
+      {/* Table */}
+      <SectionCard title="Employees with Missing Documents">
+        {reportLoading ? (
+          <div className="h-40 bg-gray-50 rounded-xl animate-pulse" />
+        ) : !report?.records?.length ? (
+          <p className="text-sm text-gray-400 py-8 text-center">No employees match these filters.</p>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    {['Employee ID', 'Name', 'Business Unit', 'Department', 'Team', 'Designation', 'Status', 'Missing Documents', 'Total Missing', ''].map((h) => (
+                      <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase py-2 px-2 whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {report.records.map((r: any) => (
+                    <tr key={r.id} className="hover:bg-gray-50">
+                      <td className="py-2.5 px-2 text-gray-500 font-mono text-xs whitespace-nowrap">{r.employee_id || '—'}</td>
+                      <td className="py-2.5 px-2 font-semibold text-gray-800 whitespace-nowrap">{r.employee_name}</td>
+                      <td className="py-2.5 px-2 text-gray-500 whitespace-nowrap">{r.business_unit || '—'}</td>
+                      <td className="py-2.5 px-2 text-gray-500 whitespace-nowrap">{r.department || '—'}</td>
+                      <td className="py-2.5 px-2 text-gray-500 whitespace-nowrap">{r.team || '—'}</td>
+                      <td className="py-2.5 px-2 text-gray-500 whitespace-nowrap">{r.designation || '—'}</td>
+                      <td className="py-2.5 px-2 whitespace-nowrap">
+                        <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600">{EMPLOYMENT_STATUS_LABELS[r.employment_status] || r.employment_status || '—'}</span>
+                      </td>
+                      <td className="py-2.5 px-2 max-w-[260px]">
+                        <div className="flex flex-wrap gap-1">
+                          {r.missing_documents.length === 0 ? (
+                            <span className="text-xs text-green-600 font-semibold">Complete</span>
+                          ) : r.missing_documents.map((d: string) => (
+                            <span key={d} className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-50 text-red-600">{d}</span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-2 text-center">
+                        <span className={cn('text-xs font-black px-2 py-1 rounded-full', r.total_missing > 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700')}>{r.total_missing}</span>
+                      </td>
+                      <td className="py-2.5 px-2">
+                        <Link to={`/admin/employee/${r.id}`} className="text-xs text-[#005CDA] font-semibold inline-flex items-center gap-1 whitespace-nowrap">
+                          Profile<ExternalLink size={11} />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center justify-between mt-4 text-xs text-gray-500">
+              <span>{report.total} employee{report.total === 1 ? '' : 's'} total</span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" animation="none" rounded={false} className="rounded-xl" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Prev</Button>
+                <span className="px-2 py-1.5">Page {page} of {Math.max(1, Math.ceil((report.total || 0) / limit))}</span>
+                <Button variant="outline" size="sm" animation="none" rounded={false} className="rounded-xl" disabled={page * limit >= (report.total || 0)} onClick={() => setPage((p) => p + 1)}>Next</Button>
+              </div>
+            </div>
+          </>
+        )}
+      </SectionCard>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function HRReports() {
-  const [view, setView] = useState<'employee' | 'aggregate' | 'workforce'>('aggregate');
+  const [view, setView] = useState<'employee' | 'aggregate' | 'workforce' | 'missing-documents'>('aggregate');
 
   return (
     <div className="flex flex-col gap-6">
@@ -429,10 +607,18 @@ export default function HRReports() {
               view === 'workforce' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:bg-gray-50')}>
             <PieChart size={15} />Workforce Breakdown
           </button>
+          <button onClick={() => setView('missing-documents')}
+            className={cn('px-4 h-10 flex items-center gap-2 text-sm font-semibold transition-colors',
+              view === 'missing-documents' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:bg-gray-50')}>
+            <FileWarning size={15} />Missing Documents
+          </button>
         </div>
       </div>
 
-      {view === 'aggregate' ? <AggregateView /> : view === 'employee' ? <EmployeeView /> : <WorkforceBreakdown />}
+      {view === 'aggregate' ? <AggregateView />
+        : view === 'employee' ? <EmployeeView />
+        : view === 'workforce' ? <WorkforceBreakdown />
+        : <MissingDocumentsView />}
     </div>
   );
 }

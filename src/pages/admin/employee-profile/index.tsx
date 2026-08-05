@@ -646,6 +646,30 @@ const EmploymentSection: React.FC<{
   </div>
 );
 
+// Default "required" document types the report/gap-check treats as the core
+// set every employee should have on file — must match be-work's
+// REQUIRED_DOC_TYPES (employee-documents/constants/doc-types.js) so the
+// profile's "Missing" placeholders never disagree with the Missing
+// Documents report's own gap computation.
+const REQUIRED_DOC_TYPES = ['CNIC', 'RESUME', 'OFFER_LETTER', 'CONTRACT', 'NDA'];
+
+const DOC_STATUS_BADGE: Record<string, string> = {
+  UPLOADED: 'bg-green-50 text-green-700',
+  EXPIRING_SOON: 'bg-amber-50 text-amber-700',
+  EXPIRED: 'bg-red-50 text-red-700',
+};
+const DOC_STATUS_LABEL: Record<string, string> = {
+  UPLOADED: '✓ Uploaded',
+  EXPIRING_SOON: 'Expiring Soon',
+  EXPIRED: 'Expired',
+};
+
+const VERIFICATION_BADGE: Record<string, string> = {
+  PENDING: 'bg-gray-100 text-gray-500',
+  VERIFIED: 'bg-blue-50 text-blue-700',
+  REJECTED: 'bg-red-50 text-red-700',
+};
+
 const DocumentsSection: React.FC<{
   docs: any[]; docTypes: any; showAddDoc: boolean; setShowAddDoc: (v: boolean) => void;
   newDoc: any; setNewDoc: any; createDoc: any; updateDoc: any; deleteDoc: any; handleAddDoc: () => void;
@@ -653,6 +677,28 @@ const DocumentsSection: React.FC<{
   const [uploading, setUploading] = useState(false);
   const [replacingId, setReplacingId] = useState<string | null>(null);
   const toast = useToastContext();
+  const { role } = useAuth();
+  const canVerify = role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR';
+
+  const handleVerify = (doc: any, status: 'VERIFIED' | 'REJECTED') => {
+    updateDoc.mutate({ docId: doc.id, data: { verification_status: status } }, {
+      onSuccess: () => toast.success(status === 'VERIFIED' ? 'Document verified' : 'Document rejected'),
+      onError: (e: any) => toast.error(e?.message || 'Failed to update verification'),
+    });
+  };
+
+  const handleSetExpiry = (doc: any, expiry_date: string) => {
+    updateDoc.mutate({ docId: doc.id, data: { title: doc.title, document_type: doc.document_type, notes: doc.notes, expiry_date: expiry_date || null } }, {
+      onSuccess: () => toast.success('Expiry date updated'),
+      onError: (e: any) => toast.error(e?.message || 'Failed to update expiry date'),
+    });
+  };
+
+  // Canonical doc types the employee has NOT uploaded at all — shown as
+  // explicit "Missing" placeholders so HR sees the gap directly on the
+  // profile, not just in the Missing Documents report.
+  const uploadedTypes = new Set(docs.map((d) => d.document_type));
+  const missingTypes = REQUIRED_DOC_TYPES.filter((t) => !uploadedTypes.has(t));
 
   const handleNewDocFile = async (file: File) => {
     setUploading(true);
@@ -709,6 +755,7 @@ const DocumentsSection: React.FC<{
                 </a>
               )}
             </div>
+            <Input type="date" label="Expiry Date (optional)" value={newDoc.expiry_date} onChange={e => setNewDoc((p: any) => ({ ...p, expiry_date: e.target.value }))} className="h-10 rounded-xl" />
             <Input label="Notes (optional)" value={newDoc.notes} onChange={e => setNewDoc((p: any) => ({ ...p, notes: e.target.value }))} className="h-10 rounded-xl col-span-2" />
           </div>
           <div className="flex gap-2 mt-3">
@@ -718,17 +765,22 @@ const DocumentsSection: React.FC<{
         </Card>
       )}
 
-      {docs.length > 0 ? (
+      {docs.length > 0 || missingTypes.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {docs.map((doc: any) => (
             <Card key={doc.id} className="flex flex-col gap-3">
-              <div className="flex items-start justify-between">
+              <div className="flex items-start justify-between gap-2">
                 <div className={cn('px-2 py-0.5 rounded-full text-[10px] font-black uppercase', DOC_TYPE_COLORS[doc.document_type] || DOC_TYPE_COLORS.OTHER)}>
                   {doc.document_type.replace(/_/g, ' ')}
                 </div>
-                <button onClick={() => deleteDoc.mutate(doc.id)} className="p-1 text-gray-300 hover:text-red-500 transition-colors">
-                  <Trash2 size={14} />
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <span className={cn('px-1.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap', DOC_STATUS_BADGE[doc.status] || DOC_STATUS_BADGE.UPLOADED)}>
+                    {DOC_STATUS_LABEL[doc.status] || '✓ Uploaded'}
+                  </span>
+                  <button onClick={() => deleteDoc.mutate(doc.id)} className="p-1 text-gray-300 hover:text-red-500 transition-colors">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
               <div>
                 <p className="text-sm font-black text-gray-900">{doc.title}</p>
@@ -744,6 +796,26 @@ const DocumentsSection: React.FC<{
                   </a>
                 </div>
               )}
+              <div>
+                <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Expiry Date</p>
+                <input
+                  type="date"
+                  defaultValue={doc.expiry_date ? String(doc.expiry_date).slice(0, 10) : ''}
+                  onBlur={(e) => e.target.value !== (doc.expiry_date ? String(doc.expiry_date).slice(0, 10) : '') && handleSetExpiry(doc, e.target.value)}
+                  className="w-full h-8 px-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:border-primary-400"
+                />
+              </div>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className={cn('px-1.5 py-0.5 rounded-full font-bold', VERIFICATION_BADGE[doc.verification_status] || VERIFICATION_BADGE.PENDING)}>
+                  {doc.verification_status || 'PENDING'}
+                </span>
+                {canVerify && doc.verification_status !== 'VERIFIED' && (
+                  <div className="flex gap-1.5">
+                    <button onClick={() => handleVerify(doc, 'VERIFIED')} className="text-green-600 font-bold hover:underline">Verify</button>
+                    <button onClick={() => handleVerify(doc, 'REJECTED')} className="text-red-500 font-bold hover:underline">Reject</button>
+                  </div>
+                )}
+              </div>
               <label className={cn(
                 'flex items-center justify-center gap-1.5 w-full h-8 border border-dashed rounded-lg text-[11px] font-bold cursor-pointer transition-colors',
                 replacingId === doc.id ? 'border-blue-300 bg-blue-50 text-blue-500' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50 text-gray-400 hover:text-blue-500',
@@ -752,7 +824,20 @@ const DocumentsSection: React.FC<{
                 {replacingId === doc.id ? 'Uploading…' : 'Replace file'}
                 <input type="file" className="hidden" disabled={replacingId === doc.id} onChange={e => e.target.files?.[0] && handleReplaceFile(doc, e.target.files[0])} />
               </label>
-              <p className="text-[10px] text-gray-300 mt-auto">{new Date(doc.created_at).toLocaleDateString()}</p>
+              <div className="flex items-center justify-between text-[10px] text-gray-300 mt-auto">
+                <span>{new Date(doc.created_at).toLocaleDateString()}</span>
+                <span>{doc.uploader ? `by ${doc.uploader.first_name || ''} ${doc.uploader.last_name || ''}`.trim() : ''}</span>
+              </div>
+            </Card>
+          ))}
+          {missingTypes.map((type) => (
+            <Card key={type} className="flex flex-col gap-3 border-dashed border-red-200 bg-red-50/30 justify-center items-center py-8">
+              <FileText size={24} className="text-red-200" />
+              <p className="text-sm font-black text-gray-700">{type.replace(/_/g, ' ')}</p>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-red-100 text-red-600">Missing</span>
+              <Button variant="outline" size="sm" animation="none" rounded={false} className="rounded-xl" onClick={() => { setNewDoc((p: any) => ({ ...p, document_type: type })); setShowAddDoc(true); }}>
+                Upload
+              </Button>
             </Card>
           ))}
         </div>
@@ -1054,7 +1139,7 @@ const EmployeeProfilePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('Overview');
   const [hrForm, setHrForm] = useState<any>({});
   const [hrEditing, setHrEditing] = useState(false);
-  const [newDoc, setNewDoc] = useState({ title: '', document_type: 'OTHER', file_url: '', file_key: '', notes: '' });
+  const [newDoc, setNewDoc] = useState({ title: '', document_type: 'OTHER', file_url: '', file_key: '', notes: '', expiry_date: '' });
   const [showAddDoc, setShowAddDoc] = useState(false);
   const [orgEditing, setOrgEditing] = useState(false);
   const [orgForm, setOrgForm] = useState<{ designation_id: string; grade_id: string; supervisor_id: string }>({ designation_id: '', grade_id: '', supervisor_id: '' });
@@ -1123,7 +1208,7 @@ const EmployeeProfilePage: React.FC = () => {
     if (!newDoc.title) { toast.error('Title is required'); return; }
     if (!newDoc.file_url) { toast.error('Please upload a file'); return; }
     createDoc.mutate(newDoc, {
-      onSuccess: () => { toast.success('Document added'); setShowAddDoc(false); setNewDoc({ title: '', document_type: 'OTHER', file_url: '', file_key: '', notes: '' }); },
+      onSuccess: () => { toast.success('Document added'); setShowAddDoc(false); setNewDoc({ title: '', document_type: 'OTHER', file_url: '', file_key: '', notes: '', expiry_date: '' }); },
       onError: (e: any) => toast.error(e?.message || 'Failed'),
     });
   };
