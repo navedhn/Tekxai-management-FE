@@ -4,7 +4,7 @@ import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Button } from '@/components/ui/Button';
-import { useCreateUserMutation } from '@/services/userService';
+import { useCreateUserMutation, useUpdateUserMutation, useChangeUserRoleMutation } from '@/services/userService';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetRolesQuery } from '@/services/roleService';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
@@ -12,12 +12,42 @@ import { useToastContext } from '@/components/toast/ToastProvider';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 
+// Minimal shape this modal needs from an Employee Directory row to prefill
+// Quick Edit — deliberately just the fields the Quick Create form itself
+// captures, nothing from the full HR profile.
+export interface QuickEditUser {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string;
+  employee_id?: string | null;
+  designation_id?: string | null;
+  department?: { id: string } | null;
+  role_id?: string | null;
+  hire_date?: string | null;
+}
+
 interface QuickCreateUserModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Present -> the modal edits this user (Quick Edit) instead of creating a new one. */
+  editUser?: QuickEditUser | null;
 }
 
 const EMPTY_FORM = { first_name: '', last_name: '', email: '', password: '', designation_id: '', department_id: '', role_id: '', hire_date: '' };
+
+function toFormState(u: QuickEditUser) {
+  return {
+    first_name: u.first_name || '',
+    last_name: u.last_name || '',
+    email: u.email || '',
+    password: '',
+    designation_id: u.designation_id || '',
+    department_id: u.department?.id || '',
+    role_id: u.role_id || '',
+    hire_date: u.hire_date ? String(u.hire_date).slice(0, 10) : '',
+  };
+}
 
 // Lightweight login-account creation — HR/Admin fills in only what's needed
 // to grant access; everything else (education, emergency contacts, salary,
@@ -26,27 +56,40 @@ const EMPTY_FORM = { first_name: '', last_name: '', email: '', password: '', des
 // employee_id server-side on every user creation (see users.service.js
 // create_new_user) — this form is a thin wrapper around the existing
 // POST /user endpoint, nothing new on the backend.
-const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onClose }) => {
+//
+// Quick Edit (editUser set) reuses the exact same field set against the
+// existing PUT /user/:id (base fields + designation/department) and
+// PUT /user/:id/role (role) endpoints — no new backend surface for editing
+// either. This is deliberately NOT the full Add Employee wizard: employees
+// created via Quick Create are edited here, in the same lightweight shape
+// they were created in; the full wizard (Detailed Edit) is for employees
+// created there.
+const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onClose, editUser = null }) => {
   const toast = useToastContext();
   const createUser = useCreateUserMutation();
+  const updateUser = useUpdateUserMutation();
+  const changeRole = useChangeUserRoleMutation();
   const { data: designations = [] } = useGetDesignationsQuery();
   const { data: roles = [] } = useGetRolesQuery();
   const { data: departments = [] } = useGetDepartmentsQuery();
+
+  const isEditMode = !!editUser;
 
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
   // Set after a successful create — switches the modal to a confirmation
   // view showing the server-assigned Employee ID, with a "Create Another"
-  // option that resets the form without closing the modal.
+  // option that resets the form without closing the modal. Not used in
+  // edit mode — editing just closes on success.
   const [created, setCreated] = useState<{ employeeId: string | null; name: string } | null>(null);
   const [fetchingEmployeeId, setFetchingEmployeeId] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
-    setFormData(EMPTY_FORM);
+    setFormData(editUser ? toFormState(editUser) : EMPTY_FORM);
     setErrors({});
     setCreated(null);
-  }, [isOpen]);
+  }, [isOpen, editUser]);
 
   const designationOptions = designations.map((d) => ({ value: d.id, label: d.name }));
   const roleOptions = roles.map((r) => ({ value: r.id, label: r.name.replace(/_/g, ' ') }));
@@ -66,12 +109,41 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
     if (!formData.first_name.trim()) newErrors.first_name = 'First name is required';
     if (!formData.last_name.trim()) newErrors.last_name = 'Last name is required';
     if (!formData.email.trim()) newErrors.email = 'Email is required';
-    if (!formData.password) newErrors.password = 'Password is required';
-    else if (formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters';
+    if (!isEditMode && !formData.password) newErrors.password = 'Password is required';
+    else if (formData.password && formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters';
     if (!formData.designation_id) newErrors.designation_id = 'Designation is required';
     if (!formData.role_id) newErrors.role_id = 'Role is required';
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
+
+    if (isEditMode && editUser) {
+      const data: Record<string, any> = {
+        first_name: formData.first_name.trim(),
+        last_name: formData.last_name.trim(),
+        email: formData.email.trim(),
+        designation_id: formData.designation_id,
+        department_id: formData.department_id || null,
+        hire_date: formData.hire_date || undefined,
+      };
+      if (formData.password) data.password = formData.password;
+
+      updateUser.mutate({ id: editUser.id, data }, {
+        onSuccess: () => {
+          const roleChanged = formData.role_id && formData.role_id !== editUser.role_id;
+          if (roleChanged) {
+            changeRole.mutate({ id: editUser.id, role_id: formData.role_id }, {
+              onSuccess: () => { toast.success('Employee updated successfully'); onClose(); },
+              onError: (err: any) => toast.error(err?.message || 'Profile updated, but role change failed'),
+            });
+          } else {
+            toast.success('Employee updated successfully');
+            onClose();
+          }
+        },
+        onError: (err: any) => toast.error(err?.message || 'Failed to update employee'),
+      });
+      return;
+    }
 
     const payload: Record<string, any> = {
       first_name: formData.first_name.trim(),
@@ -118,9 +190,12 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
     setCreated(null);
   };
 
+  const modalTitle = isEditMode ? 'Quick Edit' : 'Quick Create User';
+  const isSaving = isEditMode ? (updateUser.isPending || changeRole.isPending) : (createUser.isPending || fetchingEmployeeId);
+
   if (created) {
     return (
-      <Modal isOpen={isOpen} onClose={onClose} title="Quick Create User" size="lg">
+      <Modal isOpen={isOpen} onClose={onClose} title={modalTitle} size="lg">
         <div className="flex flex-col items-center text-center gap-4 p-6">
           <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
             <CheckCircle2 size={28} className="text-green-600" />
@@ -148,11 +223,11 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Quick Create User" size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={modalTitle} size="lg">
       <div className="flex flex-col gap-5 p-2">
         <Input
           label="Employee ID"
-          value="Auto-generated on save"
+          value={isEditMode ? (editUser?.employee_id || 'Not yet assigned') : 'Auto-generated on save'}
           disabled
           readOnly
           className="h-12 rounded-xl bg-gray-50 text-gray-400"
@@ -191,7 +266,7 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
         />
 
         <Input
-          label="Password *"
+          label={isEditMode ? 'Password (leave blank to keep unchanged)' : 'Password *'}
           name="password"
           type="password"
           value={formData.password}
@@ -251,7 +326,7 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
           <Button
             variant="primary"
             fullWidth
-            loading={createUser.isPending || fetchingEmployeeId}
+            loading={isSaving}
             className="h-12 rounded-xl font-bold shadow-lg shadow-primary-100"
             onClick={handleSubmit}
           >
