@@ -670,7 +670,11 @@ export default function EmployeeDirectory() {
                             // (same fields as Quick Create); everyone else keeps the
                             // full Detailed Edit wizard.
                             if (emp.created_via === 'QUICK') setQuickEditTarget(emp);
-                            else navigate(`/admin/add-employee/${emp.id}`);
+                            // Prefer the human-readable employee_id in the URL — never
+                            // expose the internal DB id. Falls back to the DB-id route
+                            // (auto-redirects to the clean URL) for the rare employee
+                            // that hasn't been assigned an employee_id yet.
+                            else navigate(emp.employee_id ? `/admin/add-employee?mode=edit&employee=${emp.employee_id}` : `/admin/add-employee/${emp.id}`);
                           }}
                           className="!h-auto !w-auto p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
                         />
