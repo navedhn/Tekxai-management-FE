@@ -4,6 +4,7 @@ import {
   MessageSquare, Plus, Search, Send, X, Users, User, Loader2,
   Hash, Lock, Settings, Paperclip, CornerDownRight, ChevronDown,
   Mic, Square, Trash2, Camera, RotateCcw, Check, Video, VideoOff,
+  Pin, Smile, Bold, Italic, Code, AtSign, Link2,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
@@ -13,6 +14,9 @@ import ActionModal from '@/components/ui/ActionModal';
 import { uploadFile, type UploadFileResult } from '@/lib/upload';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useDebounce } from '@/hooks/useDebounce';
+import { renderMessageContent, extractMentionedUserIds, toPlainText } from './messageContent';
+import EmojiPicker from './EmojiPicker';
+import { QUICK_REACTION_EMOJIS } from './emojiData';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -35,6 +39,13 @@ interface ChannelMember {
   user: ChatUser;
 }
 
+interface LinkPreview {
+  url: string;
+  title: string | null;
+  description: string | null;
+  image: string | null;
+}
+
 interface ChatMessage {
   id: string;
   channel_id: string;
@@ -53,6 +64,11 @@ interface ChatMessage {
   user: ChatUser;
   reactions?: Array<{ emoji: string; user?: { id: string; first_name: string } }>;
   _count?: { replies: number };
+  mentions?: string[];
+  is_pinned?: boolean;
+  pinned_at?: string | null;
+  pinned_by?: { id: string; first_name: string; last_name: string } | null;
+  link_preview?: LinkPreview | null;
 }
 
 interface Channel {
@@ -64,6 +80,7 @@ interface Channel {
   entity_type?: string | null;
   entity_id?: string | null;
   unread_count?: number;
+  mention_count?: number;
   created_by?: string;
   created_at: string;
   updated_at: string;
@@ -349,6 +366,78 @@ function MembersModal({
               )}
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Pinned Messages Panel ───────────────────────────────────────────────────
+
+function PinnedMessagesPanel({
+  channelId,
+  onClose,
+}: {
+  channelId: string;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const { data: pinned = [], isLoading } = useQuery<ChatMessage[]>({
+    queryKey: ['chat-pinned', channelId],
+    queryFn: async () => {
+      const r = await apiRequest<any>(API_ENDPOINTS.CHAT.PINNED(channelId));
+      return r?.payload?.records || r?.payload || [];
+    },
+  });
+
+  const unpinMutation = useMutation({
+    mutationFn: (msgId: string) => apiRequest<any>(API_ENDPOINTS.CHAT.PIN(channelId, msgId), { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['chat-pinned', channelId] });
+      qc.invalidateQueries({ queryKey: ['chat-messages', channelId] });
+    },
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h3 className="font-black text-gray-900 flex items-center gap-2"><Pin size={16} className="text-amber-500" /> Pinned messages ({pinned.length})</h3>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-10"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
+          ) : pinned.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-gray-300">
+              <Pin size={28} className="mb-2" />
+              <p className="text-sm font-semibold text-gray-400">No pinned messages</p>
+              <p className="text-xs text-gray-300">Pin key messages from the hover menu</p>
+            </div>
+          ) : (
+            pinned.map((msg) => (
+              <div key={msg.id} className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                <div className="flex items-center gap-2 mb-1">
+                  <Avatar user={msg.user} size="xs" />
+                  <span className="text-xs font-bold text-gray-800">{msg.user?.first_name} {msg.user?.last_name}</span>
+                  <span className="text-[10px] text-gray-400">{fmtTime(msg.created_at)}</span>
+                  <button
+                    onClick={() => unpinMutation.mutate(msg.id)}
+                    className="ml-auto p-1 text-gray-400 hover:text-red-500 rounded"
+                    title="Unpin"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+                <p className="text-sm text-gray-700 line-clamp-3">{renderMessageContent(msg.content) || <span className="italic text-gray-400">Attachment</span>}</p>
+                {msg.pinned_by && (
+                  <p className="text-[10px] text-amber-600 mt-1">Pinned by {msg.pinned_by.first_name}</p>
+                )}
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
@@ -920,6 +1009,8 @@ function ChannelSection({
         // that couldn't tell "1 unread" from "40 unread".
         const unreadCount = ch.unread_count || 0;
         const hasUnread = unreadCount > 0;
+        const mentionCount = ch.mention_count || 0;
+        const hasMention = mentionCount > 0;
         return (
           <button
             key={ch.id}
@@ -957,9 +1048,17 @@ function ChannelSection({
               <div className="flex items-center gap-1">
                 <p className={cn('text-xs truncate flex-1', hasUnread ? 'text-gray-700 font-semibold' : 'text-gray-400')}>
                   {lastMsg
-                    ? `${lastMsg.user_id === currentUserId ? 'You' : (lastMsg.user?.first_name || '')}: ${lastMsg.content || (lastMsg as any).file_name || 'Attachment'}`
+                    ? `${lastMsg.user_id === currentUserId ? 'You' : (lastMsg.user?.first_name || '')}: ${toPlainText(lastMsg.content) || (lastMsg as any).file_name || 'Attachment'}`
                     : 'No messages yet'}
                 </p>
+                {/* Mentions get their own distinct badge — "someone tagged me"
+                    reads very differently from "channel got busy", and the
+                    plain unread count couldn't tell them apart before. */}
+                {hasMention && (
+                  <span title={`${mentionCount} mention${mentionCount === 1 ? '' : 's'}`} className="min-w-[18px] h-[18px] px-1 bg-amber-500 text-white text-[10px] font-black rounded-full shrink-0 flex items-center justify-center gap-0.5">
+                    <AtSign size={9} strokeWidth={3} />{mentionCount > 99 ? '99+' : mentionCount}
+                  </span>
+                )}
                 {hasUnread && (
                   <span className="min-w-[18px] h-[18px] px-1 bg-primary-500 text-white text-[10px] font-black rounded-full shrink-0 flex items-center justify-center">
                     {unreadCount > 99 ? '99+' : unreadCount}
@@ -1000,6 +1099,7 @@ function MessageBubble({
 }) {
   const qc = useQueryClient();
   const [hovered, setHovered] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const reactionMutation = useMutation({
     mutationFn: (emoji: string) =>
@@ -1019,7 +1119,22 @@ function MessageBubble({
     onSuccess: () => qc.invalidateQueries({ queryKey: ['chat-messages', channelId] }),
   });
 
-  const QUICK_EMOJIS = ['👍', '❤️', '😂', '🔥', '👏'];
+  // Any member can pin/unpin — same trust level the backend grants (no
+  // owner/admin-only gate), matching how reactions already work.
+  const pinMutation = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.CHAT.PIN(channelId, msg.id), { method: 'POST' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['chat-messages', channelId] });
+      qc.invalidateQueries({ queryKey: ['chat-pinned', channelId] });
+    },
+  });
+  const unpinMutation = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.CHAT.PIN(channelId, msg.id), { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['chat-messages', channelId] });
+      qc.invalidateQueries({ queryKey: ['chat-pinned', channelId] });
+    },
+  });
 
   const reactionMap = (msg.reactions || []).reduce((acc: Record<string, { count: number; mine: boolean; names: string[] }>, r) => {
     if (!acc[r.emoji]) acc[r.emoji] = { count: 0, mine: false, names: [] };
@@ -1046,6 +1161,12 @@ function MessageBubble({
             {msg.user?.first_name} {msg.user?.last_name}
           </p>
         )}
+        {msg.is_pinned && (
+          <p className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 mb-0.5 px-1">
+            <Pin size={10} fill="currentColor" />
+            Pinned{msg.pinned_by ? ` by ${msg.pinned_by.first_name}` : ''}
+          </p>
+        )}
         <div className="relative">
           {/* Hover actions */}
           {hovered && (
@@ -1053,7 +1174,7 @@ function MessageBubble({
               'absolute -top-8 flex items-center gap-1 bg-white border border-gray-200 rounded-xl shadow-sm px-1.5 py-1 z-10',
               isOwn ? 'right-0' : 'left-0',
             )}>
-              {QUICK_EMOJIS.map((e) => (
+              {QUICK_REACTION_EMOJIS.slice(0, 5).map((e) => (
                 <button
                   key={e}
                   onClick={() => reactionMutation.mutate(e)}
@@ -1061,6 +1182,22 @@ function MessageBubble({
                   title={e}
                 >{e}</button>
               ))}
+              <div className="relative">
+                <button
+                  onClick={() => setShowEmojiPicker((v) => !v)}
+                  className="p-0.5 text-gray-400 hover:text-amber-500 rounded"
+                  title="More reactions"
+                >
+                  <Smile size={13} />
+                </button>
+                {showEmojiPicker && (
+                  <EmojiPicker
+                    align={isOwn ? 'right' : 'left'}
+                    onSelect={(emoji) => { reactionMutation.mutate(emoji); setShowEmojiPicker(false); }}
+                    onClose={() => setShowEmojiPicker(false)}
+                  />
+                )}
+              </div>
               <span className="w-px h-4 bg-gray-200 mx-0.5" />
               <button
                 onClick={onReply}
@@ -1068,6 +1205,13 @@ function MessageBubble({
                 title="Reply in thread"
               >
                 <CornerDownRight size={13} />
+              </button>
+              <button
+                onClick={() => (msg.is_pinned ? unpinMutation.mutate() : pinMutation.mutate())}
+                className={cn('p-0.5 rounded', msg.is_pinned ? 'text-amber-600 hover:text-amber-700' : 'text-gray-400 hover:text-amber-600')}
+                title={msg.is_pinned ? 'Unpin message' : 'Pin message'}
+              >
+                <Pin size={13} fill={msg.is_pinned ? 'currentColor' : 'none'} />
               </button>
               {isOwn && (
                 <button onClick={() => onEdit(msg)} className="p-0.5 text-gray-400 hover:text-blue-500 rounded text-xs font-bold" title="Edit">✏️</button>
@@ -1118,12 +1262,40 @@ function MessageBubble({
                 )}
               </div>
             )}
-            {msg.content && <span>{msg.content}</span>}
+            {msg.content && <span>{renderMessageContent(msg.content)}</span>}
             {msg.is_edited && (
               <span className={cn('text-[10px] ml-1 opacity-60', isOwn ? 'text-primary-100' : 'text-gray-400')}>(edited)</span>
             )}
           </div>
         </div>
+
+        {/* Link preview — mutually exclusive with a real attachment
+            server-side (send_message never bothers unfurling alongside a
+            file), same "one or the other" rule reflected here. */}
+        {msg.link_preview && !msg.file_url && (
+          <a
+            href={msg.link_preview.url}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="mt-1 flex gap-2 max-w-[280px] bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-gray-300 transition-colors"
+          >
+            {msg.link_preview.image && (
+              <img src={msg.link_preview.image} alt="" className="w-16 h-16 object-cover shrink-0" />
+            )}
+            <div className="py-1.5 pr-2 min-w-0">
+              <p className="flex items-center gap-1 text-[10px] text-gray-400 truncate">
+                <Link2 size={9} />
+                {(() => { try { return new URL(msg.link_preview.url).hostname; } catch { return msg.link_preview.url; } })()}
+              </p>
+              {msg.link_preview.title && (
+                <p className="text-xs font-bold text-gray-800 line-clamp-1">{msg.link_preview.title}</p>
+              )}
+              {msg.link_preview.description && (
+                <p className="text-[11px] text-gray-500 line-clamp-2">{msg.link_preview.description}</p>
+              )}
+            </div>
+          </a>
+        )}
 
         {/* Reactions */}
         {Object.keys(reactionMap).length > 0 && (
@@ -1486,6 +1658,10 @@ export default function ChatPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [recordingError, setRecordingError] = useState<string | null>(null);
+  // @-mention autocomplete — null means "not currently typing a mention".
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [showComposerEmoji, setShowComposerEmoji] = useState(false);
+  const [showPinned, setShowPinned] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -1557,6 +1733,29 @@ export default function ChatPage() {
     refetchInterval: 2000,
   });
 
+  // @-mention autocomplete — reuses the same "chat users" endpoint the New
+  // Chat picker already uses; only fetches while actively typing a mention.
+  const { data: mentionResults = [] } = useQuery<ChatUser[]>({
+    queryKey: ['chat-mention-users', mentionQuery],
+    queryFn: async () => {
+      const r = await apiRequest<any>(`${API_ENDPOINTS.CHAT.USERS}?search=${encodeURIComponent(mentionQuery || '')}`);
+      return r?.payload || [];
+    },
+    enabled: mentionQuery !== null,
+  });
+
+  // Pinned messages — polled at the same cadence as members/read-receipts;
+  // small list, cheap to keep fresh.
+  const { data: pinnedMessages = [] } = useQuery<ChatMessage[]>({
+    queryKey: ['chat-pinned', selectedChannelId],
+    queryFn: async () => {
+      const r = await apiRequest<any>(API_ENDPOINTS.CHAT.PINNED(selectedChannelId!));
+      return r?.payload?.records || r?.payload || [];
+    },
+    enabled: !!selectedChannelId,
+    refetchInterval: 5000,
+  });
+
   // ── Mutations ─────────────────────────────────────────────────────────────
 
   const sendMutation = useMutation({
@@ -1567,6 +1766,7 @@ export default function ChatPage() {
       file_name?: string;
       file_size?: number;
       mime_type?: string;
+      mentioned_user_ids?: string[];
     }) =>
       apiRequest<any>(API_ENDPOINTS.CHAT.MESSAGES(selectedChannelId!), {
         method: 'POST',
@@ -1735,6 +1935,7 @@ export default function ChatPage() {
     // if it's still in flight, isUploadingAttachment above already blocks Send.
     if (attachmentFile && !uploadedAttachment) return;
 
+    const mentioned_user_ids = extractMentionedUserIds(draft);
     const payload = uploadedAttachment
       ? {
           content: draft.trim(),
@@ -1743,15 +1944,62 @@ export default function ChatPage() {
           file_name: attachmentFile!.name,
           file_size: attachmentFile!.size,
           mime_type: attachmentFile!.type,
+          mentioned_user_ids,
         }
-      : { content: draft.trim() };
+      : { content: draft.trim(), mentioned_user_ids };
 
     sendMutation.mutate(payload);
     setUploadedAttachment(null);
+    setMentionQuery(null);
+  };
+
+  // Replaces the "@partial-name" the user just typed with a structured
+  // @[Display Name](user:ID) token — see messageContent.tsx's renderer/
+  // extractor, which both work off this exact syntax. Using an explicit
+  // token instead of fuzzy-matching plain "@Name" text at render time
+  // avoids any ambiguity when two people share a first name.
+  const insertMention = (user: ChatUser) => {
+    const textarea = textareaRef.current;
+    const cursor = textarea?.selectionStart ?? draft.length;
+    const before = draft.slice(0, cursor);
+    const after = draft.slice(cursor);
+    const atIndex = before.lastIndexOf('@');
+    if (atIndex === -1) return;
+    const token = `@[${user.first_name} ${user.last_name}](user:${user.id}) `;
+    const next = before.slice(0, atIndex) + token + after;
+    setDraft(next);
+    setMentionQuery(null);
+    requestAnimationFrame(() => {
+      textarea?.focus();
+      const pos = atIndex + token.length;
+      textarea?.setSelectionRange(pos, pos);
+    });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mentionQuery !== null) {
+      if (e.key === 'Escape') { e.preventDefault(); setMentionQuery(null); return; }
+      if (e.key === 'Enter' && mentionResults.length > 0) { e.preventDefault(); insertMention(mentionResults[0]); return; }
+    }
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  };
+
+  // Formatting toolbar buttons — wraps the current textarea selection with
+  // the markdown-lite syntax messageContent.tsx's renderer understands. If
+  // nothing is selected, drops placeholder text between the markers and
+  // selects it, matching the usual editor convention for this kind of button.
+  const wrapSelection = (before: string, after: string, placeholder: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = draft.slice(start, end) || placeholder;
+    const next = draft.slice(0, start) + before + selected + after + draft.slice(end);
+    setDraft(next);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + before.length, start + before.length + selected.length);
+    });
   };
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -1759,6 +2007,14 @@ export default function ChatPage() {
     setDraft(value);
     e.target.style.height = 'auto';
     e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+
+    // Detect an in-progress "@query" right before the cursor — mirrors the
+    // usual Slack/Discord trigger: "@" preceded by nothing or whitespace,
+    // followed by word characters only (a space or another "@" cancels it).
+    const cursor = e.target.selectionStart;
+    const uptoCursor = value.slice(0, cursor);
+    const mentionMatch = /(?:^|\s)@([a-zA-Z0-9]*)$/.exec(uptoCursor);
+    setMentionQuery(mentionMatch ? mentionMatch[1] : null);
 
     if (selectedChannelId && value.trim()) {
       const now = Date.now();
@@ -2003,6 +2259,18 @@ export default function ChatPage() {
 
             {/* Action icons */}
             <div className="flex items-center gap-1 ml-auto shrink-0">
+              {pinnedMessages.length > 0 && (
+                <button
+                  onClick={() => setShowPinned(true)}
+                  className="relative p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg"
+                  title="Pinned messages"
+                >
+                  <Pin size={16} />
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-0.5 bg-amber-500 text-white text-[9px] font-black rounded-full flex items-center justify-center">
+                    {pinnedMessages.length}
+                  </span>
+                </button>
+              )}
               <button
                 onClick={() => setShowSearch(true)}
                 className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
@@ -2167,54 +2435,111 @@ export default function ChatPage() {
                   </button>
                 </div>
               ) : (
-                <div className="flex gap-2 items-end">
-                  <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => handleAttachmentSelect(e.target.files?.[0] || null)} />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl shrink-0"
-                    title="Attach file"
-                  >
-                    <Paperclip size={16} />
-                  </button>
-                  <button
-                    onClick={() => setShowCamera(true)}
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl shrink-0"
-                    title="Take a photo"
-                  >
-                    <Camera size={16} />
-                  </button>
-                  <button
-                    onClick={startRecording}
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl shrink-0"
-                    title="Record a voice message"
-                  >
-                    <Mic size={16} />
-                  </button>
-                  <textarea
-                    ref={textareaRef}
-                    value={draft}
-                    onChange={handleTextareaChange}
-                    onKeyDown={handleKeyDown}
-                    onPaste={handleComposerPaste}
-                    placeholder={
-                      selectedChannel.type === 'DM'
-                        ? `Message ${getChannelDisplayName(selectedChannel, currentUserId)}…`
-                        : `Message #${selectedChannel.name}…`
-                    }
-                    rows={1}
-                    className="flex-1 resize-none px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
-                    style={{ height: 'auto', minHeight: '42px', maxHeight: '120px' }}
-                  />
-                  <button
-                    onClick={handleSend}
-                    disabled={(!draft.trim() && !attachmentFile) || sendMutation.isPending || isUploadingAttachment}
-                    className="h-[42px] w-[42px] bg-primary-600 text-white rounded-xl flex items-center justify-center hover:bg-primary-700 disabled:opacity-40 transition-colors shrink-0"
-                  >
-                    {sendMutation.isPending || isUploadingAttachment ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-                  </button>
+                <div className="relative">
+                  {/* Formatting toolbar — wraps the current selection with
+                      markdown-lite syntax; messageContent.tsx renders it back
+                      out for every reader. */}
+                  <div className="flex items-center gap-0.5 mb-1">
+                    <button type="button" onClick={() => wrapSelection('**', '**', 'bold text')} title="Bold" className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md">
+                      <Bold size={13} />
+                    </button>
+                    <button type="button" onClick={() => wrapSelection('*', '*', 'italic text')} title="Italic" className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md">
+                      <Italic size={13} />
+                    </button>
+                    <button type="button" onClick={() => wrapSelection('`', '`', 'code')} title="Code" className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md">
+                      <Code size={13} />
+                    </button>
+                  </div>
+
+                  <div className="flex gap-2 items-end">
+                    <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => handleAttachmentSelect(e.target.files?.[0] || null)} />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl shrink-0"
+                      title="Attach file"
+                    >
+                      <Paperclip size={16} />
+                    </button>
+                    <button
+                      onClick={() => setShowCamera(true)}
+                      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl shrink-0"
+                      title="Take a photo"
+                    >
+                      <Camera size={16} />
+                    </button>
+                    <button
+                      onClick={startRecording}
+                      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl shrink-0"
+                      title="Record a voice message"
+                    >
+                      <Mic size={16} />
+                    </button>
+                    <div className="relative shrink-0">
+                      <button
+                        onClick={() => setShowComposerEmoji((v) => !v)}
+                        className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl"
+                        title="Emoji"
+                      >
+                        <Smile size={16} />
+                      </button>
+                      {showComposerEmoji && (
+                        <EmojiPicker
+                          align="left"
+                          onSelect={(emoji) => {
+                            const textarea = textareaRef.current;
+                            const pos = textarea?.selectionStart ?? draft.length;
+                            const next = draft.slice(0, pos) + emoji + draft.slice(pos);
+                            setDraft(next);
+                            setShowComposerEmoji(false);
+                            requestAnimationFrame(() => { textarea?.focus(); textarea?.setSelectionRange(pos + emoji.length, pos + emoji.length); });
+                          }}
+                          onClose={() => setShowComposerEmoji(false)}
+                        />
+                      )}
+                    </div>
+                    <div className="relative flex-1">
+                      {/* @-mention autocomplete dropdown */}
+                      {mentionQuery !== null && mentionResults.length > 0 && (
+                        <div className="absolute bottom-full mb-2 left-0 w-64 max-h-56 overflow-y-auto bg-white rounded-xl border border-gray-200 shadow-xl z-20">
+                          {mentionResults.map((u) => (
+                            <button
+                              key={u.id}
+                              onClick={() => insertMention(u)}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50"
+                            >
+                              <Avatar user={u} size="xs" />
+                              <span className="text-sm font-semibold text-gray-800 truncate">{u.first_name} {u.last_name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <textarea
+                        ref={textareaRef}
+                        value={draft}
+                        onChange={handleTextareaChange}
+                        onKeyDown={handleKeyDown}
+                        onPaste={handleComposerPaste}
+                        placeholder={
+                          selectedChannel.type === 'DM'
+                            ? `Message ${getChannelDisplayName(selectedChannel, currentUserId)}…`
+                            : `Message #${selectedChannel.name}…`
+                        }
+                        rows={1}
+                        className="w-full resize-none px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
+                        style={{ height: 'auto', minHeight: '42px', maxHeight: '120px' }}
+                      />
+                    </div>
+                    <button
+                      onClick={handleSend}
+                      disabled={(!draft.trim() && !attachmentFile) || sendMutation.isPending || isUploadingAttachment}
+                      className="h-[42px] w-[42px] bg-primary-600 text-white rounded-xl flex items-center justify-center hover:bg-primary-700 disabled:opacity-40 transition-colors shrink-0"
+                    >
+                      {sendMutation.isPending || isUploadingAttachment ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+                    </button>
+                  </div>
                 </div>
               )}
-              <p className="text-[10px] text-gray-300 mt-1 pl-1">Shift+Enter for new line · Enter to send</p>
+              <p className="text-[10px] text-gray-300 mt-1 pl-1">Shift+Enter for new line · Enter to send · @ to mention</p>
             </div>
           )}
         </div>
@@ -2329,6 +2654,13 @@ export default function ChatPage() {
         <CameraCaptureModal
           onClose={() => setShowCamera(false)}
           onCapture={handleCameraCapture}
+        />
+      )}
+
+      {showPinned && selectedChannelId && (
+        <PinnedMessagesPanel
+          channelId={selectedChannelId}
+          onClose={() => setShowPinned(false)}
         />
       )}
     </div>
