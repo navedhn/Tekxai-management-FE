@@ -13,6 +13,7 @@ import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetRolesQuery } from '@/services/roleService';
 import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
 import { useGetGradesQuery } from '@/services/gradeService';
+import { useGetDepartmentsQuery } from '@/services/departmentService';
 import { cn } from '@/utils/cn';
 import { EMPLOYMENT_STATUS_LABELS } from '@/constants/employmentStatus';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -103,6 +104,10 @@ export default function EmployeeDirectory() {
   };
 
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  // Quick Edit — set to the row being edited when its Edit button is clicked
+  // and that row was created_via 'QUICK'; null otherwise. Detailed Edit
+  // (created_via 'FULL') keeps navigating to the Add Employee wizard as before.
+  const [quickEditTarget, setQuickEditTarget] = useState<any>(null);
   const [deleteTarget, setDeleteTarget]   = useState<any>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkLifecycleOpen, setBulkLifecycleOpen] = useState(false);
@@ -176,12 +181,10 @@ export default function EmployeeDirectory() {
     URL.revokeObjectURL(url);
   };
 
-  const { data: departments } = useQuery({
-    queryKey: ['departments'],
-    queryFn: () => apiRequest<any>(`api/v1/department`),
-    select: (r: any) => r?.payload?.records || [],
-    staleTime: 300000,
-  });
+  // Reuse the canonical departments hook — a locally duplicated queryFn under
+  // the same ['departments'] key but with a different return shape corrupts
+  // this shared cache entry for every other consumer of that key.
+  const { data: departments } = useGetDepartmentsQuery();
 
   const clearFilters = () => {
     setQ(''); setDiv(''); setDept(''); setTeam('');
@@ -271,6 +274,13 @@ export default function EmployeeDirectory() {
       <QuickCreateUserModal
         isOpen={quickCreateOpen}
         onClose={() => setQuickCreateOpen(false)}
+      />
+
+      {/* Quick Edit — same lightweight form, for employees created via Quick Create */}
+      <QuickCreateUserModal
+        isOpen={!!quickEditTarget}
+        onClose={() => setQuickEditTarget(null)}
+        editUser={quickEditTarget}
       />
 
       {/* Single delete confirmation */}
@@ -654,8 +664,14 @@ export default function EmployeeDirectory() {
                           variant="ghost"
                           size="sm"
                           aria-label="Edit Employee"
-                          title="Edit Employee"
-                          onClick={() => navigate(`/admin/add-employee/${emp.id}`)}
+                          title={emp.created_via === 'QUICK' ? 'Quick Edit' : 'Edit Employee'}
+                          onClick={() => {
+                            // Quick Create users get the lightweight Quick Edit popup
+                            // (same fields as Quick Create); everyone else keeps the
+                            // full Detailed Edit wizard.
+                            if (emp.created_via === 'QUICK') setQuickEditTarget(emp);
+                            else navigate(`/admin/add-employee/${emp.id}`);
+                          }}
                           className="!h-auto !w-auto p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
                         />
                         <IconButton

@@ -11,6 +11,7 @@ import { useGetEmployeeFullRecord } from '@/services/hrService';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetGradesQuery } from '@/services/gradeService';
 import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
+import { useGetDepartmentsQuery } from '@/services/departmentService';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 
 const DRAFT_KEY = 'add_employee_draft';
@@ -904,6 +905,13 @@ export default function AddEmployee() {
       probation_start: profile?.probation_start ? String(profile.probation_start).slice(0, 10) : '',
       probation_end: profile?.probation_end ? String(profile.probation_end).slice(0, 10) : '',
       work_email: profile?.work_email || '',
+      // Department dropdown is filtered by business_unit_id (see StepEmployment),
+      // so business_unit_id must be populated here too — not just department_id —
+      // or the filter matches nothing and the Department select renders empty
+      // even though a real department_id is already set. The full-record
+      // endpoint returns the department relation (not just department_id), which
+      // carries its own business_unit_id.
+      business_unit_id: user?.department?.business_unit_id || '',
       department_id: user?.department_id || '',
       team_id: user?.team_memberships?.[0]?.team?.id || '',
       designation: user?.designation || '',
@@ -947,12 +955,12 @@ export default function AddEmployee() {
     setStep(1);
   };
 
-  const { data: departments } = useQuery({
-    queryKey: ['departments'],
-    queryFn: () => apiRequest<any>(API_ENDPOINTS.DEPARTMENT.LIST),
-    select: (r: any) => r?.payload?.records || r?.payload || [],
-    staleTime: 300000,
-  });
+  // Reuse the canonical departments hook — other mounted components (e.g.
+  // QuickCreateUserModal) also query key ['departments'] via this same hook,
+  // and a locally duplicated queryFn with a different return shape here would
+  // silently corrupt this shared cache entry for every consumer (whichever
+  // queryFn resolves last "wins" the cached raw data for all observers).
+  const { data: departments } = useGetDepartmentsQuery();
 
   const { data: businessUnits } = useGetBusinessUnitsQuery();
 
