@@ -48,7 +48,7 @@ const NotificationDropdown: React.FC<Props> = ({ isOpen, onClose, triggerRef }) 
 
   const handleSeeAll = () => {
     onClose();
-    const workspace = ['/admin', '/crm'].find((prefix) => location.pathname.startsWith(prefix)) || '/employee';
+    const workspace = ['/admin'].find((prefix) => location.pathname.startsWith(prefix)) || '/employee';
     navigate(`${workspace}/notifications`);
   };
 

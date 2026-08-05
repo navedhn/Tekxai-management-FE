@@ -7,7 +7,6 @@ import ProtectedRoute from '@/pages/layout/ProtectedRoute';
 import PublicRoute from '@/pages/layout/PublicRoute';
 import AuthLayout from '@/layouts/authLayout';
 import MarketingLayout from '@/layouts/marketingLayout';
-import CRMLayout from '@/layouts/crmLayout';
 import ChatLayout from '@/layouts/chatLayout';
 import { ADMIN_ROLES, USER_ROLES } from '@/constants/roles';
 
@@ -97,15 +96,6 @@ const WebhooksPage           = lazy(() => import('@/pages/admin/webhooks'));
 const ReportBuilderPage      = lazy(() => import('@/pages/admin/report-builder'));
 const ExecutiveDashboardPage = lazy(() => import('@/pages/admin/executive-dashboard'));
 
-// CRM workspace pages
-const CRMDashboard           = lazy(() => import('@/pages/crm/dashboard'));
-const CRMHandoffs            = lazy(() => import('@/pages/crm/handoffs'));
-const CRMInvoices            = lazy(() => import('@/pages/crm/invoices'));
-// Sales CRM pages — retained for the future standalone Sales CRM app (shares this
-// backend/DB), but no longer routed/navigable from the ERP CRM workspace.
-// See Tekxai-Operations-OS/08-Master-Gap-Analysis.md §5.
-// const CRMPipeline            = lazy(() => import('@/pages/crm/pipeline'));
-// const CRMTeamPage            = lazy(() => import('@/pages/crm/team'));
 // const MarketingWonDeals      = lazy(() => import('@/pages/marketing/won-deals'));
 // const MarketingUpwork        = lazy(() => import('@/pages/marketing/upwork'));
 // const MarketingLinkedIn      = lazy(() => import('@/pages/marketing/linkedin'));
@@ -141,7 +131,6 @@ const ProfilePage            = lazy(() => import('@/pages/shared/profile'));
 const ChatPage               = lazy(() => import('@/pages/chat'));
 
 const adminRoles = [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN] as any[];
-const crmRoles   = [USER_ROLES.MARKETING, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN] as any[];
 const hrRoles    = [USER_ROLES.HR, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN] as any[];
 const allRoles   = Object.values(USER_ROLES) as any[];
 
@@ -273,37 +262,10 @@ const routes: RouteObject[] = [
       { path: '/admin/*', element: <NotFound /> },
     ],
   },
-  // ── CRM Workspace (/crm) ───────────────────────────────────────────────────
-  {
-    element: <CRMLayout />,
-    children: [
-      {
-        element: <ProtectedRoute roles={crmRoles} />,
-        children: [
-          { path: '/crm',                             element: <CRMDashboard /> },
-          // CRM Split Phase 4 (final cleanup): ERP CRM is now strictly Post-Sales.
-          // Every route below except clients/invoices/handoffs/notifications/profile
-          // is Sales CRM (Deposits, Targets, My Report, My Salaries, Team Hierarchy,
-          // HR Overview, Salary History/Builder) or a mislabeled/broken feature
-          // (Contracts opens the unrelated Employee Contracts module) and has been
-          // de-registered — not deleted. Backend untouched. See
-          // Tekxai-Operations-OS/08-Master-Gap-Analysis.md §5.
-          { path: '/crm/handoffs',                    element: <CRMHandoffs /> },
-          { path: '/crm/notifications',               element: <SharedNotifications /> },
-          { path: '/crm/profile/:memberId?',          element: <ProfilePage /> },
-          // Admin/Super Admin only routes
-          {
-            element: <ProtectedRoute roles={adminRoles} />,
-            children: [
-              { path: '/crm/clients',                 element: <AdminCRM /> },
-              { path: '/crm/invoices',                element: <CRMInvoices /> },
-            ],
-          },
-        ],
-      },
-      { path: '/crm/*', element: <NotFound /> },
-    ],
-  },
+  // ── CRM Workspace (/crm) — retired. CRM is now its own product on its own
+  // domain (TekPulse CRM); tekxai.services (this ERP) has no CRM awareness.
+  // Old bookmarks/links redirect to /admin instead of 404ing.
+  { path: '/crm/*',                        element: <Navigate to="/admin" replace /> },
   // ── HR Workspace (/hr) — retired, folded into /admin. Old bookmarks/links ──
   // redirect to their new /admin/* home instead of 404ing.
   { path: '/hr',                           element: <Navigate to="/admin" replace /> },
@@ -365,14 +327,15 @@ const routes: RouteObject[] = [
       { path: '/employee/*', element: <NotFound /> },
     ],
   },
-  // ── Marketing (legacy – kept for backwards compat, redirect to /crm) ──────
+  // ── Marketing salary-builder (legacy path, unrelated to the retired CRM
+  // workspace — kept since it's still a live feature) ────────────────────────
   {
     element: <MarketingLayout />,
     children: [
       {
         element: <ProtectedRoute roles={[USER_ROLES.MARKETING, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN, USER_ROLES.HR]} />,
         children: [
-          { path: '/marketing',                          element: <Navigate to="/crm" replace /> },
+          { path: '/marketing',                          element: <Navigate to="/admin" replace /> },
           { path: '/marketing/salary-builder/:memberId', element: <MarketingSalaryBuilder /> },
           // The other legacy /marketing/* redirects (won-deals, salary-history,
           // upwork, linkedin, email-leads, deposits, targets, my-report,

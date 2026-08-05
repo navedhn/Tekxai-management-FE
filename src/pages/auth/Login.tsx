@@ -3,7 +3,7 @@ import { Formik, Form } from 'formik';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLoginMutation } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
-import { ADMIN_ROLES, USER_ROLES } from '@/constants/roles';
+import { ADMIN_ROLES } from '@/constants/roles';
 import { User } from '@/types';
 import { setAuthTokens, extractTokensFromAuthResponse } from '@/utils/tokenMemory';
 import { validateLoginForm } from '@/utils/validationSchemas';
@@ -25,9 +25,7 @@ const Login: React.FC = () => {
   const redirectUser = (user: any) => {
     const typedUser = user as User;
     const role_name = typedUser?.role_name ?? (typedUser as any)?.roles?.[0] ?? null;
-    if (role_name === USER_ROLES.MARKETING) {
-      navigate('/crm');
-    } else if (ADMIN_ROLES.includes(role_name as any)) {
+    if (ADMIN_ROLES.includes(role_name as any)) {
       navigate('/admin');
     } else {
       navigate('/employee');
