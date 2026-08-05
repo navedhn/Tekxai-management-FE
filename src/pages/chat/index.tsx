@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   MessageSquare, Plus, Search, Send, X, Users, User, Loader2,
   Hash, Lock, Settings, Paperclip, CornerDownRight, ChevronDown,
+  Mic, Square, Trash2, Camera, RotateCcw, Check, Video, VideoOff,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
@@ -1322,6 +1323,141 @@ function ThreadPanel({
   );
 }
 
+// ─── Camera Capture Modal ───────────────────────────────────────────────────
+// Standard chat "take a photo" flow: live camera preview → capture a still
+// frame to canvas → review/retake → hand the resulting File back to the
+// composer, which uploads it through the exact same handleAttachmentSelect
+// path a picked file or a pasted screenshot already goes through.
+function CameraCaptureModal({
+  onClose,
+  onCapture,
+}: {
+  onClose: () => void;
+  onCapture: (file: File) => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+
+  const stopStream = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  };
+
+  const startStream = async () => {
+    setError(null);
+    stopStream();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode }, audio: false });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play().catch(() => {});
+      }
+    } catch (e: any) {
+      setError(e?.name === 'NotAllowedError' ? 'Camera access denied. Allow camera permission and try again.' : 'Could not access camera.');
+    }
+  };
+
+  useEffect(() => {
+    if (!photoDataUrl) startStream();
+    return () => stopStream();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [facingMode, photoDataUrl]);
+
+  const handleCapture = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || !video.videoWidth) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    setPhotoDataUrl(canvas.toDataURL('image/jpeg', 0.92));
+    stopStream();
+  };
+
+  const handleRetake = () => setPhotoDataUrl(null);
+
+  const handleUsePhoto = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      onCapture(file);
+      onClose();
+    }, 'image/jpeg', 0.92);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h3 className="font-black text-gray-900 text-sm flex items-center gap-2"><Camera size={16} /> Take a photo</h3>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="relative bg-gray-900 aspect-video flex items-center justify-center">
+          {error ? (
+            <div className="text-center text-gray-300 p-6">
+              <VideoOff size={28} className="mx-auto mb-2" />
+              <p className="text-sm">{error}</p>
+            </div>
+          ) : photoDataUrl ? (
+            <img src={photoDataUrl} alt="Captured" className="w-full h-full object-contain" />
+          ) : (
+            <video ref={videoRef} muted playsInline className="w-full h-full object-contain scale-x-[-1]" />
+          )}
+          <canvas ref={canvasRef} className="hidden" />
+        </div>
+
+        <div className="p-4 flex items-center justify-center gap-3">
+          {photoDataUrl ? (
+            <>
+              <button
+                onClick={handleRetake}
+                className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 text-gray-600 text-sm font-bold rounded-xl hover:bg-gray-50"
+              >
+                <RotateCcw size={14} /> Retake
+              </button>
+              <button
+                onClick={handleUsePhoto}
+                className="flex items-center gap-1.5 px-4 py-2 bg-primary-600 text-white text-sm font-bold rounded-xl hover:bg-primary-700"
+              >
+                <Check size={14} /> Use photo
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setFacingMode((m) => (m === 'user' ? 'environment' : 'user'))}
+                title="Switch camera"
+                className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl"
+              >
+                <Video size={16} />
+              </button>
+              <button
+                onClick={handleCapture}
+                disabled={!!error}
+                className="w-14 h-14 rounded-full border-4 border-primary-600 flex items-center justify-center hover:bg-primary-50 disabled:opacity-40"
+              >
+                <div className="w-10 h-10 rounded-full bg-primary-600" />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ChatPage() {
@@ -1346,11 +1482,23 @@ export default function ChatPage() {
   const [editingMsg, setEditingMsg] = useState<ChatMessage | null>(null);
   const [editDraft, setEditDraft] = useState('');
   const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string | null } | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [recordingError, setRecordingError] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const recordingStreamRef = useRef<MediaStream | null>(null);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Set once a recording is deliberately discarded (Cancel) so the
+  // MediaRecorder's onstop handler — which fires either way — knows not to
+  // turn the just-cancelled clip into an attachment.
+  const recordingCancelledRef = useRef(false);
   // Whether the user is scrolled near the bottom of the message list — only
   // auto-scroll when true, so the 3s message poll (refetchInterval below)
   // doesn't yank someone back to the bottom while they're reading upward.
@@ -1602,6 +1750,72 @@ export default function ChatPage() {
     const file = new File([blob], `pasted-image-${Date.now()}.${ext}`, { type: imageItem.type });
     handleAttachmentSelect(file);
   };
+
+  // Camera capture hands back a File the exact same way a picked/pasted
+  // file does — reuses the whole upload → preview chip → Send flow already
+  // built for attachments instead of a parallel send path.
+  const handleCameraCapture = (file: File) => {
+    handleAttachmentSelect(file);
+  };
+
+  const stopRecordingStream = () => {
+    if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
+    recordingStreamRef.current?.getTracks().forEach((t) => t.stop());
+    recordingStreamRef.current = null;
+  };
+
+  // Voice message: same idea as camera capture — record to a Blob, wrap it
+  // in a File, and feed it into the existing attachment pipeline so it gets
+  // uploaded/previewed/sent exactly like any other file (playback on the
+  // receiving end already works — MessageBubble renders anything with an
+  // audio/* mime type as an <audio> player).
+  const startRecording = async () => {
+    setRecordingError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordingStreamRef.current = stream;
+      const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg', 'audio/mp4'];
+      const mimeType = candidates.find((t) => MediaRecorder.isTypeSupported?.(t)) || '';
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      recordedChunksRef.current = [];
+      recordingCancelledRef.current = false;
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunksRef.current.push(e.data); };
+      recorder.onstop = () => {
+        stopRecordingStream();
+        if (recordingCancelledRef.current || recordedChunksRef.current.length === 0) return;
+        const baseMime = (recorder.mimeType || mimeType || 'audio/webm').split(';')[0];
+        const ext = baseMime === 'audio/ogg' ? 'ogg' : baseMime === 'audio/mp4' ? 'm4a' : 'webm';
+        const blob = new Blob(recordedChunksRef.current, { type: baseMime });
+        const file = new File([blob], `voice-message-${Date.now()}.${ext}`, { type: baseMime });
+        handleAttachmentSelect(file);
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      recordingTimerRef.current = setInterval(() => setRecordingSeconds((s) => s + 1), 1000);
+    } catch (e: any) {
+      setRecordingError(e?.name === 'NotAllowedError' ? 'Microphone access denied.' : 'Could not access microphone.');
+      stopRecordingStream();
+    }
+  };
+
+  const stopRecording = () => {
+    recordingCancelledRef.current = false;
+    mediaRecorderRef.current?.stop();
+    setIsRecording(false);
+  };
+
+  const cancelRecording = () => {
+    recordingCancelledRef.current = true;
+    mediaRecorderRef.current?.stop();
+    setIsRecording(false);
+    recordedChunksRef.current = [];
+  };
+
+  // Guard against an in-flight recording/stream surviving a channel switch
+  // or unmount (e.g. clicking away mid-recording).
+  useEffect(() => () => { stopRecordingStream(); mediaRecorderRef.current?.stop(); }, []);
 
   // ── Derived ───────────────────────────────────────────────────────────────
 
@@ -1868,7 +2082,7 @@ export default function ChatPage() {
           {isMember && (
             <div className="px-4 py-3 border-t border-gray-100">
               {/* Attachment preview chip */}
-              {attachmentFile && (
+              {attachmentFile && !isRecording && (
                 <div className="flex items-center gap-2 mb-2 px-3 py-1.5 bg-gray-50 rounded-xl border border-gray-200 text-sm">
                   {isUploadingAttachment ? <Loader2 size={13} className="text-gray-400 shrink-0 animate-spin" /> : <Paperclip size={13} className="text-gray-400 shrink-0" />}
                   <span className="text-gray-700 truncate flex-1">{attachmentFile.name}</span>
@@ -1882,38 +2096,74 @@ export default function ChatPage() {
                   </button>
                 </div>
               )}
-              <div className="flex gap-2 items-end">
-                <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => handleAttachmentSelect(e.target.files?.[0] || null)} />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl shrink-0"
-                  title="Attach file"
-                >
-                  <Paperclip size={16} />
-                </button>
-                <textarea
-                  ref={textareaRef}
-                  value={draft}
-                  onChange={handleTextareaChange}
-                  onKeyDown={handleKeyDown}
-                  onPaste={handleComposerPaste}
-                  placeholder={
-                    selectedChannel.type === 'DM'
-                      ? `Message ${getChannelDisplayName(selectedChannel, currentUserId)}…`
-                      : `Message #${selectedChannel.name}…`
-                  }
-                  rows={1}
-                  className="flex-1 resize-none px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
-                  style={{ height: 'auto', minHeight: '42px', maxHeight: '120px' }}
-                />
-                <button
-                  onClick={handleSend}
-                  disabled={(!draft.trim() && !attachmentFile) || sendMutation.isPending || isUploadingAttachment}
-                  className="h-[42px] w-[42px] bg-primary-600 text-white rounded-xl flex items-center justify-center hover:bg-primary-700 disabled:opacity-40 transition-colors shrink-0"
-                >
-                  {sendMutation.isPending || isUploadingAttachment ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-                </button>
-              </div>
+              {recordingError && (
+                <div className="flex items-center gap-2 mb-2 px-3 py-1.5 bg-red-50 rounded-xl border border-red-100 text-xs text-red-600">
+                  {recordingError}
+                </div>
+              )}
+
+              {isRecording ? (
+                <div className="flex gap-2 items-center h-[42px] px-3 border border-red-200 bg-red-50 rounded-xl">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0" />
+                  <span className="text-sm font-bold text-red-600 tabular-nums">
+                    {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, '0')}
+                  </span>
+                  <span className="text-xs text-red-400 flex-1">Recording voice message…</span>
+                  <button onClick={cancelRecording} title="Cancel" className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-100 rounded-lg">
+                    <Trash2 size={15} />
+                  </button>
+                  <button onClick={stopRecording} title="Stop and attach" className="p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                    <Square size={13} fill="currentColor" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2 items-end">
+                  <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => handleAttachmentSelect(e.target.files?.[0] || null)} />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl shrink-0"
+                    title="Attach file"
+                  >
+                    <Paperclip size={16} />
+                  </button>
+                  <button
+                    onClick={() => setShowCamera(true)}
+                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl shrink-0"
+                    title="Take a photo"
+                  >
+                    <Camera size={16} />
+                  </button>
+                  <button
+                    onClick={startRecording}
+                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl shrink-0"
+                    title="Record a voice message"
+                  >
+                    <Mic size={16} />
+                  </button>
+                  <textarea
+                    ref={textareaRef}
+                    value={draft}
+                    onChange={handleTextareaChange}
+                    onKeyDown={handleKeyDown}
+                    onPaste={handleComposerPaste}
+                    placeholder={
+                      selectedChannel.type === 'DM'
+                        ? `Message ${getChannelDisplayName(selectedChannel, currentUserId)}…`
+                        : `Message #${selectedChannel.name}…`
+                    }
+                    rows={1}
+                    className="flex-1 resize-none px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
+                    style={{ height: 'auto', minHeight: '42px', maxHeight: '120px' }}
+                  />
+                  <button
+                    onClick={handleSend}
+                    disabled={(!draft.trim() && !attachmentFile) || sendMutation.isPending || isUploadingAttachment}
+                    className="h-[42px] w-[42px] bg-primary-600 text-white rounded-xl flex items-center justify-center hover:bg-primary-700 disabled:opacity-40 transition-colors shrink-0"
+                  >
+                    {sendMutation.isPending || isUploadingAttachment ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+                  </button>
+                </div>
+              )}
               <p className="text-[10px] text-gray-300 mt-1 pl-1">Shift+Enter for new line · Enter to send</p>
             </div>
           )}
@@ -2022,6 +2272,13 @@ export default function ChatPage() {
           onClose={() => setShowSearch(false)}
           onJumpToChannel={(id) => { setSelectedChannelId(id); setShowSearch(false); }}
           currentUserId={currentUserId}
+        />
+      )}
+
+      {showCamera && (
+        <CameraCaptureModal
+          onClose={() => setShowCamera(false)}
+          onCapture={handleCameraCapture}
         />
       )}
     </div>
