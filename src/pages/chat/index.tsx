@@ -1503,6 +1503,10 @@ export default function ChatPage() {
   // auto-scroll when true, so the 3s message poll (refetchInterval below)
   // doesn't yank someone back to the bottom while they're reading upward.
   const isNearBottomRef = useRef(true);
+  // Throttles the typing ping to at most once per 3s of continuous typing —
+  // the backend's typing TTL is 6s, so re-sending every 3s keeps it fresh
+  // with margin without pinging on every single keystroke.
+  const lastTypingSentAtRef = useRef(0);
 
   // ── Queries ───────────────────────────────────────────────────────────────
 
@@ -1537,6 +1541,20 @@ export default function ChatPage() {
     },
     enabled: !!selectedChannelId,
     refetchInterval: 3000,
+  });
+
+  // Typing indicator — polled independently of (and faster than) messages,
+  // since "so-and-so is typing" only reads well with a short, dedicated
+  // interval. Backend state is in-memory with a ~6s TTL per user per
+  // channel; see set_typing_ctrl/get_typing_ctrl in chat.controller.js.
+  const { data: typingUsers = [] } = useQuery<ChatUser[]>({
+    queryKey: ['chat-typing', selectedChannelId],
+    queryFn: async () => {
+      const r = await apiRequest<any>(API_ENDPOINTS.CHAT.TYPING(selectedChannelId!));
+      return r?.payload?.records || r?.payload || [];
+    },
+    enabled: !!selectedChannelId,
+    refetchInterval: 2000,
   });
 
   // ── Mutations ─────────────────────────────────────────────────────────────
@@ -1586,6 +1604,13 @@ export default function ChatPage() {
     mutationFn: (channelId: string) =>
       apiRequest<any>(API_ENDPOINTS.CHAT.JOIN(channelId), { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['chat-channels'] }),
+  });
+
+  // Fire-and-forget — no loading/error state needed for a "you're typing"
+  // ping, and no query invalidation either (the typing poll above already
+  // picks it up on its own interval).
+  const typingMutation = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.CHAT.TYPING(selectedChannelId!), { method: 'POST' }),
   });
 
   // ── Effects ───────────────────────────────────────────────────────────────
@@ -1730,9 +1755,18 @@ export default function ChatPage() {
   };
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setDraft(e.target.value);
+    const value = e.target.value;
+    setDraft(value);
     e.target.style.height = 'auto';
     e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+
+    if (selectedChannelId && value.trim()) {
+      const now = Date.now();
+      if (now - lastTypingSentAtRef.current > 3000) {
+        lastTypingSentAtRef.current = now;
+        typingMutation.mutate();
+      }
+    }
   };
 
   // Copy-pasting a screenshot/image (Cmd/Ctrl+V) attaches it the same way
@@ -2077,6 +2111,22 @@ export default function ChatPage() {
             )}
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Typing indicator */}
+          {typingUsers.length > 0 && (
+            <div className="px-5 pb-1 flex items-center gap-1.5 text-xs text-gray-400 italic">
+              <span className="flex gap-0.5">
+                <span className="w-1 h-1 rounded-full bg-gray-400 animate-bounce [animation-delay:-0.3s]" />
+                <span className="w-1 h-1 rounded-full bg-gray-400 animate-bounce [animation-delay:-0.15s]" />
+                <span className="w-1 h-1 rounded-full bg-gray-400 animate-bounce" />
+              </span>
+              {typingUsers.length === 1
+                ? `${typingUsers[0].first_name} is typing…`
+                : typingUsers.length === 2
+                ? `${typingUsers[0].first_name} and ${typingUsers[1].first_name} are typing…`
+                : `${typingUsers.length} people are typing…`}
+            </div>
+          )}
 
           {/* Composer */}
           {isMember && (

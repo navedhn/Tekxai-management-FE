@@ -489,6 +489,7 @@ export const API_ENDPOINTS = {
     MESSAGE:     (id: string, msgId: string) => `${v1}/chat/channels/${id}/messages/${msgId}`,
     THREAD:      (id: string, msgId: string) => `${v1}/chat/channels/${id}/messages/${msgId}/thread`,
     REACTION:    (id: string, msgId: string) => `${v1}/chat/channels/${id}/messages/${msgId}/reactions`,
+    TYPING:      (id: string) => `${v1}/chat/channels/${id}/typing`,
   },
   MEETING: {
     DASHBOARD:        `${v1}/meeting/dashboard`,
