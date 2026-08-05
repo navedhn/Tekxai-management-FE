@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { ChevronRight, ChevronLeft, Check, User, Briefcase, MapPin, FileText, ClipboardList, Save, X, Plus, Trash2, RotateCcw, Upload, ExternalLink, Loader2 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
@@ -826,9 +826,21 @@ function StepReview({ personal, employment, work }: any) {
 export default function AddEmployee() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { employeeId } = useParams<{ employeeId?: string }>();
-  const isEditMode = !!employeeId;
-  const { data: record, isLoading: recordLoading } = useGetEmployeeFullRecord(employeeId);
+  // Legacy deep link: /admin/add-employee/:employeeId (the raw DB cuid,
+  // never meant to be user-visible). Kept only so old bookmarks/links still
+  // work — resolved below into the clean ?mode=edit&employee=<employeeId>
+  // URL the moment the record loads.
+  const { employeeId: legacyDbId } = useParams<{ employeeId?: string }>();
+  const [searchParams] = useSearchParams();
+  const employeeIdParam = searchParams.get('employee');
+  const isEditMode = searchParams.get('mode') === 'edit' ? !!employeeIdParam : !!legacyDbId;
+  // The full-record endpoint accepts either a DB id or a human-readable
+  // employee_id (e.g. TXI-0046) — whichever identifier the URL carries.
+  const recordLookupId = isEditMode ? (employeeIdParam || legacyDbId) : undefined;
+  const { data: record, isLoading: recordLoading } = useGetEmployeeFullRecord(recordLookupId);
+  // The resolved DB id, once the record has loaded — every mutation
+  // (save, invalidation) needs the real id, never the URL's employee_id.
+  const [resolvedUserId, setResolvedUserId] = useState<string | undefined>(undefined);
   // Guards against a background refetch (e.g. after invalidation elsewhere)
   // clobbering fields the user is actively editing — population only ever
   // runs once, the first time the record arrives.
@@ -877,6 +889,15 @@ export default function AddEmployee() {
     if (!isEditMode || !record || populatedRef.current) return;
     populatedRef.current = true;
     const { user, profile } = record as any;
+    setResolvedUserId(user?.id);
+    // Never expose the internal DB id in the URL. If we got here via the
+    // legacy /admin/add-employee/:employeeId deep link (or the record's own
+    // employee_id differs from what's already in the URL), replace it with
+    // the clean ?mode=edit&employee=<employeeId> form — silently, so back/
+    // forward and copy-paste always see the human-readable id.
+    if (user?.employee_id && employeeIdParam !== user.employee_id) {
+      navigate(`/admin/add-employee?mode=edit&employee=${user.employee_id}`, { replace: true });
+    }
     setPersonal(prev => ({
       ...prev,
       first_name: user?.first_name || '',
@@ -1002,7 +1023,7 @@ export default function AddEmployee() {
       let userId: string;
 
       if (isEditMode) {
-        userId = employeeId!;
+        userId = resolvedUserId!;
         // Base user fields only — employee_id and business_unit are never
         // re-sent on edit, they're immutable once assigned at creation.
         await apiRequest<any>(API_ENDPOINTS.USER.UPDATE(userId), {
@@ -1110,8 +1131,8 @@ export default function AddEmployee() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['employee-directory'] });
       if (isEditMode) {
-        qc.invalidateQueries({ queryKey: ['employee-full', employeeId] });
-        qc.invalidateQueries({ queryKey: ['hr-profile', employeeId] });
+        qc.invalidateQueries({ queryKey: ['employee-full', recordLookupId] });
+        qc.invalidateQueries({ queryKey: ['hr-profile', resolvedUserId] });
         navigate('/admin/employee-directory');
       } else {
         clearDraft();
