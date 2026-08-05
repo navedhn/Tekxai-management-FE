@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, BASE_URL } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { QUERY_KEYS } from '@/services/api/tanstackKeys';
+import { getAccessToken } from '@/utils/tokenMemory';
 
 // ── HR Profile ─────────────────────────────────────────────────────────────────
 
@@ -102,6 +103,55 @@ export const useDeleteEmployeeDoc = (userId: string) => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['employee-docs', userId] }),
   });
 };
+
+// ── Missing Employee Documents report ────────────────────────────────────────────
+// Bespoke report (cross-join/gap computation, not a generic /report/builder
+// entity+group_by pair) — mirrors the be-work bespoke hr-report module.
+
+export type MissingDocsFilters = {
+  business_unit_id?: string; department_id?: string; team_id?: string; designation_id?: string;
+  employment_status?: string; missing_document_type?: string; search?: string; page?: number; limit?: number;
+};
+
+function missing_docs_qs(filters?: MissingDocsFilters) {
+  const search = new URLSearchParams();
+  if (filters) for (const [k, v] of Object.entries(filters)) if (v !== undefined && v !== null && v !== '') search.set(k, String(v));
+  const qs = search.toString();
+  return qs ? `?${qs}` : '';
+}
+
+export const useGetMissingDocumentsReport = (filters?: MissingDocsFilters) =>
+  useQuery({
+    queryKey: ['missing-documents-report', filters],
+    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.HR_REPORT.MISSING_DOCUMENTS}${missing_docs_qs(filters)}`),
+    select: (r: any) => r?.payload as { records: any[]; total: number; page: number; limit: number; required_document_types: any[]; all_document_types: any[] },
+  });
+
+export const useGetMissingDocumentsSummary = (filters?: MissingDocsFilters) =>
+  useQuery({
+    queryKey: ['missing-documents-summary', filters],
+    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.HR_REPORT.MISSING_DOCUMENTS_SUMMARY}${missing_docs_qs(filters)}`),
+    select: (r: any) => r?.payload as { total_employees: number; employees_complete: number; employees_with_missing: number; total_missing_documents: number },
+  });
+
+// Export triggers an authenticated blob download (report_builder.controller's
+// exports are POST; this bespoke report's export is a GET so it can be
+// driven by a query string like the list/summary endpoints — either way the
+// browser can't just window.open() it since the API requires a bearer
+// token, so fetch as a blob and save via an <a download> click, matching the
+// download-trigger pattern already used by Employee Directory's CSV export).
+export async function downloadMissingDocumentsExport(format: 'excel' | 'csv' | 'pdf', filters?: MissingDocsFilters) {
+  const url = `${BASE_URL}${API_ENDPOINTS.HR_REPORT.MISSING_DOCUMENTS_EXPORT}${missing_docs_qs({ ...filters, format } as any)}`;
+  const token = getAccessToken();
+  const res = await fetch(url, { headers: token ? { authorization: `Bearer ${token}` } : {} });
+  if (!res.ok) throw new Error('Export failed');
+  const blob = await res.blob();
+  const ext = format === 'excel' ? 'xlsx' : format;
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = objectUrl; a.download = `missing-employee-documents.${ext}`; a.click();
+  URL.revokeObjectURL(objectUrl);
+}
 
 // ── Reporting Structure ─────────────────────────────────────────────────────────
 
