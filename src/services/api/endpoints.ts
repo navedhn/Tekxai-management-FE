@@ -492,6 +492,11 @@ export const API_ENDPOINTS = {
     TYPING:      (id: string) => `${v1}/chat/channels/${id}/typing`,
     PIN:         (id: string, msgId: string) => `${v1}/chat/channels/${id}/messages/${msgId}/pin`,
     PINNED:      (id: string) => `${v1}/chat/channels/${id}/pinned`,
+    POLLS:       (id: string) => `${v1}/chat/channels/${id}/polls`,
+    POLL_VOTE:   (id: string, pollId: string) => `${v1}/chat/channels/${id}/polls/${pollId}/vote`,
+    POLL_CLOSE:  (id: string, pollId: string) => `${v1}/chat/channels/${id}/polls/${pollId}/close`,
+    TASKS:       (id: string) => `${v1}/chat/channels/${id}/tasks`,
+    REMINDERS:   (id: string) => `${v1}/chat/channels/${id}/reminders`,
   },
   MEETING: {
     DASHBOARD:        `${v1}/meeting/dashboard`,

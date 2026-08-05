@@ -5,6 +5,7 @@ import {
   Hash, Lock, Settings, Paperclip, CornerDownRight, ChevronDown,
   Mic, Square, Trash2, Camera, RotateCcw, Check, Video, VideoOff,
   Pin, Smile, Bold, Italic, Code, AtSign, Link2,
+  BarChart3, CheckSquare, AlarmClock, Slash, XCircle,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
@@ -46,6 +47,21 @@ interface LinkPreview {
   image: string | null;
 }
 
+interface PollVote {
+  user_id: string;
+  option_index: number;
+}
+
+interface Poll {
+  id: string;
+  question: string;
+  options: string[];
+  is_closed: boolean;
+  closes_at: string | null;
+  created_by_id: string;
+  votes: PollVote[];
+}
+
 interface ChatMessage {
   id: string;
   channel_id: string;
@@ -69,6 +85,7 @@ interface ChatMessage {
   pinned_at?: string | null;
   pinned_by?: { id: string; first_name: string; last_name: string } | null;
   link_preview?: LinkPreview | null;
+  poll?: Poll | null;
 }
 
 interface Channel {
@@ -156,6 +173,12 @@ const ROLE_BADGE: Record<string, string> = {
   ADMIN:  'bg-blue-100 text-blue-700',
   MEMBER: 'bg-gray-100 text-gray-600',
 };
+
+const SLASH_COMMANDS: Array<{ command: string; icon: React.ReactNode; usage: string; description: string }> = [
+  { command: '/poll',   icon: <BarChart3 size={13} />,   usage: '/poll Question? | Option 1 | Option 2',       description: 'Start a quick vote' },
+  { command: '/task',   icon: <CheckSquare size={13} />, usage: '/task Title of the task',                     description: 'Create a task in this project' },
+  { command: '/remind', icon: <AlarmClock size={13} />,  usage: '/remind Message in 2 hours',                  description: 'Get pinged later' },
+];
 
 // ─── Avatar ──────────────────────────────────────────────────────────────────
 
@@ -1073,6 +1096,94 @@ function ChannelSection({
   );
 }
 
+// ─── Poll Card ────────────────────────────────────────────────────────────────
+// Renders in place of a message's plain text whenever msg.poll is set (see
+// create_poll_ctrl — the poll's announcement IS a regular message row).
+// Tallies are computed client-side from the raw votes array the backend
+// sends, same convention MessageBubble's own reactionMap already uses for
+// reactions — and since the message list already polls every 3s, votes
+// stay live without any dedicated poll-polling of their own.
+function PollCard({ poll, channelId, currentUserId, isGlobalAdmin }: {
+  poll: Poll;
+  channelId: string;
+  currentUserId: string;
+  isGlobalAdmin?: boolean;
+}) {
+  const qc = useQueryClient();
+  const toast = useToastContext();
+
+  const voteMutation = useMutation({
+    mutationFn: (option_index: number) =>
+      apiRequest<any>(API_ENDPOINTS.CHAT.POLL_VOTE(channelId, poll.id), {
+        method: 'POST',
+        body: JSON.stringify({ option_index }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['chat-messages', channelId] }),
+    onError: (e: any) => toast.error(e?.message || 'Failed to vote'),
+  });
+
+  const closeMutation = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.CHAT.POLL_CLOSE(channelId, poll.id), { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['chat-messages', channelId] }),
+    onError: (e: any) => toast.error(e?.message || 'Failed to close poll'),
+  });
+
+  const myVote = poll.votes.find((v) => v.user_id === currentUserId);
+  const totalVotes = poll.votes.length;
+  const canClose = !poll.is_closed && (poll.created_by_id === currentUserId || isGlobalAdmin);
+
+  return (
+    <div className="w-64 bg-white border border-gray-200 rounded-xl p-3">
+      <p className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">
+        <BarChart3 size={11} />
+        {poll.is_closed ? 'Poll · Closed' : 'Poll'}
+      </p>
+      <p className="text-sm font-bold text-gray-900 mb-2">{poll.question}</p>
+      <div className="space-y-1.5">
+        {poll.options.map((option, i) => {
+          const count = poll.votes.filter((v) => v.option_index === i).length;
+          const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+          const mine = myVote?.option_index === i;
+          return (
+            <button
+              key={i}
+              disabled={poll.is_closed || voteMutation.isPending}
+              onClick={() => voteMutation.mutate(i)}
+              className={cn(
+                'relative w-full text-left px-2.5 py-1.5 rounded-lg border text-xs overflow-hidden disabled:cursor-default',
+                mine ? 'border-primary-400 bg-primary-50' : 'border-gray-200 hover:border-gray-300',
+              )}
+            >
+              <div
+                className={cn('absolute inset-y-0 left-0 transition-all', mine ? 'bg-primary-100' : 'bg-gray-100')}
+                style={{ width: `${pct}%` }}
+              />
+              <div className="relative flex items-center justify-between gap-2">
+                <span className={cn('font-semibold truncate', mine ? 'text-primary-800' : 'text-gray-700')}>
+                  {mine && <Check size={11} className="inline mr-1 -mt-0.5" />}
+                  {option}
+                </span>
+                <span className="shrink-0 text-gray-400 font-bold">{count}</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex items-center justify-between mt-2">
+        <p className="text-[10px] text-gray-400">{totalVotes} vote{totalVotes === 1 ? '' : 's'}</p>
+        {canClose && (
+          <button
+            onClick={() => closeMutation.mutate()}
+            className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 hover:text-red-500"
+          >
+            <XCircle size={11} /> Close poll
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Message Bubble ───────────────────────────────────────────────────────────
 
 function MessageBubble({
@@ -1230,43 +1341,51 @@ function MessageBubble({
             </div>
           )}
 
-          <div className={cn(
-            'px-3 py-2 rounded-2xl text-sm',
-            isOwn ? 'bg-primary-600 text-white rounded-tr-sm' : 'bg-gray-100 text-gray-900 rounded-tl-sm',
-          )}>
-            {/* File attachment */}
-            {msg.file_url && (
-              <div className="mb-1">
-                {isImage ? (
-                  <img
-                    src={msg.file_url}
-                    alt={msg.file_name || 'image'}
-                    className="max-h-48 rounded-xl object-contain cursor-zoom-in"
-                    onClick={() => onImageClick?.(msg.file_url!, msg.file_name)}
-                  />
-                ) : isAudio ? (
-                  <audio src={msg.file_url} controls className="h-9 max-w-[220px]" />
-                ) : isVideo ? (
-                  <video src={msg.file_url} controls className="max-h-48 rounded-xl" />
-                ) : (
-                  <a
-                    href={msg.file_url}
-                    download={msg.file_name}
-                    className={cn('flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold',
-                      isOwn ? 'bg-primary-700 text-white' : 'bg-gray-200 text-gray-700')}
-                  >
-                    <Paperclip size={12} />
-                    <span className="truncate">{msg.file_name}</span>
-                    {msg.file_size != null && <span className="shrink-0 opacity-70">{fmtSize(msg.file_size)}</span>}
-                  </a>
-                )}
-              </div>
-            )}
-            {msg.content && <span>{renderMessageContent(msg.content)}</span>}
-            {msg.is_edited && (
-              <span className={cn('text-[10px] ml-1 opacity-60', isOwn ? 'text-primary-100' : 'text-gray-400')}>(edited)</span>
-            )}
-          </div>
+          {msg.poll ? (
+            // Polls render as their own card, not inside the usual colored
+            // bubble — the interactive vote buttons need a neutral
+            // background regardless of who sent it, same reasoning link
+            // previews already render as a separate white card.
+            <PollCard poll={msg.poll} channelId={channelId} currentUserId={currentUserId} isGlobalAdmin={isGlobalAdmin} />
+          ) : (
+            <div className={cn(
+              'px-3 py-2 rounded-2xl text-sm',
+              isOwn ? 'bg-primary-600 text-white rounded-tr-sm' : 'bg-gray-100 text-gray-900 rounded-tl-sm',
+            )}>
+              {/* File attachment */}
+              {msg.file_url && (
+                <div className="mb-1">
+                  {isImage ? (
+                    <img
+                      src={msg.file_url}
+                      alt={msg.file_name || 'image'}
+                      className="max-h-48 rounded-xl object-contain cursor-zoom-in"
+                      onClick={() => onImageClick?.(msg.file_url!, msg.file_name)}
+                    />
+                  ) : isAudio ? (
+                    <audio src={msg.file_url} controls className="h-9 max-w-[220px]" />
+                  ) : isVideo ? (
+                    <video src={msg.file_url} controls className="max-h-48 rounded-xl" />
+                  ) : (
+                    <a
+                      href={msg.file_url}
+                      download={msg.file_name}
+                      className={cn('flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold',
+                        isOwn ? 'bg-primary-700 text-white' : 'bg-gray-200 text-gray-700')}
+                    >
+                      <Paperclip size={12} />
+                      <span className="truncate">{msg.file_name}</span>
+                      {msg.file_size != null && <span className="shrink-0 opacity-70">{fmtSize(msg.file_size)}</span>}
+                    </a>
+                  )}
+                </div>
+              )}
+              {msg.content && <span>{renderMessageContent(msg.content)}</span>}
+              {msg.is_edited && (
+                <span className={cn('text-[10px] ml-1 opacity-60', isOwn ? 'text-primary-100' : 'text-gray-400')}>(edited)</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Link preview — mutually exclusive with a real attachment
@@ -1813,6 +1932,76 @@ export default function ChatPage() {
     mutationFn: () => apiRequest<any>(API_ENDPOINTS.CHAT.TYPING(selectedChannelId!), { method: 'POST' }),
   });
 
+  // ── Slash commands ───────────────────────────────────────────────────────
+  // /poll, /task, /remind are quick entry points that skip a separate modal
+  // flow entirely — the whole point is that you never leave the composer.
+
+  const createPollMutation = useMutation({
+    mutationFn: (payload: { question: string; options: string[] }) =>
+      apiRequest<any>(API_ENDPOINTS.CHAT.POLLS(selectedChannelId!), { method: 'POST', body: JSON.stringify(payload) }),
+    onSuccess: () => {
+      setDraft('');
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
+      qc.invalidateQueries({ queryKey: ['chat-messages', selectedChannelId] });
+      qc.invalidateQueries({ queryKey: ['chat-channels'] });
+    },
+    onError: (e: any) => toast.error(e?.message || 'Failed to create poll'),
+  });
+
+  const createTaskMutation = useMutation({
+    mutationFn: (title: string) =>
+      apiRequest<any>(API_ENDPOINTS.CHAT.TASKS(selectedChannelId!), { method: 'POST', body: JSON.stringify({ title }) }),
+    onSuccess: () => {
+      setDraft('');
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
+      qc.invalidateQueries({ queryKey: ['chat-messages', selectedChannelId] });
+      toast.success('Task created');
+    },
+    onError: (e: any) => toast.error(e?.message || 'Failed to create task — /task only works in a project-linked channel'),
+  });
+
+  const createReminderMutation = useMutation({
+    mutationFn: (text: string) =>
+      apiRequest<any>(API_ENDPOINTS.CHAT.REMINDERS(selectedChannelId!), { method: 'POST', body: JSON.stringify({ text }) }),
+    onSuccess: (r: any) => {
+      setDraft('');
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
+      toast.success(r?.message || 'Reminder set');
+    },
+    onError: (e: any) => toast.error(e?.message || 'Failed to set reminder — try "/remind Message in 2 hours"'),
+  });
+
+  // Returns true if the draft was a (recognized or unrecognized) slash
+  // command and has been fully handled — the caller should not also send it
+  // as a plain message either way.
+  const handleSlashCommand = (): boolean => {
+    const trimmed = draft.trim();
+    if (!trimmed.startsWith('/')) return false;
+    const spaceIdx = trimmed.indexOf(' ');
+    const command = (spaceIdx === -1 ? trimmed : trimmed.slice(0, spaceIdx)).toLowerCase();
+    const rest = (spaceIdx === -1 ? '' : trimmed.slice(spaceIdx + 1)).trim();
+
+    if (command === '/poll') {
+      const parts = rest.split('|').map((p) => p.trim()).filter(Boolean);
+      if (parts.length < 3) { toast.error('Usage: /poll Question? | Option 1 | Option 2'); return true; }
+      const [question, ...options] = parts;
+      createPollMutation.mutate({ question, options });
+      return true;
+    }
+    if (command === '/task') {
+      if (!rest) { toast.error('Usage: /task Title of the task'); return true; }
+      createTaskMutation.mutate(rest);
+      return true;
+    }
+    if (command === '/remind') {
+      if (!rest) { toast.error('Usage: /remind Message in 2 hours'); return true; }
+      createReminderMutation.mutate(rest);
+      return true;
+    }
+    toast.error(`Unknown command "${command}". Try /poll, /task, or /remind.`);
+    return true;
+  };
+
   // ── Effects ───────────────────────────────────────────────────────────────
 
   // Auto-scroll only if the user was already near the bottom — messages
@@ -1931,6 +2120,9 @@ export default function ChatPage() {
   const handleSend = async () => {
     if (!selectedChannelId || sendMutation.isPending || isUploadingAttachment) return;
     if (!draft.trim() && !attachmentFile) return;
+    // A "/"-prefixed draft is always a command attempt, never literal text —
+    // handleSlashCommand fully owns sending (or rejecting) it either way.
+    if (!attachmentFile && handleSlashCommand()) return;
     // Attachment already uploaded at selection time (handleAttachmentSelect) —
     // if it's still in flight, isUploadingAttachment above already blocks Send.
     if (attachmentFile && !uploadedAttachment) return;
@@ -2513,6 +2705,34 @@ export default function ChatPage() {
                           ))}
                         </div>
                       )}
+                      {/* Slash-command hint — shown while still typing the
+                          command word itself (before the first space), so
+                          it gets out of the way once you're typing the
+                          actual question/title/message. */}
+                      {mentionQuery === null && draft.startsWith('/') && !draft.includes(' ') && (() => {
+                        const matches = SLASH_COMMANDS.filter((c) => c.command.startsWith(draft.toLowerCase()));
+                        if (matches.length === 0) return null;
+                        return (
+                          <div className="absolute bottom-full mb-2 left-0 w-72 bg-white rounded-xl border border-gray-200 shadow-xl z-20 overflow-hidden">
+                            {matches.map((c) => (
+                              <button
+                                key={c.command}
+                                onClick={() => {
+                                  setDraft(`${c.command} `);
+                                  requestAnimationFrame(() => textareaRef.current?.focus());
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50"
+                              >
+                                <span className="text-gray-400 shrink-0">{c.icon}</span>
+                                <span className="min-w-0">
+                                  <span className="block text-sm font-bold text-gray-800">{c.command}</span>
+                                  <span className="block text-[11px] text-gray-400 truncate">{c.description} · {c.usage}</span>
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      })()}
                       <textarea
                         ref={textareaRef}
                         value={draft}
