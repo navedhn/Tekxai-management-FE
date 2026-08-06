@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, Plus, UserPlus, Download, Users, CheckCircle, Clock, UserX, Eye, Edit2, Trash2, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { Search, Plus, UserPlus, Download, Users, CheckCircle, Clock, UserX, Eye, Edit2, Trash2, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown, Zap, FileText } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
@@ -18,6 +18,7 @@ import { cn } from '@/utils/cn';
 import { EMPLOYMENT_STATUS_LABELS } from '@/constants/employmentStatus';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button, { IconButton } from '@/components/ui/Button';
+import Modal from '@/components/ui/Modal';
 
 const EMPLOYMENT_TYPE_OPTIONS = [
   { value: 'FULL_TIME', label: 'Full Time' },
@@ -104,10 +105,15 @@ export default function EmployeeDirectory() {
   };
 
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
-  // Quick Edit — set to the row being edited when its Edit button is clicked
-  // and that row was created_via 'QUICK'; null otherwise. Detailed Edit
-  // (created_via 'FULL') keeps navigating to the Add Employee wizard as before.
+  // Quick Edit — set once the user picks "Quick Edit" from the edit-mode
+  // chooser below. Available for every employee regardless of created_via
+  // (QUICK or FULL) — Quick Edit and Detailed Edit are just two different
+  // views onto the same user, not something the record's origin locks you
+  // into.
   const [quickEditTarget, setQuickEditTarget] = useState<any>(null);
+  // Edit-mode chooser — set to the row whose edit icon was just clicked;
+  // shows a small popup offering Quick Edit vs Detailed Edit for that row.
+  const [editModeTarget, setEditModeTarget] = useState<any>(null);
   const [deleteTarget, setDeleteTarget]   = useState<any>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkLifecycleOpen, setBulkLifecycleOpen] = useState(false);
@@ -276,12 +282,56 @@ export default function EmployeeDirectory() {
         onClose={() => setQuickCreateOpen(false)}
       />
 
-      {/* Quick Edit — same lightweight form, for employees created via Quick Create */}
+      {/* Quick Edit — same lightweight form as Quick Create. Available for any
+          employee, regardless of how they were originally added. */}
       <QuickCreateUserModal
         isOpen={!!quickEditTarget}
         onClose={() => setQuickEditTarget(null)}
         editUser={quickEditTarget}
       />
+
+      {/* Edit-mode chooser — every employee gets both options now; created_via
+          no longer locks a row into one edit flow. */}
+      <Modal
+        isOpen={!!editModeTarget}
+        onClose={() => setEditModeTarget(null)}
+        title="Edit Employee"
+        size="sm"
+      >
+        <p className="text-sm text-gray-500 mb-4">
+          How would you like to edit {editModeTarget?.first_name || 'this employee'}?
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setQuickEditTarget(editModeTarget);
+              setEditModeTarget(null);
+            }}
+            className="flex flex-col items-center gap-2 rounded-xl border border-gray-200 p-4 text-center hover:border-primary-400 hover:bg-primary-50 transition-colors"
+          >
+            <Zap size={22} className="text-primary-600" />
+            <span className="font-medium text-sm">Quick Edit</span>
+            <span className="text-xs text-gray-500">Name, role, designation, department</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const emp = editModeTarget;
+              setEditModeTarget(null);
+              // Prefer the human-readable employee_id in the URL — never expose
+              // the internal DB id. Falls back to the DB-id route (auto-redirects
+              // to the clean URL) for the rare employee with no employee_id yet.
+              navigate(emp.employee_id ? `/admin/add-employee?mode=edit&employee=${emp.employee_id}` : `/admin/add-employee/${emp.id}`);
+            }}
+            className="flex flex-col items-center gap-2 rounded-xl border border-gray-200 p-4 text-center hover:border-primary-400 hover:bg-primary-50 transition-colors"
+          >
+            <FileText size={22} className="text-primary-600" />
+            <span className="font-medium text-sm">Detailed Edit</span>
+            <span className="text-xs text-gray-500">Full profile wizard, all sections</span>
+          </button>
+        </div>
+      </Modal>
 
       {/* Single delete confirmation */}
       {deleteTarget && (
@@ -664,18 +714,8 @@ export default function EmployeeDirectory() {
                           variant="ghost"
                           size="sm"
                           aria-label="Edit Employee"
-                          title={emp.created_via === 'QUICK' ? 'Quick Edit' : 'Edit Employee'}
-                          onClick={() => {
-                            // Quick Create users get the lightweight Quick Edit popup
-                            // (same fields as Quick Create); everyone else keeps the
-                            // full Detailed Edit wizard.
-                            if (emp.created_via === 'QUICK') setQuickEditTarget(emp);
-                            // Prefer the human-readable employee_id in the URL — never
-                            // expose the internal DB id. Falls back to the DB-id route
-                            // (auto-redirects to the clean URL) for the rare employee
-                            // that hasn't been assigned an employee_id yet.
-                            else navigate(emp.employee_id ? `/admin/add-employee?mode=edit&employee=${emp.employee_id}` : `/admin/add-employee/${emp.id}`);
-                          }}
+                          title="Edit Employee"
+                          onClick={() => setEditModeTarget(emp)}
                           className="!h-auto !w-auto p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
                         />
                         <IconButton

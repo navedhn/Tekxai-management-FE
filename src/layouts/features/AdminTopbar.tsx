@@ -9,9 +9,9 @@ import { getPageTitle } from './pageTitles';
 
 import ActionModal from '@/components/ui/ActionModal';
 
-export type AdminTopbarProps = { onMenu: () => void; routePrefix?: string; fullWidth?: boolean };
+export type AdminTopbarProps = { onMenu: () => void; routePrefix?: string; fullWidth?: boolean; title?: string };
 
-const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/admin', fullWidth = false }) => {
+const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/admin', fullWidth = false, title: titleOverride }) => {
     const { user, userLogout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
@@ -24,7 +24,8 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
     const notifBtnRef = useRef<HTMLButtonElement>(null);
     const profileRef = useRef<HTMLDivElement>(null);
 
-    const { title } = getPageTitle(location.pathname, routePrefix);
+    const { title: routeTitle } = getPageTitle(location.pathname, routePrefix);
+    const title = titleOverride ?? routeTitle;
 
     useEffect(() => {
         setIsProfileOpen(false);

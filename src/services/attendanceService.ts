@@ -52,13 +52,13 @@ export const useDeleteShiftMutation = () => { const qc = useQueryClient(); retur
 // and no approved leave for the given day. Distinct from useGetViolationsQuery
 // (which only reads already-recorded LATE/ABSENT/EARLY_OUT rows): this is a
 // live, computed no-show list for a day nobody has been marked absent for yet.
-export const useGetNoCheckinsQuery = (date?: string) =>
+export const useGetNoCheckinsQuery = (filters?: { date?: string; department_id?: string; team_id?: string }) =>
   useQuery({
-    queryKey: ['no-checkins', date],
+    queryKey: ['no-checkins', filters],
     queryFn: async () => {
-      const qs = date ? `?date=${date}` : '';
+      const qs = filters ? '?' + new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([, v]) => v != null && v !== '')) as any).toString() : '';
       const r = await apiRequest<any>(`${v1}/attendance/no-checkins${qs}`);
-      return r?.payload || { date, records: [], total: 0 };
+      return r?.payload || { date: filters?.date, records: [], total: 0 };
     },
     staleTime: 30000,
   });

@@ -53,7 +53,7 @@ const labelCls = 'text-xs font-semibold text-gray-500 block mb-1.5';
 
 function CreateAssetModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
-  const { showToast } = useToastContext();
+  const { success: showSuccessToast } = useToastContext();
 
   const [categoryId, setCategoryId] = useState('');
   const [categoryMeta, setCategoryMeta] = useState<{ is_device: boolean; is_assignable: boolean } | null>(null);
@@ -118,7 +118,7 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['assets-list'] });
       qc.invalidateQueries({ queryKey: ['asset-categories'] });
-      showToast('Asset added successfully', 'success');
+      showSuccessToast('Asset added successfully');
       onClose();
     },
     onError: (e: any) => setErr(e?.message || 'Failed to create asset'),
@@ -382,7 +382,7 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
 
 function AssignModal({ asset, onClose }: { asset: any; onClose: () => void }) {
   const qc = useQueryClient();
-  const { showToast } = useToastContext();
+  const { success: showSuccessToast } = useToastContext();
   const [userId, setUserId] = useState('');
   const [err, setErr] = useState('');
 
@@ -399,7 +399,7 @@ function AssignModal({ asset, onClose }: { asset: any; onClose: () => void }) {
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['assets-list'] });
-      showToast('Asset assigned successfully', 'success');
+      showSuccessToast('Asset assigned successfully');
       onClose();
     },
     onError: (e: any) => setErr(e?.message || 'Failed to assign'),
@@ -437,7 +437,7 @@ function AssignModal({ asset, onClose }: { asset: any; onClose: () => void }) {
 
 function ReturnModal({ asset, onClose }: { asset: any; onClose: () => void }) {
   const qc = useQueryClient();
-  const { showToast } = useToastContext();
+  const { success: showSuccessToast } = useToastContext();
   const [condition, setCondition] = useState('GOOD');
   const [notes, setNotes] = useState('');
   const [err, setErr] = useState('');
@@ -449,7 +449,7 @@ function ReturnModal({ asset, onClose }: { asset: any; onClose: () => void }) {
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['assets-list'] });
-      showToast('Asset returned successfully', 'success');
+      showSuccessToast('Asset returned successfully');
       onClose();
     },
     onError: (e: any) => setErr(e?.message || 'Failed to return asset'),
@@ -500,7 +500,7 @@ function ReturnModal({ asset, onClose }: { asset: any; onClose: () => void }) {
 
 function DisposeModal({ asset, onClose }: { asset: any; onClose: () => void }) {
   const qc = useQueryClient();
-  const { showToast } = useToastContext();
+  const { success: showSuccessToast } = useToastContext();
   const [reason, setReason] = useState('');
   const [disposalDate, setDisposalDate] = useState('');
   const [notes, setNotes] = useState('');
@@ -514,7 +514,7 @@ function DisposeModal({ asset, onClose }: { asset: any; onClose: () => void }) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['assets-list'] });
       qc.invalidateQueries({ queryKey: ['asset-disposals'] });
-      showToast('Asset disposed successfully', 'success');
+      showSuccessToast('Asset disposed successfully');
       onClose();
     },
     onError: (e: any) => setErr(e?.message || 'Failed to dispose asset'),
@@ -559,7 +559,7 @@ function DisposeModal({ asset, onClose }: { asset: any; onClose: () => void }) {
 
 function CreateRequestModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
-  const { showToast } = useToastContext();
+  const { success: showSuccessToast } = useToastContext();
   const [categoryId, setCategoryId] = useState('');
   const [forUserId, setForUserId] = useState('');
   const [reason, setReason] = useState('');
@@ -588,7 +588,7 @@ function CreateRequestModal({ onClose }: { onClose: () => void }) {
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['asset-requests'] });
-      showToast('Asset request submitted', 'success');
+      showSuccessToast('Asset request submitted');
       onClose();
     },
     onError: (e: any) => setErr(e?.message || 'Failed to submit request'),
@@ -642,7 +642,7 @@ function CreateRequestModal({ onClose }: { onClose: () => void }) {
 
 function ApproveRequestModal({ request, onClose }: { request: any; onClose: () => void }) {
   const qc = useQueryClient();
-  const { showToast } = useToastContext();
+  const { success: showSuccessToast } = useToastContext();
   const [assetId, setAssetId] = useState('');
   const [err, setErr] = useState('');
 
@@ -660,7 +660,7 @@ function ApproveRequestModal({ request, onClose }: { request: any; onClose: () =
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['asset-requests'] });
       qc.invalidateQueries({ queryKey: ['assets-list'] });
-      showToast('Request approved and asset assigned', 'success');
+      showSuccessToast('Request approved and asset assigned');
       onClose();
     },
     onError: (e: any) => setErr(e?.message || 'Failed to approve request'),
@@ -705,7 +705,7 @@ function ApproveRequestModal({ request, onClose }: { request: any; onClose: () =
 
 function RejectRequestModal({ request, onClose }: { request: any; onClose: () => void }) {
   const qc = useQueryClient();
-  const { showToast } = useToastContext();
+  const { success: showSuccessToast } = useToastContext();
   const [rejectionReason, setRejectionReason] = useState('');
   const [err, setErr] = useState('');
 
@@ -716,7 +716,7 @@ function RejectRequestModal({ request, onClose }: { request: any; onClose: () =>
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['asset-requests'] });
-      showToast('Request rejected', 'success');
+      showSuccessToast('Request rejected');
       onClose();
     },
     onError: (e: any) => setErr(e?.message || 'Failed to reject request'),

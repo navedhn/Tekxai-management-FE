@@ -10,12 +10,13 @@ import Badge from '@/components/ui/Badge';
 import StatusBadge from '@/components/ui/StatusBadge';
 import ActionModal from '@/components/ui/ActionModal';
 import ChipMultiSelect from '@/components/ui/ChipMultiSelect';
-import { Clock, AlertTriangle, Settings, Plus, Pencil, Trash2, BarChart3 } from 'lucide-react';
+import { Clock, AlertTriangle, Plus, Pencil, Trash2, BarChart3 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useGetShiftsQuery, useGetViolationsQuery, useUpsertShiftMutation, useAssignShiftMutation, useDeleteShiftMutation, useGetNoCheckinsQuery, useMarkAbsenteesMutation } from '@/services/attendanceService';
 import { useFetchUsersQuery } from '@/services/userService';
 import { useGetTeamsQuery } from '@/services/adminService';
+import { useGetDepartmentsQuery } from '@/services/departmentService';
 import { apiRequest } from '@/lib/queryClient';
 
 const TABS = ['Late Coming / Violations', 'Shift Management', 'Reports'];
@@ -146,6 +147,8 @@ const AttendancePage: React.FC = () => {
   const [assignTeamIds, setAssignTeamIds] = useState<string[]>([]);
   const [violationFilters, setViolationFilters] = useState({ user_id: '', violation_type: '', start_date: '', end_date: '' });
   const [quickFilter, setQuickFilter] = useState<'today' | 'week' | null>(null);
+  const [noCheckinDeptFilter, setNoCheckinDeptFilter] = useState('');
+  const [noCheckinTeamFilter, setNoCheckinTeamFilter] = useState('');
 
   const applyQuickFilter = (which: 'today' | 'week') => {
     const range = which === 'today' ? getTodayRange() : getThisWeekRange();
@@ -162,10 +165,15 @@ const AttendancePage: React.FC = () => {
   const { data: users = [] } = useFetchUsersQuery({});
   const { data: teamsData } = useGetTeamsQuery();
   const teams = (teamsData as any)?.payload?.records || [];
+  const { data: departmentsData } = useGetDepartmentsQuery();
+  const departments = (departmentsData as any) || [];
   const upsertShift = useUpsertShiftMutation();
   const assignShift = useAssignShiftMutation();
   const deleteShift = useDeleteShiftMutation();
-  const { data: noCheckinsData, isLoading: noCheckinsLoading } = useGetNoCheckinsQuery();
+  const { data: noCheckinsData, isLoading: noCheckinsLoading } = useGetNoCheckinsQuery({
+    department_id: noCheckinDeptFilter,
+    team_id: noCheckinTeamFilter,
+  });
   const markAbsentees = useMarkAbsenteesMutation();
   const noCheckins = (noCheckinsData as any)?.records || [];
 
@@ -293,10 +301,40 @@ const AttendancePage: React.FC = () => {
               Add to Violations ({noCheckins.length})
             </Button>
           </div>
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <SearchableSelect
+              options={departments.map((d: any) => ({ label: d.name, value: d.id }))}
+              value={noCheckinDeptFilter || null}
+              onChange={(v) => setNoCheckinDeptFilter((v as string) ?? '')}
+              placeholder="All Departments"
+              containerClassName="sm:w-56"
+              className="h-10"
+            />
+            <SearchableSelect
+              options={teams.map((t: any) => ({ label: t.name, value: t.id }))}
+              value={noCheckinTeamFilter || null}
+              onChange={(v) => setNoCheckinTeamFilter((v as string) ?? '')}
+              placeholder="All Teams"
+              containerClassName="sm:w-56"
+              className="h-10"
+            />
+            {(noCheckinDeptFilter || noCheckinTeamFilter) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-xl h-9 text-gray-500 self-start sm:self-center"
+                onClick={() => { setNoCheckinDeptFilter(''); setNoCheckinTeamFilter(''); }}
+              >
+                Clear
+              </Button>
+            )}
+          </div>
           <Table
             columns={[
               { header: 'Employee', key: 'first_name', render: (item: any) => <span className="font-bold">{item.first_name} {item.last_name}</span> },
               { header: 'Email', key: 'email', render: (item: any) => <span className="text-gray-500">{item.email}</span> },
+              { header: 'Department', key: 'department', render: (item: any) => <span className="text-gray-500">{item.department?.name || '—'}</span> },
+              { header: 'Designation', key: 'designation', render: (item: any) => <span className="text-gray-500">{item.designation || '—'}</span> },
             ]}
             data={noCheckins}
             isLoading={noCheckinsLoading}

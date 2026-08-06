@@ -6,7 +6,7 @@ import {
   Mic, Square, Trash2, Camera, RotateCcw, Check, Video, VideoOff,
   Pin, Smile, Bold, Italic, Code, AtSign, Link2,
   BarChart3, CheckSquare, AlarmClock, Slash, XCircle,
-  Bookmark, Megaphone, FolderOpen, Download, FileText,
+  Bookmark, Megaphone, FolderOpen, Download, FileText, Home, ShieldCheck,
 } from 'lucide-react';
 import { apiRequest, BASE_URL } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
@@ -19,6 +19,14 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { renderMessageContent, extractMentionedUserIds, toPlainText } from './messageContent';
 import EmojiPicker from './EmojiPicker';
 import { QUICK_REACTION_EMOJIS } from './emojiData';
+import {
+  useGetServersQuery, useGetServerQuery, useGetServerChannelsQuery,
+  useCreateServerMutation, useAddServerMemberMutation, useRemoveServerMemberMutation,
+  type Server as ChatServer,
+} from '@/services/serversService';
+import { useUpdateMyPublicKeyMutation, useGetUserPublicKeyQuery } from '@/services/userService';
+import { getOrCreateKeyPair, importPublicKey, deriveSharedKey, encryptMessage, decryptMessage } from '@/lib/e2eCrypto';
+import { useChatTopbarStore } from '@/stores/chatTopbarStore';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -92,13 +100,18 @@ interface ChatMessage {
   pinned_by?: { id: string; first_name: string; last_name: string } | null;
   link_preview?: LinkPreview | null;
   poll?: Poll | null;
+  // E2E DM encryption (see lib/e2eCrypto.ts) — when is_encrypted is true,
+  // `content` is AES-GCM ciphertext (base64) and `iv` is the matching
+  // base64 nonce. Only ever set for DM channels.
+  is_encrypted?: boolean;
+  iv?: string | null;
 }
 
 interface Channel {
   id: string;
   name: string;
   description?: string;
-  type: 'PUBLIC' | 'PRIVATE' | 'DM' | 'GROUP' | 'ANNOUNCEMENT';
+  type: 'PUBLIC' | 'PRIVATE' | 'DM' | 'ANNOUNCEMENT';
   is_archived: boolean;
   entity_type?: string | null;
   entity_id?: string | null;
@@ -110,6 +123,9 @@ interface Channel {
   members: ChannelMember[];
   messages: ChatMessage[];
   _count?: { messages: number; members: number };
+  // Nullable — legacy/ungrouped channels never set this. Only channels
+  // created inside a Server (see serversService.ts) do.
+  server_id?: string | null;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -171,7 +187,6 @@ const PRIVACY_BADGE: Record<string, { label: string; cls: string }> = {
   PUBLIC:       { label: 'Public',       cls: 'bg-green-50 text-green-700' },
   PRIVATE:      { label: 'Private',      cls: 'bg-yellow-50 text-yellow-700' },
   DM:           { label: 'Direct',       cls: 'bg-blue-50 text-blue-700' },
-  GROUP:        { label: 'Group',        cls: 'bg-purple-50 text-purple-700' },
   ANNOUNCEMENT: { label: 'Announcement', cls: 'bg-amber-50 text-amber-700' },
 };
 
@@ -893,18 +908,271 @@ function SearchModal({
   );
 }
 
+// ─── Server Rail ──────────────────────────────────────────────────────────────
+// Discord-style icon rail on the far left: "Home" (DMs) at top, one icon per
+// Server the user belongs to, "+" to create a new one (admin/HR-gated, same
+// role check as CAN_CREATE_CHANNEL). Purely additive to the existing chat
+// module — legacy ungrouped channels are unaffected and still live under
+// "Home" alongside DMs (only server_id-tagged channels move under a server).
+
+const SERVER_COLORS = [
+  'from-[#005CDA] to-[#001F4A]', 'from-emerald-500 to-emerald-800', 'from-orange-500 to-orange-800',
+  'from-fuchsia-500 to-fuchsia-800', 'from-cyan-500 to-cyan-800', 'from-rose-500 to-rose-800',
+];
+function serverColor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  return SERVER_COLORS[hash % SERVER_COLORS.length];
+}
+
+function ServerRail({
+  servers, activeServerId, onSelectHome, onSelectServer, onAddServer, canCreate,
+}: {
+  servers: ChatServer[];
+  activeServerId: string | null; // null = Home (DMs + legacy channels)
+  onSelectHome: () => void;
+  onSelectServer: (id: string) => void;
+  onAddServer: () => void;
+  canCreate: boolean;
+}) {
+  const RailIcon: React.FC<{ active: boolean; onClick: () => void; title: string; children: React.ReactNode; className?: string }> = ({
+    active, onClick, title, children, className,
+  }) => (
+    <div className="relative group w-full flex items-center justify-center">
+      <span className={cn(
+        'absolute left-0 w-1 rounded-r-full bg-gray-900 transition-all duration-200',
+        active ? 'h-8' : 'h-0 group-hover:h-4',
+      )} />
+      <button
+        onClick={onClick}
+        title={title}
+        className={cn(
+          'w-11 h-11 flex items-center justify-center text-white font-black text-xs transition-all duration-200 active:scale-95',
+          active ? 'rounded-2xl' : 'rounded-full hover:rounded-2xl',
+          className,
+        )}
+      >
+        {children}
+      </button>
+    </div>
+  );
+
+  return (
+    <div className="w-[64px] bg-[#EAECF0] flex flex-col items-center py-3 gap-2 shrink-0 h-full overflow-y-auto no-scrollbar">
+      <RailIcon active={activeServerId === null} onClick={onSelectHome} title="Home — DMs" className="bg-gradient-to-b from-[#005CDA] to-[#001F4A]">
+        <Home size={18} />
+      </RailIcon>
+
+      <div className="w-8 h-[2px] rounded-full bg-[#D7DADC] my-0.5" />
+
+      {servers.map((s) => (
+        <RailIcon
+          key={s.id}
+          active={activeServerId === s.id}
+          onClick={() => onSelectServer(s.id)}
+          title={s.name}
+          className={cn('bg-gradient-to-b', serverColor(s.id))}
+        >
+          {getInitials(s.name) || '#'}
+        </RailIcon>
+      ))}
+
+      {canCreate && (
+        <>
+          <div className="w-8 h-[2px] rounded-full bg-[#D7DADC] my-0.5" />
+          <button
+            onClick={onAddServer}
+            title="Create a server"
+            className="w-11 h-11 rounded-full bg-white hover:bg-green-50 hover:rounded-2xl border-2 border-dashed border-gray-300 hover:border-green-500 flex items-center justify-center transition-all duration-200 active:scale-95"
+          >
+            <Plus size={18} className="text-green-600" />
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Create Server Modal ──────────────────────────────────────────────────────
+
+function CreateServerModal({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const toast = useToastContext();
+  const createMutation = useCreateServerMutation();
+
+  const handleCreate = () => {
+    if (!name.trim()) return;
+    createMutation.mutate(
+      { name: name.trim(), description: description.trim() || undefined },
+      {
+        onSuccess: (data: any) => {
+          toast.success('Server created');
+          onCreated(data?.payload?.id);
+          onClose();
+        },
+        onError: (e: any) => toast.error(e?.message || 'Failed to create server'),
+      },
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h3 className="font-black text-gray-900">Create a Server</h3>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-5 flex flex-col gap-3">
+          <div>
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Server name</label>
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+              placeholder="e.g. Engineering"
+              className="w-full mt-1 h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Description (optional)</label>
+            <input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What's this server for?"
+              className="w-full mt-1 h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
+            />
+          </div>
+          <button
+            onClick={handleCreate}
+            disabled={!name.trim() || createMutation.isPending}
+            className="mt-2 w-full py-2.5 rounded-xl bg-primary-600 text-white text-sm font-bold hover:bg-primary-700 disabled:opacity-40 transition-colors"
+          >
+            {createMutation.isPending ? 'Creating…' : 'Create Server'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Server Members Modal ─────────────────────────────────────────────────────
+// "Server Settings → Members" — same add/remove-member UX pattern as the
+// existing per-channel MembersModal above, retargeted at server_members.
+
+function ServerMembersModal({ serverId, isGlobalAdmin, onClose }: { serverId: string; isGlobalAdmin?: boolean; onClose: () => void }) {
+  const [addSearch, setAddSearch] = useState('');
+  const [showAddDropdown, setShowAddDropdown] = useState(false);
+  const { data: server } = useGetServerQuery(serverId);
+  const addMutation = useAddServerMemberMutation(serverId);
+  const removeMutation = useRemoveServerMemberMutation(serverId);
+
+  const { data: searchUsers = [] } = useQuery<ChatUser[]>({
+    queryKey: ['chat-users-add-server', addSearch],
+    queryFn: async () => {
+      const r = await apiRequest<any>(`${API_ENDPOINTS.CHAT.USERS}?search=${encodeURIComponent(addSearch)}`);
+      return r?.payload || [];
+    },
+    enabled: showAddDropdown && addSearch.length > 0,
+  });
+
+  const members = server?.members || [];
+  const existingIds = new Set(members.map((m) => m.user_id));
+  // The add/remove controls are always shown here — the backend is the real
+  // gate (server OWNER/ADMIN or global admin, see servers.controller.js's
+  // assert_server_manage); a non-privileged member just gets a 403 toast.
+  const canManage = true;
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h3 className="font-black text-gray-900">{server?.name || 'Server'} · Members ({members.length})</h3>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+            <X size={18} />
+          </button>
+        </div>
+
+        {canManage && (
+          <div className="px-5 py-3 border-b border-gray-100 relative">
+            <div className="relative">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                className="w-full h-10 pl-8 pr-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
+                placeholder="Add member by name…"
+                value={addSearch}
+                onChange={(e) => { setAddSearch(e.target.value); setShowAddDropdown(true); }}
+                onFocus={() => setShowAddDropdown(true)}
+              />
+            </div>
+            {showAddDropdown && searchUsers.length > 0 && (
+              <div className="absolute left-5 right-5 top-full bg-white border border-gray-200 rounded-xl shadow-lg z-10 max-h-40 overflow-y-auto">
+                {searchUsers.filter((u) => !existingIds.has(u.id)).map((u) => (
+                  <button
+                    key={u.id}
+                    onClick={() => { addMutation.mutate({ user_id: u.id }); setAddSearch(''); setShowAddDropdown(false); }}
+                    disabled={addMutation.isPending}
+                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 text-left"
+                  >
+                    <Avatar user={u} size="sm" />
+                    <span className="text-sm font-semibold text-gray-900">{u.first_name} {u.last_name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto px-2 py-2">
+          {members.map((m) => (
+            <div key={m.id} className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-gray-50">
+              <Avatar user={m.user} size="sm" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">{m.user?.first_name} {m.user?.last_name}</p>
+              </div>
+              <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full', ROLE_BADGE[m.role])}>{m.role}</span>
+              {canManage && (
+                <button
+                  onClick={() => removeMutation.mutate(m.user_id)}
+                  className="p-1 text-gray-300 hover:text-red-500 rounded"
+                  title="Remove from server"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── New Channel Modal ────────────────────────────────────────────────────────
 
-type NewChatTab = 'direct' | 'group' | 'private' | 'public' | 'announcement';
+type NewChatTab = 'direct' | 'private' | 'public' | 'announcement';
 
 function NewChannelModal({
   onClose,
   onCreated,
+  serverId,
 }: {
   onClose: () => void;
   onCreated: (id: string) => void;
+  // When set (the rail has a Server open), Group/Private/Public/Announcement
+  // channels are created inside that server (channels.server_id) instead of
+  // ungrouped — see chat.controller.js's assert_can_create_in_server. DMs
+  // are never server-scoped (get_or_create_dm has no server_id concept).
+  serverId?: string | null;
 }) {
   const qc = useQueryClient();
+  const invalidateChannelLists = () => {
+    qc.invalidateQueries({ queryKey: ['chat-channels'] });
+    if (serverId) qc.invalidateQueries({ queryKey: ['server-channels', serverId] });
+  };
   const currentGlobalRole = useAuthStore((s) => s.role);
   // Group/Private/Public channel creation is admin/HR-only server-side (see
   // chat.routes.js CAN_CREATE_CHANNEL) — regular employees can only start
@@ -934,29 +1202,20 @@ function NewChannelModal({
     },
   });
 
-  const groupMutation = useMutation({
-    mutationFn: ({ name, member_ids }: { name: string; member_ids: string[] }) =>
-      apiRequest<any>(API_ENDPOINTS.CHAT.GROUP, { method: 'POST', body: JSON.stringify({ name, member_ids }) }),
-    onSuccess: (data: any) => {
-      qc.invalidateQueries({ queryKey: ['chat-channels'] });
-      onCreated(data?.payload?.id);
-    },
-  });
-
   const privateMutation = useMutation({
     mutationFn: ({ name, description, member_ids }: { name: string; description: string; member_ids: string[] }) =>
-      apiRequest<any>(API_ENDPOINTS.CHAT.PRIVATE, { method: 'POST', body: JSON.stringify({ name, description, member_ids }) }),
+      apiRequest<any>(API_ENDPOINTS.CHAT.PRIVATE, { method: 'POST', body: JSON.stringify({ name, description, member_ids, server_id: serverId || undefined }) }),
     onSuccess: (data: any) => {
-      qc.invalidateQueries({ queryKey: ['chat-channels'] });
+      invalidateChannelLists();
       onCreated(data?.payload?.id);
     },
   });
 
   const publicMutation = useMutation({
     mutationFn: ({ name, description }: { name: string; description: string }) =>
-      apiRequest<any>(API_ENDPOINTS.CHAT.CHANNELS, { method: 'POST', body: JSON.stringify({ name, description }) }),
+      apiRequest<any>(API_ENDPOINTS.CHAT.CHANNELS, { method: 'POST', body: JSON.stringify({ name, description, server_id: serverId || undefined }) }),
     onSuccess: (data: any) => {
-      qc.invalidateQueries({ queryKey: ['chat-channels'] });
+      invalidateChannelLists();
       onCreated(data?.payload?.id);
     },
   });
@@ -967,9 +1226,9 @@ function NewChannelModal({
   // OWNER/ADMIN members, enforced in send_message.
   const announcementMutation = useMutation({
     mutationFn: ({ name, description }: { name: string; description: string }) =>
-      apiRequest<any>(API_ENDPOINTS.CHAT.CHANNELS, { method: 'POST', body: JSON.stringify({ name, description, type: 'ANNOUNCEMENT' }) }),
+      apiRequest<any>(API_ENDPOINTS.CHAT.CHANNELS, { method: 'POST', body: JSON.stringify({ name, description, type: 'ANNOUNCEMENT', server_id: serverId || undefined }) }),
     onSuccess: (data: any) => {
-      qc.invalidateQueries({ queryKey: ['chat-channels'] });
+      invalidateChannelLists();
       onCreated(data?.payload?.id);
     },
   });
@@ -980,20 +1239,18 @@ function NewChannelModal({
   const TABS: { key: NewChatTab; label: string; icon: React.ReactNode }[] = [
     { key: 'direct',  label: 'Direct',  icon: <User size={13} /> },
     ...(canCreateChannels ? [
-      { key: 'group' as NewChatTab, label: 'Group', icon: <Users size={13} /> },
       { key: 'private' as NewChatTab, label: 'Private', icon: <Lock size={13} /> },
       { key: 'public' as NewChatTab, label: 'Public', icon: <Hash size={13} /> },
       { key: 'announcement' as NewChatTab, label: 'Announcement', icon: <Megaphone size={13} /> },
     ] : []),
   ];
 
-  const needsName = tab === 'group' || tab === 'private' || tab === 'public' || tab === 'announcement';
-  const needsMembers = tab === 'direct' || tab === 'group' || tab === 'private';
-  const isLoading = dmMutation.isPending || groupMutation.isPending || privateMutation.isPending || publicMutation.isPending || announcementMutation.isPending;
+  const needsName = tab === 'private' || tab === 'public' || tab === 'announcement';
+  const needsMembers = tab === 'direct' || tab === 'private';
+  const isLoading = dmMutation.isPending || privateMutation.isPending || publicMutation.isPending || announcementMutation.isPending;
 
   const handleCreate = () => {
-    if (tab === 'group') groupMutation.mutate({ name: channelName.trim(), member_ids: selectedMembers });
-    else if (tab === 'private') privateMutation.mutate({ name: channelName.trim(), description: channelDesc.trim(), member_ids: selectedMembers });
+    if (tab === 'private') privateMutation.mutate({ name: channelName.trim(), description: channelDesc.trim(), member_ids: selectedMembers });
     else if (tab === 'public') publicMutation.mutate({ name: channelName.trim(), description: channelDesc.trim() });
     else if (tab === 'announcement') announcementMutation.mutate({ name: channelName.trim(), description: channelDesc.trim() });
   };
@@ -1024,7 +1281,7 @@ function NewChannelModal({
             <input
               value={channelName}
               onChange={(e) => setChannelName(e.target.value)}
-              placeholder={tab === 'group' ? 'Group name…' : 'Channel name…'}
+              placeholder="Channel name…"
               className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
               autoFocus
             />
@@ -1104,7 +1361,6 @@ function NewChannelModal({
               className="w-full h-10 bg-primary-600 text-white text-sm font-bold rounded-xl hover:bg-primary-700 disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
             >
               {isLoading ? <Loader2 size={15} className="animate-spin" /> : null}
-              {tab === 'group' && `Create Group (${selectedMembers.length} selected)`}
               {tab === 'private' && `Create Private Channel`}
               {tab === 'public' && `Create Public Channel`}
               {tab === 'announcement' && `Create Announcement Channel`}
@@ -1214,11 +1470,6 @@ function ChannelSection({
           >
             {ch.type === 'DM' ? (
               <Avatar user={otherUser} active={isSelected} size="sm" showStatus />
-            ) : ch.type === 'GROUP' ? (
-              <div className={cn('w-7 h-7 rounded-full flex items-center justify-center shrink-0',
-                isSelected ? 'bg-primary-200' : 'bg-gray-200')}>
-                <Users size={13} className={isSelected ? 'text-primary-700' : 'text-gray-500'} />
-              </div>
             ) : ch.type === 'PRIVATE' ? (
               <div className={cn('w-7 h-7 rounded-full flex items-center justify-center shrink-0',
                 isSelected ? 'bg-yellow-200' : 'bg-yellow-50')}>
@@ -1362,7 +1613,7 @@ function PollCard({ poll, channelId, currentUserId, isGlobalAdmin }: {
 
 function MessageBubble({
   msg, isOwn, showSenderName, currentUserId, channelId, isGlobalAdmin, isSaved,
-  onDelete, onReply, onOpenThread, onEdit, onImageClick, seenBy,
+  onDelete, onReply, onOpenThread, onEdit, onImageClick, seenBy, dmSharedKey,
 }: {
   msg: ChatMessage;
   isOwn: boolean;
@@ -1382,10 +1633,29 @@ function MessageBubble({
   // last_read_at upsert). Undefined everywhere else, matching typical chat
   // "seen by" UX (you only see who's read what YOU sent).
   seenBy?: ChatUser[];
+  // E2E DM decryption — the AES-GCM key already derived (ECDH) for this
+  // conversation, cached at the page level (ChatPage's sharedKeyCacheRef).
+  // Undefined until the peer's public key has loaded and been derived.
+  dmSharedKey?: CryptoKey;
 }) {
   const qc = useQueryClient();
   const [hovered, setHovered] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  // Decrypted plaintext for an encrypted DM message — undefined = not
+  // attempted/pending, null = decryption failed (wrong/missing key, corrupt
+  // ciphertext, message predates key generation), string = success. Only
+  // decrypts once per (message id, key) pair — see the effect below.
+  const [decrypted, setDecrypted] = useState<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (!msg.is_encrypted) return;
+    if (!dmSharedKey || !msg.iv) { setDecrypted(undefined); return; }
+    let cancelled = false;
+    decryptMessage(dmSharedKey, msg.content, msg.iv).then((plain) => {
+      if (!cancelled) setDecrypted(plain);
+    });
+    return () => { cancelled = true; };
+  }, [msg.is_encrypted, msg.content, msg.iv, dmSharedKey]);
 
   const reactionMutation = useMutation({
     mutationFn: (emoji: string) =>
@@ -1567,7 +1837,24 @@ function MessageBubble({
                   )}
                 </div>
               )}
-              {msg.content && <span>{renderMessageContent(msg.content)}</span>}
+              {msg.is_encrypted ? (
+                decrypted === undefined ? (
+                  <span className="italic text-gray-400 flex items-center gap-1 text-xs">
+                    <Lock size={11} /> Decrypting…
+                  </span>
+                ) : decrypted === null ? (
+                  // Wrong/missing key, corrupt data, or a message that
+                  // predates this device's key generation — never render
+                  // raw ciphertext or throw; a clear placeholder instead.
+                  <span className="italic text-gray-400 flex items-center gap-1 text-xs">
+                    🔒 Unable to decrypt this message
+                  </span>
+                ) : (
+                  <span>{renderMessageContent(decrypted)}</span>
+                )
+              ) : (
+                msg.content && <span>{renderMessageContent(msg.content)}</span>
+              )}
               {msg.is_edited && (
                 <span className="text-[10px] ml-1 opacity-60 text-gray-400">(edited)</span>
               )}
@@ -1973,6 +2260,47 @@ export default function ChatPage() {
   const [showSaved, setShowSaved] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
 
+  // ── Servers (Discord-style rail) ────────────────────────────────────────
+  // null = "Home" — DMs + legacy ungrouped channels, exactly as chat behaved
+  // before this feature. A server id narrows the sidebar to that server's
+  // own channels (fetched separately, GET /servers/:id/channels).
+  const [activeServerId, setActiveServerId] = useState<string | null>(null);
+  const [showCreateServerModal, setShowCreateServerModal] = useState(false);
+  const [showServerMembersModal, setShowServerMembersModal] = useState(false);
+  const canCreateServer = ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(currentGlobalRole || '');
+  const { data: servers = [] } = useGetServersQuery();
+  const { data: serverChannels = [] } = useGetServerChannelsQuery(activeServerId);
+
+  // ── E2E DM encryption bootstrap ─────────────────────────────────────────
+  // On first chat-page load: get/create this browser's ECDH keypair
+  // (IndexedDB-backed, private key never leaves it — see e2eCrypto.ts) and
+  // upload the public half. Cheap/idempotent to re-run (upload always
+  // upserts), so no "already done" guard is needed beyond the empty dep array.
+  const privateKeyRef = useRef<CryptoKey | null>(null);
+  const sharedKeyCacheRef = useRef<Map<string, CryptoKey>>(new Map()); // peer user id -> derived AES-GCM key
+  const decryptedCacheRef = useRef<Map<string, string | null>>(new Map()); // message id -> plaintext (or null = failed)
+  const [, forceDecryptRerender] = useState(0);
+  const updateMyPublicKeyMutation = useUpdateMyPublicKeyMutation();
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { privateKey, publicKeySpkiB64 } = await getOrCreateKeyPair();
+        if (cancelled) return;
+        privateKeyRef.current = privateKey;
+        updateMyPublicKeyMutation.mutate(publicKeySpkiB64);
+      } catch (e) {
+        // Web Crypto/IndexedDB unavailable (very old browser, private mode
+        // restrictions, etc.) — DMs simply fall back to being unreadable as
+        // encrypted; nothing else in the page depends on this succeeding.
+        console.error('E2E keypair bootstrap failed', e);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -2008,6 +2336,32 @@ export default function ChatPage() {
     },
     refetchInterval: 5000,
   });
+
+  const otherDmMemberId = useMemo(() => {
+    if (!selectedChannelId) return null;
+    const ch = channels.find((c) => c.id === selectedChannelId);
+    if (!ch || ch.type !== 'DM') return null;
+    return getOtherMember(ch, currentUserId)?.id || null;
+  }, [selectedChannelId, channels, currentUserId]);
+
+  const { data: peerPublicKey } = useGetUserPublicKeyQuery(otherDmMemberId);
+
+  // Derives (once) and caches the shared AES-GCM key for the open DM's peer,
+  // as soon as both our private key and their public key are available.
+  useEffect(() => {
+    if (!otherDmMemberId || !peerPublicKey?.public_key || !privateKeyRef.current) return;
+    if (sharedKeyCacheRef.current.has(otherDmMemberId)) return;
+    (async () => {
+      try {
+        const peerKey = await importPublicKey(peerPublicKey.public_key);
+        const shared = await deriveSharedKey(privateKeyRef.current!, peerKey);
+        sharedKeyCacheRef.current.set(otherDmMemberId, shared);
+        forceDecryptRerender((n) => n + 1); // let already-rendered encrypted messages re-attempt decryption
+      } catch (e) {
+        console.error('Failed to derive shared DM key', e);
+      }
+    })();
+  }, [otherDmMemberId, peerPublicKey]);
 
   const { data: messages = [], isLoading: messagesLoading } = useQuery<ChatMessage[]>({
     queryKey: ['chat-messages', selectedChannelId],
@@ -2095,6 +2449,8 @@ export default function ChatPage() {
       file_size?: number;
       mime_type?: string;
       mentioned_user_ids?: string[];
+      iv?: string;
+      is_encrypted?: boolean;
     }) =>
       apiRequest<any>(API_ENDPOINTS.CHAT.MESSAGES(selectedChannelId!), {
         method: 'POST',
@@ -2237,9 +2593,15 @@ export default function ChatPage() {
     isNearBottomRef.current = distanceFromBottom < 120;
   };
 
+  // Only auto-select from DM channels here — this runs on initial load while
+  // Home is active (activeServerId is only ever set via explicit user click,
+  // never on mount), so seeding it from the full unfiltered `channels` list
+  // could land on a non-DM channel that Home's sidebar doesn't even show,
+  // desyncing the open conversation from what's highlighted in the list.
   useEffect(() => {
-    if (!selectedChannelId && channels.length > 0) {
-      setSelectedChannelId(channels[0].id);
+    const homeDmChannels = channels.filter((ch) => ch.type === 'DM');
+    if (!selectedChannelId && homeDmChannels.length > 0) {
+      setSelectedChannelId(homeDmChannels[0].id);
     }
   }, [channels, selectedChannelId]);
 
@@ -2283,7 +2645,7 @@ export default function ChatPage() {
       const senderName = lastMsg.user
         ? `${lastMsg.user.first_name || ''} ${lastMsg.user.last_name || ''}`.trim() || 'Someone'
         : 'Someone';
-      const channelLabel = ch.type === 'DM' ? '' : ` in ${ch.type === 'GROUP' ? ch.name : `#${ch.name}`}`;
+      const channelLabel = ch.type === 'DM' ? '' : ` in #${ch.name}`;
       try {
         const n = new Notification(`${senderName}${channelLabel}`, {
           body: lastMsg.content || (lastMsg as any).file_name || 'Sent an attachment',
@@ -2337,7 +2699,7 @@ export default function ChatPage() {
     if (attachmentFile && !uploadedAttachment) return;
 
     const mentioned_user_ids = extractMentionedUserIds(draft);
-    const payload = uploadedAttachment
+    let payload = uploadedAttachment
       ? {
           content: draft.trim(),
           file_url: uploadedAttachment.file_url,
@@ -2348,6 +2710,27 @@ export default function ChatPage() {
           mentioned_user_ids,
         }
       : { content: draft.trim(), mentioned_user_ids };
+
+    // E2E DM encryption — never applies to a file attachment (file_url
+    // travels un-encrypted regardless; the plan scopes E2E to text content
+    // only) or when the shared key isn't derived yet (peer hasn't uploaded
+    // a public key, or it hasn't loaded). Falling back to plaintext in that
+    // case rather than silently dropping the send — matches "no realtime
+    // layer, HTTP-only" simplicity elsewhere in this module.
+    const dmChannel = channels.find((c) => c.id === selectedChannelId);
+    if (dmChannel?.type === 'DM' && !uploadedAttachment && draft.trim()) {
+      const sharedKey = otherDmMemberId ? sharedKeyCacheRef.current.get(otherDmMemberId) : null;
+      if (sharedKey) {
+        try {
+          const { ciphertextB64, ivB64 } = await encryptMessage(sharedKey, draft.trim());
+          payload = { content: ciphertextB64, iv: ivB64, is_encrypted: true, mentioned_user_ids: [] } as typeof payload;
+        } catch (e) {
+          console.error('DM encryption failed, message not sent', e);
+          toast.error('Could not encrypt this message — try again');
+          return;
+        }
+      }
+    }
 
     sendMutation.mutate(payload);
     setUploadedAttachment(null);
@@ -2598,7 +2981,11 @@ export default function ChatPage() {
 
   // ── Derived ───────────────────────────────────────────────────────────────
 
-  const selectedChannel = channels.find((ch) => ch.id === selectedChannelId) || null;
+  // Selected channel can come from either the flat "Home" list or the
+  // currently-open server's channel list — search both.
+  const selectedChannel = channels.find((ch) => ch.id === selectedChannelId)
+    || (serverChannels as Channel[]).find((ch) => ch.id === selectedChannelId)
+    || null;
   const isMember = selectedChannel
     ? selectedChannel.members?.some((m) => m.user_id === currentUserId) || selectedChannel.type === 'PUBLIC' || selectedChannel.type === 'ANNOUNCEMENT'
     : false;
@@ -2608,7 +2995,14 @@ export default function ChatPage() {
   // can post in it.
   const canPostHere = selectedChannel?.type !== 'ANNOUNCEMENT' || isGlobalAdmin || ['OWNER', 'ADMIN'].includes(myMembership?.role || '');
 
-  const filteredChannels = channels.filter((ch) => {
+  // "Home" = Direct Messages only, matching Discord's Home/Friends view —
+  // no channels of any kind (Public/Private/Group/Announcement all only
+  // ever show inside a server now). Selecting a server in the rail shows
+  // that server's own channels instead (serverChannels, fetched separately).
+  const homeChannels = channels.filter((ch) => ch.type === 'DM');
+  const sidebarSourceChannels = activeServerId ? (serverChannels as Channel[]) : homeChannels;
+
+  const filteredChannels = sidebarSourceChannels.filter((ch) => {
     if (!channelSearch) return true;
     return getChannelDisplayName(ch, currentUserId).toLowerCase().includes(channelSearch.toLowerCase());
   });
@@ -2635,25 +3029,56 @@ export default function ChatPage() {
         .map((m) => m.user)
     : [];
 
+  const activeServer = activeServerId ? servers.find((s) => s.id === activeServerId) || null : null;
+
+  // Server name moved to the shared AdminTopbar (via chatTopbarStore) instead
+  // of repeating it in this panel's own header — see ChatLayout, which reads
+  // this store to override the topbar's default "Messages" title. Reset to
+  // null on unmount so leaving /chat doesn't leave a stale title behind for
+  // whatever page the topbar renders on next.
+  const setChatTopbarTitle = useChatTopbarStore((s) => s.setTitle);
+  useEffect(() => {
+    setChatTopbarTitle(activeServer ? activeServer.name : null);
+    return () => setChatTopbarTitle(null);
+  }, [activeServer, setChatTopbarTitle]);
+
   return (
     <div className="flex h-[calc(100vh-5.5rem)] bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
 
+      <ServerRail
+        servers={servers}
+        activeServerId={activeServerId}
+        onSelectHome={() => { setActiveServerId(null); setSelectedChannelId(null); }}
+        onSelectServer={(id) => { setActiveServerId(id); setSelectedChannelId(null); }}
+        onAddServer={() => setShowCreateServerModal(true)}
+        canCreate={canCreateServer}
+      />
+
       {/* ── Left Panel ── */}
       <div className="w-64 border-r border-gray-100 flex flex-col shrink-0">
-        <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="font-black text-gray-900">Messages</h2>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setShowSaved(true)}
-              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
-              title="Saved messages"
-            >
-              <Bookmark size={14} />
-            </button>
+        <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-end">
+          <div className="flex items-center gap-1 shrink-0">
+            {activeServer ? (
+              <button
+                onClick={() => setShowServerMembersModal(true)}
+                className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-xl transition-colors"
+                title="Server settings — members"
+              >
+                <Settings size={14} />
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowSaved(true)}
+                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+                title="Saved messages"
+              >
+                <Bookmark size={14} />
+              </button>
+            )}
             <button
               onClick={() => setShowNewChat(true)}
               className="p-1.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors"
-              title="New chat"
+              title={activeServer ? `New channel in ${activeServer.name}` : 'New chat'}
             >
               <Plus size={14} />
             </button>
@@ -2704,26 +3129,15 @@ export default function ChatPage() {
                     {selectedChannel.entity_type === 'PROJECT' && (
                       <span className="px-2 py-0.5 rounded-md text-[10px] font-bold shrink-0 bg-indigo-50 text-indigo-700" title="Synced with this project's team automatically">Project</span>
                     )}
+                    <ShieldCheck
+                      size={13}
+                      className="text-emerald-600 shrink-0"
+                      title="End-to-end encrypted — messages are only readable on devices where you're logged in"
+                    />
                   </div>
                   <p className={cn('text-xs', isOnline(getOtherMember(selectedChannel, currentUserId)) ? 'text-emerald-600 font-semibold' : 'text-gray-400')}>
                     {fmtLastSeen(getOtherMember(selectedChannel, currentUserId)) || getOtherMember(selectedChannel, currentUserId)?.designation || 'Direct Message'}
                   </p>
-                </div>
-              </>
-            ) : selectedChannel.type === 'GROUP' ? (
-              <>
-                <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
-                  <Users size={16} className="text-primary-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-black text-gray-900 text-sm truncate">{selectedChannel.name}</p>
-                    {badge && <span className={cn('px-2 py-0.5 rounded-md text-[10px] font-bold shrink-0', badge.cls)}>{badge.label}</span>}
-                    {selectedChannel.entity_type === 'PROJECT' && (
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold shrink-0 bg-indigo-50 text-indigo-700" title="Synced with this project's team automatically">Project</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-400">{selectedChannel._count?.members || selectedChannel.members?.length || 0} members</p>
                 </div>
               </>
             ) : selectedChannel.type === 'PRIVATE' ? (
@@ -2923,6 +3337,7 @@ export default function ChatPage() {
                     onEdit={(m) => { setEditingMsg(m); setEditDraft(m.content); }}
                     onImageClick={(url, name) => setLightboxImage({ url, name: name ?? null })}
                     seenBy={lastOwnMsg?.id === msg.id ? seenByForLastOwnMsg : undefined}
+                    dmSharedKey={otherDmMemberId ? sharedKeyCacheRef.current.get(otherDmMemberId) : undefined}
                   />
                 );
               })
@@ -3227,6 +3642,22 @@ export default function ChatPage() {
         <NewChannelModal
           onClose={() => setShowNewChat(false)}
           onCreated={(id) => { setSelectedChannelId(id); setShowNewChat(false); }}
+          serverId={activeServerId}
+        />
+      )}
+
+      {showCreateServerModal && (
+        <CreateServerModal
+          onClose={() => setShowCreateServerModal(false)}
+          onCreated={(id) => setActiveServerId(id)}
+        />
+      )}
+
+      {showServerMembersModal && activeServerId && (
+        <ServerMembersModal
+          serverId={activeServerId}
+          isGlobalAdmin={isGlobalAdmin}
+          onClose={() => setShowServerMembersModal(false)}
         />
       )}
 
