@@ -1,7 +1,10 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, Plus, UserPlus, Download, Users, CheckCircle, Clock, UserX, Eye, Edit2, Trash2, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown, Zap, FileText } from 'lucide-react';
+import { Search, Plus, UserPlus, Download, Users, CheckCircle, Clock, UserX, Eye, Edit2, Trash2, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown, Zap, FileText, ChevronDown as ChevronDownIcon, FileSpreadsheet, FileType } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useGetEmployeeDirectory } from '@/services/employeeService';
@@ -20,14 +23,6 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import Button, { IconButton } from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 
-const EMPLOYMENT_TYPE_OPTIONS = [
-  { value: 'FULL_TIME', label: 'Full Time' },
-  { value: 'PART_TIME', label: 'Part Time' },
-  { value: 'CONTRACT', label: 'Contract' },
-  { value: 'INTERN', label: 'Intern' },
-  { value: 'FREELANCE', label: 'Freelance' },
-];
-
 const LIFECYCLE_STAGE_OPTIONS = [
   { value: 'ONBOARDING', label: 'Onboarding' },
   { value: 'PROBATION', label: 'Probation' },
@@ -39,19 +34,40 @@ const LIFECYCLE_STAGE_OPTIONS = [
 
 const EMP_STATUS_LABEL: Record<string, string> = EMPLOYMENT_STATUS_LABELS;
 
-function StatCard({ icon: Icon, color, label, value }: any) {
+function StatCard({ icon: Icon, color, iconColor, label, value, total }: any) {
+  const pct = total && typeof value === 'number' && total > 0 ? Math.round((value / total) * 100) : null;
   return (
-    <div className="flex items-center gap-4 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-      <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', color)}>
-        <Icon size={22} className="text-white" />
+    <div className="flex items-center gap-4 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
+      <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0', color)}>
+        <Icon size={22} className={iconColor || 'text-white'} />
       </div>
-      <div>
+      <div className="min-w-0">
         <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">{label}</p>
-        <p className="text-2xl font-black text-gray-900 leading-tight">{value ?? '—'}</p>
+        <div className="flex items-baseline gap-1.5">
+          <p className="text-2xl font-black text-gray-900 leading-tight">{value ?? '—'}</p>
+          {pct !== null && <span className="text-xs font-semibold text-gray-400">({pct}%)</span>}
+        </div>
       </div>
     </div>
   );
 }
+
+// StatusBadge's shared tone palette has no "purple" tone (Pending) and no
+// dedicated blue for Notice Period, so those two use a bespoke inline badge
+// to match this page's spec exactly, instead of adding a one-off tone to the
+// shared component for a single page's color choice.
+function ColorBadge({ label, tone }: { label: string; tone: 'purple' | 'blue' }) {
+  const cls = tone === 'purple'
+    ? 'bg-purple-50 text-purple-700 border-purple-200'
+    : 'bg-blue-50 text-blue-700 border-blue-200';
+  return (
+    <span className={cn('inline-flex items-center rounded-full border font-bold uppercase tracking-wide whitespace-nowrap px-2.5 py-1 text-badge', cls)}>
+      {label}
+    </span>
+  );
+}
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 export default function EmployeeDirectory() {
   const navigate = useNavigate();
@@ -73,14 +89,14 @@ export default function EmployeeDirectory() {
   const [roleFilter, setRoleFilter]             = useState('');
   const [designationFilter, setDesignationFilter] = useState('');
   const [businessUnitFilter, setBusinessUnitFilter] = useState('');
-  const [employmentTypeFilter, setEmploymentTypeFilter] = useState('');
-  const [workLocationFilter, setWorkLocationFilter] = useState('');
   const [supervisorFilter, setSupervisorFilter] = useState('');
   const [gradeFilter, setGradeFilter]           = useState('');
   const [page, setPage]                   = useState(1);
+  const [limit, setLimit]                 = useState(25);
   const [sortBy, setSortBy]               = useState('hire_date');
   const [sortDir, setSortDir]             = useState<'asc'|'desc'>('desc');
-  const limit = 10;
+  const [exportOpen, setExportOpen]       = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
 
   const { data: rolesData = [] } = useGetRolesQuery();
   const { data: designationsData = [] } = useGetDesignationsQuery();
@@ -129,9 +145,18 @@ export default function EmployeeDirectory() {
   }, [urlStatus, urlEmpStatus]);
 
   // Clear selection when page/filters change
-  useEffect(() => { setSelected(new Set()); }, [page, q, status, employmentStatus, employeeIdFilter, roleFilter, designationFilter, businessUnitFilter, employmentTypeFilter, workLocationFilter, supervisorFilter, gradeFilter]);
+  useEffect(() => { setSelected(new Set()); }, [page, q, status, employmentStatus, employeeIdFilter, roleFilter, designationFilter, businessUnitFilter, supervisorFilter, gradeFilter]);
   // Restart at page 1 whenever a filter changes so results aren't left mid-list.
-  useEffect(() => { setPage(1); }, [employeeIdFilter, roleFilter, designationFilter, businessUnitFilter, employmentTypeFilter, workLocationFilter, supervisorFilter, gradeFilter]);
+  useEffect(() => { setPage(1); }, [employeeIdFilter, roleFilter, designationFilter, businessUnitFilter, supervisorFilter, gradeFilter, limit]);
+
+  // Close the Export dropdown on outside click.
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false);
+    }
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, []);
 
   const filters = useMemo(() => {
     const f: Record<string, any> = {
@@ -146,8 +171,6 @@ export default function EmployeeDirectory() {
       designation_id: designationFilter || undefined,
       lifecycle_stage: urlLifecycle || undefined,
       business_unit_id: businessUnitFilter || undefined,
-      employment_type: employmentTypeFilter || undefined,
-      work_location: workLocationFilter || undefined,
       supervisor_id: supervisorFilter || undefined,
       grade_id: gradeFilter || undefined,
       sort_by: sortBy,
@@ -160,7 +183,7 @@ export default function EmployeeDirectory() {
       f.hire_from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
     }
     return f;
-  }, [q, divisionId, deptId, teamId, status, employmentStatus, employeeIdFilter, roleFilter, designationFilter, businessUnitFilter, employmentTypeFilter, workLocationFilter, supervisorFilter, gradeFilter, urlFilter, urlLifecycle, sortBy, sortDir, page, limit]);
+  }, [q, divisionId, deptId, teamId, status, employmentStatus, employeeIdFilter, roleFilter, designationFilter, businessUnitFilter, supervisorFilter, gradeFilter, urlFilter, urlLifecycle, sortBy, sortDir, page, limit]);
 
   const { data, isLoading } = useGetEmployeeDirectory(filters);
   const records: any[] = data?.records || [];
@@ -168,23 +191,58 @@ export default function EmployeeDirectory() {
   const total = data?.total || 0;
   const pages = data?.pages || 1;
 
-  const handleExport = () => {
-    const headers = ['Name', 'Email', 'Employee ID', 'Department', 'Designation', 'Status', 'Hire Date'];
-    const rows = records.map((e: any) => [
-      `${e.first_name || ''} ${e.last_name || ''}`.trim(),
-      e.email || '',
-      e.employee_id || '',
-      e.department?.name || '',
-      e.designation || '',
-      e.status || '',
-      e.hire_date ? new Date(e.hire_date).toLocaleDateString() : '',
-    ]);
-    const csv = [headers, ...rows].map(r => r.map((c: any) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  // Client-side export only — there is no employee-directory export endpoint
+  // on the backend (confirmed: only attendance/no-checkins has one), and
+  // adding one would mean touching the backend, which this pass is scoped
+  // to avoid. Exports always reflect exactly the rows currently on screen
+  // (or the selected subset for "Export Selected").
+  const exportRows = (rows: any[]) => rows.map((e: any) => ({
+    name: `${e.first_name || ''} ${e.last_name || ''}`.trim() || '—',
+    employee_id: e.employee_id || '—',
+    email: e.email || '—',
+    department: e.department?.name || '—',
+    designation: e.designation || '—',
+    business_unit: e.business_unit?.name || '—',
+    status: EMP_STATUS_LABEL[e.employment_status || e.status] || e.employment_status || e.status || '—',
+    hire_date: e.hire_date ? new Date(e.hire_date).toLocaleDateString() : '—',
+  }));
+
+  const EXPORT_HEADERS = ['Name', 'Employee ID', 'Email', 'Department', 'Designation', 'Business Unit', 'Status', 'Join Date'];
+
+  const handleExportCsv = (rows: any[]) => {
+    const data = exportRows(rows);
+    const csv = [EXPORT_HEADERS, ...data.map(r => Object.values(r))]
+      .map(r => r.map((c: any) => `"${String(c).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'employees.csv'; a.click();
+    a.href = url; a.download = 'employee-directory.csv'; a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleExportExcel = (rows: any[]) => {
+    const data = exportRows(rows);
+    const ws = XLSX.utils.json_to_sheet(data);
+    XLSX.utils.sheet_add_aoa(ws, [EXPORT_HEADERS], { origin: 'A1' });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Employees');
+    XLSX.writeFile(wb, 'employee-directory.xlsx');
+  };
+
+  const handleExportPdf = (rows: any[]) => {
+    const data = exportRows(rows);
+    const doc = new jsPDF({ orientation: 'landscape' });
+    doc.setFontSize(14);
+    doc.text('Employee Directory', 14, 15);
+    autoTable(doc, {
+      startY: 20,
+      head: [EXPORT_HEADERS],
+      body: data.map(r => Object.values(r)),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [0, 92, 218] },
+    });
+    doc.save('employee-directory.pdf');
   };
 
   // Reuse the canonical departments hook — a locally duplicated queryFn under
@@ -196,12 +254,12 @@ export default function EmployeeDirectory() {
     setQ(''); setDiv(''); setDept(''); setTeam('');
     setStatus(''); setEmpStatus(''); setPage(1);
     setEmployeeIdFilter(''); setRoleFilter(''); setDesignationFilter('');
-    setBusinessUnitFilter(''); setEmploymentTypeFilter(''); setWorkLocationFilter('');
+    setBusinessUnitFilter('');
     setSupervisorFilter(''); setGradeFilter('');
     navigate('/admin/employee-directory', { replace: true });
   };
 
-  const activeFilterCount = [q, divisionId, deptId, teamId, status, employmentStatus, urlFilter, urlLifecycle, employeeIdFilter, roleFilter, designationFilter, businessUnitFilter, employmentTypeFilter, workLocationFilter, supervisorFilter, gradeFilter].filter(Boolean).length;
+  const activeFilterCount = [q, divisionId, deptId, teamId, status, employmentStatus, urlFilter, urlLifecycle, employeeIdFilter, roleFilter, designationFilter, businessUnitFilter, supervisorFilter, gradeFilter].filter(Boolean).length;
 
   const filterLabel = () => {
     if (urlFilter === 'new_this_month') return '  · New This Month';
@@ -391,16 +449,33 @@ export default function EmployeeDirectory() {
           <h1 className="text-2xl font-black text-gray-900">
             Employee Directory{filterLabel()}
           </h1>
-          <p className="text-sm text-gray-400 mt-0.5">View and manage all employees across the organization</p>
+          <p className="text-sm text-gray-400 mt-0.5">View, search and manage all employees across the organization.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" animation="none" leftIcon={Download} onClick={handleExport} className="!h-10">
-            Export
-          </Button>
+          <div className="relative" ref={exportRef}>
+            <Button variant="outline" size="sm" animation="none" leftIcon={Download} rightIcon={ChevronDownIcon} onClick={() => setExportOpen(o => !o)} className="!h-10">
+              Export
+            </Button>
+            {exportOpen && (
+              <div className="absolute top-[calc(100%+6px)] right-0 min-w-[170px] bg-white border border-gray-100 rounded-xl shadow-xl z-[90] overflow-hidden">
+                <ul className="p-1.5 flex flex-col gap-0.5 text-sm">
+                  <li onClick={() => { handleExportPdf(records); setExportOpen(false); }} className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-gray-50 text-gray-700 font-medium">
+                    <FileType size={15} className="text-red-500" /> Export as PDF
+                  </li>
+                  <li onClick={() => { handleExportExcel(records); setExportOpen(false); }} className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-gray-50 text-gray-700 font-medium">
+                    <FileSpreadsheet size={15} className="text-green-600" /> Export as Excel
+                  </li>
+                  <li onClick={() => { handleExportCsv(records); setExportOpen(false); }} className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-gray-50 text-gray-700 font-medium">
+                    <FileText size={15} className="text-blue-500" /> Export as CSV
+                  </li>
+                </ul>
+              </div>
+            )}
+          </div>
           <Button variant="outline" size="sm" animation="none" leftIcon={UserPlus} onClick={() => setQuickCreateOpen(true)} className="!h-10">
             Quick Create User
           </Button>
-          <Button variant="primary" size="sm" leftIcon={Plus} onClick={() => navigate('/admin/add-employee')} className="!h-10">
+          <Button variant="primary" size="sm" leftIcon={Plus} onClick={() => navigate('/admin/add-employee')} className="!h-10 shadow-md shadow-primary-100">
             Add Employee
           </Button>
         </div>
@@ -409,120 +484,106 @@ export default function EmployeeDirectory() {
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard icon={Users}       color="bg-blue-500"   label="Total Employees"    value={stats.total_employees} />
-        <StatCard icon={CheckCircle} color="bg-green-500"  label="Permanent"          value={stats.active} />
-        <StatCard icon={Clock}       color="bg-amber-500"  label="On Leave"           value={stats.on_leave} />
-        <StatCard icon={UserX}       color="bg-gray-400"   label="Inactive"           value={stats.inactive} />
-        <StatCard icon={Users}       color="bg-purple-500" label="Pending"            value={stats.pending} />
+        <StatCard icon={CheckCircle} color="bg-green-500"  label="Active"             value={stats.active}   total={stats.total_employees} />
+        <StatCard icon={Clock}       color="bg-amber-500"  label="On Leave"           value={stats.on_leave} total={stats.total_employees} />
+        <StatCard icon={UserX}       color="bg-gray-400"   label="Inactive"           value={stats.inactive} total={stats.total_employees} />
+        <StatCard icon={Users}       color="bg-purple-500" label="Pending"            value={stats.pending}  total={stats.total_employees} />
       </div>
 
       {/* Filters + Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        <div className="flex flex-wrap gap-3">
-          <div className="relative flex-1 min-w-[240px]">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              className="w-full h-10 pl-9 pr-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
-              placeholder="Search by name, employee ID, email, or designation..."
-              value={q}
-              onChange={e => { setQ(e.target.value); setPage(1); }}
+        <div className="flex flex-col gap-2.5">
+          {/* Row 1 — Search / Status / Role / Business Unit / Department */}
+          <div className="flex flex-wrap gap-2.5">
+            <div className="relative flex-1 min-w-[220px]">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                className="w-full h-10 pl-9 pr-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
+                placeholder="Search by name, employee ID, email, or designation..."
+                value={q}
+                onChange={e => { setQ(e.target.value); setPage(1); }}
+              />
+            </div>
+            <SearchableSelect
+              options={[
+                { label: 'Pending', value: 'PENDING' },
+                { label: 'Permanent', value: 'ACTIVE' },
+                { label: 'Inactive', value: 'INACTIVE' },
+                { label: 'On Leave', value: 'ON_LEAVE' },
+                { label: 'Suspended', value: 'SUSPENDED' },
+                { label: 'Terminated', value: 'TERMINATED' },
+                { label: 'Deceased', value: 'DECEASED' },
+              ]}
+              value={status || null}
+              onChange={v => { setStatus((v as string) ?? ''); setPage(1); }}
+              placeholder="All Status"
+              containerClassName="min-w-[140px] w-auto"
+              className="h-10"
+            />
+            <SearchableSelect
+              options={rolesData.map((r) => ({ label: r.name.replace(/_/g, ' '), value: r.name }))}
+              value={roleFilter || null}
+              onChange={v => setRoleFilter((v as string) ?? '')}
+              placeholder="All Roles"
+              containerClassName="min-w-[140px] w-auto"
+              className="h-10"
+            />
+            <SearchableSelect
+              options={businessUnitsData.map((bu: any) => ({ label: bu.name, value: bu.id }))}
+              value={businessUnitFilter || null}
+              onChange={v => setBusinessUnitFilter((v as string) ?? '')}
+              placeholder="All Business Units"
+              containerClassName="min-w-[160px] w-auto"
+              className="h-10"
+            />
+            <SearchableSelect
+              options={(departments || []).map((d: any) => ({ label: d.name, value: d.id }))}
+              value={deptId || null}
+              onChange={v => { setDept((v as string) ?? ''); setPage(1); }}
+              placeholder="All Departments"
+              containerClassName="min-w-[160px] w-auto"
+              className="h-10"
             />
           </div>
-          <SearchableSelect
-            options={[
-              { label: 'Pending', value: 'PENDING' },
-              { label: 'Permanent', value: 'ACTIVE' },
-              { label: 'Inactive', value: 'INACTIVE' },
-              { label: 'On Leave', value: 'ON_LEAVE' },
-              { label: 'Suspended', value: 'SUSPENDED' },
-              { label: 'Terminated', value: 'TERMINATED' },
-              { label: 'Deceased', value: 'DECEASED' },
-            ]}
-            value={status || null}
-            onChange={v => { setStatus((v as string) ?? ''); setPage(1); }}
-            placeholder="All Status"
-            containerClassName="min-w-[130px] w-auto"
-            className="h-10"
-          />
-          <SearchableSelect
-            options={[
-              { label: 'Permanent', value: 'ACTIVE' },
-              { label: 'Inactive', value: 'INACTIVE' },
-              { label: 'On Leave', value: 'ON_LEAVE' },
-              { label: 'Suspended', value: 'SUSPENDED' },
-              { label: 'Terminated', value: 'TERMINATED' },
-              { label: 'Deceased', value: 'DECEASED' },
-            ]}
-            value={employmentStatus || null}
-            onChange={v => { setEmpStatus((v as string) ?? ''); setPage(1); }}
-            placeholder="All Employment Status"
-            containerClassName="min-w-[150px] w-auto"
-            className="h-10"
-          />
-          <input
-            value={employeeIdFilter}
-            onChange={e => setEmployeeIdFilter(e.target.value)}
-            placeholder="Employee ID"
-            className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[130px] text-gray-600 focus:outline-none focus:border-primary-400"
-          />
-          <SearchableSelect
-            options={rolesData.map((r) => ({ label: r.name.replace(/_/g, ' '), value: r.name }))}
-            value={roleFilter || null}
-            onChange={v => setRoleFilter((v as string) ?? '')}
-            placeholder="All Roles"
-            containerClassName="min-w-[130px] w-auto"
-            className="h-10"
-          />
-          <SearchableSelect
-            options={designationsData.map((d) => ({ label: d.name, value: d.id }))}
-            value={designationFilter || null}
-            onChange={v => setDesignationFilter((v as string) ?? '')}
-            placeholder="All Designations"
-            containerClassName="min-w-[160px] w-auto"
-            className="h-10"
-          />
-          <SearchableSelect
-            options={businessUnitsData.map((bu: any) => ({ label: bu.name, value: bu.id }))}
-            value={businessUnitFilter || null}
-            onChange={v => setBusinessUnitFilter((v as string) ?? '')}
-            placeholder="All Business Units"
-            containerClassName="min-w-[160px] w-auto"
-            className="h-10"
-          />
-          <SearchableSelect
-            options={EMPLOYMENT_TYPE_OPTIONS.map((o) => ({ label: o.label, value: o.value }))}
-            value={employmentTypeFilter || null}
-            onChange={v => setEmploymentTypeFilter((v as string) ?? '')}
-            placeholder="All Employment Types"
-            containerClassName="min-w-[150px] w-auto"
-            className="h-10"
-          />
-          <input
-            value={workLocationFilter}
-            onChange={e => setWorkLocationFilter(e.target.value)}
-            placeholder="Work Location"
-            className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[140px] text-gray-600 focus:outline-none focus:border-primary-400"
-          />
-          <SearchableSelect
-            options={managersData.map((m: any) => ({ label: `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email, value: m.id }))}
-            value={supervisorFilter || null}
-            onChange={v => setSupervisorFilter((v as string) ?? '')}
-            placeholder="All Reporting Managers"
-            containerClassName="min-w-[170px] w-auto"
-            className="h-10"
-          />
-          <SearchableSelect
-            options={gradesData.map((g: any) => ({ label: g.name, value: g.id }))}
-            value={gradeFilter || null}
-            onChange={v => setGradeFilter((v as string) ?? '')}
-            placeholder="All Grades"
-            containerClassName="min-w-[130px] w-auto"
-            className="h-10"
-          />
-          {activeFilterCount > 0 && (
-            <Button variant="link" size="sm" animation="none" rounded={false} onClick={clearFilters} className="!h-10 !px-3 !shadow-none text-sm !text-gray-400 hover:!text-gray-600">
-              Clear filters
-            </Button>
-          )}
+
+          {/* Row 2 — Designation / Grade / Reporting Manager / Employee ID / Clear Filters */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <SearchableSelect
+              options={designationsData.map((d) => ({ label: d.name, value: d.id }))}
+              value={designationFilter || null}
+              onChange={v => setDesignationFilter((v as string) ?? '')}
+              placeholder="All Designations"
+              containerClassName="min-w-[160px] w-auto"
+              className="h-10"
+            />
+            <SearchableSelect
+              options={gradesData.map((g: any) => ({ label: g.name, value: g.id }))}
+              value={gradeFilter || null}
+              onChange={v => setGradeFilter((v as string) ?? '')}
+              placeholder="All Grades"
+              containerClassName="min-w-[130px] w-auto"
+              className="h-10"
+            />
+            <SearchableSelect
+              options={managersData.map((m: any) => ({ label: `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email, value: m.id }))}
+              value={supervisorFilter || null}
+              onChange={v => setSupervisorFilter((v as string) ?? '')}
+              placeholder="All Reporting Managers"
+              containerClassName="min-w-[170px] w-auto"
+              className="h-10"
+            />
+            <input
+              value={employeeIdFilter}
+              onChange={e => setEmployeeIdFilter(e.target.value)}
+              placeholder="Employee ID"
+              className="h-10 px-3 border border-gray-200 rounded-xl text-sm min-w-[130px] text-gray-600 focus:outline-none focus:border-primary-400"
+            />
+            {activeFilterCount > 0 && (
+              <Button variant="link" size="sm" animation="none" rounded={false} onClick={clearFilters} className="!h-10 !px-3 !shadow-none text-sm !text-gray-400 hover:!text-gray-600">
+                Clear filters
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Bulk action bar */}
@@ -551,7 +612,18 @@ export default function EmployeeDirectory() {
               onClick={() => setBulkLifecycleOpen(true)}
               className="!px-3 !py-1.5 h-auto !shadow-none text-xs !text-primary-700 !bg-white !border-primary-200 hover:!bg-primary-50"
             >
-              Set Lifecycle Stage
+              Change Status
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              animation="none"
+              rounded={false}
+              leftIcon={Download}
+              onClick={() => handleExportCsv(records.filter(r => selected.has(r.id)))}
+              className="!px-3 !py-1.5 h-auto !shadow-none text-xs !text-gray-600 !bg-white hover:!bg-gray-50"
+            >
+              Export Selected
             </Button>
             <Button
               variant="danger"
@@ -598,12 +670,12 @@ export default function EmployeeDirectory() {
           </div>
         )}
 
-        <div className="mt-4 overflow-x-auto">
+        <div className="mt-4 overflow-x-auto rounded-xl border border-gray-100" style={{ maxHeight: '640px', overflowY: 'auto' }}>
           <table className="w-full text-sm">
-            <thead>
+            <thead className="sticky top-0 z-10 bg-white">
               <tr className="border-b border-gray-100">
                 {/* Checkbox column */}
-                <th className="py-3 px-2 w-8">
+                <th className="py-3 px-2 w-8 bg-white">
                   <input
                     type="checkbox"
                     checked={allOnPageSelected}
@@ -613,20 +685,20 @@ export default function EmployeeDirectory() {
                   />
                 </th>
                 {[
-                  { label: 'Employee',    col: 'name' },
-                  { label: 'Employee ID', col: null },
-                  { label: 'Designation', col: 'designation' },
-                  { label: 'Department',  col: null },
-                  { label: 'Team',        col: null },
-                  { label: 'Manager',     col: null },
-                  { label: 'Status',      col: 'status' },
-                  { label: 'Join Date',   col: 'hire_date' },
-                  { label: 'Actions',     col: null },
+                  { label: 'Employee',        col: 'name' },
+                  { label: 'Employee ID',     col: null },
+                  { label: 'Designation',     col: 'designation' },
+                  { label: 'Department',      col: null },
+                  { label: 'Business Unit',   col: null },
+                  { label: 'Reporting Manager', col: null },
+                  { label: 'Status',          col: 'status' },
+                  { label: 'Join Date',       col: 'hire_date' },
+                  { label: 'Actions',         col: null },
                 ].map(({ label, col }) => (
                   <th key={label}
                     onClick={() => col && toggleSort(col)}
                     className={cn(
-                      'text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap',
+                      'text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap bg-white',
                       col ? 'cursor-pointer hover:text-gray-700 select-none' : ''
                     )}
                   >
@@ -644,15 +716,34 @@ export default function EmployeeDirectory() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {isLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}><td colSpan={10} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                Array.from({ length: 8 }).map((_, i) => (
+                  <tr key={i}>
+                    {Array.from({ length: 9 }).map((__, j) => (
+                      <td key={j} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" style={{ animationDelay: `${(i + j) * 30}ms` }} /></td>
+                    ))}
+                  </tr>
                 ))
               ) : records.length === 0 ? (
-                <tr><td colSpan={10} className="py-12 text-center text-gray-400 text-sm">No employees found</td></tr>
+                <tr>
+                  <td colSpan={10} className="py-16 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center">
+                        <Users size={22} className="text-gray-300" />
+                      </div>
+                      <p className="text-gray-500 text-sm font-medium">No employees found.</p>
+                      {activeFilterCount > 0 && (
+                        <Button variant="outline" size="sm" animation="none" rounded={false} onClick={clearFilters} className="!h-9 !px-4 !shadow-none text-xs">
+                          Clear Filters
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
               ) : records.map(emp => {
                 const isChecked = selected.has(emp.id);
+                const statusValue = emp.employment_status || emp.status;
                 return (
-                  <tr key={emp.id} className={cn('hover:bg-gray-50 transition-colors', isChecked && 'bg-primary-50')}>
+                  <tr key={emp.id} className={cn('hover:bg-gray-50/80 transition-colors group', isChecked && 'bg-primary-50 hover:bg-primary-50')}>
                     <td className="py-3 px-2">
                       <input
                         type="checkbox"
@@ -666,16 +757,17 @@ export default function EmployeeDirectory() {
                         <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-black text-sm flex-shrink-0">
                           {emp.avatar ? <img src={emp.avatar} className="w-9 h-9 rounded-full object-cover" alt="" /> : (emp.first_name?.[0] || '?')}
                         </div>
-                        <div>
-                          <p className="font-semibold text-gray-900 text-sm leading-tight">{emp.full_name}</p>
-                          <p className="text-xs text-gray-400">{emp.email}</p>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-gray-900 text-sm leading-tight truncate">{emp.full_name}</p>
+                          <p className="text-xs text-gray-400 font-mono">{emp.employee_id || '—'}</p>
+                          <p className="text-xs text-gray-400 truncate">{emp.email}</p>
                         </div>
                       </div>
                     </td>
                     <td className="py-3 px-2 text-gray-600 font-mono text-xs">{emp.employee_id || '—'}</td>
                     <td className="py-3 px-2 text-gray-700">{emp.designation || '—'}</td>
                     <td className="py-3 px-2 text-gray-600">{emp.department?.name || '—'}</td>
-                    <td className="py-3 px-2 text-gray-600">{emp.team?.name || '—'}</td>
+                    <td className="py-3 px-2 text-gray-600">{emp.business_unit?.name || '—'}</td>
                     <td className="py-3 px-2">
                       {emp.manager ? (
                         <div className="flex items-center gap-1.5">
@@ -688,11 +780,11 @@ export default function EmployeeDirectory() {
                     </td>
                     <td className="py-3 px-2">
                       {emp.profile_status === 'DRAFT' ? (
-                        <StatusBadge status="PENDING" label="Pending" size="sm" />
-                      ) : emp.employment_status ? (
-                        <StatusBadge status={emp.employment_status} label={EMP_STATUS_LABEL[emp.employment_status] || emp.employment_status} size="sm" />
+                        <ColorBadge label="Pending" tone="purple" />
+                      ) : String(statusValue).toUpperCase() === 'NOTICE_PERIOD' ? (
+                        <ColorBadge label="Notice Period" tone="blue" />
                       ) : (
-                        <StatusBadge status={emp.status} label={EMP_STATUS_LABEL[emp.status] || emp.status || '—'} size="sm" />
+                        <StatusBadge status={statusValue} label={EMP_STATUS_LABEL[statusValue] || statusValue || '—'} size="sm" />
                       )}
                     </td>
                     <td className="py-3 px-2 text-gray-500 text-xs whitespace-nowrap">
@@ -713,8 +805,17 @@ export default function EmployeeDirectory() {
                           icon={Edit2}
                           variant="ghost"
                           size="sm"
-                          aria-label="Edit Employee"
-                          title="Edit Employee"
+                          aria-label="Quick Edit"
+                          title="Quick Edit"
+                          onClick={() => setQuickEditTarget(emp)}
+                          className="!h-auto !w-auto p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50"
+                        />
+                        <IconButton
+                          icon={FileText}
+                          variant="ghost"
+                          size="sm"
+                          aria-label="Full Edit"
+                          title="Full Edit"
                           onClick={() => setEditModeTarget(emp)}
                           className="!h-auto !w-auto p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
                         />
@@ -736,12 +837,26 @@ export default function EmployeeDirectory() {
           </table>
         </div>
 
-        {pages > 1 && (
-          <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-100">
+          <div className="flex items-center gap-3">
             <p className="text-xs text-gray-400">
-              Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total} employees
+              {total > 0
+                ? `Displaying ${(page - 1) * limit + 1}–${Math.min(page * limit, total)} of ${total.toLocaleString()} employees`
+                : 'Displaying 0 employees'}
               {someSelected && <span className="ml-2 text-primary-600 font-semibold">· {selected.size} selected</span>}
             </p>
+            <div className="flex items-center gap-1.5 text-xs text-gray-400">
+              <span>Rows:</span>
+              <select
+                value={limit}
+                onChange={e => { setLimit(Number(e.target.value)); setPage(1); }}
+                className="h-7 px-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 focus:outline-none focus:border-primary-400"
+              >
+                {PAGE_SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+          </div>
+          {pages > 1 && (
             <div className="flex items-center gap-1">
               <Button variant="outline" size="sm" animation="none" rounded={false} disabled={page <= 1} onClick={() => setPage(p => p - 1)}
                 className="!h-8 !w-8 !p-0 !shadow-none text-sm">‹</Button>
@@ -754,8 +869,8 @@ export default function EmployeeDirectory() {
               <Button variant="outline" size="sm" animation="none" rounded={false} disabled={page >= pages} onClick={() => setPage(p => p + 1)}
                 className="!h-8 !w-8 !p-0 !shadow-none text-sm">›</Button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
