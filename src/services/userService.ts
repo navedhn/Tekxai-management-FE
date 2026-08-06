@@ -117,6 +117,20 @@ export const useUpdateUserMutation = () => {
   });
 };
 
+// Self-service profile update (name/phone/designation/position/avatar) —
+// distinct from useUpdateUserMutation, which targets an arbitrary user id
+// and is admin-facing. This always targets the logged-in user via /user/me.
+export const useUpdateMyProfileMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { first_name?: string; last_name?: string; phone?: string; designation?: string; position?: string; avatar?: string }) =>
+      apiRequest<any>(API_ENDPOINTS.USER.ME_UPDATE, { method: 'PATCH', body: JSON.stringify(data) }),
+    onSuccess: () => {
+      invalidateUserAndDependents(queryClient);
+    },
+  });
+};
+
 // Dedicated RBAC action — the only mutation allowed to change a user's role.
 // Deliberately separate from useUpdateUserMutation (generic profile PUT),
 // which the backend now strips role_id from unconditionally.
