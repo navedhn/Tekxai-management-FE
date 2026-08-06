@@ -35,7 +35,11 @@ const LIFECYCLE_STAGE_OPTIONS = [
 const EMP_STATUS_LABEL: Record<string, string> = EMPLOYMENT_STATUS_LABELS;
 
 function StatCard({ icon: Icon, color, iconColor, label, value, total }: any) {
-  const pct = total && typeof value === 'number' && total > 0 ? Math.round((value / total) * 100) : null;
+  // Backend stats aren't guaranteed to be filtered in lockstep (e.g. searching
+  // narrows total_employees but not the breakdown counts), which can make
+  // value > total under an active filter — skip the percentage rather than
+  // show a nonsensical number like "2700%" in that case.
+  const pct = total && typeof value === 'number' && total > 0 && value <= total ? Math.round((value / total) * 100) : null;
   return (
     <div className="flex items-center gap-4 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
       <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0', color)}>
