@@ -4,19 +4,27 @@ import Card from '@/components/ui/Card';
 import {
   Users, Briefcase, Ticket, Package, DollarSign, Wallet,
   Activity, Gauge, AlertTriangle, Clock, CalendarClock,
-  TrendingUp, TrendingDown, Monitor, Camera, AppWindow, ShieldAlert,
-  UserPlus, UserMinus, Flag, ArrowUpRight, ArrowDownRight,
-  Search, Lightbulb, ClipboardList,
+  ArrowUpRight, ArrowDownRight, UserPlus,
+  Search, Lightbulb, ClipboardList, ShieldAlert, UserMinus,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useGetExecutiveDashboard } from '@/services/executiveAnalyticsService';
 
-// Sprint 2 Milestone 1 — Executive Dashboard. Pure orchestration layer: every
-// number rendered here comes from the (now-extended) /executive-analytics
-// dashboard endpoint, which itself composes existing services + the generic
-// report_builder KPI/aggregate engine — nothing is recalculated client-side.
-// Every card below links back to the existing module page it summarizes
-// (Phase 4 drill-down requirement) rather than duplicating that page's view.
+// Sprint 3 — Executive Dashboard redesign. An executive dashboard answers
+// "what requires my attention today", not "here is every metric we track" —
+// so this page intentionally shows only: one summary, an action center,
+// <=8 company-health KPIs, a handful of trend widgets, a dedicated risks
+// list, root-cause panels, and AI recommendations. Anything more granular
+// (the old ~30-card Company Overview/Operations/Financial/Productivity/
+// Executive Insights wall) belongs in each module's own report screen, not
+// here — this pass removes those sections rather than trims them, per the
+// "raw data belongs in reports" instruction. UI-only: still reads from the
+// exact same /executive-analytics dashboard payload, no backend changes.
+// A few spec items (Revenue, Project Delivery Trend, Contracts Expiring,
+// Assets Due as a distinct "due" concept) have no backing field anywhere in
+// that payload — they're left out rather than faked; the closest existing
+// equivalents (Pending Asset Returns, Compliance Reminders, Payroll Not
+// Processed) are used instead where one exists.
 
 function fmtMoney(n?: number | null) {
   if (n == null) return '—';
@@ -27,12 +35,6 @@ function fmtNum(n?: number | null) {
 }
 function fmtPct(n?: number | null) {
   return n == null ? '—' : `${n}%`;
-}
-function fmtSeconds(n?: number | null) {
-  if (n == null) return '—';
-  const h = Math.floor(n / 3600);
-  const m = Math.floor((n % 3600) / 60);
-  return `${h}h ${m}m`;
 }
 
 function KpiCard({
@@ -204,13 +206,37 @@ export default function ExecutiveDashboard() {
     milestone_health: { healthy: number; at_risk: number; warning: number; critical: number };
   } | undefined;
 
-  const alertMeta: Record<string, { icon: React.ElementType; path: string; cls: string }> = {
-    overdue_tickets:      { icon: Ticket,       path: '/admin/tickets',           cls: 'bg-red-50 text-red-800 hover:bg-red-100' },
-    blocked_projects:     { icon: Briefcase,    path: '/admin/project-tracking',  cls: 'bg-orange-50 text-orange-800 hover:bg-orange-100' },
-    overdue_approvals:    { icon: ShieldAlert,  path: '/admin/approvals',         cls: 'bg-yellow-50 text-yellow-800 hover:bg-yellow-100' },
-    compliance_reminders: { icon: ShieldAlert,  path: '/admin/policies',          cls: 'bg-purple-50 text-purple-800 hover:bg-purple-100' },
-    probation_reminders:  { icon: Users,        path: '/admin/employee-directory',   cls: 'bg-blue-50 text-blue-800 hover:bg-blue-100' },
+  // Risks section — pulled from the same action-center items already
+  // rendered above, just re-surfaced as a dedicated "what could go wrong"
+  // list per the spec's Risks section, instead of only living inside the
+  // three action-center columns.
+  const allActionItems: ActionItem[] = [
+    ...(actionCenter?.requires_attention || []),
+    ...(actionCenter?.requires_review || []),
+  ];
+  const findAction = (key: string) => allActionItems.find((i) => i.key === key);
+
+  const riskMeta: Record<string, { icon: React.ElementType; path: string; cls: string }> = {
+    projects_at_risk:      { icon: AlertTriangle, path: '/admin/project-tracking',   cls: 'bg-red-50 text-red-800 hover:bg-red-100' },
+    blocked_projects:      { icon: Briefcase,     path: '/admin/project-tracking',   cls: 'bg-orange-50 text-orange-800 hover:bg-orange-100' },
+    payroll_not_processed: { icon: Wallet,        path: '/admin/payroll',            cls: 'bg-red-50 text-red-800 hover:bg-red-100' },
+    pending_asset_returns: { icon: Package,       path: '/admin/assets',             cls: 'bg-purple-50 text-purple-800 hover:bg-purple-100' },
+    compliance_reminders:  { icon: ShieldAlert,   path: '/admin/policies',           cls: 'bg-purple-50 text-purple-800 hover:bg-purple-100' },
+    overdue_approvals:     { icon: ShieldAlert,   path: '/admin/approvals',          cls: 'bg-yellow-50 text-yellow-800 hover:bg-yellow-100' },
+    ticket_sla_overdue:    { icon: Ticket,        path: '/admin/tickets',            cls: 'bg-red-50 text-red-800 hover:bg-red-100' },
+    probation_reminders:   { icon: UserMinus,     path: '/admin/employee-directory', cls: 'bg-blue-50 text-blue-800 hover:bg-blue-100' },
   };
+
+  const risks: { key: string; label: string; count: number }[] = [
+    { key: 'projects_at_risk', label: 'Projects At Risk', count: pmHealth?.projects_at_risk || 0 },
+    ...(findAction('blocked_projects') ? [{ key: 'blocked_projects', label: 'Blocked Projects', count: findAction('blocked_projects')!.count }] : []),
+    ...(findAction('payroll_not_processed') ? [{ key: 'payroll_not_processed', label: 'Payroll Not Processed', count: findAction('payroll_not_processed')!.count }] : []),
+    ...(findAction('pending_asset_returns') ? [{ key: 'pending_asset_returns', label: 'Pending Asset Returns', count: findAction('pending_asset_returns')!.count }] : []),
+    ...(findAction('overdue_approvals') ? [{ key: 'overdue_approvals', label: 'Overdue Approvals', count: findAction('overdue_approvals')!.count }] : []),
+    ...((ops?.ticket_sla_overdue || 0) > 0 ? [{ key: 'ticket_sla_overdue', label: 'Ticket SLA Overdue', count: ops.ticket_sla_overdue }] : []),
+    ...(priorityAlerts?.find((a) => a.key === 'compliance_reminders') ? [{ key: 'compliance_reminders', label: 'Compliance Reminders', count: priorityAlerts.find((a) => a.key === 'compliance_reminders')!.count }] : []),
+    ...(priorityAlerts?.find((a) => a.key === 'probation_reminders') ? [{ key: 'probation_reminders', label: 'Probation Reminders', count: priorityAlerts.find((a) => a.key === 'probation_reminders')!.count }] : []),
+  ].filter((r) => r.count > 0);
 
   if (isLoading) {
     return (
@@ -272,169 +298,101 @@ export default function ExecutiveDashboard() {
         </div>
       )}
 
-      {/* Company Overview */}
+      {/* Company Health — spec caps this at 8 KPI cards, so this replaces the
+          old Company Overview + Operations + Financial + Productivity wall
+          (~20 cards). One representative metric per domain; anything more
+          granular belongs on that module's own page (each card still drills
+          there). */}
       <div>
-        <SectionHeader title="Company Overview" />
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        <SectionHeader title="Company Health" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard icon={Users} color="bg-blue-500" label="Employees" value={fmtNum(co?.employees)} onClick={() => navigate('/admin/employee-directory')} />
           <KpiCard icon={Briefcase} color="bg-indigo-500" label="Active Projects" value={fmtNum(co?.active_projects)} onClick={() => navigate('/admin/project-tracking')} />
+          <KpiCard icon={Gauge} color="bg-sky-500" label="Attendance Today" value={fmtNum(ops?.attendance_today)} onClick={() => navigate('/admin/attendance')} />
           <KpiCard icon={Ticket} color="bg-orange-500" label="Open Tickets" value={fmtNum(co?.open_tickets)} onClick={() => navigate('/admin/tickets')} />
           <KpiCard icon={Package} color="bg-purple-500" label="Active Assets" value={fmtNum(co?.active_assets)} onClick={() => navigate('/admin/assets')} />
-          <KpiCard icon={DollarSign} color="bg-teal-500" label="Monthly Expense" value={fmtMoney(co?.monthly_expense)} onClick={() => navigate('/admin/finance/expenses')} />
+          <KpiCard icon={DollarSign} color="bg-teal-500" label="Monthly Expense" value={fmtMoney(fin?.monthly_expense)} onClick={() => navigate('/admin/finance/expenses')} />
           <KpiCard icon={Wallet} color="bg-green-600" label="Current Payroll" value={fmtMoney(co?.current_payroll)} onClick={() => navigate('/admin/payroll')} />
+          <KpiCard icon={Activity} color="bg-emerald-500" label="Productivity" value={fmtPct(prod?.productivity_pct)} onClick={() => navigate('/admin/monitoring')} />
         </div>
       </div>
 
-      {/* Project Management Health — the five headline project metrics the
-          Project Management overhaul requires on this dashboard. Backend
-          already computed all of these in get_dashboard_stats()
-          (projects.repository.js); this section just surfaces them —
-          projects_at_risk/delayed_projects existed already, upcoming_
-          deliveries/missing_milestones/milestone_health were added
-          alongside the Milestones rebuild but had no UI until now. */}
+      {/* Project Health — one consolidated scorecard replacing the previous
+          five separate cards (Projects At Risk / Delayed / Upcoming
+          Deliveries / Missing Milestones / Milestone Health), per the
+          spec's explicit "remove duplicated KPI cards, create one Project
+          Health widget" instruction. Same pmHealth data, just one click
+          target instead of five. */}
       {pmHealth && (
-        <div>
-          <SectionHeader title="Project Management Health" />
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-            <KpiCard icon={ShieldAlert} color="bg-red-500" label="Projects At Risk" value={fmtNum(pmHealth.projects_at_risk)} onClick={() => navigate('/admin/project-tracking')} />
-            <KpiCard icon={Clock} color="bg-orange-500" label="Delayed Projects" value={fmtNum(pmHealth.delayed_projects)} onClick={() => navigate('/admin/project-tracking')} />
-            <KpiCard icon={CalendarClock} color="bg-blue-500" label="Upcoming Deliveries" value={fmtNum(pmHealth.upcoming_deliveries)} onClick={() => navigate('/admin/project-tracking')} />
-            <KpiCard icon={Flag} color="bg-purple-500" label="Missing Milestones" value={fmtNum(pmHealth.missing_milestones)} onClick={() => navigate('/admin/project-tracking')} />
-            <KpiCard
-              icon={Activity}
-              color="bg-emerald-500"
-              label="Milestone Health"
-              value={pmHealth.milestone_health ? `${pmHealth.milestone_health.healthy}G / ${pmHealth.milestone_health.at_risk}Y / ${pmHealth.milestone_health.warning}O / ${pmHealth.milestone_health.critical}R` : '—'}
-              onClick={() => navigate('/admin/project-tracking')}
-            />
+        <button
+          onClick={() => navigate('/admin/project-tracking')}
+          className="w-full text-left bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Project Health</p>
+            {pmHealth.milestone_health && (
+              <span className="text-[11px] font-black tabular-nums text-gray-500">
+                {pmHealth.milestone_health.healthy}G · {pmHealth.milestone_health.at_risk}Y · {pmHealth.milestone_health.warning}O · {pmHealth.milestone_health.critical}R
+              </span>
+            )}
           </div>
-        </div>
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            <span className="text-sm"><b className="text-gray-900">{fmtNum(pmHealth.projects_at_risk)}</b> <span className="text-gray-500">at risk</span></span>
+            <span className="text-sm"><b className="text-gray-900">{fmtNum(pmHealth.delayed_projects)}</b> <span className="text-gray-500">delayed</span></span>
+            <span className="text-sm"><b className="text-gray-900">{fmtNum(pmHealth.upcoming_deliveries)}</b> <span className="text-gray-500">upcoming deliveries</span></span>
+            <span className="text-sm"><b className="text-gray-900">{fmtNum(pmHealth.missing_milestones)}</b> <span className="text-gray-500">missing milestones</span></span>
+          </div>
+        </button>
       )}
 
-      {/* Operations */}
+      {/* Trend Widgets — six period-over-period trends instead of the old
+          20-card Executive Insights wall; each still links to its module.
+          "Revenue Trend" and "Project Delivery Trend" from the spec have no
+          backing field anywhere in the dashboard payload (no revenue concept
+          exists yet, and delivery health has no historical snapshot to trend
+          against) — omitted rather than faked. */}
       <div>
-        <SectionHeader title="Operations" />
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-          <KpiCard
-            icon={Activity}
-            color="bg-emerald-500"
-            label="Project Health"
-            value={ops?.project_health ? `${ops.project_health.healthy}G / ${ops.project_health.at_risk}Y / ${ops.project_health.warning}O / ${ops.project_health.critical}R` : '—'}
-            onClick={() => navigate('/admin/project-tracking')}
-          />
-          <KpiCard icon={AlertTriangle} color="bg-red-500" label="Blocked Projects" value={fmtNum(ops?.blocked_projects)} onClick={() => navigate('/admin/project-tracking')} />
-          <KpiCard icon={Clock} color="bg-rose-500" label="Ticket SLA Overdue" value={fmtNum(ops?.ticket_sla_overdue)} onClick={() => navigate('/admin/tickets')} />
-          <KpiCard icon={Gauge} color="bg-sky-500" label="Attendance Today" value={fmtNum(ops?.attendance_today)} onClick={() => navigate('/admin/attendance')} />
-          <KpiCard icon={Clock} color="bg-amber-500" label="Late Today" value={fmtNum(ops?.late_employees_today)} onClick={() => navigate('/admin/attendance')} />
-          <KpiCard icon={CalendarClock} color="bg-cyan-500" label="On Leave Today" value={fmtNum(ops?.leave_today)} onClick={() => navigate('/admin/attendance')} />
-        </div>
-      </div>
-
-      {/* Financial */}
-      <div>
-        <SectionHeader title="Financial" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <KpiCard icon={DollarSign} color="bg-teal-500" label="Monthly Expense" value={fmtMoney(fin?.monthly_expense)} onClick={() => navigate('/admin/finance/expenses')} />
-          <KpiCard icon={Wallet} color="bg-green-600" label="Payroll Cost" value={fmtMoney(fin?.payroll_cost)} onClick={() => navigate('/admin/payroll')} />
-          <KpiCard icon={Package} color="bg-purple-500" label="Asset Value" value={fmtMoney(fin?.asset_value)} onClick={() => navigate('/admin/assets')} />
-          <KpiCard icon={TrendingUp} color="bg-indigo-500" label="Budget Utilization" value={fmtPct(fin?.budget_utilization_pct)} onClick={() => navigate('/admin/project-tracking')} />
-        </div>
-      </div>
-
-      {/* Productivity */}
-      <div>
-        <SectionHeader title="Productivity" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-          <KpiCard icon={Gauge} color="bg-green-500" label="Productivity %" value={fmtPct(prod?.productivity_pct)} onClick={() => navigate('/admin/monitoring')} />
-          <KpiCard icon={Monitor} color="bg-blue-500" label="Monitoring Coverage" value={fmtPct(prod?.monitoring_coverage_pct)} onClick={() => navigate('/admin/monitoring')} />
-          <KpiCard icon={Camera} color="bg-purple-500" label="Screenshot Count" value={fmtNum(prod?.screenshot_count)} onClick={() => navigate('/admin/monitoring')} />
-          <KpiCard icon={AppWindow} color="bg-orange-500" label="Top Applications" value={prod?.top_applications?.[0]?.app_name || '—'} onClick={() => navigate('/admin/monitoring')} />
-        </div>
-        {prod?.top_applications?.length > 0 && (
-          <Card className="border-none shadow-sm p-5">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Top Applications by Usage Time</p>
-            <BarList items={prod.top_applications.map((a: any) => ({ label: a.app_name, value: a.value }))} formatValue={fmtSeconds as (n: number) => string} />
-          </Card>
-        )}
-      </div>
-
-      {/* Executive Insights — Sprint 2 Milestone 2. Every trend below is the
-          same generic report_builder KPI call made twice (current window vs.
-          the prior window of equal length) by the backend's trend_kpi()
-          helper — no new calculation surface, just period comparison. */}
-      <div>
-        <SectionHeader title="Executive Insights" />
-
-        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 mt-1">Workforce</p>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-          <TrendCard icon={UserPlus} color="bg-blue-500" label="Hiring (30d)" trend={insights?.workforce?.hiring_trend_30d} onClick={() => navigate('/admin/employee-directory')} />
-          <KpiCard icon={Users} color="bg-indigo-500" label="Employee Growth" value={fmtNum(insights?.workforce?.employee_growth)} onClick={() => navigate('/admin/employee-directory')} />
-          <TrendCard icon={UserMinus} color="bg-red-500" label="Attrition (30d)" trend={insights?.workforce?.attrition_30d} invertGood onClick={() => navigate('/admin/employee-directory')} />
-          <KpiCard icon={Clock} color="bg-amber-500" label="Probation Ending Soon" value={fmtNum(insights?.workforce?.probation_ending_soon)} onClick={() => navigate('/admin/employee-directory')} />
-        </div>
-
-        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Delivery</p>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-          <KpiCard icon={AlertTriangle} color="bg-orange-500" label="Projects at Risk" value={fmtNum(insights?.delivery?.projects_at_risk)} onClick={() => navigate('/admin/project-tracking')} />
-          <KpiCard icon={Briefcase} color="bg-red-500" label="Projects Blocked" value={fmtNum(insights?.delivery?.projects_blocked)} onClick={() => navigate('/admin/project-tracking')} />
-          <KpiCard icon={Flag} color="bg-indigo-500" label="Upcoming Milestones (7d)" value={fmtNum(insights?.delivery?.upcoming_milestones_7d)} onClick={() => navigate('/admin/project-tracking')} />
-          <KpiCard icon={TrendingUp} color="bg-rose-500" label="Budget Overrun Risk" value={fmtNum(insights?.delivery?.budget_overrun_risk_count)} onClick={() => navigate('/admin/project-tracking')} />
-        </div>
-
-        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Financial</p>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+        <SectionHeader title="Trend Widgets" />
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+          <TrendCard icon={UserPlus} color="bg-blue-500" label="Hiring Trend (30d)" trend={insights?.workforce?.hiring_trend_30d} onClick={() => navigate('/admin/employee-directory')} />
+          <TrendCard icon={UserMinus} color="bg-red-500" label="Attrition Trend (30d)" trend={insights?.workforce?.attrition_30d} invertGood onClick={() => navigate('/admin/employee-directory')} />
+          <TrendCard icon={Clock} color="bg-amber-500" label="Attendance Lateness Trend (7d)" trend={insights?.productivity?.attendance_late_trend_7d} invertGood onClick={() => navigate('/admin/attendance')} />
           <TrendCard icon={DollarSign} color="bg-teal-500" label="Expense Trend (30d)" trend={insights?.financial?.expense_trend_30d} format="money" invertGood onClick={() => navigate('/admin/finance/expenses')} />
           <TrendCard icon={Wallet} color="bg-green-600" label="Payroll Trend (MoM)" trend={insights?.financial?.payroll_trend_mom} format="money" invertGood onClick={() => navigate('/admin/payroll')} />
-          <KpiCard icon={TrendingDown} color="bg-gray-400" label="Budget Utilization Trend" value="No history tracked" onClick={() => navigate('/admin/project-tracking')} />
-        </div>
-
-        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Productivity</p>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
-          <TrendCard icon={Gauge} color="bg-green-500" label="Productivity Trend (7d)" trend={insights?.productivity?.productivity_trend_7d} format="pct" onClick={() => navigate('/admin/monitoring')} />
-          <TrendCard icon={Monitor} color="bg-blue-500" label="Monitoring Coverage Trend (7d)" trend={insights?.productivity?.monitoring_coverage_trend_7d} format="pct" onClick={() => navigate('/admin/monitoring')} />
-          <TrendCard icon={Clock} color="bg-amber-500" label="Late Attendance Trend (7d)" trend={insights?.productivity?.attendance_late_trend_7d} invertGood onClick={() => navigate('/admin/attendance')} />
-        </div>
-
-        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Service Desk</p>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-          <TrendCard icon={Ticket} color="bg-orange-500" label="Ticket Volume Trend (30d)" trend={insights?.service_desk?.ticket_volume_trend_30d} invertGood onClick={() => navigate('/admin/tickets')} />
-          <TrendCard icon={Activity} color="bg-emerald-500" label="Resolution Trend (30d)" trend={insights?.service_desk?.resolution_trend_30d} onClick={() => navigate('/admin/tickets')} />
-          <KpiCard icon={Clock} color="bg-gray-400" label="SLA Trend" value="No history tracked" onClick={() => navigate('/admin/tickets')} />
+          <TrendCard icon={Gauge} color="bg-emerald-500" label="Productivity Trend (7d)" trend={insights?.productivity?.productivity_trend_7d} format="pct" onClick={() => navigate('/admin/monitoring')} />
         </div>
       </div>
 
-      {/* Executive Alerts — reuses the exact counts from `alerts` (Milestone
-          1); this section only ranks/labels them by severity, no new alert
-          source. */}
+      {/* Risks — the spec's dedicated "what could go wrong" section, built
+          from the same action-center/alert data already fetched above (no
+          new backend calls). Contracts Expiring and a distinct "Assets Due"
+          concept aren't computed anywhere in this payload — Pending Asset
+          Returns is used as the closest existing equivalent. */}
       <div>
-        <SectionHeader title="Executive Alerts" />
+        <SectionHeader title="Risks" />
         <Card className="border-none shadow-sm p-5">
-          {priorityAlerts && priorityAlerts.length > 0 ? (
+          {risks.length > 0 ? (
             <div className="space-y-2">
-              {priorityAlerts.map((a) => {
-                const meta = alertMeta[a.key];
+              {risks.map((r) => {
+                const meta = riskMeta[r.key];
                 const Icon = meta?.icon || ShieldAlert;
                 return (
                   <button
-                    key={a.key}
+                    key={r.key}
                     onClick={() => meta && navigate(meta.path)}
                     className={cn('w-full flex items-center justify-between p-3 rounded-xl transition-colors text-left', meta?.cls || 'bg-gray-50 text-gray-800 hover:bg-gray-100')}
                   >
                     <span className="flex items-center gap-2 text-sm font-semibold">
                       <Icon size={16} />
-                      {a.label}
-                      <span className={cn(
-                        'text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full ml-1',
-                        a.severity === 'high' ? 'bg-red-200 text-red-800' : a.severity === 'medium' ? 'bg-yellow-200 text-yellow-800' : 'bg-gray-200 text-gray-600'
-                      )}>{a.severity}</span>
+                      {r.label}
                     </span>
-                    <span className="text-sm font-black tabular-nums">{a.count}</span>
+                    <span className="text-sm font-black tabular-nums">{r.count}</span>
                   </button>
                 );
               })}
             </div>
           ) : (
-            <p className="text-sm text-gray-400 text-center py-4">No active alerts — everything is on track.</p>
+            <p className="text-sm text-gray-400 text-center py-4">No active risks — everything is on track.</p>
           )}
         </Card>
       </div>
@@ -474,7 +432,7 @@ export default function ExecutiveDashboard() {
           executive-analytics.service.js. */}
       {recommendations && recommendations.length > 0 && (
         <div>
-          <SectionHeader title="Recommendations" />
+          <SectionHeader title="AI Recommendations" />
           <Card className="border-none shadow-sm p-5">
             <div className="space-y-2">
               {recommendations.map((r, i) => (
