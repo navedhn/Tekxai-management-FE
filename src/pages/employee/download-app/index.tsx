@@ -15,7 +15,9 @@ interface BuildMeta {
   platforms: string[];
   windows: string | null;
   mac: string | null;
-  checksums: { windows: string | null; mac: string | null };
+  linux: string | null;
+  linuxArm64: string | null;
+  checksums: { windows: string | null; mac: string | null; linux: string | null; linuxArm64: string | null };
   releaseNotes: string | null;
   minimumBackendVersion: string;
 }
@@ -25,7 +27,7 @@ const COMPAT = [
   { os: 'Windows 11',        supported: true },
   { os: 'macOS 12 Monterey', supported: true },
   { os: 'macOS 13+',         supported: true },
-  { os: 'Linux',             supported: false, note: 'Coming Soon' },
+  { os: 'Linux (x64 / ARM64)', supported: true },
   { os: 'iOS / Android',     supported: false, note: 'Not supported' },
 ];
 
@@ -75,14 +77,19 @@ export default function DownloadApp() {
 
   const ready = !!meta;
 
+  const isArm = /arm|aarch64/.test(navigator.userAgent.toLowerCase());
+  const linuxUrl      = isArm ? (meta?.linuxArm64 ?? meta?.linux ?? null) : (meta?.linux ?? null);
+  const linuxChecksum = isArm ? (meta?.checksums.linuxArm64 ?? meta?.checksums.linux ?? null) : (meta?.checksums.linux ?? null);
+
   const platforms: {
     key: Platform; label: string; sub: string; emoji: string;
     url: string | null; disabled?: boolean; bg: string; hover: string; ext: string;
-    checksum: string | null;
+    checksum: string | null; altUrl?: string | null; altLabel?: string;
   }[] = [
     { key: 'windows', label: 'Windows', sub: 'Windows 10 / 11 (64-bit)',   emoji: '🪟', url: meta?.windows ?? null, checksum: meta?.checksums.windows ?? null, ext: '.exe',      bg: 'bg-[#005CDA]', hover: 'hover:bg-[#0047b3]' },
     { key: 'mac',     label: 'macOS',   sub: 'macOS 12 Monterey or later', emoji: '🍎', url: meta?.mac ?? null,     checksum: meta?.checksums.mac ?? null,     ext: '.dmg',      bg: 'bg-gray-900',  hover: 'hover:bg-gray-700' },
-    { key: 'linux',   label: 'Linux',   sub: 'AppImage — coming soon',      emoji: '🐧', url: null,                  checksum: null,                            ext: '.AppImage', bg: 'bg-gray-400',  hover: '', disabled: true },
+    { key: 'linux',   label: 'Linux',   sub: isArm ? 'AppImage (ARM64)' : 'AppImage (x64)', emoji: '🐧', url: linuxUrl, checksum: linuxChecksum, ext: '.AppImage', bg: 'bg-orange-600', hover: 'hover:bg-orange-700',
+      altUrl: isArm ? (meta?.linux ?? null) : (meta?.linuxArm64 ?? null), altLabel: isArm ? 'x64' : 'ARM64' },
   ];
 
   return (
@@ -166,6 +173,16 @@ export default function DownloadApp() {
                       SHA256: {p.checksum.slice(0, 16)}…
                     </p>
                   )}
+                  {p.altUrl && (
+                    <a
+                      href={p.altUrl}
+                      download
+                      onClick={() => trackDownload(`${p.key}-${p.altLabel?.toLowerCase()}`, meta?.version ?? null)}
+                      className="text-[11px] text-gray-400 hover:text-gray-600 text-center underline underline-offset-2"
+                    >
+                      Need {p.altLabel} instead?
+                    </a>
+                  )}
                 </>
               ) : (
                 <button disabled className="flex items-center justify-center gap-2 h-10 rounded-xl bg-gray-100 text-gray-400 font-bold text-sm cursor-not-allowed">
@@ -231,6 +248,7 @@ export default function DownloadApp() {
           <li>Download the installer for your operating system above.</li>
           <li><strong>Windows:</strong> Run the <code>.exe</code> and follow the setup wizard.</li>
           <li><strong>Mac:</strong> Open the <code>.dmg</code>, drag TekXAI Agent to Applications.</li>
+          <li><strong>Linux:</strong> Make the <code>.AppImage</code> executable (<code>chmod +x</code>) and run it directly.</li>
           <li>Launch the app and sign in with your TekXAI credentials.</li>
           <li>Click <strong>Clock In</strong> to start tracking — it stays in your system tray.</li>
         </ol>
