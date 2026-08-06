@@ -131,6 +131,32 @@ export const useUpdateMyProfileMutation = () => {
   });
 };
 
+// E2E DM encryption — uploads only the PUBLIC half of the caller's ECDH
+// keypair generated client-side by e2eCrypto.ts; the server stores it as an
+// opaque blob (no crypto logic). The private key never leaves the browser's
+// IndexedDB. See chat/index.tsx's first-load key-bootstrap effect.
+export const useUpdateMyPublicKeyMutation = () => {
+  return useMutation({
+    mutationFn: (public_key: string) =>
+      apiRequest<any>(API_ENDPOINTS.USER.MY_PUBLIC_KEY, { method: 'PUT', body: JSON.stringify({ public_key }) }),
+  });
+};
+
+// Fetches a peer's public key so a DM sender can derive the shared AES-GCM
+// key (ECDH) before encrypting. Cached per-user — a peer's public key only
+// changes if they regenerate a keypair (new device / cleared IndexedDB).
+export const useGetUserPublicKeyQuery = (userId: string | null) =>
+  useQuery<{ user_id: string; public_key: string } | null>({
+    queryKey: ['user-public-key', userId],
+    queryFn: async () => {
+      const r = await apiRequest<any>(API_ENDPOINTS.USER.PUBLIC_KEY(userId!));
+      return r?.payload || null;
+    },
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
 // Dedicated RBAC action — the only mutation allowed to change a user's role.
 // Deliberately separate from useUpdateUserMutation (generic profile PUT),
 // which the backend now strips role_id from unconditionally.

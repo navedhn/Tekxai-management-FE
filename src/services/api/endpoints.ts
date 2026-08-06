@@ -98,6 +98,10 @@ export const API_ENDPOINTS = {
     // strips role_id unconditionally on the backend.
     ROLE_CHANGE: (id: string | number) => `${v1}/user/${id}/role`,
     EMPLOYEE_ID_PREVIEW: (departmentId: string | number) => `${v1}/user/employee-id/preview?department_id=${departmentId}`,
+    // E2E DM encryption — see fe-work/src/lib/e2eCrypto.ts. Opaque public-key
+    // storage only, no server-side crypto.
+    MY_PUBLIC_KEY:   `${v1}/user/me/public-key`,
+    PUBLIC_KEY:      (id: string | number) => `${v1}/user/${id}/public-key`,
   },
   EMPLOYEE_LIFECYCLE: {
     SET_STAGE: `${v1}/employee-lifecycle/set-stage`,
@@ -478,7 +482,6 @@ export const API_ENDPOINTS = {
     CHANNELS:    `${v1}/chat/channels`,
     CHANNEL:     (id: string) => `${v1}/chat/channels/${id}`,
     DM:          `${v1}/chat/channels/dm`,
-    GROUP:       `${v1}/chat/channels/group`,
     PRIVATE:     `${v1}/chat/channels/private`,
     JOIN:        (id: string) => `${v1}/chat/channels/${id}/join`,
     ARCHIVE:     (id: string) => `${v1}/chat/channels/${id}/archive`,
@@ -503,6 +506,14 @@ export const API_ENDPOINTS = {
     SAVE:        (id: string, msgId: string) => `${v1}/chat/channels/${id}/messages/${msgId}/save`,
     SAVED:       `${v1}/chat/saved`,
     EXPORT:      (id: string, format: string) => `${v1}/chat/channels/${id}/export?format=${format}`,
+  },
+  SERVERS: {
+    LIST:        `${v1}/servers`,
+    CREATE:      `${v1}/servers`,
+    DETAIL:      (id: string) => `${v1}/servers/${id}`,
+    CHANNELS:    (id: string) => `${v1}/servers/${id}/channels`,
+    MEMBERS:     (id: string) => `${v1}/servers/${id}/members`,
+    MEMBER:      (id: string, userId: string) => `${v1}/servers/${id}/members/${userId}`,
   },
   MEETING: {
     DASHBOARD:        `${v1}/meeting/dashboard`,
