@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, BASE_URL } from '@/lib/queryClient';
 
 const v1 = 'api/v1';
 
@@ -48,20 +48,54 @@ export const useAssignShiftMutation = () => { const qc = useQueryClient(); retur
 
 export const useDeleteShiftMutation = () => { const qc = useQueryClient(); return useMutation({ mutationFn: (id: string) => apiRequest(`${v1}/attendance/shifts/${id}`, { method: 'DELETE' }), onSuccess: () => qc.invalidateQueries({ queryKey: ['shifts'] }) }); };
 
+export interface NoCheckinFilters {
+  date?: string;
+  department_id?: string;
+  team_id?: string;
+  business_unit_id?: string;
+  designation_id?: string;
+  status?: string;
+}
+
 // "Didn't check in today" — active employees with no timesheet_entries row
 // and no approved leave for the given day. Distinct from useGetViolationsQuery
 // (which only reads already-recorded LATE/ABSENT/EARLY_OUT rows): this is a
 // live, computed no-show list for a day nobody has been marked absent for yet.
-export const useGetNoCheckinsQuery = (filters?: { date?: string; department_id?: string; team_id?: string }) =>
+export const useGetNoCheckinsQuery = (filters?: NoCheckinFilters) =>
   useQuery({
     queryKey: ['no-checkins', filters],
     queryFn: async () => {
       const qs = filters ? '?' + new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([, v]) => v != null && v !== '')) as any).toString() : '';
       const r = await apiRequest<any>(`${v1}/attendance/no-checkins${qs}`);
-      return r?.payload || { date: filters?.date, records: [], total: 0 };
+      return r?.payload || { date: filters?.date, records: [], total: 0, summary: { total_employees: 0, checked_in: 0, not_checked_in: 0 } };
     },
     staleTime: 30000,
   });
+
+// Streams the same No-Check-In Today list (same filters) as a branded PDF —
+// GET rather than a mutation since it's a pure export with no server-side
+// state change, but done as a plain async function (not useQuery) since
+// triggering a file download on click isn't a cacheable "get some data" read.
+export async function exportNoCheckinPdf(filters?: NoCheckinFilters) {
+  const qs = filters ? '?' + new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([, v]) => v != null && v !== '')) as any).toString() : '';
+  const token = localStorage.getItem('tekxai_access_token');
+  const res = await fetch(`${BASE_URL}${v1}/attendance/no-checkins/export-pdf${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to generate PDF');
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') || '';
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  const filename = match?.[1] || `No_Check_In_Report_${filters?.date || new Date().toISOString().split('T')[0]}.pdf`;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 // Turns the no-checkins list into real ABSENT violation rows (idempotent —
 // safe to click more than once for the same day).

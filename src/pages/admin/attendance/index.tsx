@@ -10,13 +10,15 @@ import Badge from '@/components/ui/Badge';
 import StatusBadge from '@/components/ui/StatusBadge';
 import ActionModal from '@/components/ui/ActionModal';
 import ChipMultiSelect from '@/components/ui/ChipMultiSelect';
-import { Clock, AlertTriangle, Plus, Pencil, Trash2, BarChart3 } from 'lucide-react';
+import { Clock, AlertTriangle, Plus, Pencil, Trash2, BarChart3, FileDown } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
-import { useGetShiftsQuery, useGetViolationsQuery, useUpsertShiftMutation, useAssignShiftMutation, useDeleteShiftMutation, useGetNoCheckinsQuery, useMarkAbsenteesMutation } from '@/services/attendanceService';
+import { useGetShiftsQuery, useGetViolationsQuery, useUpsertShiftMutation, useAssignShiftMutation, useDeleteShiftMutation, useGetNoCheckinsQuery, useMarkAbsenteesMutation, exportNoCheckinPdf } from '@/services/attendanceService';
 import { useFetchUsersQuery } from '@/services/userService';
 import { useGetTeamsQuery } from '@/services/adminService';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
+import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
+import { useGetDesignationsQuery } from '@/services/designationService';
 import { apiRequest } from '@/lib/queryClient';
 
 const TABS = ['Late Coming / Violations', 'Shift Management', 'Reports'];
@@ -149,6 +151,10 @@ const AttendancePage: React.FC = () => {
   const [quickFilter, setQuickFilter] = useState<'today' | 'week' | null>(null);
   const [noCheckinDeptFilter, setNoCheckinDeptFilter] = useState('');
   const [noCheckinTeamFilter, setNoCheckinTeamFilter] = useState('');
+  const [noCheckinBuFilter, setNoCheckinBuFilter] = useState('');
+  const [noCheckinDesignationFilter, setNoCheckinDesignationFilter] = useState('');
+  const [noCheckinStatusFilter, setNoCheckinStatusFilter] = useState('');
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const applyQuickFilter = (which: 'today' | 'week') => {
     const range = which === 'today' ? getTodayRange() : getThisWeekRange();
@@ -167,15 +173,36 @@ const AttendancePage: React.FC = () => {
   const teams = (teamsData as any)?.payload?.records || [];
   const { data: departmentsData } = useGetDepartmentsQuery();
   const departments = (departmentsData as any) || [];
+  const { data: businessUnitsData = [] } = useGetBusinessUnitsQuery();
+  const businessUnits = (businessUnitsData as any) || [];
+  const { data: designationsData = [] } = useGetDesignationsQuery();
+  const designations = (designationsData as any) || [];
   const upsertShift = useUpsertShiftMutation();
   const assignShift = useAssignShiftMutation();
   const deleteShift = useDeleteShiftMutation();
-  const { data: noCheckinsData, isLoading: noCheckinsLoading } = useGetNoCheckinsQuery({
+  const noCheckinFilters = {
     department_id: noCheckinDeptFilter,
     team_id: noCheckinTeamFilter,
-  });
+    business_unit_id: noCheckinBuFilter,
+    designation_id: noCheckinDesignationFilter,
+    status: noCheckinStatusFilter,
+  };
+  const { data: noCheckinsData, isLoading: noCheckinsLoading } = useGetNoCheckinsQuery(noCheckinFilters);
   const markAbsentees = useMarkAbsenteesMutation();
   const noCheckins = (noCheckinsData as any)?.records || [];
+  const noCheckinSummary = (noCheckinsData as any)?.summary || { total_employees: 0, checked_in: 0, not_checked_in: 0 };
+  const noCheckinFiltersActive = !!(noCheckinDeptFilter || noCheckinTeamFilter || noCheckinBuFilter || noCheckinDesignationFilter || noCheckinStatusFilter);
+
+  const handleExportNoCheckinPdf = async () => {
+    setExportingPdf(true);
+    try {
+      await exportNoCheckinPdf(noCheckinFilters);
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to export PDF');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
 
   const handleMarkAbsentees = async () => {
     try {
@@ -285,29 +312,57 @@ const AttendancePage: React.FC = () => {
 
       {activeTab === 'Late Coming / Violations' && (
         <Card className="border-none shadow-sm">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div>
               <h2 className="text-lg font-black text-gray-900">No Check-In Today</h2>
               <p className="text-xs text-gray-500 font-medium mt-0.5">Active employees with no check-in and no approved leave today.</p>
             </div>
-            <Button
-              variant="primary"
-              size="sm"
-              className="rounded-xl h-9"
-              loading={markAbsentees.isPending}
-              disabled={noCheckins.length === 0}
-              onClick={handleMarkAbsentees}
-            >
-              Add to Violations ({noCheckins.length})
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="rounded-xl h-9"
+                loading={exportingPdf}
+                onClick={handleExportNoCheckinPdf}
+              >
+                <FileDown size={14} className="mr-1.5" />
+                Export PDF
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                className="rounded-xl h-9"
+                loading={markAbsentees.isPending}
+                disabled={noCheckins.length === 0}
+                onClick={handleMarkAbsentees}
+              >
+                Add to Violations ({noCheckins.length})
+              </Button>
+            </div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+              <p className="text-2xl font-black text-primary-600">{noCheckinSummary.total_employees}</p>
+              <p className="text-xs font-bold text-gray-500 mt-0.5">Total Employees</p>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+              <p className="text-2xl font-black text-green-600">{noCheckinSummary.checked_in}</p>
+              <p className="text-xs font-bold text-gray-500 mt-0.5">Checked In</p>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+              <p className="text-2xl font-black text-red-600">{noCheckinSummary.not_checked_in}</p>
+              <p className="text-xs font-bold text-gray-500 mt-0.5">Not Checked In</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3 mb-4">
             <SearchableSelect
               options={departments.map((d: any) => ({ label: d.name, value: d.id }))}
               value={noCheckinDeptFilter || null}
               onChange={(v) => setNoCheckinDeptFilter((v as string) ?? '')}
               placeholder="All Departments"
-              containerClassName="sm:w-56"
+              containerClassName="w-44"
               className="h-10"
             />
             <SearchableSelect
@@ -315,15 +370,49 @@ const AttendancePage: React.FC = () => {
               value={noCheckinTeamFilter || null}
               onChange={(v) => setNoCheckinTeamFilter((v as string) ?? '')}
               placeholder="All Teams"
-              containerClassName="sm:w-56"
+              containerClassName="w-44"
               className="h-10"
             />
-            {(noCheckinDeptFilter || noCheckinTeamFilter) && (
+            <SearchableSelect
+              options={businessUnits.map((b: any) => ({ label: b.name, value: b.id }))}
+              value={noCheckinBuFilter || null}
+              onChange={(v) => setNoCheckinBuFilter((v as string) ?? '')}
+              placeholder="All Business Units"
+              containerClassName="w-48"
+              className="h-10"
+            />
+            <SearchableSelect
+              options={designations.map((d: any) => ({ label: d.name, value: d.id }))}
+              value={noCheckinDesignationFilter || null}
+              onChange={(v) => setNoCheckinDesignationFilter((v as string) ?? '')}
+              placeholder="All Designations"
+              containerClassName="w-44"
+              className="h-10"
+            />
+            <SearchableSelect
+              options={[
+                { label: 'Active', value: 'ACTIVE' },
+                { label: 'On Leave', value: 'ON_LEAVE' },
+                { label: 'Suspended', value: 'SUSPENDED' },
+              ]}
+              value={noCheckinStatusFilter || null}
+              onChange={(v) => setNoCheckinStatusFilter((v as string) ?? '')}
+              placeholder="All Statuses"
+              containerClassName="w-40"
+              className="h-10"
+            />
+            {noCheckinFiltersActive && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="rounded-xl h-9 text-gray-500 self-start sm:self-center"
-                onClick={() => { setNoCheckinDeptFilter(''); setNoCheckinTeamFilter(''); }}
+                onClick={() => {
+                  setNoCheckinDeptFilter('');
+                  setNoCheckinTeamFilter('');
+                  setNoCheckinBuFilter('');
+                  setNoCheckinDesignationFilter('');
+                  setNoCheckinStatusFilter('');
+                }}
               >
                 Clear
               </Button>
@@ -333,8 +422,12 @@ const AttendancePage: React.FC = () => {
             columns={[
               { header: 'Employee', key: 'first_name', render: (item: any) => <span className="font-bold">{item.first_name} {item.last_name}</span> },
               { header: 'Email', key: 'email', render: (item: any) => <span className="text-gray-500">{item.email}</span> },
+              { header: 'Business Unit', key: 'business_unit', render: (item: any) => <span className="text-gray-500">{item.department?.business_unit?.name || '—'}</span> },
               { header: 'Department', key: 'department', render: (item: any) => <span className="text-gray-500">{item.department?.name || '—'}</span> },
-              { header: 'Designation', key: 'designation', render: (item: any) => <span className="text-gray-500">{item.designation || '—'}</span> },
+              { header: 'Team', key: 'team', render: (item: any) => <span className="text-gray-500">{item.team_memberships?.[0]?.team?.name || '—'}</span> },
+              { header: 'Designation', key: 'designation', render: (item: any) => <span className="text-gray-500">{item.designation_ref?.name || item.designation || '—'}</span> },
+              { header: 'Shift', key: 'shift', render: (item: any) => <span className="text-gray-500">{item.shift?.name || '—'}</span> },
+              { header: 'Status', key: 'status', render: (item: any) => <span className="text-gray-500">{item.employee_profile?.employment_status || item.status || '—'}</span> },
             ]}
             data={noCheckins}
             isLoading={noCheckinsLoading}
