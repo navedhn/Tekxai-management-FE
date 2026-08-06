@@ -27,6 +27,12 @@ interface TableProps<T> {
   emptyMessage?: string;
   className?: string;
   headerClassName?: string;
+  // Opt-in only (defaults off) so existing tables keep their current
+  // scroll behavior — a table inside a fixed-height/scrollable panel
+  // (e.g. a long attendance list) can turn this on to keep the header
+  // visible while its own rows scroll underneath.
+  stickyHeader?: boolean;
+  maxBodyHeight?: string;
 }
 
 const Table = <T,>({
@@ -37,15 +43,20 @@ const Table = <T,>({
   emptyMessage = 'No data found',
   className,
   headerClassName,
+  stickyHeader = false,
+  maxBodyHeight,
 }: TableProps<T>) => {
   return (
     <div className={cn('w-full flex flex-col', className)}>
       {isLoading ? (
         <TableSkeleton columns={columns.length} rows={8} />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white">
+        <div
+          className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white"
+          style={stickyHeader && maxBodyHeight ? { maxHeight: maxBodyHeight, overflowY: 'auto' } : undefined}
+        >
           <table className="w-full text-sm text-left border-collapse">
-            <thead>
+            <thead className={cn(stickyHeader && 'sticky top-0 z-10')}>
               <tr className={cn("bg-[#E4F0FF]/40 border-b border-gray-100", headerClassName)}>
                 {columns.map((col, index) => (
                   <th

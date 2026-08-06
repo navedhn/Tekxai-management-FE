@@ -247,7 +247,7 @@ export default function DownloadApp() {
         <ol className="space-y-2 text-sm text-gray-700 list-decimal list-inside">
           <li>Download the installer for your operating system above.</li>
           <li><strong>Windows:</strong> Run the <code>.exe</code> and follow the setup wizard.</li>
-          <li><strong>Mac:</strong> Open the <code>.dmg</code>, drag TekXAI Agent to Applications.</li>
+          <li><strong>Mac:</strong> Open the <code>.dmg</code>, drag TEKxAI Agent to Applications.</li>
           <li><strong>Linux:</strong> Make the <code>.AppImage</code> executable (<code>chmod +x</code>) and run it directly.</li>
           <li>Launch the app and sign in with your TekXAI credentials.</li>
           <li>Click <strong>Clock In</strong> to start tracking — it stays in your system tray.</li>

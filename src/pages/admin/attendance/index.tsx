@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Tabs from '@/components/ui/Tabs';
@@ -10,7 +12,10 @@ import Badge from '@/components/ui/Badge';
 import StatusBadge from '@/components/ui/StatusBadge';
 import ActionModal from '@/components/ui/ActionModal';
 import ChipMultiSelect from '@/components/ui/ChipMultiSelect';
-import { Clock, AlertTriangle, Plus, Pencil, Trash2, BarChart3, FileDown } from 'lucide-react';
+import {
+  Clock, AlertTriangle, Plus, Pencil, Trash2, BarChart3, FileDown, FileSpreadsheet,
+  FileText, Search, X, Eye, UserCheck, Users,
+} from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useGetShiftsQuery, useGetViolationsQuery, useUpsertShiftMutation, useAssignShiftMutation, useDeleteShiftMutation, useGetNoCheckinsQuery, useMarkAbsenteesMutation, exportNoCheckinPdf } from '@/services/attendanceService';
@@ -21,7 +26,7 @@ import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { apiRequest } from '@/lib/queryClient';
 
-const TABS = ['Late Coming / Violations', 'Shift Management', 'Reports'];
+const TABS = ['Overview', 'Late Coming', 'No Check-in Today', 'Shift Management', 'Violations', 'Reports'];
 const v1 = 'api/v1';
 const BUILDER = `${v1}/report/builder`;
 
@@ -45,6 +50,26 @@ function getThisWeekRange() {
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
   return { start_date: toDateInputStr(monday), end_date: toDateInputStr(sunday) };
+}
+
+// Page-level KPI card — used above the tab bar so the numbers stay visible
+// regardless of which tab is open, matching how enterprise HR/ERP dashboards
+// (Rippling, Deel, BambooHR) keep the day's headline stats pinned at the top.
+function SummaryCard({ icon: Icon, label, value, subtitle, iconBg, iconColor }: {
+  icon: any; label: string; value: React.ReactNode; subtitle: string; iconBg: string; iconColor: string;
+}) {
+  return (
+    <div className="flex items-center gap-3.5 bg-white rounded-2xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-shadow">
+      <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center shrink-0', iconBg)}>
+        <Icon size={20} className={iconColor} />
+      </div>
+      <div className="min-w-0">
+        <p className="text-2xl font-black text-gray-900 leading-tight tabular-nums">{value}</p>
+        <p className="text-xs font-bold text-gray-600 truncate">{label}</p>
+        <p className="text-[11px] text-gray-400 truncate">{subtitle}</p>
+      </div>
+    </div>
+  );
 }
 
 // Sprint 1 Milestone 5 — Attendance Reports, entirely via the generic
@@ -137,7 +162,8 @@ function AttendanceReportsTab({ users }: { users: any[] }) {
 
 const AttendancePage: React.FC = () => {
   const toast = useToastContext();
-  const [activeTab, setActiveTab] = useState('Late Coming / Violations');
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('Overview');
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [editingShift, setEditingShift] = useState<any>(null);
@@ -148,25 +174,34 @@ const AttendancePage: React.FC = () => {
   const [assignMode, setAssignMode] = useState<'employee' | 'team'>('employee');
   const [assignTeamIds, setAssignTeamIds] = useState<string[]>([]);
   const [violationFilters, setViolationFilters] = useState({ user_id: '', violation_type: '', start_date: '', end_date: '' });
-  const [quickFilter, setQuickFilter] = useState<'today' | 'week' | null>(null);
+  const [lateQuickFilter, setLateQuickFilter] = useState<'today' | 'week' | null>(null);
+  const [lateDateRange, setLateDateRange] = useState({ start_date: '', end_date: '' });
   const [noCheckinDeptFilter, setNoCheckinDeptFilter] = useState('');
-  const [noCheckinTeamFilter, setNoCheckinTeamFilter] = useState('');
   const [noCheckinBuFilter, setNoCheckinBuFilter] = useState('');
-  const [noCheckinDesignationFilter, setNoCheckinDesignationFilter] = useState('');
-  const [noCheckinStatusFilter, setNoCheckinStatusFilter] = useState('');
+  const [noCheckinShiftFilter, setNoCheckinShiftFilter] = useState('');
+  const [noCheckinSearch, setNoCheckinSearch] = useState('');
   const [exportingPdf, setExportingPdf] = useState(false);
 
-  const applyQuickFilter = (which: 'today' | 'week') => {
+  const applyLateQuickFilter = (which: 'today' | 'week') => {
     const range = which === 'today' ? getTodayRange() : getThisWeekRange();
-    setQuickFilter(which);
-    setViolationFilters(p => ({ ...p, violation_type: 'LATE', ...range }));
+    setLateQuickFilter(which);
+    setLateDateRange(range);
+  };
+  const clearLateDateFilter = () => {
+    setLateQuickFilter(null);
+    setLateDateRange({ start_date: '', end_date: '' });
   };
   const clearDateFilter = () => {
-    setQuickFilter(null);
     setViolationFilters(p => ({ ...p, start_date: '', end_date: '' }));
   };
 
   const { data: violationsData, isLoading: vLoading } = useGetViolationsQuery(violationFilters);
+  const { data: lateData, isLoading: lateLoading } = useGetViolationsQuery({ violation_type: 'LATE', ...lateDateRange });
+  // Page-level "Late Today" KPI is intentionally a separate query from the
+  // Late Coming tab's own (togglable, defaults-to-unfiltered) lateData above
+  // — the KPI card must always mean literally today, not whatever date range
+  // the tab happens to have selected.
+  const { data: lateTodayData } = useGetViolationsQuery({ violation_type: 'LATE', ...getTodayRange() });
   const { data: shifts = [], isLoading: sLoading } = useGetShiftsQuery();
   const { data: users = [] } = useFetchUsersQuery({});
   const { data: teamsData } = useGetTeamsQuery();
@@ -182,26 +217,97 @@ const AttendancePage: React.FC = () => {
   const deleteShift = useDeleteShiftMutation();
   const noCheckinFilters = {
     department_id: noCheckinDeptFilter,
-    team_id: noCheckinTeamFilter,
     business_unit_id: noCheckinBuFilter,
-    designation_id: noCheckinDesignationFilter,
-    status: noCheckinStatusFilter,
   };
   const { data: noCheckinsData, isLoading: noCheckinsLoading } = useGetNoCheckinsQuery(noCheckinFilters);
   const markAbsentees = useMarkAbsenteesMutation();
-  const noCheckins = (noCheckinsData as any)?.records || [];
+  const noCheckinsRaw = (noCheckinsData as any)?.records || [];
   const noCheckinSummary = (noCheckinsData as any)?.summary || { total_employees: 0, checked_in: 0, not_checked_in: 0 };
-  const noCheckinFiltersActive = !!(noCheckinDeptFilter || noCheckinTeamFilter || noCheckinBuFilter || noCheckinDesignationFilter || noCheckinStatusFilter);
+
+  // Shift + free-text search narrow the already-fetched list client-side —
+  // both are already present on each row (shift, first/last name, email,
+  // employee_id), so no extra backend filter param is needed for either.
+  const noCheckins = useMemo(() => {
+    let rows = noCheckinsRaw;
+    if (noCheckinShiftFilter) rows = rows.filter((r: any) => r.shift?.id === noCheckinShiftFilter);
+    if (noCheckinSearch.trim()) {
+      const q = noCheckinSearch.trim().toLowerCase();
+      rows = rows.filter((r: any) =>
+        `${r.first_name || ''} ${r.last_name || ''}`.toLowerCase().includes(q) ||
+        (r.email || '').toLowerCase().includes(q) ||
+        (r.employee_id || '').toLowerCase().includes(q));
+    }
+    return rows;
+  }, [noCheckinsRaw, noCheckinShiftFilter, noCheckinSearch]);
+  const noCheckinFiltersActive = !!(noCheckinDeptFilter || noCheckinBuFilter || noCheckinShiftFilter || noCheckinSearch);
+  const clearNoCheckinFilters = () => {
+    setNoCheckinDeptFilter('');
+    setNoCheckinBuFilter('');
+    setNoCheckinShiftFilter('');
+    setNoCheckinSearch('');
+  };
+
+  // Page-level Overview cards — Present/Late/No-check-in are backed by data
+  // this module already computes (find_users_without_checkin's checked_in/
+  // not_checked_in split, and today's LATE violations). "On Leave Today" and
+  // "Work From Home Today" aren't included: no existing endpoint anywhere in
+  // the app returns either count (time_off_requests/employee_profiles aren't
+  // date-range or work_mode queryable via the generic report_builder either),
+  // and adding one would mean touching the backend, which this pass is
+  // explicitly scoped to avoid.
+  const todayLateCount = (lateTodayData as any)?.total ?? (lateTodayData as any)?.records?.length ?? 0;
+
+  const noCheckinExportRows = (rows: any[]) => rows.map((item: any) => ({
+    employee_id: item.employee_id || '—',
+    name: `${item.first_name || ''} ${item.last_name || ''}`.trim() || '—',
+    department: item.department?.name || '—',
+    designation: item.designation_ref?.name || item.designation || '—',
+    shift: item.shift?.name || '—',
+    expected_checkin: item.shift?.start_time || '—',
+    reporting_manager: item.supervisor ? `${item.supervisor.first_name || ''} ${item.supervisor.last_name || ''}`.trim() : '—',
+  }));
+  const NOCHECKIN_EXPORT_COLUMNS = [
+    { key: 'employee_id', label: 'Employee ID' },
+    { key: 'name', label: 'Employee' },
+    { key: 'department', label: 'Department' },
+    { key: 'designation', label: 'Designation' },
+    { key: 'shift', label: 'Shift' },
+    { key: 'expected_checkin', label: 'Expected Check-in' },
+    { key: 'reporting_manager', label: 'Reporting Manager' },
+  ];
 
   const handleExportNoCheckinPdf = async () => {
     setExportingPdf(true);
     try {
-      await exportNoCheckinPdf(noCheckinFilters);
+      await exportNoCheckinPdf({ department_id: noCheckinDeptFilter, business_unit_id: noCheckinBuFilter });
     } catch (e: any) {
       toast.error(e?.message || 'Failed to export PDF');
     } finally {
       setExportingPdf(false);
     }
+  };
+
+  const handleExportNoCheckinCsv = () => {
+    const rows = noCheckinExportRows(noCheckins);
+    const esc = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const header = NOCHECKIN_EXPORT_COLUMNS.map((c) => esc(c.label)).join(',');
+    const body = rows.map((r: any) => NOCHECKIN_EXPORT_COLUMNS.map((c) => esc((r as any)[c.key])).join(',')).join('\n');
+    const blob = new Blob([`${header}\n${body}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `No_Check_In_Report_${toDateInputStr(new Date())}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportNoCheckinExcel = () => {
+    const rows = noCheckinExportRows(noCheckins);
+    const ws = XLSX.utils.json_to_sheet(rows, { header: NOCHECKIN_EXPORT_COLUMNS.map((c) => c.key) });
+    XLSX.utils.sheet_add_aoa(ws, [NOCHECKIN_EXPORT_COLUMNS.map((c) => c.label)], { origin: 'A1' });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'No Check-in Today');
+    XLSX.writeFile(wb, `No_Check_In_Report_${toDateInputStr(new Date())}.xlsx`);
   };
 
   const handleMarkAbsentees = async () => {
@@ -212,6 +318,7 @@ const AttendancePage: React.FC = () => {
   };
 
   const violations = (violationsData as any)?.records || [];
+  const lateViolations = (lateData as any)?.records || [];
 
   const violationCols: Column<any>[] = [
     { header: 'Employee', key: 'user_id', render: (item) => <span className="font-bold">{item.user?.first_name} {item.user?.last_name}</span> },
@@ -220,6 +327,13 @@ const AttendancePage: React.FC = () => {
     { header: 'Type', key: 'violation_type', render: (item) => (
       <StatusBadge status={item.violation_type} label={item.violation_type} size="sm" className="rounded-lg" />
     )},
+    { header: 'Remarks', key: 'remarks', render: (item) => <span className="text-gray-500">{item.remarks || '—'}</span> },
+  ];
+
+  const lateCols: Column<any>[] = [
+    { header: 'Employee', key: 'user_id', render: (item) => <span className="font-bold">{item.user?.first_name} {item.user?.last_name}</span> },
+    { header: 'Date', key: 'date', render: (item) => new Date(item.date).toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) },
+    { header: 'Late (mins)', key: 'late_mins', render: (item) => <span className="font-black text-amber-600">{item.late_mins || 0}</span> },
     { header: 'Remarks', key: 'remarks', render: (item) => <span className="text-gray-500">{item.remarks || '—'}</span> },
   ];
 
@@ -302,15 +416,76 @@ const AttendancePage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-8 pb-10">
+    <div className="flex flex-col gap-5 pb-10">
       <div>
         <h1 className="text-2xl font-black text-gray-900 tracking-tight">Attendance Management</h1>
-        <p className="text-sm text-gray-500 font-medium mt-1">Manage shifts, late coming, grace periods and violations.</p>
+        <p className="text-sm text-gray-500 font-medium mt-1">Manage attendance, shifts, violations and reports.</p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <SummaryCard
+          icon={UserCheck} label="Present Today" value={noCheckinSummary.checked_in}
+          subtitle={`of ${noCheckinSummary.total_employees} active employees`}
+          iconBg="bg-green-50" iconColor="text-green-600"
+        />
+        <SummaryCard
+          icon={Clock} label="Late Today" value={todayLateCount}
+          subtitle="Checked in after grace period"
+          iconBg="bg-amber-50" iconColor="text-amber-600"
+        />
+        <SummaryCard
+          icon={Users} label="No Check-in Today" value={noCheckinSummary.not_checked_in}
+          subtitle="No check-in, no approved leave"
+          iconBg="bg-red-50" iconColor="text-red-600"
+        />
       </div>
 
       <Tabs options={TABS} value={activeTab} onChange={setActiveTab} />
 
-      {activeTab === 'Late Coming / Violations' && (
+      {activeTab === 'Overview' && (
+        <Card className="border-none shadow-sm p-5">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Quick Links</p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" className="rounded-xl h-9" onClick={() => setActiveTab('No Check-in Today')}>View No Check-in Today</Button>
+            <Button variant="outline" size="sm" className="rounded-xl h-9" onClick={() => setActiveTab('Late Coming')}>View Late Coming</Button>
+            <Button variant="outline" size="sm" className="rounded-xl h-9" onClick={() => setActiveTab('Violations')}>View All Violations</Button>
+            <Button variant="outline" size="sm" className="rounded-xl h-9" onClick={() => setActiveTab('Shift Management')}>Manage Shifts</Button>
+            <Button variant="outline" size="sm" className="rounded-xl h-9" onClick={() => setActiveTab('Reports')}>Open Reports</Button>
+          </div>
+        </Card>
+      )}
+
+      {activeTab === 'Late Coming' && (
+        <Card className="border-none shadow-sm">
+          <h2 className="text-lg font-black text-gray-900 mb-3">Late Coming</h2>
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <Button
+              variant={lateQuickFilter === 'today' ? 'primary' : 'outline'}
+              size="sm"
+              className="rounded-xl h-9"
+              onClick={() => applyLateQuickFilter('today')}
+            >
+              Today
+            </Button>
+            <Button
+              variant={lateQuickFilter === 'week' ? 'primary' : 'outline'}
+              size="sm"
+              className="rounded-xl h-9"
+              onClick={() => applyLateQuickFilter('week')}
+            >
+              This Week
+            </Button>
+            {(lateQuickFilter || lateDateRange.start_date || lateDateRange.end_date) && (
+              <Button variant="ghost" size="sm" className="rounded-xl h-9 text-gray-500" onClick={clearLateDateFilter}>
+                <X size={13} className="mr-1" /> Clear
+              </Button>
+            )}
+          </div>
+          <Table columns={lateCols} data={lateViolations} isLoading={lateLoading} emptyMessage="No late check-ins for this period." stickyHeader maxBodyHeight="520px" />
+        </Card>
+      )}
+
+      {activeTab === 'No Check-in Today' && (
         <Card className="border-none shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div>
@@ -318,6 +493,14 @@ const AttendancePage: React.FC = () => {
               <p className="text-xs text-gray-500 font-medium mt-0.5">Active employees with no check-in and no approved leave today.</p>
             </div>
             <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="rounded-xl h-9" onClick={handleExportNoCheckinExcel}>
+                <FileSpreadsheet size={14} className="mr-1.5" />
+                Export Excel
+              </Button>
+              <Button variant="outline" size="sm" className="rounded-xl h-9" onClick={handleExportNoCheckinCsv}>
+                <FileText size={14} className="mr-1.5" />
+                Export CSV
+              </Button>
               <Button
                 variant="secondary"
                 size="sm"
@@ -356,23 +539,7 @@ const AttendancePage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3 mb-4">
-            <SearchableSelect
-              options={departments.map((d: any) => ({ label: d.name, value: d.id }))}
-              value={noCheckinDeptFilter || null}
-              onChange={(v) => setNoCheckinDeptFilter((v as string) ?? '')}
-              placeholder="All Departments"
-              containerClassName="w-44"
-              className="h-10"
-            />
-            <SearchableSelect
-              options={teams.map((t: any) => ({ label: t.name, value: t.id }))}
-              value={noCheckinTeamFilter || null}
-              onChange={(v) => setNoCheckinTeamFilter((v as string) ?? '')}
-              placeholder="All Teams"
-              containerClassName="w-44"
-              className="h-10"
-            />
+          <div className="flex flex-wrap items-center gap-3 mb-4">
             <SearchableSelect
               options={businessUnits.map((b: any) => ({ label: b.name, value: b.id }))}
               value={noCheckinBuFilter || null}
@@ -382,86 +549,78 @@ const AttendancePage: React.FC = () => {
               className="h-10"
             />
             <SearchableSelect
-              options={designations.map((d: any) => ({ label: d.name, value: d.id }))}
-              value={noCheckinDesignationFilter || null}
-              onChange={(v) => setNoCheckinDesignationFilter((v as string) ?? '')}
-              placeholder="All Designations"
+              options={departments.map((d: any) => ({ label: d.name, value: d.id }))}
+              value={noCheckinDeptFilter || null}
+              onChange={(v) => setNoCheckinDeptFilter((v as string) ?? '')}
+              placeholder="All Departments"
               containerClassName="w-44"
               className="h-10"
             />
             <SearchableSelect
-              options={[
-                { label: 'Active', value: 'ACTIVE' },
-                { label: 'On Leave', value: 'ON_LEAVE' },
-                { label: 'Suspended', value: 'SUSPENDED' },
-              ]}
-              value={noCheckinStatusFilter || null}
-              onChange={(v) => setNoCheckinStatusFilter((v as string) ?? '')}
-              placeholder="All Statuses"
+              options={shifts.map((s: any) => ({ label: s.name, value: s.id }))}
+              value={noCheckinShiftFilter || null}
+              onChange={(v) => setNoCheckinShiftFilter((v as string) ?? '')}
+              placeholder="All Shifts"
               containerClassName="w-40"
               className="h-10"
             />
+            <div className="relative flex-1 min-w-[200px] max-w-xs">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                value={noCheckinSearch}
+                onChange={(e) => setNoCheckinSearch(e.target.value)}
+                placeholder="Search employee by name, ID or email…"
+                className="w-full h-10 pl-9 pr-3 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
+              />
+            </div>
             {noCheckinFiltersActive && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="rounded-xl h-9 text-gray-500 self-start sm:self-center"
-                onClick={() => {
-                  setNoCheckinDeptFilter('');
-                  setNoCheckinTeamFilter('');
-                  setNoCheckinBuFilter('');
-                  setNoCheckinDesignationFilter('');
-                  setNoCheckinStatusFilter('');
-                }}
+                className="rounded-xl h-9 text-gray-500"
+                onClick={clearNoCheckinFilters}
               >
-                Clear
+                <X size={13} className="mr-1" /> Clear Filters
               </Button>
             )}
           </div>
           <Table
             columns={[
-              { header: 'Employee', key: 'first_name', render: (item: any) => <span className="font-bold">{item.first_name} {item.last_name}</span> },
-              { header: 'Email', key: 'email', render: (item: any) => <span className="text-gray-500">{item.email}</span> },
-              { header: 'Business Unit', key: 'business_unit', render: (item: any) => <span className="text-gray-500">{item.department?.business_unit?.name || '—'}</span> },
+              { header: 'Employee ID', key: 'employee_id', render: (item: any) => <span className="text-gray-500 font-mono text-xs">{item.employee_id || '—'}</span> },
+              { header: 'Employee', key: 'first_name', render: (item: any) => (
+                <div>
+                  <span className="font-bold text-gray-900 block">{item.first_name} {item.last_name}</span>
+                  <span className="text-gray-400 text-xs">{item.email}</span>
+                </div>
+              ) },
               { header: 'Department', key: 'department', render: (item: any) => <span className="text-gray-500">{item.department?.name || '—'}</span> },
-              { header: 'Team', key: 'team', render: (item: any) => <span className="text-gray-500">{item.team_memberships?.[0]?.team?.name || '—'}</span> },
               { header: 'Designation', key: 'designation', render: (item: any) => <span className="text-gray-500">{item.designation_ref?.name || item.designation || '—'}</span> },
               { header: 'Shift', key: 'shift', render: (item: any) => <span className="text-gray-500">{item.shift?.name || '—'}</span> },
-              { header: 'Status', key: 'status', render: (item: any) => <span className="text-gray-500">{item.employee_profile?.employment_status || item.status || '—'}</span> },
+              { header: 'Expected Check-in', key: 'expected', render: (item: any) => <span className="text-gray-500 font-mono text-xs">{item.shift?.start_time || '—'}</span> },
+              { header: 'Reporting Manager', key: 'manager', render: (item: any) => <span className="text-gray-500">{item.supervisor ? `${item.supervisor.first_name} ${item.supervisor.last_name}` : '—'}</span> },
+              { header: 'Actions', key: 'actions', render: (item: any) => (
+                <IconButton
+                  icon={Eye}
+                  variant="ghost"
+                  size="sm"
+                  aria-label="View profile"
+                  onClick={() => navigate(`/admin/profile/${item.id}`)}
+                  className="!h-auto !w-auto p-1 text-gray-500 hover:text-primary-600"
+                />
+              ) },
             ]}
             data={noCheckins}
             isLoading={noCheckinsLoading}
             emptyMessage="Everyone active has checked in today."
+            stickyHeader
+            maxBodyHeight="560px"
           />
         </Card>
       )}
 
-      {activeTab === 'Late Coming / Violations' && (
+      {activeTab === 'Violations' && (
         <Card className="border-none shadow-sm">
           <h2 className="text-lg font-black text-gray-900 mb-4">Attendance Violations</h2>
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            <Button
-              variant={quickFilter === 'today' ? 'primary' : 'outline'}
-              size="sm"
-              className="rounded-xl h-9"
-              onClick={() => applyQuickFilter('today')}
-            >
-              Late Today
-            </Button>
-            <Button
-              variant={quickFilter === 'week' ? 'primary' : 'outline'}
-              size="sm"
-              className="rounded-xl h-9"
-              onClick={() => applyQuickFilter('week')}
-            >
-              Late This Week
-            </Button>
-            {(quickFilter || violationFilters.start_date || violationFilters.end_date) && (
-              <Button variant="ghost" size="sm" className="rounded-xl h-9 text-gray-500" onClick={clearDateFilter}>
-                Clear
-              </Button>
-            )}
-          </div>
           <div className="flex flex-col sm:flex-row gap-3 mb-4">
             <SearchableSelect
               options={users.map((u: any) => ({ label: `${u.first_name} ${u.last_name}`, value: u.id }))}
@@ -486,17 +645,22 @@ const AttendancePage: React.FC = () => {
             <input
               type="date"
               value={violationFilters.start_date}
-              onChange={(e) => { setQuickFilter(null); setViolationFilters(p => ({ ...p, start_date: e.target.value })); }}
+              onChange={(e) => setViolationFilters(p => ({ ...p, start_date: e.target.value }))}
               className="h-10 px-3 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
             />
             <input
               type="date"
               value={violationFilters.end_date}
-              onChange={(e) => { setQuickFilter(null); setViolationFilters(p => ({ ...p, end_date: e.target.value })); }}
+              onChange={(e) => setViolationFilters(p => ({ ...p, end_date: e.target.value }))}
               className="h-10 px-3 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
             />
+            {(violationFilters.start_date || violationFilters.end_date) && (
+              <Button variant="ghost" size="sm" className="rounded-xl h-9 text-gray-500" onClick={clearDateFilter}>
+                <X size={13} className="mr-1" /> Clear
+              </Button>
+            )}
           </div>
-          <Table columns={violationCols} data={violations} isLoading={vLoading} emptyMessage="No violations recorded." />
+          <Table columns={violationCols} data={violations} isLoading={vLoading} emptyMessage="No violations recorded." stickyHeader maxBodyHeight="560px" />
         </Card>
       )}
 
