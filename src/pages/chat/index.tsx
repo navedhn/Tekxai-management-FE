@@ -1445,15 +1445,18 @@ function MessageBubble({
 
   return (
     <div
-      className={cn('flex gap-2 group', isOwn ? 'flex-row-reverse' : 'flex-row')}
+      className="flex gap-3 group px-2 -mx-2 py-0.5 rounded-lg hover:bg-gray-50 transition-colors"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {!isOwn && <Avatar user={msg.user} size="sm" />}
-      <div className={cn('flex flex-col max-w-[68%]', isOwn ? 'items-end' : 'items-start')}>
+      <Avatar user={msg.user} size="md" />
+      <div className="flex flex-col items-start flex-1 min-w-0">
         {showSenderName && (
-          <p className="text-[10px] font-semibold text-gray-500 mb-0.5 px-1">
-            {msg.user?.first_name} {msg.user?.last_name}
+          <p className="flex items-baseline gap-2 mb-0.5 px-1">
+            <span className={cn('text-[13px] font-bold', isOwn ? 'text-primary-700' : 'text-gray-900')}>
+              {isOwn ? 'You' : `${msg.user?.first_name || ''} ${msg.user?.last_name || ''}`.trim()}
+            </span>
+            <span className="text-[10px] text-gray-400">{fmtTime(msg.created_at)}</span>
           </p>
         )}
         {msg.is_pinned && (
@@ -1462,13 +1465,10 @@ function MessageBubble({
             Pinned{msg.pinned_by ? ` by ${msg.pinned_by.first_name}` : ''}
           </p>
         )}
-        <div className="relative">
+        <div className="relative max-w-[85%]">
           {/* Hover actions */}
           {hovered && (
-            <div className={cn(
-              'absolute -top-8 flex items-center gap-1 bg-white border border-gray-200 rounded-xl shadow-sm px-1.5 py-1 z-10',
-              isOwn ? 'right-0' : 'left-0',
-            )}>
+            <div className="absolute -top-8 left-0 flex items-center gap-1 bg-white border border-gray-200 rounded-xl shadow-sm px-1.5 py-1 z-10">
               {QUICK_REACTION_EMOJIS.slice(0, 5).map((e) => (
                 <button
                   key={e}
@@ -1539,10 +1539,7 @@ function MessageBubble({
             // previews already render as a separate white card.
             <PollCard poll={msg.poll} channelId={channelId} currentUserId={currentUserId} isGlobalAdmin={isGlobalAdmin} />
           ) : (
-            <div className={cn(
-              'px-3 py-2 rounded-2xl text-sm',
-              isOwn ? 'bg-primary-600 text-white rounded-tr-sm' : 'bg-gray-100 text-gray-900 rounded-tl-sm',
-            )}>
+            <div className="text-sm text-gray-800 leading-relaxed">
               {/* File attachment */}
               {msg.file_url && (
                 <div className="mb-1">
@@ -1550,19 +1547,18 @@ function MessageBubble({
                     <img
                       src={msg.file_url}
                       alt={msg.file_name || 'image'}
-                      className="max-h-48 rounded-xl object-contain cursor-zoom-in"
+                      className="max-h-64 rounded-xl object-contain cursor-zoom-in border border-gray-100"
                       onClick={() => onImageClick?.(msg.file_url!, msg.file_name)}
                     />
                   ) : isAudio ? (
                     <audio src={msg.file_url} controls className="h-9 max-w-[220px]" />
                   ) : isVideo ? (
-                    <video src={msg.file_url} controls className="max-h-48 rounded-xl" />
+                    <video src={msg.file_url} controls className="max-h-64 rounded-xl" />
                   ) : (
                     <a
                       href={msg.file_url}
                       download={msg.file_name}
-                      className={cn('flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold',
-                        isOwn ? 'bg-primary-700 text-white' : 'bg-gray-200 text-gray-700')}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 w-fit"
                     >
                       <Paperclip size={12} />
                       <span className="truncate">{msg.file_name}</span>
@@ -1573,7 +1569,7 @@ function MessageBubble({
               )}
               {msg.content && <span>{renderMessageContent(msg.content)}</span>}
               {msg.is_edited && (
-                <span className={cn('text-[10px] ml-1 opacity-60', isOwn ? 'text-primary-100' : 'text-gray-400')}>(edited)</span>
+                <span className="text-[10px] ml-1 opacity-60 text-gray-400">(edited)</span>
               )}
             </div>
           )}
@@ -1634,8 +1630,6 @@ function MessageBubble({
             {msg._count!.replies} {msg._count!.replies === 1 ? 'reply' : 'replies'}
           </button>
         )}
-
-        <span className="text-[10px] text-gray-400 mt-0.5 px-1">{fmtTime(msg.created_at)}</span>
 
         {isOwn && seenBy && seenBy.length > 0 && <SeenByIndicator users={seenBy} />}
       </div>
@@ -2886,7 +2880,10 @@ export default function ChatPage() {
             ) : (
               messages.map((msg) => {
                 const isOwn = msg.user_id === currentUserId;
-                const showName = selectedChannel.type !== 'DM' && !isOwn;
+                // Discord-style layout: every message shows the sender's name above it,
+                // regardless of channel type or ownership (previously only shown in
+                // group channels and never for the current user's own messages).
+                const showName = true;
                 if (editingMsg?.id === msg.id) {
                   return (
                     <div key={msg.id} className="flex gap-2 items-end">
