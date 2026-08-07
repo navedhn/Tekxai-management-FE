@@ -27,6 +27,7 @@ import {
 import { useUpdateMyPublicKeyMutation, useGetUserPublicKeyQuery } from '@/services/userService';
 import { getOrCreateKeyPair, importPublicKey, deriveSharedKey, encryptMessage, decryptMessage } from '@/lib/e2eCrypto';
 import { useChatTopbarStore } from '@/stores/chatTopbarStore';
+import { getSocket } from '@/lib/socket';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -2370,8 +2371,52 @@ export default function ChatPage() {
       return r?.payload?.records || r?.payload || [];
     },
     enabled: !!selectedChannelId,
-    refetchInterval: 3000,
+    // message:new (socket, below) delivers new messages instantly — this is
+    // now just a safety net for anything missed during a reconnect gap.
+    refetchInterval: 30000,
   });
+
+  // ── Real-time (WebSocket) ────────────────────────────────────────────────
+  // Replaces the old 3s message poll as the primary delivery path. Connects
+  // once per page mount (getSocket() reuses the existing connection if one's
+  // already open), explicitly re-joins the open channel's room on every
+  // switch (covers channels created after the initial connect-time join —
+  // see be-work's shared/socket), and reconnects automatically via
+  // socket.io-client's built-in reconnection.
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleNewMessage = (msg: ChatMessage & { channel_id: string }) => {
+      qc.setQueryData<ChatMessage[]>(['chat-messages', msg.channel_id], (prev) => {
+        if (!prev) return prev;
+        if (prev.some((m) => m.id === msg.id)) return prev; // sender already has it from the POST response
+        return [...prev, msg];
+      });
+      qc.invalidateQueries({ queryKey: ['chat-channels'] }); // last-message preview/unread badge
+    };
+
+    socket.on('message:new', handleNewMessage);
+
+    // Typing payloads carry only a userId, not the full user object the
+    // ['chat-typing', channelId] query returns — simplest correct fix is to
+    // just trigger an immediate refetch instead of reshaping the cache.
+    const handleTypingUpdate = ({ channelId }: { channelId: string }) => {
+      qc.invalidateQueries({ queryKey: ['chat-typing', channelId] });
+    };
+    socket.on('typing:update', handleTypingUpdate);
+
+    return () => {
+      socket.off('message:new', handleNewMessage);
+      socket.off('typing:update', handleTypingUpdate);
+    };
+  }, [qc]);
+
+  useEffect(() => {
+    if (!selectedChannelId) return;
+    const socket = getSocket();
+    socket?.emit('channel:join', selectedChannelId);
+  }, [selectedChannelId]);
 
   // "Seen by" read receipts — reuses channel_members.last_read_at (already
   // bumped on every get_messages call, see chat.controller.js), no new
@@ -2398,7 +2443,9 @@ export default function ChatPage() {
       return r?.payload?.records || r?.payload || [];
     },
     enabled: !!selectedChannelId,
-    refetchInterval: 2000,
+    // typing:update (socket) invalidates this on demand — this interval is
+    // just a safety net.
+    refetchInterval: 8000,
   });
 
   // @-mention autocomplete — reuses the same "chat users" endpoint the New
@@ -2827,6 +2874,7 @@ export default function ChatPage() {
       if (now - lastTypingSentAtRef.current > 3000) {
         lastTypingSentAtRef.current = now;
         typingMutation.mutate();
+        getSocket()?.emit('typing:start', { channelId: selectedChannelId });
       }
     }
   };
