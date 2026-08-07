@@ -78,12 +78,13 @@ export const MOCK_ACCOUNTS: MockAccount[] = [
   },
 ];
 
-export const isMockAuthEnabled = (): boolean => {
-  const flag = import.meta.env.VITE_USE_MOCK_AUTH;
-  if (flag === 'false') return false;
-  if (flag === 'true') return true;
-  return import.meta.env.DEV;
-};
+// Fails closed: mock auth only activates when VITE_USE_MOCK_AUTH is
+// explicitly set to 'true'. Previously this defaulted to `import.meta.env.DEV`,
+// meaning any non-prod deploy that forgot to set the env var would silently
+// let anyone log in as a fake admin/employee/marketing account instead of
+// hitting the real auth API.
+export const isMockAuthEnabled = (): boolean =>
+  import.meta.env.VITE_USE_MOCK_AUTH === 'true';
 
 export const isMockSession = (): boolean =>
   localStorage.getItem(MOCK_SESSION_KEY) === '1';
