@@ -8,10 +8,12 @@ import {
   extractTokensFromAuthResponse,
 } from '@/utils/tokenMemory';
 import { BASE_URL } from '@/lib/apiConfig';
+import { disconnectSocket } from '@/lib/socket';
 
 let refreshInFlight: Promise<string | null> | null = null;
 
 export const logoutSession = (): void => {
+  disconnectSocket();
   clearAuthTokens();
   useAuthStore.getState().userLogout();
 };
