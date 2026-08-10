@@ -53,6 +53,7 @@ const AdminProjectReport     = lazy(() => import('@/pages/admin/project-report')
 const AdminEstimator         = lazy(() => import('@/pages/admin/estimator'));
 const AdminEmployeeProfile   = lazy(() => import('@/pages/admin/employee-profile'));
 const AdminPermissions       = lazy(() => import('@/pages/admin/permissions'));
+const AdminDesktopManagement = lazy(() => import('@/pages/admin/desktop-management'));
 const AdminApprovals         = lazy(() => import('@/pages/admin/approvals'));
 
 // HR workspace pages (reuse admin pages)
@@ -255,6 +256,7 @@ const routes: RouteObject[] = [
             element: <ProtectedRoute roles={[USER_ROLES.SUPER_ADMIN]} />,
             children: [
               { path: '/admin/permissions',         element: <AdminPermissions /> },
+              { path: '/admin/desktop-management',  element: <AdminDesktopManagement /> },
               { path: '/admin/finance/financial-reports', element: <AdminFinancialReports /> },
               { path: '/admin/financial-reports',   element: <Navigate to="/admin/finance/financial-reports" replace /> },
               { path: '/admin/email-logs',          element: <EmailLogsPage /> },

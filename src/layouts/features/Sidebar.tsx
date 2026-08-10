@@ -239,6 +239,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
 
       // ── Administration ─────────────────────────────────────────────────
       { module: 'Administration', tier: 'superadmin', to: '/admin/permissions', label: 'Access Control', icon: <Shield size={18} strokeWidth={SW} /> },
+      { module: 'Administration', tier: 'superadmin', to: '/admin/desktop-management', label: 'Desktop Management', icon: <Monitor size={18} strokeWidth={SW} /> },
       { module: 'Administration', tier: 'all', to: '/admin/notifications', label: 'Notifications', icon: <BellIcon size={18} strokeWidth={SW} /> },
       { module: 'Administration', tier: 'admin', to: '/admin/webhooks', label: 'Webhooks', icon: <Webhook size={18} strokeWidth={SW} /> },
       { module: 'Administration', tier: 'admin', to: '/admin/report-builder', label: 'Report Builder', icon: <BarChart3 size={18} strokeWidth={SW} /> },
