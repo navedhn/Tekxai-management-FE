@@ -6,14 +6,15 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS as ENDPOINTS } from '@/services/api/endpoints';
 import { SupportTicket } from '@/types/ticket';
-import { TicketDetailModal } from '@/components/tickets';
+import { TicketDetailModal, DeleteTicketModal } from '@/components/tickets';
 import PromptModal from '@/components/ui/PromptModal';
-import { formatTicketDate } from '@/services/ticketService';
-import { Ticket, Search, Clock, CheckCircle2, XCircle, BarChart3 } from 'lucide-react';
+import { formatTicketDate, useDeleteTicketMutation } from '@/services/ticketService';
+import { Ticket, Search, Clock, CheckCircle2, XCircle, BarChart3, Trash2 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useFetchUsersQuery } from '@/services/userService';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { useAuth } from '@/hooks/useAuth';
 
 const v1 = 'api/v1';
 const BUILDER = `${v1}/report/builder`;
@@ -107,6 +108,8 @@ const styleFor = (map: Record<string, string>, value?: string | null) => (value 
 export default function AdminTickets() {
   const qc = useQueryClient();
   const toast = useToastContext();
+  const { role } = useAuth();
+  const isSuperAdmin = role === 'SUPER_ADMIN';
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
@@ -114,7 +117,9 @@ export default function AdminTickets() {
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [pendingApproval, setPendingApproval] = useState<{ id: string; action: 'APPROVE' | 'REJECT' } | null>(null);
   const [pendingResolveId, setPendingResolveId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<SupportTicket | null>(null);
   const debouncedSearch = useDebounce(search, 350);
+  const deleteMutation = useDeleteTicketMutation();
 
   const { data, isLoading } = useQuery<{ records: SupportTicket[]; total: number }>({
     queryKey: ['tickets', 'admin-list', statusFilter, priorityFilter, debouncedSearch, slaOverdueOnly],
@@ -379,6 +384,20 @@ export default function AdminTickets() {
                           />
                         )
                       )}
+                      {isSuperAdmin && (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          animation="none"
+                          rounded={false}
+                          leftIcon={Trash2}
+                          onClick={() => setPendingDelete(t)}
+                          className="!p-0 h-auto !shadow-none gap-1 text-xs !text-red-600"
+                          title="Delete ticket"
+                        >
+                          Delete
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -420,6 +439,31 @@ export default function AdminTickets() {
         placeholder="Resolution note (optional)…"
         confirmText="Mark Resolved"
         loading={updateMutation.isPending}
+      />
+
+      <DeleteTicketModal
+        isOpen={!!pendingDelete}
+        onClose={() => setPendingDelete(null)}
+        ticketNumber={pendingDelete?.ticketNumber || ''}
+        loading={deleteMutation.isPending}
+        onConfirm={(reason) => {
+          if (!pendingDelete) return;
+          deleteMutation.mutate(
+            { id: pendingDelete.id, reason: reason || undefined },
+            {
+              onSuccess: () => {
+                toast.success(`Ticket ${pendingDelete.ticketNumber} deleted.`);
+                qc.invalidateQueries({ queryKey: ['ticket-stats'] });
+                if (selectedTicket?.id === pendingDelete.id) setSelectedTicket(null);
+                setPendingDelete(null);
+              },
+              onError: (e: any) => {
+                toast.error(e?.response?.data?.message || e?.message || 'Failed to delete ticket.');
+                setPendingDelete(null);
+              },
+            }
+          );
+        }}
       />
     </div>
   );

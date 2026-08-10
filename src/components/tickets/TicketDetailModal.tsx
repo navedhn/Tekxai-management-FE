@@ -3,11 +3,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Modal from '@/components/ui/Modal';
 import TicketStatusBadge from './TicketStatusBadge';
 import { SupportTicket, TicketReply } from '@/types/ticket';
-import { formatTicketDate, useTicketTimelineQuery } from '@/services/ticketService';
+import { formatTicketDate, useTicketTimelineQuery, useDeleteTicketMutation } from '@/services/ticketService';
 import { API_ENDPOINTS as ENDPOINTS } from '@/services/api/endpoints';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/hooks/useAuth';
-import { Send, User, ShieldCheck, Clock, CheckCircle2, XCircle, History } from 'lucide-react';
+import { useToastContext } from '@/components/toast/ToastProvider';
+import DeleteTicketModal from './DeleteTicketModal';
+import { Send, User, ShieldCheck, Clock, CheckCircle2, XCircle, History, Trash2 } from 'lucide-react';
 
 interface TicketDetailModalProps {
   ticket: SupportTicket | null;
@@ -38,7 +40,12 @@ const ReplyBubble: React.FC<{ reply: TicketReply }> = ({ reply }) => {
 
 const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ ticket, onClose, isAdmin = false }) => {
   const [message, setMessage] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const qc = useQueryClient();
+  const { role } = useAuth();
+  const toast = useToastContext();
+  const isSuperAdmin = role === 'SUPER_ADMIN';
+  const deleteMutation = useDeleteTicketMutation();
 
   // `initialData: ticket` means this query shows the prop it was opened with
   // immediately — but combined with the global 5-minute staleTime and no
@@ -117,17 +124,28 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ ticket, onClose, 
       }
     >
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <TicketStatusBadge status={t.status} />
-          <span className="text-xs font-semibold text-gray-500 capitalize">Priority: {t.priority}</span>
-          {t.severity && <span className="text-xs font-semibold text-gray-500 capitalize">Severity: {t.severity}</span>}
-          {t.ticketType && (
-            <span className="text-[11px] font-bold px-2 py-1 rounded-lg bg-blue-50 text-[#005CDA]">
-              {t.ticketType.category?.label ? `${t.ticketType.category.label} / ` : ''}{t.ticketType.label}
-            </span>
+        <div className="flex flex-wrap items-center gap-2 justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <TicketStatusBadge status={t.status} />
+            <span className="text-xs font-semibold text-gray-500 capitalize">Priority: {t.priority}</span>
+            {t.severity && <span className="text-xs font-semibold text-gray-500 capitalize">Severity: {t.severity}</span>}
+            {t.ticketType && (
+              <span className="text-[11px] font-bold px-2 py-1 rounded-lg bg-blue-50 text-[#005CDA]">
+                {t.ticketType.category?.label ? `${t.ticketType.category.label} / ` : ''}{t.ticketType.label}
+              </span>
+            )}
+            {slaChip('Response', t.responseDueAt)}
+            {slaChip('Resolution', t.resolutionDueAt)}
+          </div>
+          {isSuperAdmin && (
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="flex items-center gap-1 text-xs font-bold text-red-600 hover:text-red-700 shrink-0"
+              title="Delete ticket"
+            >
+              <Trash2 size={13} /> Delete
+            </button>
           )}
-          {slaChip('Response', t.responseDueAt)}
-          {slaChip('Resolution', t.resolutionDueAt)}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -272,6 +290,30 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ ticket, onClose, 
           </div>
         )}
       </div>
+
+      <DeleteTicketModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        ticketNumber={t.ticketNumber}
+        loading={deleteMutation.isPending}
+        onConfirm={(reason) => {
+          deleteMutation.mutate(
+            { id: t.id, reason: reason || undefined },
+            {
+              onSuccess: () => {
+                toast.success(`Ticket ${t.ticketNumber} deleted.`);
+                qc.invalidateQueries({ queryKey: ['ticket-stats'] });
+                setShowDeleteModal(false);
+                onClose();
+              },
+              onError: (e: any) => {
+                toast.error(e?.response?.data?.message || e?.message || 'Failed to delete ticket.');
+                setShowDeleteModal(false);
+              },
+            }
+          );
+        }}
+      />
     </Modal>
   );
 };
