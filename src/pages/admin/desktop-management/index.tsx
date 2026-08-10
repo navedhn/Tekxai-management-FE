@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Monitor, Rocket, RotateCcw, X, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Monitor, Rocket, RotateCcw, X, Clock, AlertTriangle, CheckCircle2, Ban, TrendingUp, XCircle } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
+
+type ReleaseChannel = 'stable' | 'beta' | 'internal' | 'development';
+type ReleaseStatus = 'ACTIVE' | 'ROLLED_BACK' | 'DISABLED';
+type RolloutPercentage = 10 | 25 | 50 | 100;
 
 interface DesktopRelease {
   id: string;
@@ -16,7 +20,15 @@ interface DesktopRelease {
   mac_url: string | null;
   linux_url: string | null;
   created_at: string;
+  channel: ReleaseChannel;
+  rollout_percentage: RolloutPercentage;
+  status: ReleaseStatus;
+  disabled_reason: string | null;
+  disabled_at: string | null;
+  rolled_back_at: string | null;
   publisher?: { first_name: string; last_name: string };
+  disabler?: { first_name: string; last_name: string } | null;
+  rollback_actor?: { first_name: string; last_name: string } | null;
 }
 
 interface DesktopInstallation {
@@ -26,12 +38,23 @@ interface DesktopInstallation {
   os: string | null;
   platform: string | null;
   device: string | null;
+  channel: ReleaseChannel;
   last_seen_at: string | null;
   last_update_check_at: string | null;
   last_successful_update_at: string | null;
   force_update_requested_at: string | null;
   is_outdated: boolean;
   user: { id: string; first_name: string; last_name: string; email: string };
+}
+
+interface DesktopAnalytics {
+  since_days: number;
+  total_installations: number;
+  version_distribution: Record<string, number>;
+  pending_updates: number;
+  successful_updates: number;
+  failed_updates: number;
+  failed_by_version: { version: string; count: number }[];
 }
 
 function fmtDate(iso: string | null | undefined) {
@@ -41,6 +64,68 @@ function fmtDate(iso: string | null | undefined) {
 
 const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white';
 const labelCls = 'text-xs font-semibold text-gray-500 uppercase tracking-wide';
+const CHANNELS: ReleaseChannel[] = ['stable', 'beta', 'internal', 'development'];
+const ROLLOUT_STEPS: RolloutPercentage[] = [10, 25, 50, 100];
+
+const CHANNEL_BADGE: Record<ReleaseChannel, string> = {
+  stable: 'bg-emerald-50 text-emerald-700',
+  beta: 'bg-blue-50 text-blue-700',
+  internal: 'bg-purple-50 text-purple-700',
+  development: 'bg-gray-100 text-gray-600',
+};
+
+function StatusBadge({ status }: { status: ReleaseStatus }) {
+  if (status === 'ACTIVE') return <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700">Active</span>;
+  if (status === 'DISABLED') return <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-50 text-red-700">Disabled</span>;
+  return <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-gray-100 text-gray-500">Rolled Back</span>;
+}
+
+// Rich release notes — the same hand-rolled markdown-lite subset (headers,
+// bullets, **bold**) desktop-app's renderer.js implements, so the admin
+// preview and what employees actually see never drift into two different
+// interpretations of the same text.
+function ReleaseNotesInline({ text }: { text: string }) {
+  const parts = text.split(/(\*\*.+?\*\*)/g);
+  return (
+    <>
+      {parts.map((p, i) =>
+        p.startsWith('**') && p.endsWith('**') ? <strong key={i}>{p.slice(2, -2)}</strong> : <React.Fragment key={i}>{p}</React.Fragment>
+      )}
+    </>
+  );
+}
+function ReleaseNotes({ raw }: { raw: string | null | undefined }) {
+  const lines = (raw || '').split('\n').map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return null;
+  const blocks: React.ReactNode[] = [];
+  let bullets: string[] = [];
+  let key = 0;
+  const flush = () => {
+    if (!bullets.length) return;
+    blocks.push(
+      <ul key={key++} className="space-y-1.5">
+        {bullets.map((b, i) => (
+          <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+            <span className="text-primary-600 font-bold mt-0.5">•</span><ReleaseNotesInline text={b} />
+          </li>
+        ))}
+      </ul>
+    );
+    bullets = [];
+  };
+  for (const line of lines) {
+    const header = /^#{1,3}\s*(.+)$/.exec(line);
+    if (header) {
+      flush();
+      blocks.push(<h3 key={key++} className="text-xs font-black text-gray-500 uppercase tracking-wide mt-2 first:mt-0"><ReleaseNotesInline text={header[1]} /></h3>);
+      continue;
+    }
+    const bullet = /^[-*]\s+(.+)$/.exec(line);
+    bullets.push(bullet ? bullet[1] : line);
+  }
+  flush();
+  return <div className="space-y-2">{blocks}</div>;
+}
 
 // ── Publish Release form modal ──────────────────────────────────────────────
 function PublishReleaseModal({ onClose, onPublished }: { onClose: () => void; onPublished: () => void }) {
@@ -52,6 +137,8 @@ function PublishReleaseModal({ onClose, onPublished }: { onClose: () => void; on
   const [windowsUrl, setWindowsUrl] = useState('');
   const [macUrl, setMacUrl] = useState('');
   const [linuxUrl, setLinuxUrl] = useState('');
+  const [channel, setChannel] = useState<ReleaseChannel>('stable');
+  const [rolloutPercentage, setRolloutPercentage] = useState<RolloutPercentage>(100);
 
   const publishMutation = useMutation({
     mutationFn: () =>
@@ -65,6 +152,8 @@ function PublishReleaseModal({ onClose, onPublished }: { onClose: () => void; on
           windows_url: windowsUrl.trim() || null,
           mac_url: macUrl.trim() || null,
           linux_url: linuxUrl.trim() || null,
+          channel,
+          rollout_percentage: rolloutPercentage,
         }),
       }),
     onSuccess: () => {
@@ -100,15 +189,29 @@ function PublishReleaseModal({ onClose, onPublished }: { onClose: () => void; on
               <input className={cn(inputCls, 'mt-1')} placeholder="1.0.0" value={minimumVersion} onChange={(e) => setMinimumVersion(e.target.value)} />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Release Channel</label>
+              <select className={cn(inputCls, 'mt-1')} value={channel} onChange={(e) => setChannel(e.target.value as ReleaseChannel)}>
+                {CHANNELS.map((c) => <option key={c} value={c}>{c[0].toUpperCase() + c.slice(1)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Staged Rollout</label>
+              <select className={cn(inputCls, 'mt-1')} value={rolloutPercentage} onChange={(e) => setRolloutPercentage(Number(e.target.value) as RolloutPercentage)}>
+                {ROLLOUT_STEPS.map((p) => <option key={p} value={p}>{p}%{p === 100 ? ' (everyone)' : ''}</option>)}
+              </select>
+            </div>
+          </div>
           <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
             <input type="checkbox" checked={forceUpdate} onChange={(e) => setForceUpdate(e.target.checked)} />
-            Mandatory — block app usage for everyone until they update to this version
+            Mandatory — block app usage for everyone until they update to this version (bypasses staged rollout)
           </label>
           <div>
-            <label className={labelCls}>Release Notes (one bullet per line)</label>
+            <label className={labelCls}>Release Notes — supports ## headers, - bullets, **bold**</label>
             <textarea
-              className={cn(inputCls, 'mt-1 h-24 py-2')}
-              placeholder={'Chat improvements\nAttendance fixes\nSecurity enhancements'}
+              className={cn(inputCls, 'mt-1 h-28 py-2 font-mono text-xs')}
+              placeholder={'## New Features\n- Added **dark mode**\n## Bug Fixes\n- Fixed crash on startup'}
               value={releaseNotes}
               onChange={(e) => setReleaseNotes(e.target.value)}
             />
@@ -141,11 +244,46 @@ function PublishReleaseModal({ onClose, onPublished }: { onClose: () => void; on
   );
 }
 
+// ── Disable Release modal (requires a reason) ───────────────────────────────
+function DisableReleaseModal({ release, onClose, onDone }: { release: DesktopRelease; onClose: () => void; onDone: () => void }) {
+  const toast = useToastContext();
+  const [reason, setReason] = useState('');
+  const disableMutation = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.DESKTOP.RELEASE_DISABLE(release.id), { method: 'POST', body: JSON.stringify({ reason: reason.trim() }) }),
+    onSuccess: () => { toast.success(`Version ${release.version} disabled`); onDone(); onClose(); },
+    onError: (err: any) => toast.error(err?.data?.message || err?.message || 'Failed to disable release'),
+  });
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-md p-6">
+        <div className="flex items-center gap-2 mb-2 text-red-600"><Ban size={18} /><h2 className="text-lg font-black">Emergency Disable</h2></div>
+        <p className="text-sm text-gray-600 mb-4">
+          Pulls version <span className="font-bold">{release.version}</span> from rollout and force-updates
+          anyone already running it away from it. This is for an actively unsafe release — not routine.
+        </p>
+        <label className={labelCls}>Reason *</label>
+        <textarea autoFocus className={cn(inputCls, 'mt-1 h-20 py-2')} placeholder="e.g. Critical crash on startup for some users" value={reason} onChange={(e) => setReason(e.target.value)} />
+        <div className="flex gap-3 mt-5">
+          <button onClick={onClose} className="flex-1 h-11 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
+          <button
+            onClick={() => disableMutation.mutate()}
+            disabled={!reason.trim() || disableMutation.isPending}
+            className="flex-1 h-11 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 disabled:opacity-50"
+          >
+            {disableMutation.isPending ? 'Disabling…' : 'Disable Release'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ────────────────────────────────────────────────────────────────
 export default function DesktopManagementPage() {
   const toast = useToastContext();
   const qc = useQueryClient();
   const [showPublish, setShowPublish] = useState(false);
+  const [disableTarget, setDisableTarget] = useState<DesktopRelease | null>(null);
 
   const { data: releases = [], isLoading: releasesLoading } = useQuery<DesktopRelease[]>({
     queryKey: ['desktop-releases'],
@@ -154,7 +292,10 @@ export default function DesktopManagementPage() {
       return r?.payload?.records || [];
     },
   });
-  const latest = releases[0];
+  // "Latest" for the summary cards means the stable channel's current
+  // active release specifically — releases[0] alone isn't reliable once
+  // other channels/rolled-back/disabled rows exist in the same list.
+  const latest = releases.find((r) => r.channel === 'stable' && r.status === 'ACTIVE');
 
   const { data: installData, isLoading: installLoading } = useQuery<{ records: DesktopInstallation[]; latest_version: string | null }>({
     queryKey: ['desktop-installations'],
@@ -169,6 +310,15 @@ export default function DesktopManagementPage() {
   const installations = installData?.records || [];
   const outdated = installations.filter((i) => i.is_outdated);
 
+  const { data: analytics } = useQuery<DesktopAnalytics>({
+    queryKey: ['desktop-analytics'],
+    queryFn: async () => {
+      const r = await apiRequest<any>(API_ENDPOINTS.DESKTOP.ANALYTICS);
+      return r?.payload;
+    },
+    refetchInterval: 5 * 60 * 1000,
+  });
+
   const forceUpdateMutation = useMutation({
     mutationFn: (userId: string) => apiRequest<any>(API_ENDPOINTS.DESKTOP.FORCE_UPDATE(userId), { method: 'POST' }),
     onSuccess: () => {
@@ -178,7 +328,26 @@ export default function DesktopManagementPage() {
     onError: (err: any) => toast.error(err?.data?.message || err?.message || 'Failed to request force update'),
   });
 
-  const releaseNotesLines = (latest?.release_notes || '').split('\n').map((l) => l.trim()).filter(Boolean);
+  const rolloutMutation = useMutation({
+    mutationFn: ({ id, percentage }: { id: string; percentage: RolloutPercentage }) =>
+      apiRequest<any>(API_ENDPOINTS.DESKTOP.RELEASE_ROLLOUT(id), { method: 'PATCH', body: JSON.stringify({ rollout_percentage: percentage }) }),
+    onSuccess: () => {
+      toast.success('Rollout percentage updated');
+      qc.invalidateQueries({ queryKey: ['desktop-releases'] });
+    },
+    onError: (err: any) => toast.error(err?.data?.message || err?.message || 'Failed to update rollout'),
+  });
+
+  const rollbackMutation = useMutation({
+    mutationFn: (id: string) => apiRequest<any>(API_ENDPOINTS.DESKTOP.RELEASE_ROLLBACK(id), { method: 'POST' }),
+    onSuccess: (res: any) => {
+      toast.success(`Rolled back — ${res?.payload?.new_latest_version || 'the previous release'} is latest again`);
+      qc.invalidateQueries({ queryKey: ['desktop-releases'] });
+    },
+    onError: (err: any) => toast.error(err?.data?.message || err?.message || 'Failed to roll back'),
+  });
+
+  const totalDist = analytics ? Object.values(analytics.version_distribution).reduce((a, b) => a + b, 0) : 0;
 
   return (
     <div className="p-6 space-y-6">
@@ -202,6 +371,9 @@ export default function DesktopManagementPage() {
         <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
           <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">Latest Version</p>
           <p className="text-xl font-black text-gray-900 mt-1">{latest?.version || '—'}</p>
+          {latest && latest.rollout_percentage < 100 && (
+            <p className="text-[11px] text-amber-600 font-semibold mt-0.5">{latest.rollout_percentage}% rollout</p>
+          )}
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
           <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">Release Date</p>
@@ -226,17 +398,48 @@ export default function DesktopManagementPage() {
       {/* Release notes */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <h2 className="text-sm font-black text-gray-700 mb-3">What's New — {latest?.version || 'No release published yet'}</h2>
-        {releaseNotesLines.length > 0 ? (
-          <ul className="space-y-1.5">
-            {releaseNotesLines.map((line, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                <span className="text-primary-600 font-bold mt-0.5">•</span>{line}
-              </li>
-            ))}
-          </ul>
+        {latest?.release_notes ? (
+          <ReleaseNotes raw={latest.release_notes} />
         ) : (
           <p className="text-sm text-gray-400">{releasesLoading ? 'Loading…' : 'No release notes yet.'}</p>
         )}
+      </div>
+
+      {/* Update Analytics */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <h2 className="text-sm font-black text-gray-700 mb-4 flex items-center gap-2"><TrendingUp size={16} className="text-primary-600" /> Update Analytics <span className="text-gray-400 font-normal text-xs">(last {analytics?.since_days ?? 30} days)</span></h2>
+        <div className="grid grid-cols-3 gap-4 mb-5">
+          <div className="rounded-xl bg-gray-50 p-3">
+            <p className="text-xs text-gray-400 font-semibold uppercase">Pending</p>
+            <p className="text-lg font-black text-orange-600">{analytics?.pending_updates ?? '—'}</p>
+          </div>
+          <div className="rounded-xl bg-gray-50 p-3">
+            <p className="text-xs text-gray-400 font-semibold uppercase">Successful</p>
+            <p className="text-lg font-black text-emerald-600">{analytics?.successful_updates ?? '—'}</p>
+          </div>
+          <div className="rounded-xl bg-gray-50 p-3">
+            <p className="text-xs text-gray-400 font-semibold uppercase flex items-center gap-1"><XCircle size={11} /> Failed</p>
+            <p className="text-lg font-black text-red-600">{analytics?.failed_updates ?? '—'}</p>
+          </div>
+        </div>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Version Distribution</p>
+        <div className="space-y-1.5">
+          {analytics && Object.keys(analytics.version_distribution).length > 0 ? (
+            Object.entries(analytics.version_distribution)
+              .sort((a, b) => b[1] - a[1])
+              .map(([v, count]) => (
+                <div key={v} className="flex items-center gap-2 text-xs">
+                  <span className="w-20 font-mono text-gray-700 shrink-0">{v}</span>
+                  <div className="flex-1 h-4 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary-500 rounded-full" style={{ width: `${totalDist ? (count / totalDist) * 100 : 0}%` }} />
+                  </div>
+                  <span className="w-8 text-right text-gray-500 shrink-0">{count}</span>
+                </div>
+              ))
+          ) : (
+            <p className="text-xs text-gray-400">No installations reporting yet.</p>
+          )}
+        </div>
       </div>
 
       {/* Outdated Employees */}
@@ -295,29 +498,65 @@ export default function DesktopManagementPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
-                {['Version', 'Min. Version', 'Mandatory', 'Published', 'Published By', 'Actions'].map((h) => (
+                {['Version', 'Channel', 'Rollout', 'Status', 'Mandatory', 'Published', 'Actions'].map((h) => (
                   <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {releases.length === 0 ? (
-                <tr><td colSpan={6} className="py-8 text-center text-gray-400 text-sm">No releases published yet.</td></tr>
+                <tr><td colSpan={7} className="py-8 text-center text-gray-400 text-sm">No releases published yet.</td></tr>
               ) : releases.map((r) => (
                 <tr key={r.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="py-3 px-2 font-semibold text-gray-900">{r.version}</td>
-                  <td className="py-3 px-2 text-gray-600">{r.minimum_version}</td>
+                  <td className="py-3 px-2 font-semibold text-gray-900">
+                    {r.version}
+                    {r.status === 'DISABLED' && r.disabled_reason && (
+                      <div className="text-[10px] text-red-500 font-normal mt-0.5 max-w-[160px]" title={r.disabled_reason}>{r.disabled_reason}</div>
+                    )}
+                  </td>
+                  <td className="py-3 px-2"><span className={cn('px-2 py-0.5 rounded-md text-[10px] font-bold', CHANNEL_BADGE[r.channel])}>{r.channel}</span></td>
+                  <td className="py-3 px-2">
+                    {r.status === 'ACTIVE' ? (
+                      <select
+                        value={r.rollout_percentage}
+                        onChange={(e) => rolloutMutation.mutate({ id: r.id, percentage: Number(e.target.value) as RolloutPercentage })}
+                        disabled={rolloutMutation.isPending}
+                        className="text-xs border border-gray-200 rounded-lg px-1.5 h-6 bg-white"
+                      >
+                        {ROLLOUT_STEPS.map((p) => <option key={p} value={p}>{p}%</option>)}
+                      </select>
+                    ) : (
+                      <span className="text-xs text-gray-400">{r.rollout_percentage}%</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-2"><StatusBadge status={r.status} /></td>
                   <td className="py-3 px-2">{r.force_update ? <span className="text-red-600 font-semibold text-xs">Mandatory</span> : <span className="text-gray-400 text-xs">Optional</span>}</td>
                   <td className="py-3 px-2 text-gray-500 text-xs">{fmtDate(r.created_at)}</td>
-                  <td className="py-3 px-2 text-gray-600 text-xs">{r.publisher ? `${r.publisher.first_name} ${r.publisher.last_name}` : '—'}</td>
                   <td className="py-3 px-2">
-                    <button
-                      disabled
-                      title="Rollback is planned for a future release — not yet implemented"
-                      className="flex items-center gap-1.5 px-3 h-7 bg-gray-100 text-gray-400 rounded-lg text-xs font-semibold cursor-not-allowed"
-                    >
-                      <RotateCcw size={12} /> Rollback
-                    </button>
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => rollbackMutation.mutate(r.id)}
+                        disabled={r.status !== 'ACTIVE' || rollbackMutation.isPending}
+                        title={r.status === 'ACTIVE' ? 'Roll back — the previous active release becomes latest again' : 'Only an Active release can be rolled back'}
+                        className={cn(
+                          'flex items-center gap-1.5 px-3 h-7 rounded-lg text-xs font-semibold',
+                          r.status === 'ACTIVE' ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-gray-50 text-gray-300 cursor-not-allowed'
+                        )}
+                      >
+                        <RotateCcw size={12} /> Rollback
+                      </button>
+                      <button
+                        onClick={() => setDisableTarget(r)}
+                        disabled={r.status !== 'ACTIVE'}
+                        title={r.status === 'ACTIVE' ? 'Emergency disable' : 'Already inactive'}
+                        className={cn(
+                          'flex items-center gap-1.5 px-3 h-7 rounded-lg text-xs font-semibold',
+                          r.status === 'ACTIVE' ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-gray-50 text-gray-300 cursor-not-allowed'
+                        )}
+                      >
+                        <Ban size={12} /> Disable
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -330,6 +569,13 @@ export default function DesktopManagementPage() {
         <PublishReleaseModal
           onClose={() => setShowPublish(false)}
           onPublished={() => qc.invalidateQueries({ queryKey: ['desktop-releases'] })}
+        />
+      )}
+      {disableTarget && (
+        <DisableReleaseModal
+          release={disableTarget}
+          onClose={() => setDisableTarget(null)}
+          onDone={() => qc.invalidateQueries({ queryKey: ['desktop-releases'] })}
         />
       )}
     </div>
