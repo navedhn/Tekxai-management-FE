@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Wallet, TrendingDown, TrendingUp, Plus, Eye, X, DollarSign, Users, Search, Receipt, CalendarClock, CalendarRange, BarChart3 } from 'lucide-react';
+import { Wallet, TrendingDown, TrendingUp, Plus, Eye, X, DollarSign, Users, Search, Receipt, CalendarClock, CalendarRange, BarChart3, Trash2 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
+import { useToastContext } from '@/components/toast/ToastProvider';
+import ActionModal from '@/components/ui/ActionModal';
 
 const pkr = (v: number) => `PKR ${(v || 0).toLocaleString('en-PK')}`;
 const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white';
@@ -357,7 +359,27 @@ function ExpenseDetailReports() {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ExpensesPage() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const toast = useToastContext();
   const [showAdd, setShowAdd] = useState(false);
+  const [accountToDelete, setAccountToDelete] = useState<any>(null);
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: (userId: string) => apiRequest<any>(API_ENDPOINTS.EXPENSES.ACCOUNT(userId), { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['expense-accounts'] });
+      toast.success('Account deleted');
+      setAccountToDelete(null);
+    },
+    // The backend blocks deleting an account that has transaction history
+    // (409, financial-audit protection — see expenses.controller.js) and
+    // returns a message explaining that; surface it instead of a generic
+    // "delete failed" so the admin knows to disable the account instead.
+    onError: (err: any) => {
+      toast.error(err?.data?.message || err?.message || 'Delete failed');
+      setAccountToDelete(null);
+    },
+  });
 
   const { data: summary } = useQuery({
     queryKey: ['expense-summary'],
@@ -459,17 +481,24 @@ export default function ExpensesPage() {
                   <td className="py-3 px-2 text-purple-600 font-semibold text-xs">{pkr(acc.ce_spent)}</td>
                   <td className="py-3 px-2 text-orange-600 font-semibold text-xs">{pkr(acc.tekxai_spent)}</td>
                   <td className="py-3 px-2">
-                    {acc.user ? (
-                      <button onClick={() => navigate(`/admin/finance/expenses/${acc.user.employee_id || acc.user.id}`)}
-                        className="flex items-center gap-1.5 px-3 h-7 bg-primary-600 text-white rounded-lg text-xs font-semibold hover:bg-primary-700 transition-colors">
-                        <Eye size={12} />Ledger
+                    <div className="flex items-center gap-1.5">
+                      {acc.user ? (
+                        <button onClick={() => navigate(`/admin/finance/expenses/${acc.user.employee_id || acc.user.id}`)}
+                          className="flex items-center gap-1.5 px-3 h-7 bg-primary-600 text-white rounded-lg text-xs font-semibold hover:bg-primary-700 transition-colors">
+                          <Eye size={12} />Ledger
+                        </button>
+                      ) : (
+                        <button disabled title="This account's linked employee record no longer exists"
+                          className="flex items-center gap-1.5 px-3 h-7 bg-gray-100 text-gray-400 rounded-lg text-xs font-semibold cursor-not-allowed">
+                          <Eye size={12} />Ledger
+                        </button>
+                      )}
+                      <button onClick={() => setAccountToDelete(acc)}
+                        title="Delete account — only possible if it has no transaction history"
+                        className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                        <Trash2 size={13} />
                       </button>
-                    ) : (
-                      <button disabled title="This account's linked employee record no longer exists"
-                        className="flex items-center gap-1.5 px-3 h-7 bg-gray-100 text-gray-400 rounded-lg text-xs font-semibold cursor-not-allowed">
-                        <Eye size={12} />Ledger
-                      </button>
-                    )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -489,6 +518,18 @@ export default function ExpensesPage() {
       </div>
 
       {showAdd && <AddAccountModal onClose={() => setShowAdd(false)} />}
+
+      <ActionModal
+        isOpen={!!accountToDelete}
+        onClose={() => setAccountToDelete(null)}
+        onConfirm={() => accountToDelete?.user_id && deleteAccountMutation.mutate(accountToDelete.user_id)}
+        title="Delete Expense Account"
+        description={`Are you sure you want to delete ${accountToDelete?.user ? `${accountToDelete.user.first_name} ${accountToDelete.user.last_name}'s` : 'this'} expense account? This only works if it has no transaction history — otherwise disable it instead.`}
+        confirmText="Delete"
+        confirmVariant="danger"
+        icon="delete"
+        loading={deleteAccountMutation.isPending}
+      />
     </div>
   );
 }
