@@ -2640,17 +2640,46 @@ export default function ChatPage() {
     isNearBottomRef.current = distanceFromBottom < 120;
   };
 
-  // Only auto-select from DM channels here — this runs on initial load while
-  // Home is active (activeServerId is only ever set via explicit user click,
-  // never on mount), so seeding it from the full unfiltered `channels` list
-  // could land on a non-DM channel that Home's sidebar doesn't even show,
-  // desyncing the open conversation from what's highlighted in the list.
+  // Only auto-select from DM channels here, and only while Home is active —
+  // without the activeServerId guard, this fired on every poll while a
+  // server was open too (selectedChannelId is briefly null right after
+  // switching to a server) and silently snapped the view back to a DM,
+  // making it look like the server switch never worked.
   useEffect(() => {
+    if (activeServerId !== null) return;
     const homeDmChannels = channels.filter((ch) => ch.type === 'DM');
     if (!selectedChannelId && homeDmChannels.length > 0) {
       setSelectedChannelId(homeDmChannels[0].id);
     }
-  }, [channels, selectedChannelId]);
+  }, [channels, selectedChannelId, activeServerId]);
+
+  // Per-server "last visited channel" memory (Discord-style: switch servers,
+  // come back, land where you left off) — kept in a ref rather than state
+  // since updating it must never itself trigger a re-render/effect re-run.
+  const lastChannelByServerRef = useRef<Record<string, string>>({});
+
+  // When a server becomes active (or its channel list finishes loading),
+  // open its remembered last-visited channel, falling back to #general,
+  // falling back to its first channel — but never leave a Home DM showing.
+  useEffect(() => {
+    if (activeServerId === null) return;
+    const list = serverChannels as Channel[];
+    if (list.length === 0) return;
+    if (selectedChannelId && list.some((ch) => ch.id === selectedChannelId)) return;
+
+    const remembered = lastChannelByServerRef.current[activeServerId];
+    const rememberedChannel = remembered ? list.find((ch) => ch.id === remembered) : null;
+    const generalChannel = list.find((ch) => ch.name?.toLowerCase() === 'general');
+    const target = rememberedChannel || generalChannel || list[0];
+    if (target) setSelectedChannelId(target.id);
+  }, [activeServerId, serverChannels, selectedChannelId]);
+
+  const handleSelectChannel = (channelId: string) => {
+    setSelectedChannelId(channelId);
+    if (activeServerId !== null) {
+      lastChannelByServerRef.current[activeServerId] = channelId;
+    }
+  };
 
   // ── Desktop notifications ──────────────────────────────────────────────
   // Popup a browser Notification for a new incoming message — in a DM, a
@@ -3158,7 +3187,7 @@ export default function ChatPage() {
               <p className="text-xs text-gray-300 mt-1">Start one with the + button</p>
             </div>
           )}
-          <GroupedChannelList channels={sortedChannels} currentUserId={currentUserId} selectedId={selectedChannelId} onSelect={setSelectedChannelId} />
+          <GroupedChannelList channels={sortedChannels} currentUserId={currentUserId} selectedId={selectedChannelId} onSelect={handleSelectChannel} />
         </div>
       </div>
 
