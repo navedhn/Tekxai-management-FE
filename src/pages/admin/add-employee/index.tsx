@@ -608,12 +608,10 @@ function StepWork({ data, onChange }: any) {
 }
 
 // ── Step 4: Documents ────────────────────────────────────────────────────────
-// CNIC is split into two explicit, required document types (front/back) —
-// the old generic single 'CNIC' catch-all is removed so a submission can
-// never be missing one side of the ID. Police Verification and Employee
-// Registration are required for every employee too (compliance docs HR
-// must have on file for the record to be considered complete).
-const REQUIRED_DOC_TYPES = ['CNIC_FRONT', 'CNIC_BACK', 'POLICE_VERIFICATION', 'EMPLOYEE_REGISTRATION'];
+// CNIC Front/Back, Police Verification, and Employee Registration were
+// previously mandatory before the wizard could proceed — now optional per
+// request, so HR can complete onboarding without blocking on these docs.
+const REQUIRED_DOC_TYPES: string[] = [];
 
 const DOC_TYPE_OPTIONS = [
   { value: 'CNIC_FRONT',         label: 'CNIC Front' },
