@@ -230,6 +230,20 @@ export const useCreateTicketMutation = () => {
   });
 };
 
+export const useDeleteTicketMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      apiRequest<any>(API_ENDPOINTS.TICKET.DELETE(id), {
+        method: 'DELETE',
+        body: JSON.stringify({ reason }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tickets'] });
+    },
+  });
+};
+
 // `status` here is always 'all' or one of the 3 abstract stat-tab buckets
 // (see STATUS_TABS) — never a real workflow status key — so this must
 // filter by bucketForTicket(), not by literal t.status equality (which

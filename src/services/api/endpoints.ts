@@ -197,6 +197,7 @@ export const API_ENDPOINTS = {
     STATS:       `${v1}/ticket/stats`,
     DETAIL:      (id: string | number) => `${v1}/ticket/${id}`,
     UPDATE:      (id: string | number) => `${v1}/ticket/${id}`,
+    DELETE:      (id: string | number) => `${v1}/ticket/${id}`,
     ATTACHMENTS: (id: string | number) => `${v1}/ticket/${id}/attachments`,
     REPLIES:     (id: string | number) => `${v1}/ticket/${id}/replies`,
     APPROVALS:   (id: string | number) => `${v1}/ticket/${id}/approvals`,
