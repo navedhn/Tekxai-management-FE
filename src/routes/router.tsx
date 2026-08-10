@@ -87,6 +87,8 @@ const HRReports              = lazy(() => import('@/pages/admin/hr-reports'));
 const OvertimePage           = lazy(() => import('@/pages/admin/overtime'));
 const IncrementsPage         = lazy(() => import('@/pages/admin/increments'));
 const AdminExpenses          = lazy(() => import('@/pages/admin/expenses'));
+const ComplianceViolations   = lazy(() => import('@/pages/admin/compliance-violations'));
+const ManagerReview          = lazy(() => import('@/pages/admin/manager-review'));
 const AdminExpenseLedger     = lazy(() => import('@/pages/admin/expenses/ledger'));
 const AdminPerformanceScoring = lazy(() => import('@/pages/admin/performance-scoring'));
 const AdminFinancialReports  = lazy(() => import('@/pages/admin/financial-reports'));
@@ -216,6 +218,8 @@ const routes: RouteObject[] = [
           // Finance module — Expense Claims + Financial Reports live under
           // /admin/finance/*. Old flat /admin/expenses(/...) paths redirect
           // below so existing bookmarks/links keep working.
+          { path: '/admin/compliance-violations',       element: <ComplianceViolations /> },
+          { path: '/admin/manager-review',              element: <ManagerReview /> },
           { path: '/admin/finance/expenses',            element: <AdminExpenses /> },
           { path: '/admin/finance/expenses/:userId',    element: <AdminExpenseLedger /> },
           { path: '/admin/expenses',            element: <Navigate to="/admin/finance/expenses" replace /> },
