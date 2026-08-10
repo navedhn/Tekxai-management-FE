@@ -162,6 +162,7 @@ export const API_ENDPOINTS = {
     CLOCK_OUT:       `${v1}/timesheet/clock-out`,
     FORCE_CHECKOUT:  `${v1}/timesheet/force-checkout`,
     TODAY:           `${v1}/timesheet/today`,
+    COMPLIANCE_STATUS: `${v1}/timesheet/compliance-status`,
     DETAIL:          (id: string | number) => `${v1}/timesheet/entry/${id}`,
     UPDATE:          (id: string | number) => `${v1}/timesheet/entry/${id}`,
     DELETE:          (id: string | number) => `${v1}/timesheet/entry/${id}`,
@@ -440,6 +441,19 @@ export const API_ENDPOINTS = {
     TRANSACTION:  (id: string)     => `${v1}/expenses/transactions/${id}`,
     RECEIPT:      (id: string)     => `${v1}/expenses/transactions/${id}/receipt`,
     CATEGORIES:   `${v1}/expenses/categories`,
+  },
+  DAILY_PLANNING: {
+    MY_PROJECTS:    `${v1}/daily-planning/my-projects`,
+    AGENDA:         `${v1}/daily-planning/agenda`,
+    AGENDA_TODAY:   `${v1}/daily-planning/agenda/today`,
+    AGENDA_FOR:     (userId: string, date: string) => `${v1}/daily-planning/agenda?user_id=${userId}&date=${date}`,
+    REPORT:         `${v1}/daily-planning/report`,
+    REPORT_TODAY:   `${v1}/daily-planning/report/today`,
+    REPORT_FOR:     (userId: string, date: string) => `${v1}/daily-planning/report?user_id=${userId}&date=${date}`,
+  },
+  COMPLIANCE_VIOLATIONS: {
+    LIST:   `${v1}/compliance/violations`,
+    DETAIL: (id: string) => `${v1}/compliance/violations/${id}`,
   },
   HR_REPORT: {
     ANNUAL:    (userId: string) => `${v1}/hr-report/employee/${userId}/annual`,

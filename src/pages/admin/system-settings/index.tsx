@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Settings, Camera, Clock, Save, HardDrive, Timer } from 'lucide-react';
+import { Settings, Camera, Clock, Save, HardDrive, Timer, ClipboardList } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useToastContext } from '@/components/toast/ToastProvider';
@@ -33,6 +33,18 @@ const GRACE_PERIOD_OPTIONS = [
   { value: '30', label: '30 minutes (default)' },
   { value: '45', label: '45 minutes' },
   { value: '60', label: '1 hour' },
+];
+
+const AGENDA_REMINDER_OPTIONS = [
+  { value: '15', label: '15 minutes' },
+  { value: '30', label: '30 minutes (default)' },
+  { value: '45', label: '45 minutes' },
+  { value: '60', label: '1 hour' },
+];
+
+const YES_NO = [
+  { value: 'true', label: 'Yes' },
+  { value: 'false', label: 'No' },
 ];
 
 export default function SystemSettings() {
@@ -174,6 +186,80 @@ export default function SystemSettings() {
             <p className="text-xs text-gray-400 mt-1">
               If a session (In Progress or On Break) is still open this long after the employee's assigned shift end time, it is automatically checked out.
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Daily Agenda / Report Settings */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
+        <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
+          <div className="w-9 h-9 rounded-xl bg-primary-50 flex items-center justify-center">
+            <ClipboardList size={18} className="text-primary-600" />
+          </div>
+          <div>
+            <h2 className="font-bold text-gray-900">Daily Agenda &amp; Report</h2>
+            <p className="text-xs text-gray-400">Controls the start-of-day agenda and end-of-day report accountability workflow</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-bold text-gray-500 mb-1.5 block flex items-center gap-1.5">
+              <Clock size={12} /> Agenda Reminder (after shift start)
+            </label>
+            <select
+              value={form.agenda_reminder_minutes || '30'}
+              onChange={e => set('agenda_reminder_minutes', e.target.value)}
+              className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
+            >
+              {AGENDA_REMINDER_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">If no agenda is submitted by this many minutes after shift start, Employee/Manager/HR/Super Admin are notified.</p>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-500 mb-1.5 block">Agenda Mandatory</label>
+            <select
+              value={form.agenda_mandatory ?? 'true'}
+              onChange={e => set('agenda_mandatory', e.target.value)}
+              className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
+            >
+              {YES_NO.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">Turns the whole agenda reminder + Missing Agenda violation flow on or off.</p>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-500 mb-1.5 block">Report Mandatory Before Checkout</label>
+            <select
+              value={form.report_mandatory_before_checkout ?? 'true'}
+              onChange={e => set('report_mandatory_before_checkout', e.target.value)}
+              className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
+            >
+              {YES_NO.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">If Yes, the desktop app blocks Check Out until the Daily Report is submitted (employees can still choose "Skip and submit later").</p>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-500 mb-1.5 block">Missing Report Creates Violation</label>
+            <select
+              value={form.missing_report_creates_violation ?? 'true'}
+              onChange={e => set('missing_report_creates_violation', e.target.value)}
+              className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
+            >
+              {YES_NO.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">If Yes, checking out without a report (via Skip) logs a Compliance Violation for HR/Super Admin to review.</p>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-500 mb-1.5 block">Default Fine Amount</label>
+            <input
+              type="number" min="0" step="1"
+              value={form.agenda_report_fine_amount || '0'}
+              onChange={e => set('agenda_report_fine_amount', e.target.value)}
+              className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400"
+            />
+            <p className="text-xs text-gray-400 mt-1">Suggested fine amount when HR/Super Admin issues a fine on a Missing Agenda/Report violation (entered manually per violation, this is just a starting point).</p>
           </div>
         </div>
       </div>

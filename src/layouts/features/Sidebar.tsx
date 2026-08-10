@@ -192,6 +192,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Attendance', tier: 'all', to: '/admin/attendance', label: 'Attendance', icon: <Clock size={18} strokeWidth={SW} /> },
       { module: 'Attendance', tier: 'all', to: '/admin/overtime', label: 'Overtime', icon: <AlarmClock size={18} strokeWidth={SW} /> },
       { module: 'Attendance', tier: 'all', to: '/admin/employee-timesheets', label: 'Employee Timesheets', icon: <Clock size={18} strokeWidth={SW} /> },
+      { module: 'Attendance', tier: 'admin', to: '/admin/manager-review', label: 'Manager Review', icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
+      { module: 'Attendance', tier: 'admin', to: '/admin/compliance-violations', label: 'Compliance Violations', icon: <AlarmClock size={18} strokeWidth={SW} /> },
 
       // ── Performance ────────────────────────────────────────────────────
       { module: 'Performance', tier: 'all', to: '/admin/performance', label: 'Performance', icon: <TrendingUp size={18} strokeWidth={SW} /> },
