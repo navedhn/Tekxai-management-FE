@@ -397,6 +397,10 @@ export const API_ENDPOINTS = {
     INSTALLATIONS:   `${v1}/desktop/installations`,
     FORCE_UPDATE:    (userId: string) => `${v1}/desktop/installations/${userId}/force-update`,
     ANALYTICS:       `${v1}/desktop/analytics`,
+    RELEASE_TARGETS: (id: string) => `${v1}/desktop/releases/${id}/targets`,
+    RELEASE_TARGET_DELETE: (id: string, targetId: string) => `${v1}/desktop/releases/${id}/targets/${targetId}`,
+    CRASH_REPORTS:   `${v1}/desktop/crash-reports`,
+    CRASH_REPORT_STATUS: (id: string) => `${v1}/desktop/crash-reports/${id}/status`,
   },
   CRM_WORKSPACE: {
     DASHBOARD:  `${v1}/crm/dashboard`,

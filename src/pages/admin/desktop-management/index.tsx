@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Monitor, Rocket, RotateCcw, X, Clock, AlertTriangle, CheckCircle2, Ban, TrendingUp, XCircle } from 'lucide-react';
+import { Monitor, Rocket, RotateCcw, X, Clock, AlertTriangle, CheckCircle2, Ban, TrendingUp, XCircle, Target, Trash2, Bug } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
@@ -9,6 +9,18 @@ import { useToastContext } from '@/components/toast/ToastProvider';
 type ReleaseChannel = 'stable' | 'beta' | 'internal' | 'development';
 type ReleaseStatus = 'ACTIVE' | 'ROLLED_BACK' | 'DISABLED';
 type RolloutPercentage = 10 | 25 | 50 | 100;
+type TargetType = 'business_unit' | 'department' | 'team' | 'user';
+type CrashStatus = 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED' | 'IGNORED';
+
+// Enterprise Deployment Rings — a "Pilot Group"/"IT Team"/"Management"/
+// "Developers" ring is just a target row against one of these four
+// underlying org-structure fields, not a separate concept — see be-work's
+// desktop.controller.js release_matches_targets.
+interface DesktopReleaseTarget {
+  id: string;
+  target_type: TargetType;
+  target_value: string;
+}
 
 interface DesktopRelease {
   id: string;
@@ -29,6 +41,7 @@ interface DesktopRelease {
   publisher?: { first_name: string; last_name: string };
   disabler?: { first_name: string; last_name: string } | null;
   rollback_actor?: { first_name: string; last_name: string } | null;
+  targets: DesktopReleaseTarget[];
 }
 
 interface DesktopInstallation {
@@ -44,6 +57,13 @@ interface DesktopInstallation {
   last_successful_update_at: string | null;
   force_update_requested_at: string | null;
   is_outdated: boolean;
+  // Desktop Diagnostics — reported alongside telemetry, see be-work's
+  // prisma schema desktop_installations comment for why GB floats.
+  arch: string | null;
+  disk_free_gb: number | null;
+  disk_total_gb: number | null;
+  memory_total_gb: number | null;
+  memory_free_gb: number | null;
   user: { id: string; first_name: string; last_name: string; email: string };
 }
 
@@ -55,6 +75,20 @@ interface DesktopAnalytics {
   successful_updates: number;
   failed_updates: number;
   failed_by_version: { version: string; count: number }[];
+}
+
+interface DesktopCrashReport {
+  id: string;
+  version: string;
+  os: string | null;
+  application: string;
+  stack_trace: string;
+  last_action: string | null;
+  status: CrashStatus;
+  resolution: string | null;
+  created_at: string;
+  user: { id: string; first_name: string; last_name: string; email: string } | null;
+  resolver?: { first_name: string; last_name: string } | null;
 }
 
 function fmtDate(iso: string | null | undefined) {
@@ -78,6 +112,109 @@ function StatusBadge({ status }: { status: ReleaseStatus }) {
   if (status === 'ACTIVE') return <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700">Active</span>;
   if (status === 'DISABLED') return <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-50 text-red-700">Disabled</span>;
   return <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-gray-100 text-gray-500">Rolled Back</span>;
+}
+
+const TARGET_TYPES: TargetType[] = ['business_unit', 'department', 'team', 'user'];
+const TARGET_TYPE_LABEL: Record<TargetType, string> = {
+  business_unit: 'Business Unit',
+  department: 'Department',
+  team: 'Team',
+  user: 'User',
+};
+function fmtGb(n: number | null | undefined) {
+  return typeof n === 'number' ? `${n.toFixed(1)} GB` : '—';
+}
+
+function CrashStatusBadge({ status }: { status: CrashStatus }) {
+  const map: Record<CrashStatus, string> = {
+    OPEN: 'bg-red-50 text-red-700',
+    ACKNOWLEDGED: 'bg-amber-50 text-amber-700',
+    RESOLVED: 'bg-emerald-50 text-emerald-700',
+    IGNORED: 'bg-gray-100 text-gray-500',
+  };
+  return <span className={cn('px-2 py-0.5 rounded-md text-[10px] font-bold', map[status])}>{status[0] + status.slice(1).toLowerCase()}</span>;
+}
+
+// ── Manage deployment-ring targets modal ────────────────────────────────────
+// No targets = release reaches everyone in its channel, exactly as before
+// Enterprise Deployment Rings existed — this modal is purely additive.
+function ManageTargetsModal({ release, onClose }: { release: DesktopRelease; onClose: () => void }) {
+  const toast = useToastContext();
+  const qc = useQueryClient();
+  const [targetType, setTargetType] = useState<TargetType>('business_unit');
+  const [targetValue, setTargetValue] = useState('');
+
+  const addMutation = useMutation({
+    mutationFn: () =>
+      apiRequest<any>(API_ENDPOINTS.DESKTOP.RELEASE_TARGETS(release.id), {
+        method: 'POST',
+        body: JSON.stringify({ target_type: targetType, target_value: targetValue.trim() }),
+      }),
+    onSuccess: () => {
+      toast.success('Target added');
+      setTargetValue('');
+      qc.invalidateQueries({ queryKey: ['desktop-releases'] });
+    },
+    onError: (err: any) => toast.error(err?.data?.message || err?.message || 'Failed to add target'),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (targetId: string) => apiRequest<any>(API_ENDPOINTS.DESKTOP.RELEASE_TARGET_DELETE(release.id, targetId), { method: 'DELETE' }),
+    onSuccess: () => {
+      toast.success('Target removed');
+      qc.invalidateQueries({ queryKey: ['desktop-releases'] });
+    },
+    onError: (err: any) => toast.error(err?.data?.message || err?.message || 'Failed to remove target'),
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2 text-primary-600"><Target size={18} /><h2 className="text-lg font-black text-gray-900">Deployment Targets — {release.version}</h2></div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+        </div>
+        <p className="text-xs text-gray-400 mb-4">
+          No targets — reaches everyone in the {release.channel} channel. Add one or more targets to restrict this
+          release to a specific business unit, department, team, or individual employee (e.g. a Pilot Group or IT Team).
+        </p>
+        <div className="space-y-2 mb-4">
+          {release.targets.length === 0 ? (
+            <p className="text-xs text-gray-400 italic">No targets — reaches everyone.</p>
+          ) : release.targets.map((t) => (
+            <div key={t.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+              <span className="text-xs font-semibold text-gray-700">{TARGET_TYPE_LABEL[t.target_type]}: <span className="font-mono text-gray-600">{t.target_value}</span></span>
+              <button
+                onClick={() => removeMutation.mutate(t.id)}
+                disabled={removeMutation.isPending}
+                className="text-gray-400 hover:text-red-600 disabled:opacity-50"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <select className={cn(inputCls, 'w-36')} value={targetType} onChange={(e) => setTargetType(e.target.value as TargetType)}>
+            {TARGET_TYPES.map((t) => <option key={t} value={t}>{TARGET_TYPE_LABEL[t]}</option>)}
+          </select>
+          <input
+            className={cn(inputCls, 'flex-1')}
+            placeholder={targetType === 'business_unit' ? 'e.g. ERP, CRM, HR' : targetType === 'user' ? 'User ID' : `${TARGET_TYPE_LABEL[targetType]} ID`}
+            value={targetValue}
+            onChange={(e) => setTargetValue(e.target.value)}
+          />
+          <button
+            onClick={() => addMutation.mutate()}
+            disabled={!targetValue.trim() || addMutation.isPending}
+            className="h-10 px-4 rounded-xl bg-primary-600 text-white text-sm font-bold hover:bg-primary-700 disabled:opacity-50 shrink-0"
+          >
+            Add
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // Rich release notes — the same hand-rolled markdown-lite subset (headers,
@@ -284,6 +421,10 @@ export default function DesktopManagementPage() {
   const qc = useQueryClient();
   const [showPublish, setShowPublish] = useState(false);
   const [disableTarget, setDisableTarget] = useState<DesktopRelease | null>(null);
+  // Id only, not the release object itself — the modal adds/removes targets
+  // one at a time and needs to reflect each change live as ['desktop-releases']
+  // refetches, not a stale snapshot taken at the moment it was opened.
+  const [manageTargetsForId, setManageTargetsForId] = useState<string | null>(null);
 
   const { data: releases = [], isLoading: releasesLoading } = useQuery<DesktopRelease[]>({
     queryKey: ['desktop-releases'],
@@ -319,6 +460,18 @@ export default function DesktopManagementPage() {
     refetchInterval: 5 * 60 * 1000,
   });
 
+  const { data: crashData, isLoading: crashLoading } = useQuery<{ records: DesktopCrashReport[] }>({
+    queryKey: ['desktop-crash-reports'],
+    queryFn: async () => {
+      const r = await apiRequest<any>(API_ENDPOINTS.DESKTOP.CRASH_REPORTS);
+      return r?.payload || { records: [] };
+    },
+    refetchInterval: 5 * 60 * 1000,
+  });
+  const crashReports = crashData?.records || [];
+
+  const manageTargetsRelease = releases.find((r) => r.id === manageTargetsForId) || null;
+
   const forceUpdateMutation = useMutation({
     mutationFn: (userId: string) => apiRequest<any>(API_ENDPOINTS.DESKTOP.FORCE_UPDATE(userId), { method: 'POST' }),
     onSuccess: () => {
@@ -345,6 +498,16 @@ export default function DesktopManagementPage() {
       qc.invalidateQueries({ queryKey: ['desktop-releases'] });
     },
     onError: (err: any) => toast.error(err?.data?.message || err?.message || 'Failed to roll back'),
+  });
+
+  const crashStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: CrashStatus }) =>
+      apiRequest<any>(API_ENDPOINTS.DESKTOP.CRASH_REPORT_STATUS(id), { method: 'PATCH', body: JSON.stringify({ status }) }),
+    onSuccess: () => {
+      toast.success('Crash report updated');
+      qc.invalidateQueries({ queryKey: ['desktop-crash-reports'] });
+    },
+    onError: (err: any) => toast.error(err?.data?.message || err?.message || 'Failed to update crash report'),
   });
 
   const totalDist = analytics ? Object.values(analytics.version_distribution).reduce((a, b) => a + b, 0) : 0;
@@ -491,6 +654,92 @@ export default function DesktopManagementPage() {
         </div>
       </div>
 
+      {/* Desktop Diagnostics — every reporting install, not just outdated ones */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <h2 className="text-sm font-black text-gray-700 mb-4">Desktop Diagnostics</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100">
+                {['Employee', 'Version', 'OS / Arch', 'Update Status', 'Last Sync', 'Disk Free', 'Memory Free'].map((h) => (
+                  <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {installLoading ? (
+                <tr><td colSpan={7} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+              ) : installations.length === 0 ? (
+                <tr><td colSpan={7} className="py-8 text-center text-gray-400 text-sm">No desktop installs have reported in yet.</td></tr>
+              ) : installations.map((i) => (
+                <tr key={i.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="py-3 px-2 font-semibold text-gray-900">{i.user.first_name} {i.user.last_name}</td>
+                  <td className="py-3 px-2 font-mono text-xs text-gray-700">{i.current_version || '—'}</td>
+                  <td className="py-3 px-2 text-gray-600">{i.os || '—'}{i.arch ? ` / ${i.arch}` : ''}</td>
+                  <td className="py-3 px-2">
+                    {i.is_outdated ? (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-orange-50 text-orange-700">Outdated</span>
+                    ) : (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700">Up to date</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-2 text-gray-500 text-xs flex items-center gap-1"><Clock size={12} />{fmtDate(i.last_seen_at)}</td>
+                  <td className="py-3 px-2 text-gray-600 text-xs">{fmtGb(i.disk_free_gb)}{i.disk_total_gb ? ` / ${fmtGb(i.disk_total_gb)}` : ''}</td>
+                  <td className="py-3 px-2 text-gray-600 text-xs">{fmtGb(i.memory_free_gb)}{i.memory_total_gb ? ` / ${fmtGb(i.memory_total_gb)}` : ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Crash Reports — self-hosted scaffold, see docs/CRASH_REPORTING.md */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <h2 className="text-sm font-black text-gray-700 mb-4 flex items-center gap-2"><Bug size={16} className="text-red-600" /> Crash Reports</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100">
+                {['Employee', 'Version', 'OS', 'Last Action', 'Reported', 'Status', 'Actions'].map((h) => (
+                  <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {crashLoading ? (
+                <tr><td colSpan={7} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+              ) : crashReports.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center">
+                    <CheckCircle2 size={24} className="mx-auto text-emerald-500 mb-2" />
+                    <p className="text-gray-400 text-sm">No crashes reported.</p>
+                  </td>
+                </tr>
+              ) : crashReports.map((c) => (
+                <tr key={c.id} className="hover:bg-gray-50 transition-colors align-top">
+                  <td className="py-3 px-2 font-semibold text-gray-900">{c.user ? `${c.user.first_name} ${c.user.last_name}` : '—'}</td>
+                  <td className="py-3 px-2 font-mono text-xs text-gray-700">{c.version}</td>
+                  <td className="py-3 px-2 text-gray-600">{c.os || '—'}</td>
+                  <td className="py-3 px-2 text-gray-500 text-xs max-w-[160px] truncate" title={c.stack_trace}>{c.last_action || '—'}</td>
+                  <td className="py-3 px-2 text-gray-500 text-xs">{fmtDate(c.created_at)}</td>
+                  <td className="py-3 px-2"><CrashStatusBadge status={c.status} /></td>
+                  <td className="py-3 px-2">
+                    <select
+                      value={c.status}
+                      onChange={(e) => crashStatusMutation.mutate({ id: c.id, status: e.target.value as CrashStatus })}
+                      disabled={crashStatusMutation.isPending}
+                      className="text-xs border border-gray-200 rounded-lg px-1.5 h-7 bg-white"
+                    >
+                      {(['OPEN', 'ACKNOWLEDGED', 'RESOLVED', 'IGNORED'] as CrashStatus[]).map((s) => <option key={s} value={s}>{s[0] + s.slice(1).toLowerCase()}</option>)}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Release history */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <h2 className="text-sm font-black text-gray-700 mb-4">Release History</h2>
@@ -498,14 +747,14 @@ export default function DesktopManagementPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
-                {['Version', 'Channel', 'Rollout', 'Status', 'Mandatory', 'Published', 'Actions'].map((h) => (
+                {['Version', 'Channel', 'Rollout', 'Targets', 'Status', 'Mandatory', 'Published', 'Actions'].map((h) => (
                   <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {releases.length === 0 ? (
-                <tr><td colSpan={7} className="py-8 text-center text-gray-400 text-sm">No releases published yet.</td></tr>
+                <tr><td colSpan={8} className="py-8 text-center text-gray-400 text-sm">No releases published yet.</td></tr>
               ) : releases.map((r) => (
                 <tr key={r.id} className="hover:bg-gray-50 transition-colors">
                   <td className="py-3 px-2 font-semibold text-gray-900">
@@ -528,6 +777,18 @@ export default function DesktopManagementPage() {
                     ) : (
                       <span className="text-xs text-gray-400">{r.rollout_percentage}%</span>
                     )}
+                  </td>
+                  <td className="py-3 px-2">
+                    <button
+                      onClick={() => setManageTargetsForId(r.id)}
+                      className={cn(
+                        'flex items-center gap-1 px-2 h-6 rounded-lg text-[10px] font-bold',
+                        r.targets.length > 0 ? 'bg-primary-50 text-primary-700 hover:bg-primary-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      )}
+                      title="Manage deployment-ring targets"
+                    >
+                      <Target size={11} /> {r.targets.length > 0 ? `${r.targets.length} target${r.targets.length > 1 ? 's' : ''}` : 'Everyone'}
+                    </button>
                   </td>
                   <td className="py-3 px-2"><StatusBadge status={r.status} /></td>
                   <td className="py-3 px-2">{r.force_update ? <span className="text-red-600 font-semibold text-xs">Mandatory</span> : <span className="text-gray-400 text-xs">Optional</span>}</td>
@@ -577,6 +838,9 @@ export default function DesktopManagementPage() {
           onClose={() => setDisableTarget(null)}
           onDone={() => qc.invalidateQueries({ queryKey: ['desktop-releases'] })}
         />
+      )}
+      {manageTargetsRelease && (
+        <ManageTargetsModal release={manageTargetsRelease} onClose={() => setManageTargetsForId(null)} />
       )}
     </div>
   );
