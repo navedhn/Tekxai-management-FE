@@ -5,30 +5,25 @@ import type { UserRole } from '@/constants/roles';
 import { useMyPermissions } from '@/services/permissionsService';
 
 const ProtectedRoute: React.FC<{ roles?: UserRole[]; permission?: string }> = ({ roles, permission }) => {
-  const { isLoggedIn, role } = useAuth();
+  const { isLoggedIn } = useAuth();
   const { data: myPerms, isLoading } = useMyPermissions();
 
   if (!isLoggedIn) return <Navigate to="/login" replace />;
 
-  // authStore.role is a snapshot taken at login and never refreshed — if an
-  // admin changes this user's role server-side, the stale value would let
-  // them keep passing this check indefinitely until they log out manually.
-  // myPerms.roles is fetched live (react-query) and reflects the DB, so once
-  // it has loaded it is treated as the source of truth; the stale store
-  // value is only used as a fallback before the first fetch resolves.
-  const liveRoles = myPerms?.roles;
-  const hasRequiredRole = !roles?.length || (
-    liveRoles
-      ? liveRoles.some((r) => roles.includes(r as UserRole))
-      : (role != null && roles.includes(role as UserRole))
-  );
+  // authStore.role is a client-persisted snapshot (localStorage) and must
+  // never be trusted to grant access on its own — it's directly editable via
+  // DevTools. myPerms is fetched live from GET /permission/me (react-query)
+  // and reflects the server's verified-JWT view of the user's roles/
+  // permissions; it is the only source this component grants access from.
+  // Access is withheld (render nothing) until that fetch resolves, rather
+  // than falling back to the stale store value.
+  if (isLoading) return null;
 
-  // If role check passes, allow immediately (no need to wait for permissions)
+  const liveRoles = myPerms?.roles || [];
+  const hasRequiredRole = !roles?.length || liveRoles.some((r) => roles.includes(r as UserRole));
   if (hasRequiredRole) return <Outlet />;
 
-  // If a permission override can grant access, wait for permissions to load
   if (permission) {
-    if (isLoading) return null;
     const hasPermission = myPerms?.is_super_admin || myPerms?.permissions?.includes(permission);
     if (hasPermission) return <Outlet />;
   }
