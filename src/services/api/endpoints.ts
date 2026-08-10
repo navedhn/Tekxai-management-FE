@@ -391,8 +391,12 @@ export const API_ENDPOINTS = {
   DESKTOP: {
     LATEST_VERSION:  `${v1}/desktop/latest-version`,
     RELEASES:        `${v1}/desktop/releases`,
+    RELEASE_ROLLOUT: (id: string) => `${v1}/desktop/releases/${id}/rollout`,
+    RELEASE_DISABLE: (id: string) => `${v1}/desktop/releases/${id}/disable`,
+    RELEASE_ROLLBACK: (id: string) => `${v1}/desktop/releases/${id}/rollback`,
     INSTALLATIONS:   `${v1}/desktop/installations`,
     FORCE_UPDATE:    (userId: string) => `${v1}/desktop/installations/${userId}/force-update`,
+    ANALYTICS:       `${v1}/desktop/analytics`,
   },
   CRM_WORKSPACE: {
     DASHBOARD:  `${v1}/crm/dashboard`,
