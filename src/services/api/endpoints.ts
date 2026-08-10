@@ -388,6 +388,12 @@ export const API_ENDPOINTS = {
     CATALOG:            `${v1}/permission/catalog`,
     CATALOG_ENTRY:      (id: string) => `${v1}/permission/catalog/${id}`,
   },
+  DESKTOP: {
+    LATEST_VERSION:  `${v1}/desktop/latest-version`,
+    RELEASES:        `${v1}/desktop/releases`,
+    INSTALLATIONS:   `${v1}/desktop/installations`,
+    FORCE_UPDATE:    (userId: string) => `${v1}/desktop/installations/${userId}/force-update`,
+  },
   CRM_WORKSPACE: {
     DASHBOARD:  `${v1}/crm/dashboard`,
     HIERARCHY:  `${v1}/crm/hierarchy`,
