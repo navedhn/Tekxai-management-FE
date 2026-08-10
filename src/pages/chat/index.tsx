@@ -12,6 +12,7 @@ import { apiRequest, BASE_URL } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 import { useAuthStore } from '@/stores/authStore';
+import { useMyPermissions } from '@/services/permissionsService';
 import ActionModal from '@/components/ui/ActionModal';
 import { uploadFile, type UploadFileResult } from '@/lib/upload';
 import { useToastContext } from '@/components/toast/ToastProvider';
@@ -159,12 +160,22 @@ function fmtTime(iso: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-// "Online" derived client-side from a heartbeat (users.last_active_at,
-// bumped by the auth middleware on any request, throttled to 1/min) — there's
-// no WebSocket in this app, so this is presence-by-recency, not true push.
+// Module-level (not React state) so the plain isOnline() helper below can
+// read it from anywhere it's called — mutated by the presence:update socket
+// listener in ChatPage, which also bumps a small React state counter so
+// components showing online dots actually re-render when this changes.
+const onlineUserIds = new Set<string>();
+
+// "Online" prefers a real push signal (presence:update, see socket listener
+// in ChatPage) — true real-time, not polled. Falls back to the
+// last_active_at heartbeat heuristic for anyone we haven't received a
+// presence event for yet (e.g. right after page load, before their next
+// connect/disconnect fires while we're around to see it).
 const ONLINE_WINDOW_MS = 2 * 60 * 1000;
 function isOnline(user?: ChatUser | null): boolean {
-  if (!user?.last_active_at) return false;
+  if (!user?.id) return false;
+  if (onlineUserIds.has(user.id)) return true;
+  if (!user.last_active_at) return false;
   return Date.now() - new Date(user.last_active_at).getTime() < ONLINE_WINDOW_MS;
 }
 
@@ -1174,12 +1185,14 @@ function NewChannelModal({
     qc.invalidateQueries({ queryKey: ['chat-channels'] });
     if (serverId) qc.invalidateQueries({ queryKey: ['server-channels', serverId] });
   };
-  const currentGlobalRole = useAuthStore((s) => s.role);
   // Group/Private/Public channel creation is admin/HR-only server-side (see
   // chat.routes.js CAN_CREATE_CHANNEL) — regular employees can only start
   // Direct messages. Hide the tabs rather than let someone pick one and hit
-  // a 403 on submit.
-  const canCreateChannels = ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(currentGlobalRole || '');
+  // a 403 on submit. Derived from the live, server-verified permissions
+  // fetch (useMyPermissions) — never from authStore's persisted `role`,
+  // which is plain localStorage and directly editable via DevTools.
+  const { data: myPerms } = useMyPermissions();
+  const canCreateChannels = !!myPerms?.is_super_admin || (myPerms?.roles || []).some((r) => ['ADMIN', 'HR'].includes(r));
   const [tab, setTab] = useState<NewChatTab>('direct');
   const [userSearch, setUserSearch] = useState('');
   const [channelName, setChannelName] = useState('');
@@ -1991,8 +2004,30 @@ function ThreadPanel({
       return r?.payload;
     },
     enabled: !!channelId && !!msgId,
-    refetchInterval: 3000,
+    // Real-time via the socket listener below (a thread reply is just a
+    // message:new/edited/deleted with parent_id set) — this is a safety net.
+    refetchInterval: 30000,
   });
+
+  // Other participants' replies/edits/deletes in this thread — own replies
+  // already invalidate on the mutation's onSuccess above.
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const invalidate = (payload: { channel_id?: string; channelId?: string; parent_id?: string }) => {
+      const eventChannelId = payload.channel_id ?? payload.channelId;
+      if (eventChannelId !== channelId || payload.parent_id !== msgId) return;
+      qc.invalidateQueries({ queryKey: ['chat-thread', channelId, msgId] });
+    };
+    socket.on('message:new', invalidate);
+    socket.on('message:edited', invalidate);
+    socket.on('message:deleted', invalidate);
+    return () => {
+      socket.off('message:new', invalidate);
+      socket.off('message:edited', invalidate);
+      socket.off('message:deleted', invalidate);
+    };
+  }, [channelId, msgId, qc]);
 
   const sendReplyMutation = useMutation({
     mutationFn: () =>
@@ -2227,8 +2262,16 @@ function CameraCaptureModal({
 export default function ChatPage() {
   const currentUser = useAuthStore((s) => s.user);
   const currentUserId = currentUser?.id || '';
-  const currentGlobalRole = useAuthStore((s) => s.role);
-  const isGlobalAdmin = currentGlobalRole === 'SUPER_ADMIN' || currentGlobalRole === 'ADMIN';
+  // Every admin-gated affordance below (server/channel creation, public/
+  // announcement posting, member management, archive/delete) is derived
+  // from the live, server-verified GET /permission/my-permissions response
+  // — never from authStore's persisted `role`, which lives in localStorage
+  // and can be edited via DevTools to claim any role. The actual mutating
+  // requests are independently re-checked server-side regardless, but this
+  // keeps the UI itself from ever rendering admin affordances for a
+  // spoofed role.
+  const { data: myPerms } = useMyPermissions();
+  const isGlobalAdmin = !!myPerms?.is_super_admin || (myPerms?.roles || []).includes('ADMIN');
   const qc = useQueryClient();
   const toast = useToastContext();
 
@@ -2268,7 +2311,7 @@ export default function ChatPage() {
   const [activeServerId, setActiveServerId] = useState<string | null>(null);
   const [showCreateServerModal, setShowCreateServerModal] = useState(false);
   const [showServerMembersModal, setShowServerMembersModal] = useState(false);
-  const canCreateServer = ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(currentGlobalRole || '');
+  const canCreateServer = !!myPerms?.is_super_admin || (myPerms?.roles || []).some((r) => ['ADMIN', 'HR'].includes(r));
   const { data: servers = [] } = useGetServersQuery();
   const { data: serverChannels = [] } = useGetServerChannelsQuery(activeServerId);
 
@@ -2335,7 +2378,9 @@ export default function ChatPage() {
       const r = await apiRequest<any>(API_ENDPOINTS.CHAT.CHANNELS);
       return r?.payload?.records || r?.payload || [];
     },
-    refetchInterval: 5000,
+    // message:new/conversation:update (socket, below) invalidate this
+    // instantly on anything that changes the sidebar — safety net only.
+    refetchInterval: 30000,
   });
 
   const otherDmMemberId = useMemo(() => {
@@ -2376,6 +2421,17 @@ export default function ChatPage() {
     refetchInterval: 30000,
   });
 
+  // Forces a re-render when the module-level onlineUserIds Set (mutated by
+  // the presence:update handler below) changes, so isOnline() reads reflect
+  // in the UI — the Set itself isn't React state, just what isOnline() reads.
+  const [, setPresenceTick] = useState(0);
+
+  // Drives the "Reconnecting…" banner — socket.io-client's built-in
+  // reconnection (see lib/socket.ts) handles the actual retry/backoff, this
+  // just surfaces that state so the user isn't left wondering why nothing's
+  // arriving live during a drop.
+  const [socketConnected, setSocketConnected] = useState(true);
+
   // ── Real-time (WebSocket) ────────────────────────────────────────────────
   // Replaces the old 3s message poll as the primary delivery path. Connects
   // once per page mount (getSocket() reuses the existing connection if one's
@@ -2387,16 +2443,78 @@ export default function ChatPage() {
     const socket = getSocket();
     if (!socket) return;
 
+    setSocketConnected(socket.connected);
+    const handleConnect = () => setSocketConnected(true);
+    const handleDisconnect = () => setSocketConnected(false);
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+
     const handleNewMessage = (msg: ChatMessage & { channel_id: string }) => {
-      qc.setQueryData<ChatMessage[]>(['chat-messages', msg.channel_id], (prev) => {
-        if (!prev) return prev;
-        if (prev.some((m) => m.id === msg.id)) return prev; // sender already has it from the POST response
-        return [...prev, msg];
-      });
+      // get_messages only ever returns parent_id:null (top-level) rows —
+      // a thread reply must not leak into the main channel view's cache.
+      // ThreadPanel has its own message:new listener for replies.
+      if (!msg.parent_id) {
+        qc.setQueryData<ChatMessage[]>(['chat-messages', msg.channel_id], (prev) => {
+          if (!prev) return prev;
+          if (prev.some((m) => m.id === msg.id)) return prev; // sender already has it from the POST response
+          return [...prev, msg];
+        });
+      }
       qc.invalidateQueries({ queryKey: ['chat-channels'] }); // last-message preview/unread badge
     };
-
     socket.on('message:new', handleNewMessage);
+
+    const handleMessageEdited = (msg: ChatMessage & { channel_id: string }) => {
+      qc.setQueryData<ChatMessage[]>(['chat-messages', msg.channel_id], (prev) =>
+        prev?.map((m) => (m.id === msg.id ? msg : m))
+      );
+      // Also covers pin/unpin — same event, since is_pinned is just a field
+      // on the message row (see pin_message_ctrl/unpin_message_ctrl).
+      qc.invalidateQueries({ queryKey: ['chat-pinned', msg.channel_id] });
+    };
+    socket.on('message:edited', handleMessageEdited);
+
+    const handleMessageDeleted = ({ id, channelId }: { id: string; channelId: string }) => {
+      qc.setQueryData<ChatMessage[]>(['chat-messages', channelId], (prev) =>
+        prev?.filter((m) => m.id !== id)
+      );
+    };
+    socket.on('message:deleted', handleMessageDeleted);
+
+    // Read receipts ("seen by") — previously only ever refreshed by the 3s
+    // chat-members poll; now pushed the instant someone actually opens the
+    // channel (see get_messages's message:read emit), that poll is just a
+    // safety net (interval relaxed below).
+    const handleMessageRead = ({ channelId }: { channelId: string }) => {
+      qc.invalidateQueries({ queryKey: ['chat-members', channelId] });
+    };
+    socket.on('message:read', handleMessageRead);
+
+    // Channel metadata/membership changes (rename, archive, delete, join/
+    // leave/add/remove-member) that don't already ride along with a
+    // message:new — sidebar list + open channel's member list both depend
+    // on this.
+    const handleConversationUpdate = ({ channelId }: { channelId: string } = {} as any) => {
+      qc.invalidateQueries({ queryKey: ['chat-channels'] });
+      if (channelId) qc.invalidateQueries({ queryKey: ['chat-members', channelId] });
+    };
+    socket.on('conversation:update', handleConversationUpdate);
+
+    // True push presence — see isOnline()/onlineUserIds above. Only touches
+    // the module-level Set + a re-render trigger, no query involved.
+    const handlePresenceUpdate = ({ userId, online }: { userId: string; online: boolean }) => {
+      if (online) onlineUserIds.add(userId);
+      else onlineUserIds.delete(userId);
+      setPresenceTick((t) => t + 1);
+    };
+    socket.on('presence:update', handlePresenceUpdate);
+
+    // Cross-app notification bell — same event the notifications module now
+    // emits for every notification source, not just chat.
+    const handleNotificationNew = () => {
+      qc.invalidateQueries({ queryKey: ['notifications'] });
+    };
+    socket.on('notification:new', handleNotificationNew);
 
     // Typing payloads carry only a userId, not the full user object the
     // ['chat-typing', channelId] query returns — simplest correct fix is to
@@ -2407,7 +2525,15 @@ export default function ChatPage() {
     socket.on('typing:update', handleTypingUpdate);
 
     return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
       socket.off('message:new', handleNewMessage);
+      socket.off('message:edited', handleMessageEdited);
+      socket.off('message:deleted', handleMessageDeleted);
+      socket.off('message:read', handleMessageRead);
+      socket.off('conversation:update', handleConversationUpdate);
+      socket.off('presence:update', handlePresenceUpdate);
+      socket.off('notification:new', handleNotificationNew);
       socket.off('typing:update', handleTypingUpdate);
     };
   }, [qc]);
@@ -2420,8 +2546,9 @@ export default function ChatPage() {
 
   // "Seen by" read receipts — reuses channel_members.last_read_at (already
   // bumped on every get_messages call, see chat.controller.js), no new
-  // backend endpoint needed. Polled at the same cadence as messages so the
-  // indicator updates shortly after someone actually opens the channel.
+  // backend endpoint needed. message:read/conversation:update (socket,
+  // below) invalidate this the instant someone opens the channel or the
+  // member list changes — this interval is just a safety net.
   const { data: channelMembers = [] } = useQuery<ChannelMember[]>({
     queryKey: ['chat-members', selectedChannelId],
     queryFn: async () => {
@@ -2429,7 +2556,7 @@ export default function ChatPage() {
       return r?.payload?.records || r?.payload || [];
     },
     enabled: !!selectedChannelId,
-    refetchInterval: 3000,
+    refetchInterval: 30000,
   });
 
   // Typing indicator — polled independently of (and faster than) messages,
@@ -2459,8 +2586,8 @@ export default function ChatPage() {
     enabled: mentionQuery !== null,
   });
 
-  // Pinned messages — polled at the same cadence as members/read-receipts;
-  // small list, cheap to keep fresh.
+  // Pinned messages — message:edited (socket, below) invalidates this on
+  // every pin/unpin; interval is just a safety net.
   const { data: pinnedMessages = [] } = useQuery<ChatMessage[]>({
     queryKey: ['chat-pinned', selectedChannelId],
     queryFn: async () => {
@@ -2468,20 +2595,22 @@ export default function ChatPage() {
       return r?.payload?.records || r?.payload || [];
     },
     enabled: !!selectedChannelId,
-    refetchInterval: 5000,
+    refetchInterval: 30000,
   });
 
   // Saved/bookmarked messages — cross-channel, so fetched once for the whole
   // page rather than per-channel. Small personal list; fetching it whole and
   // deriving a Set client-side is simpler than a per-message "is this saved"
-  // join on every get_messages call.
+  // join on every get_messages call. Only ever changes via the current
+  // user's own save/unsave action (already invalidated on that mutation's
+  // onSuccess) — this interval is a rarely-needed safety net.
   const { data: savedEntries = [] } = useQuery<SavedMessageEntry[]>({
     queryKey: ['chat-saved'],
     queryFn: async () => {
       const r = await apiRequest<any>(API_ENDPOINTS.CHAT.SAVED);
       return r?.payload?.records || r?.payload || [];
     },
-    refetchInterval: 10000,
+    refetchInterval: 60000,
   });
   const savedMessageIds = useMemo(() => new Set(savedEntries.map((s) => s.message.id)), [savedEntries]);
 
@@ -3194,6 +3323,11 @@ export default function ChatPage() {
       {/* ── Center Panel ── */}
       {selectedChannel ? (
         <div className="flex-1 flex flex-col min-w-0">
+          {!socketConnected && (
+            <div className="px-4 py-1.5 bg-amber-50 text-amber-700 text-xs font-semibold text-center border-b border-amber-100">
+              Reconnecting…
+            </div>
+          )}
           {/* Header */}
           <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-3">
             {selectedChannel.type === 'DM' ? (
@@ -3753,7 +3887,7 @@ export default function ChatPage() {
           channel={selectedChannel}
           currentUserRole={myMembership?.role}
           isGlobalAdmin={isGlobalAdmin}
-          canMakePublic={['SUPER_ADMIN', 'ADMIN', 'HR'].includes(currentGlobalRole || '')}
+          canMakePublic={!!myPerms?.is_super_admin || (myPerms?.roles || []).some((r) => ['ADMIN', 'HR'].includes(r))}
           onClose={() => setShowChannelSettings(false)}
           onSaved={() => setShowChannelSettings(false)}
           onLeftOrDeleted={() => {
