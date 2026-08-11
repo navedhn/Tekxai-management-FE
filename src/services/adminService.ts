@@ -44,6 +44,27 @@ export const useGetTeamsQuery = (params?: Record<string, any>, enabled: boolean 
   });
 };
 
+/**
+ * Single shared Team-selection data source for every form that assigns an
+ * employee to a Team scoped by Department (Quick Create/Edit User, Add/Edit
+ * Employee). Team options only ever come from teams that actually belong to
+ * the selected department — there is no "show unscoped teams" fallback, by
+ * design: an unscoped team means its organizational assignment hasn't been
+ * resolved yet, and it should stay invisible here until an admin fixes it in
+ * Team Management, not silently appear everywhere.
+ */
+export const useDepartmentScopedTeams = (department_id?: string) => {
+  const { data: teamsData } = useGetTeamsQuery(
+    department_id ? { department_id } : undefined,
+    !!department_id,
+  );
+  const teamRecords: any[] = Array.isArray((teamsData as any)?.payload?.records)
+    ? (teamsData as any).payload.records
+    : [];
+  const teamOptions = teamRecords.map((t: any) => ({ value: t.id, label: t.name }));
+  return { teamsData, teamRecords, teamOptions };
+};
+
 export const useCreateTeamMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({

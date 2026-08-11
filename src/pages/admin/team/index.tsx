@@ -123,6 +123,24 @@ const TeamManagement: React.FC = () => {
             )
         },
         {
+            // Business Unit -> Division -> Department -> Team -> Employee
+            // hierarchy: a team with no department_id has never had its
+            // organizational placement resolved, so it can't be assigned to
+            // any employee from Quick Create/Edit or Add Employee — it's
+            // flagged here rather than silently hidden or defaulted.
+            header: 'Department',
+            key: 'department',
+            render: (item) => (
+                item.department?.name
+                    ? <span className="text-gray-700 font-semibold">{item.department.name}</span>
+                    : (
+                        <Badge variant="warning" className="font-bold uppercase tracking-tight text-[10px]">
+                            Needs organizational assignment
+                        </Badge>
+                    )
+            )
+        },
+        {
             header: 'Actions',
             key: 'actions',
             align: 'right',

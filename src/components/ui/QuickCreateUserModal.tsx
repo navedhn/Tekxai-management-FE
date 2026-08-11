@@ -8,7 +8,7 @@ import { useCreateUserMutation, useUpdateUserMutation, useChangeUserRoleMutation
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetRolesQuery } from '@/services/roleService';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
-import { useGetTeamsQuery } from '@/services/adminService';
+import { useDepartmentScopedTeams } from '@/services/adminService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
@@ -82,13 +82,10 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
 
   const [formData, setFormData] = useState(EMPTY_FORM);
   // Business Unit -> Division -> Department -> Team -> Employee hierarchy:
-  // Team is scoped to whichever Department is currently selected. Filtered
-  // server-side via department_id (be-work's teams module) — mirrors the
-  // pattern the frontend already uses for Designation/Role, just parameterized.
-  const { data: teamsData } = useGetTeamsQuery(
-    formData.department_id ? { department_id: formData.department_id } : undefined,
-    !!formData.department_id
-  );
+  // Team is scoped to whichever Department is currently selected, via the
+  // one shared data-loading pattern also used by the full Add/Edit Employee
+  // form (UserFormModal) — see useDepartmentScopedTeams in adminService.ts.
+  const { teamsData, teamRecords, teamOptions } = useDepartmentScopedTeams(formData.department_id);
   const [errors, setErrors] = useState<Record<string, string>>({});
   // Set after a successful create — switches the modal to a confirmation
   // view showing the server-assigned Employee ID, with a "Create Another"
@@ -107,8 +104,6 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
   const designationOptions = designations.map((d) => ({ value: d.id, label: d.name }));
   const roleOptions = roles.map((r) => ({ value: r.id, label: r.name.replace(/_/g, ' ') }));
   const departmentOptions = departments.map((d: any) => ({ value: d.id, label: d.name }));
-  const teamRecords: Array<{ id: string; name: string }> = (teamsData as any)?.payload?.records || [];
-  const teamOptions = teamRecords.map((t) => ({ value: t.id, label: t.name }));
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
