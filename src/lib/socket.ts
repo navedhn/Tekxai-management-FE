@@ -46,6 +46,23 @@ export function getSocket(): Socket | null {
       const newToken = await getRefreshedAccessToken();
       if (newToken && socket) socket.auth = { token: newToken };
     });
+
+    // Realtime OS — the server sends this right before force-disconnecting
+    // a session it revoked (logout on this device, a future admin "force
+    // logout," or a password reset invalidating every session — see
+    // be-work's disconnect_session_sockets). Deliberately distinct from a
+    // plain network-drop disconnect: socket.io's own reconnection (enabled
+    // above) would otherwise retry forever against a session that can never
+    // become valid again. logoutSession() clears local auth state, which
+    // the app's route protection reacts to by redirecting to login — same
+    // as the existing "refresh token failed" path in useTokenRefresh.ts,
+    // no separate navigation call needed here. Dynamic import avoids a
+    // circular dependency (authSession.ts imports disconnectSocket from
+    // this file), same pattern as the connect_error handler above.
+    socket.on('session:revoked', async () => {
+      const { logoutSession } = await import('@/lib/authSession');
+      logoutSession();
+    });
   }
 
   // Token may have rotated (refresh) since the socket was created — always
