@@ -8,6 +8,7 @@ import { useCreateUserMutation, useUpdateUserMutation, useChangeUserRoleMutation
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetRolesQuery } from '@/services/roleService';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
+import { useGetTeamsQuery } from '@/services/adminService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
@@ -23,6 +24,9 @@ export interface QuickEditUser {
   employee_id?: string | null;
   designation_id?: string | null;
   department?: { id: string } | null;
+  // Single-team-per-user shape — same as employees.routes.js's directory
+  // list response and users.repository.js's normalize_user (see be-work).
+  team?: { id: string; name: string } | null;
   role_id?: string | null;
   hire_date?: string | null;
 }
@@ -34,7 +38,7 @@ interface QuickCreateUserModalProps {
   editUser?: QuickEditUser | null;
 }
 
-const EMPTY_FORM = { first_name: '', last_name: '', email: '', password: '', designation_id: '', department_id: '', role_id: '', hire_date: '' };
+const EMPTY_FORM = { first_name: '', last_name: '', email: '', password: '', designation_id: '', department_id: '', team_id: '', role_id: '', hire_date: '' };
 
 function toFormState(u: QuickEditUser) {
   return {
@@ -44,6 +48,7 @@ function toFormState(u: QuickEditUser) {
     password: '',
     designation_id: u.designation_id || '',
     department_id: u.department?.id || '',
+    team_id: u.team?.id || '',
     role_id: u.role_id || '',
     hire_date: u.hire_date ? String(u.hire_date).slice(0, 10) : '',
   };
@@ -76,6 +81,14 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
   const isEditMode = !!editUser;
 
   const [formData, setFormData] = useState(EMPTY_FORM);
+  // Business Unit -> Division -> Department -> Team -> Employee hierarchy:
+  // Team is scoped to whichever Department is currently selected. Filtered
+  // server-side via department_id (be-work's teams module) — mirrors the
+  // pattern the frontend already uses for Designation/Role, just parameterized.
+  const { data: teamsData } = useGetTeamsQuery(
+    formData.department_id ? { department_id: formData.department_id } : undefined,
+    !!formData.department_id
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
   // Set after a successful create — switches the modal to a confirmation
   // view showing the server-assigned Employee ID, with a "Create Another"
@@ -94,6 +107,8 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
   const designationOptions = designations.map((d) => ({ value: d.id, label: d.name }));
   const roleOptions = roles.map((r) => ({ value: r.id, label: r.name.replace(/_/g, ' ') }));
   const departmentOptions = departments.map((d: any) => ({ value: d.id, label: d.name }));
+  const teamRecords: Array<{ id: string; name: string }> = (teamsData as any)?.payload?.records || [];
+  const teamOptions = teamRecords.map((t) => ({ value: t.id, label: t.name }));
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -103,6 +118,27 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
   const handleSelectChange = (name: string) => (val: string | number) => {
     setFormData((prev) => ({ ...prev, [name]: String(val) }));
   };
+
+  // Department -> Team is a hard hierarchy (Business Unit -> Division ->
+  // Department -> Team -> Employee) — switching Department immediately
+  // clears the selected Team so a stale cross-department pick can never be
+  // submitted (e.g. Marketing Department -> Engineering Team).
+  const handleDepartmentChange = (val: string | number) => {
+    setFormData((prev) => ({ ...prev, department_id: String(val ?? ''), team_id: '' }));
+  };
+
+  // Safety net for the case above: once the Team list for the (possibly
+  // new) Department finishes loading, drop the current team_id if it isn't
+  // actually in that list — covers Quick Edit's initial prefill (Department
+  // and Team are both set at once from toFormState, so the explicit-clear
+  // handler above never runs) plus any other path that sets both together.
+  useEffect(() => {
+    if (!formData.team_id || !teamsData) return;
+    if (!teamRecords.some((t) => t.id === formData.team_id)) {
+      setFormData((prev) => ({ ...prev, team_id: '' }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamsData]);
 
   const handleSubmit = () => {
     const newErrors: Record<string, string> = {};
@@ -123,6 +159,11 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
         email: formData.email.trim(),
         designation_id: formData.designation_id,
         department_id: formData.department_id || null,
+        // Always sent (never omitted) in edit mode — team_id === undefined
+        // means "leave team membership alone" server-side (see
+        // update_existing_user in be-work), but Quick Edit's Team field is a
+        // full editor: '' must mean "clear membership", not "don't touch it".
+        team_id: formData.team_id || null,
         hire_date: formData.hire_date || undefined,
       };
       if (formData.password) data.password = formData.password;
@@ -158,6 +199,7 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
       quick_create: true,
     };
     if (formData.department_id) payload.department_id = formData.department_id;
+    if (formData.team_id) payload.team_id = formData.team_id;
     if (formData.hire_date) payload.hire_date = formData.hire_date;
 
     createUser.mutate(payload, {
@@ -304,10 +346,19 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
           label="Department"
           options={departmentOptions}
           value={formData.department_id}
-          onChange={(v) => handleSelectChange('department_id')(v ?? '')}
+          onChange={(v) => handleDepartmentChange(v ?? '')}
           placeholder="Select Department"
           className="h-12 !rounded-xl"
           clearable={false}
+        />
+
+        <SearchableSelect
+          label="Team"
+          options={teamOptions}
+          value={formData.team_id}
+          onChange={(v) => handleSelectChange('team_id')(v ?? '')}
+          placeholder={formData.department_id ? 'Select Team' : 'Select a Department first'}
+          className="h-12 !rounded-xl"
         />
 
         <Input
