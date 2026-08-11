@@ -1540,8 +1540,10 @@ function ChannelSection({
 // create_poll_ctrl — the poll's announcement IS a regular message row).
 // Tallies are computed client-side from the raw votes array the backend
 // sends, same convention MessageBubble's own reactionMap already uses for
-// reactions — and since the message list already polls every 3s, votes
-// stay live without any dedicated poll-polling of their own.
+// reactions. Other members see a vote/close live via message:edited (the
+// poll's announcement message is a regular message row — see
+// vote_poll_ctrl/close_poll_ctrl in chat.controller.js); the voter/closer's
+// own client already gets it from their mutation's onSuccess refetch.
 function PollCard({ poll, channelId, currentUserId, isGlobalAdmin }: {
   poll: Poll;
   channelId: string;
@@ -2004,9 +2006,10 @@ function ThreadPanel({
       return r?.payload;
     },
     enabled: !!channelId && !!msgId,
-    // Real-time via the socket listener below (a thread reply is just a
-    // message:new/edited/deleted with parent_id set) — this is a safety net.
-    refetchInterval: 30000,
+    // No refetchInterval — the socket listener below (a thread reply is
+    // just a message:new/edited/deleted with parent_id set) is the only
+    // update path once this loads; reconnect recovery is handled by the
+    // chat page's own top-level socket 'connect' handler, not a poll here.
   });
 
   // Other participants' replies/edits/deletes in this thread — own replies
@@ -2362,8 +2365,8 @@ export default function ChatPage() {
   const speechRecognitionRef = useRef<any>(null);
   const finalTranscriptRef = useRef('');
   // Whether the user is scrolled near the bottom of the message list — only
-  // auto-scroll when true, so the 3s message poll (refetchInterval below)
-  // doesn't yank someone back to the bottom while they're reading upward.
+  // auto-scroll when true, so a socket-delivered message:new doesn't yank
+  // someone back to the bottom while they're reading upward.
   const isNearBottomRef = useRef(true);
   // Throttles the typing ping to at most once per 3s of continuous typing —
   // the backend's typing TTL is 6s, so re-sending every 3s keeps it fresh
@@ -2378,9 +2381,10 @@ export default function ChatPage() {
       const r = await apiRequest<any>(API_ENDPOINTS.CHAT.CHANNELS);
       return r?.payload?.records || r?.payload || [];
     },
-    // message:new/conversation:update (socket, below) invalidate this
-    // instantly on anything that changes the sidebar — safety net only.
-    refetchInterval: 30000,
+    // No refetchInterval — message:new/conversation:update (socket, below)
+    // invalidate this instantly on anything that changes the sidebar.
+    // Reconnect recovery is handled by the socket 'connect' handler below,
+    // not a poll.
   });
 
   const otherDmMemberId = useMemo(() => {
@@ -2416,9 +2420,9 @@ export default function ChatPage() {
       return r?.payload?.records || r?.payload || [];
     },
     enabled: !!selectedChannelId,
-    // message:new (socket, below) delivers new messages instantly — this is
-    // now just a safety net for anything missed during a reconnect gap.
-    refetchInterval: 30000,
+    // No refetchInterval — message:new (socket, below) delivers new
+    // messages instantly. Reconnect recovery (anything missed during a
+    // disconnect gap) is handled by the socket 'connect' handler below.
   });
 
   // Forces a re-render when the module-level onlineUserIds Set (mutated by
@@ -2432,19 +2436,57 @@ export default function ChatPage() {
   // arriving live during a drop.
   const [socketConnected, setSocketConnected] = useState(true);
 
+  // Read by the reconnect-recovery handler below without needing
+  // selectedChannelId/activeServerId in that effect's dependency array —
+  // the listener-registration effect intentionally runs once per mount
+  // (see its own comment), not on every channel/server switch.
+  const selectedChannelIdRef = useRef(selectedChannelId);
+  useEffect(() => { selectedChannelIdRef.current = selectedChannelId; }, [selectedChannelId]);
+  const activeServerIdRef = useRef(activeServerId);
+  useEffect(() => { activeServerIdRef.current = activeServerId; }, [activeServerId]);
+
   // ── Real-time (WebSocket) ────────────────────────────────────────────────
-  // Replaces the old 3s message poll as the primary delivery path. Connects
-  // once per page mount (getSocket() reuses the existing connection if one's
-  // already open), explicitly re-joins the open channel's room on every
-  // switch (covers channels created after the initial connect-time join —
-  // see be-work's shared/socket), and reconnects automatically via
-  // socket.io-client's built-in reconnection.
+  // The sole delivery path for messages/channels/members/pinned/typing/
+  // presence/notifications/servers — every query above that reads chat data
+  // has no refetchInterval; this effect's listeners are what keep them
+  // current. Connects once per page mount (getSocket() reuses the existing
+  // connection if one's already open), explicitly re-joins the open
+  // channel's room on every switch (covers channels created after the
+  // initial connect-time join — see be-work's shared/socket), and
+  // reconnects automatically via socket.io-client's built-in reconnection —
+  // handleConnect's reconnect-recovery invalidation (below) is what catches
+  // up anything missed during the drop, since there's no poll left to
+  // eventually notice the drift on its own.
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
 
     setSocketConnected(socket.connected);
-    const handleConnect = () => setSocketConnected(true);
+    // Reconnect recovery — every other listener below only ever pushes an
+    // update that happens WHILE connected; anything that happened during a
+    // disconnect gap (dropped wifi, laptop sleep, server restart) needs a
+    // one-time catch-up once the connection is back, since there's no
+    // periodic poll anymore to eventually notice the drift on its own.
+    // `hasConnectedBefore` distinguishes that real reconnect from this
+    // effect's own first connect (which never needs "recovering" — the
+    // queries below already fetched fresh on mount).
+    let hasConnectedBefore = socket.connected;
+    const handleConnect = () => {
+      setSocketConnected(true);
+      if (hasConnectedBefore) {
+        const channelId = selectedChannelIdRef.current;
+        const serverId = activeServerIdRef.current;
+        qc.invalidateQueries({ queryKey: ['chat-channels'] });
+        if (channelId) {
+          qc.invalidateQueries({ queryKey: ['chat-messages', channelId] });
+          qc.invalidateQueries({ queryKey: ['chat-members', channelId] });
+          qc.invalidateQueries({ queryKey: ['chat-pinned', channelId] });
+        }
+        qc.invalidateQueries({ queryKey: ['servers'] });
+        if (serverId) qc.invalidateQueries({ queryKey: ['server-channels', serverId] });
+      }
+      hasConnectedBefore = true;
+    };
     const handleDisconnect = () => setSocketConnected(false);
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
@@ -2481,10 +2523,8 @@ export default function ChatPage() {
     };
     socket.on('message:deleted', handleMessageDeleted);
 
-    // Read receipts ("seen by") — previously only ever refreshed by the 3s
-    // chat-members poll; now pushed the instant someone actually opens the
-    // channel (see get_messages's message:read emit), that poll is just a
-    // safety net (interval relaxed below).
+    // Read receipts ("seen by") — pushed the instant someone actually opens
+    // the channel (see get_messages's message:read emit).
     const handleMessageRead = ({ channelId }: { channelId: string }) => {
       qc.invalidateQueries({ queryKey: ['chat-members', channelId] });
     };
@@ -2499,6 +2539,17 @@ export default function ChatPage() {
       if (channelId) qc.invalidateQueries({ queryKey: ['chat-members', channelId] });
     };
     socket.on('conversation:update', handleConversationUpdate);
+
+    // Server (Discord-style workspace) list/membership/channel changes —
+    // see notify_server_members in be-work's chat.controller.js and the
+    // emit_to_user calls in servers.controller.js. serversService.ts has no
+    // refetchInterval of its own; this is its only update path besides the
+    // requester's own mutation onSuccess.
+    const handleServerUpdate = ({ serverId }: { serverId: string }) => {
+      qc.invalidateQueries({ queryKey: ['servers'] });
+      if (serverId) qc.invalidateQueries({ queryKey: ['server-channels', serverId] });
+    };
+    socket.on('server:update', handleServerUpdate);
 
     // True push presence — see isOnline()/onlineUserIds above. Only touches
     // the module-level Set + a re-render trigger, no query involved.
@@ -2532,6 +2583,7 @@ export default function ChatPage() {
       socket.off('message:deleted', handleMessageDeleted);
       socket.off('message:read', handleMessageRead);
       socket.off('conversation:update', handleConversationUpdate);
+      socket.off('server:update', handleServerUpdate);
       socket.off('presence:update', handlePresenceUpdate);
       socket.off('notification:new', handleNotificationNew);
       socket.off('typing:update', handleTypingUpdate);
@@ -2548,7 +2600,8 @@ export default function ChatPage() {
   // bumped on every get_messages call, see chat.controller.js), no new
   // backend endpoint needed. message:read/conversation:update (socket,
   // below) invalidate this the instant someone opens the channel or the
-  // member list changes — this interval is just a safety net.
+  // member list changes. No refetchInterval — reconnect recovery is
+  // handled by the socket 'connect' handler below.
   const { data: channelMembers = [] } = useQuery<ChannelMember[]>({
     queryKey: ['chat-members', selectedChannelId],
     queryFn: async () => {
@@ -2556,13 +2609,12 @@ export default function ChatPage() {
       return r?.payload?.records || r?.payload || [];
     },
     enabled: !!selectedChannelId,
-    refetchInterval: 30000,
   });
 
-  // Typing indicator — polled independently of (and faster than) messages,
-  // since "so-and-so is typing" only reads well with a short, dedicated
-  // interval. Backend state is in-memory with a ~6s TTL per user per
-  // channel; see set_typing_ctrl/get_typing_ctrl in chat.controller.js.
+  // Typing indicator — backend state is in-memory with a ~6s TTL per user
+  // per channel; see set_typing_ctrl/get_typing_ctrl in chat.controller.js.
+  // typing:update (socket, below) invalidates this the instant it changes;
+  // no refetchInterval needed.
   const { data: typingUsers = [] } = useQuery<ChatUser[]>({
     queryKey: ['chat-typing', selectedChannelId],
     queryFn: async () => {
@@ -2570,9 +2622,6 @@ export default function ChatPage() {
       return r?.payload?.records || r?.payload || [];
     },
     enabled: !!selectedChannelId,
-    // typing:update (socket) invalidates this on demand — this interval is
-    // just a safety net.
-    refetchInterval: 8000,
   });
 
   // @-mention autocomplete — reuses the same "chat users" endpoint the New
@@ -2587,7 +2636,7 @@ export default function ChatPage() {
   });
 
   // Pinned messages — message:edited (socket, below) invalidates this on
-  // every pin/unpin; interval is just a safety net.
+  // every pin/unpin; no refetchInterval needed.
   const { data: pinnedMessages = [] } = useQuery<ChatMessage[]>({
     queryKey: ['chat-pinned', selectedChannelId],
     queryFn: async () => {
@@ -2595,7 +2644,6 @@ export default function ChatPage() {
       return r?.payload?.records || r?.payload || [];
     },
     enabled: !!selectedChannelId,
-    refetchInterval: 30000,
   });
 
   // Saved/bookmarked messages — cross-channel, so fetched once for the whole
@@ -2603,14 +2651,14 @@ export default function ChatPage() {
   // deriving a Set client-side is simpler than a per-message "is this saved"
   // join on every get_messages call. Only ever changes via the current
   // user's own save/unsave action (already invalidated on that mutation's
-  // onSuccess) — this interval is a rarely-needed safety net.
+  // onSuccess) or a reconnect (socket 'connect' handler below) — no
+  // periodic refetch, this is a single-user list with no other writer.
   const { data: savedEntries = [] } = useQuery<SavedMessageEntry[]>({
     queryKey: ['chat-saved'],
     queryFn: async () => {
       const r = await apiRequest<any>(API_ENDPOINTS.CHAT.SAVED);
       return r?.payload?.records || r?.payload || [];
     },
-    refetchInterval: 60000,
   });
   const savedMessageIds = useMemo(() => new Set(savedEntries.map((s) => s.message.id)), [savedEntries]);
 
@@ -2666,9 +2714,13 @@ export default function ChatPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['chat-channels'] }),
   });
 
-  // Fire-and-forget — no loading/error state needed for a "you're typing"
-  // ping, and no query invalidation either (the typing poll above already
-  // picks it up on its own interval).
+  // Fire-and-forget REST call — persists the in-memory TTL fallback
+  // get_typing_ctrl serves on a plain GET (used if a client's socket is
+  // ever down); the live broadcast to other members happens separately via
+  // the 'typing:start' socket emit right after this mutate() call below, no
+  // query invalidation needed on this end since it's the local user's own
+  // typing state, not something this client itself needs to see reflected
+  // back.
   const typingMutation = useMutation({
     mutationFn: () => apiRequest<any>(API_ENDPOINTS.CHAT.TYPING(selectedChannelId!), { method: 'POST' }),
   });
@@ -2745,10 +2797,9 @@ export default function ChatPage() {
 
   // ── Effects ───────────────────────────────────────────────────────────────
 
-  // Auto-scroll only if the user was already near the bottom — messages
-  // polls every 3s (refetchInterval above), and without this guard every
-  // poll tick force-scrolled back to the bottom even while someone had
-  // scrolled up to read older messages.
+  // Auto-scroll only if the user was already near the bottom — without this
+  // guard, every socket-delivered message would force-scroll back to the
+  // bottom even while someone had scrolled up to read older messages.
   useEffect(() => {
     if (isNearBottomRef.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

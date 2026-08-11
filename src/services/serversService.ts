@@ -36,6 +36,12 @@ export interface Server {
   members?: ServerMember[]; // list_servers returns just the caller's own row here; get_server returns everyone's
 }
 
+// No refetchInterval — be-work's servers.controller.js/chat.controller.js
+// emit 'server:update' (create/join/remove/channel changes) over the
+// socket, and src/pages/chat/index.tsx's socket effect invalidates this
+// query key on that event. See docs on that effect for the full picture;
+// this hook is intentionally just the query, not the socket wiring, since
+// it's also used from places the chat page's socket effect doesn't reach.
 export const useGetServersQuery = () =>
   useQuery<Server[]>({
     queryKey: ['servers'],
@@ -43,7 +49,6 @@ export const useGetServersQuery = () =>
       const r = await apiRequest<any>(API_ENDPOINTS.SERVERS.LIST);
       return r?.payload?.records || [];
     },
-    refetchInterval: 15000,
   });
 
 export const useGetServerQuery = (serverId: string | null) =>
@@ -56,6 +61,9 @@ export const useGetServerQuery = (serverId: string | null) =>
     enabled: !!serverId,
   });
 
+// Same 'server:update' socket coverage as useGetServersQuery above —
+// covers channel created/archived/deleted inside this server (see
+// notify_server_members in be-work's chat.controller.js).
 export const useGetServerChannelsQuery = (serverId: string | null) =>
   useQuery<any[]>({
     queryKey: ['server-channels', serverId],
@@ -64,7 +72,6 @@ export const useGetServerChannelsQuery = (serverId: string | null) =>
       return r?.payload?.records || [];
     },
     enabled: !!serverId,
-    refetchInterval: 5000,
   });
 
 export const useCreateServerMutation = () => {
