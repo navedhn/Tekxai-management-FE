@@ -144,7 +144,6 @@ const BANKS = [
 // ── Initial form state ───────────────────────────────────────────────────────
 const initPersonal = {
   first_name: '', last_name: '', email: '', phone: '',
-  password: '',
   alternate_phone: '', father_name: '', cnic: '',
   dob: '', gender: '', marital_status: '',
   nationality: '', religion: '', blood_group: '',
@@ -212,18 +211,13 @@ function StepPersonal({ data, onChange, errorField, errorMessage, registerRef }:
         <Field label="Phone Number">
           <PhoneInput value={data.phone} onChange={v => onChange('phone', v)} />
         </Field>
-        <Field label="Initial Password" required>
-          <input
-            ref={(el) => registerRef?.('password', el)}
-            className={cn(inputCls, errorField === 'password' && errorInputCls)}
-            type="password"
-            value={data.password}
-            onChange={e => onChange('password', e.target.value)}
-            placeholder="At least 8 characters"
-            autoComplete="new-password"
-          />
-          <FieldError show={errorField === 'password'} message={errorMessage} />
-        </Field>
+        {/* No password field here — the full wizard's account is created
+            with a system-generated password (backend already supports a
+            missing password, see users.service.js's create_new_user) and
+            the new hire sets their own via Forgot Password on first login.
+            Password entry stays exclusive to Quick Create User, where an
+            admin is standing up an account for someone already working and
+            handing it to them directly. */}
         <Field label="Alternate Phone">
           <PhoneInput value={data.alternate_phone} onChange={v => onChange('alternate_phone', v)} />
         </Field>
@@ -1048,7 +1042,9 @@ export default function AddEmployee() {
             last_name:     personal.last_name,
             email:         personal.email,
             phone:         personal.phone || undefined,
-            password:      personal.password,
+            // No password sent — create_new_user (users.service.js) already
+            // falls back to a system-generated one when this is omitted;
+            // the new hire sets their own via Forgot Password.
             hire_date:     employment.hire_date || undefined,
             designation:   employment.designation || undefined,
             designation_id: employment.designation_id || undefined,
@@ -1174,7 +1170,7 @@ export default function AddEmployee() {
   const existingDocTypes = ((record as any)?.documents || []).map((d: any) => d.document_type);
 
   const canNext = () => {
-    if (step === 1) return personal.first_name && personal.last_name && personal.email && (isEditMode || personal.password.length >= 8);
+    if (step === 1) return !!(personal.first_name && personal.last_name && personal.email);
     if (step === 2) return !!employment.hire_date;
     if (step === 4) return missingRequiredDocs(docFiles, existingDocTypes).length === 0;
     return true;
