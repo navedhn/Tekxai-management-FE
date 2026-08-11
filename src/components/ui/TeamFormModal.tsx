@@ -125,6 +125,11 @@ const TeamFormModal: React.FC<Props> = ({ isOpen, onClose, team }) => {
     const newErrors: Record<string, string> = {};
     if (!formData.name.trim()) newErrors.name = 'Team name is required';
     if (!formData.type) newErrors.type = 'Team type is required';
+    // Business Unit -> Division -> Department -> Team -> Employee hierarchy:
+    // a Team must have a valid Department (server also enforces this — see
+    // teams.service.js's create_new_team/update_existing_team — this is
+    // just the fast client-side check, never the only line of defense).
+    if (!formData.department_id) newErrors.department_id = 'Department is required';
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
 
@@ -231,10 +236,12 @@ const TeamFormModal: React.FC<Props> = ({ isOpen, onClose, team }) => {
 
         <div className="grid grid-cols-2 gap-4">
           <SearchableSelect
-            label="Department"
-            options={[{ label: 'None', value: '' }, ...(departments || []).map((d: any) => ({ label: d.name, value: d.id }))]}
+            label="Department *"
+            options={(departments || []).map((d: any) => ({ label: d.name, value: d.id }))}
             value={formData.department_id}
-            onChange={(v) => setFormData(p => ({ ...p, department_id: String(v), division_id: '' }))}
+            onChange={(v) => setFormData(p => ({ ...p, department_id: String(v ?? ''), division_id: '' }))}
+            error={errors.department_id}
+            clearable={false}
           />
           <SearchableSelect
             label="Division"

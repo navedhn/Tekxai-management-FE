@@ -4,7 +4,7 @@ import Input from '@/components/ui/Input';
 import FormInput from '@/components/form/FormInput';
 import { Button } from '@/components/ui/Button';
 import SearchableSelect from '@/components/ui/SearchableSelect';
-import { useGetTeamsQuery } from '@/services/adminService';
+import { useDepartmentScopedTeams } from '@/services/adminService';
 import { useCreateUserMutation, useUpdateUserMutation, useChangeUserRoleMutation } from '@/services/userService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useQuery } from '@tanstack/react-query';
@@ -52,7 +52,11 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
   const [pendingRoleChange, setPendingRoleChange] = useState<{ id: string; role_id: string; roleName: string } | null>(null);
 
   const toast = useToastContext();
-  const { data: teamsData } = useGetTeamsQuery(undefined, true);
+  // Business Unit -> Division -> Department -> Team -> Employee hierarchy:
+  // Team options are scoped to the currently selected Department, via the
+  // one shared data-loading pattern also used by Quick Create/Edit User
+  // (QuickCreateUserModal) — see useDepartmentScopedTeams in adminService.ts.
+  const { teamsData, teamRecords, teamOptions } = useDepartmentScopedTeams(formData.department_id);
   const createUser = useCreateUserMutation();
   const updateUser = useUpdateUserMutation();
   const changeUserRole = useChangeUserRoleMutation();
@@ -76,10 +80,6 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
 
   const departmentOptions = departmentsData.map((d: any) => ({ value: d.id, label: d.name }));
   const designationOptions = designationsData.map((d: any) => ({ value: d.id, label: d.name }));
-
-  const teamsOptions = Array.isArray((teamsData as any)?.payload?.records)
-    ? (teamsData as any).payload.records.map((t: any) => ({ value: t.id, label: t.name }))
-    : [];
 
   const defaultRoleId = rolesData.find((r: any) => r.name === 'EMPLOYEE')?.id || '';
 
@@ -140,6 +140,27 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
   const handleSelectChange = (name: string) => (val: string | number) => {
     setFormData(prev => ({ ...prev, [name]: String(val) }));
   };
+
+  // Department -> Team is a hard hierarchy (Business Unit -> Division ->
+  // Department -> Team -> Employee) — switching Department immediately
+  // clears the selected Team so a stale cross-department pick can never be
+  // submitted. Mirrors QuickCreateUserModal's identical handler.
+  const handleDepartmentChange = (val: string | number) => {
+    setFormData(prev => ({ ...prev, department_id: String(val ?? ''), team_id: '' }));
+  };
+
+  // Safety net for edit-mode prefill, where Department and Team are set
+  // together from the incoming `user` record before the Team list for that
+  // Department has loaded: once it loads, drop team_id if it isn't actually
+  // in the list (e.g. stale/legacy assignment that predates department
+  // scoping).
+  useEffect(() => {
+    if (!formData.team_id || !teamsData) return;
+    if (!teamRecords.some((t: any) => t.id === formData.team_id)) {
+      setFormData(prev => ({ ...prev, team_id: '' }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamsData]);
 
   const handleSubmit = () => {
     const { first_name, last_name, email, department_id, password, role_id } = formData;
@@ -235,12 +256,13 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
         </div>
 
         <SearchableSelect label="DEPARTMENT *" options={departmentOptions} value={formData.department_id}
-          onChange={(v) => handleSelectChange('department_id')(v ?? '')} clearable={false} error={errors.department_id}
+          onChange={(v) => handleDepartmentChange(v ?? '')} clearable={false} error={errors.department_id}
           placeholder="Select Department" className="h-12 !rounded-xl" />
 
         <div className="grid grid-cols-2 gap-4">
-          <SearchableSelect label="TEAM" options={teamsOptions} value={formData.team_id}
-            onChange={(v) => handleSelectChange('team_id')(v ?? '')} clearable={false} placeholder="Select Team"
+          <SearchableSelect label="TEAM" options={teamOptions} value={formData.team_id}
+            onChange={(v) => handleSelectChange('team_id')(v ?? '')} clearable={false}
+            placeholder={formData.department_id ? 'Select Team' : 'Select a Department first'}
             className="h-12 !rounded-xl" />
           <SearchableSelect label="DESIGNATION" options={designationOptions} value={formData.designation_id}
             onChange={(v) => handleSelectChange('designation_id')(v ?? '')} clearable={false} placeholder="Select Designation"
