@@ -112,6 +112,11 @@ const ProjectDocumentsPanel: React.FC<ProjectDocumentsPanelProps> = ({ projectId
                   <div className="flex flex-col min-w-0">
                     <span className="text-sm font-bold text-gray-800 truncate">{doc.title}</span>
                     <span className="text-[10px] font-black text-gray-400 uppercase">{doc.document_type.replace(/_/g, ' ')}</span>
+                    <span className="text-[10px] font-semibold text-gray-400">
+                      {doc.uploader ? `${doc.uploader.first_name} ${doc.uploader.last_name}` : 'Unknown'}
+                      {' · '}
+                      {new Date(doc.created_at).toLocaleDateString()}
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
