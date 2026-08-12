@@ -68,7 +68,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
-  const selected = useMemo(() => options.find((o) => o.value === value) ?? null, [options, value]);
+  const selected = useMemo(() => options.find((o) => String(o.value) === String(value)) ?? null, [options, value]);
 
   const filtered = useMemo(() => {
     if (onSearch) return options; // caller already filtered remotely

@@ -68,17 +68,20 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, projectId,
     );
   };
 
-  const memberOptions: SelectOption[] = members.map(m => ({
-    label: `${m.first_name} ${m.last_name}`,
-    value: m.id,
-    icon: m.avatar ? (
-      <img src={m.avatar} alt="" className="h-5 w-5 rounded-full object-cover" />
-    ) : (
-      <div className="h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center text-[10px] text-white">
-        {m.first_name?.charAt(0)}
-      </div>
-    )
-  }));
+  const memberOptions: SelectOption[] = members.map(entry => {
+    const m = entry.user ?? entry;
+    return {
+      label: `${m.first_name} ${m.last_name}`,
+      value: m.id,
+      icon: m.avatar ? (
+        <img src={m.avatar} alt="" className="h-5 w-5 rounded-full object-cover" />
+      ) : (
+        <div className="h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center text-[10px] text-white">
+          {m.first_name?.charAt(0)}
+        </div>
+      )
+    };
+  });
 
   return (
     <Modal

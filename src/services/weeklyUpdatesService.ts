@@ -40,7 +40,10 @@ export function useCreateWeeklyUpdate(projectId: string | null | undefined) {
         body: JSON.stringify(data),
       });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.WEEKLY_UPDATES.LIST(projectId || '') }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.WEEKLY_UPDATES.LIST(projectId || '') });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.COMMUNICATION_TIMELINE.GET(projectId || '') });
+    },
   });
 }
 
@@ -51,6 +54,9 @@ export function useDeleteWeeklyUpdate(projectId: string | null | undefined) {
       if (!projectId) throw new Error('No projectId');
       return apiRequest<any>(API_ENDPOINTS.WEEKLY_UPDATES.DELETE(projectId, updateId), { method: 'DELETE' });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.WEEKLY_UPDATES.LIST(projectId || '') }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.WEEKLY_UPDATES.LIST(projectId || '') });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.COMMUNICATION_TIMELINE.GET(projectId || '') });
+    },
   });
 }
