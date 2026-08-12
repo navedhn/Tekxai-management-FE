@@ -45,6 +45,7 @@ export interface ProjectMember {
   email: string;
   avatar: string | null;
   role?: ProjectMemberRole;
+  allocation_percent?: number;
 }
 
 export interface ProjectDto {
@@ -57,7 +58,7 @@ export interface ProjectDto {
   leader_id?: string;
   /** @deprecated use `members` — kept for backward compatibility with the backend's legacy param */
   member_ids?: string[];
-  members?: { user_id: string; role: ProjectMemberRole }[];
+  members?: { user_id: string; role: ProjectMemberRole; allocation_percent?: number }[];
   client_name?: string;
   dev_status?: string;
   status?: string;
