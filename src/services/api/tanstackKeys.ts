@@ -44,6 +44,7 @@ export const QUERY_KEYS = {
     DETAIL:    (id: string | number) => ['project', 'detail', id],
     SAVED:     ['project', 'saved'],
     DASHBOARD: ['project', 'dashboard'],
+    RESOURCES: (id: string | number) => ['project', id, 'resources'],
   },
   MILESTONE: {
     LIST: (projectId: string) => ['project', projectId, 'milestones'],

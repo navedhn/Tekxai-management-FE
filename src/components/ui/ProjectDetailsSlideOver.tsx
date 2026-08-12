@@ -16,6 +16,7 @@ import BudgetPanel from './BudgetPanel';
 import ExtensionRequestsPanel from './ExtensionRequestsPanel';
 import ProjectKanbanPanel from './ProjectKanbanPanel';
 import DependenciesPanel from './DependenciesPanel';
+import ResourceAllocationPanel from './ResourceAllocationPanel';
 import ActionModal from './ActionModal';
 import StatusDropdown from './StatusDropdown';
 import { useGetProjectDetails, useUpdateProjectMutation } from '@/services/projectService';
@@ -665,7 +666,9 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                     }, {});
                     const roles = ROLE_ORDER.filter((r) => grouped[r]?.length);
                     return (
-                      <div className="flex flex-col gap-4 w-full">
+                      <div className="flex flex-col gap-8 w-full">
+                        {projectId && <ResourceAllocationPanel projectId={projectId} />}
+                        <div className="flex flex-col gap-4 w-full">
                         <h3 className="text-lg font-black text-gray-900 tracking-tight">Team by Role</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           {roles.map((role) => (
@@ -680,6 +683,7 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                               </div>
                             </div>
                           ))}
+                        </div>
                         </div>
                       </div>
                     );

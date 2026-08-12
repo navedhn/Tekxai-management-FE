@@ -18,6 +18,7 @@ interface TeamMember {
   name: string;
   avatar: string;
   role?: ProjectMemberRole;
+  allocation_percent?: number;
 }
 
 interface CreateProjectSlideOverProps {
@@ -53,7 +54,12 @@ const AvatarChip: React.FC<{ member: TeamMember; onRemove: () => void }> = ({ me
 
 // Team member row with a functional-role select — reuses the existing
 // project_members.role column (previously always "MEMBER", never surfaced).
-const MemberRoleRow: React.FC<{ member: TeamMember; onRoleChange: (role: ProjectMemberRole) => void; onRemove: () => void }> = ({ member, onRoleChange, onRemove }) => (
+const MemberRoleRow: React.FC<{
+  member: TeamMember;
+  onRoleChange: (role: ProjectMemberRole) => void;
+  onAllocationChange: (allocation_percent: number) => void;
+  onRemove: () => void;
+}> = ({ member, onRoleChange, onAllocationChange, onRemove }) => (
   <motion.div
     layout
     initial={{ opacity: 0, scale: 0.85 }}
@@ -75,6 +81,20 @@ const MemberRoleRow: React.FC<{ member: TeamMember; onRoleChange: (role: Project
       containerClassName="w-auto"
       className="h-auto text-[12px] font-semibold text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-2 py-1 shadow-none"
     />
+    <div className="flex items-center gap-0.5" title="Allocation on this project">
+      <input
+        type="number"
+        min={0}
+        max={100}
+        value={member.allocation_percent ?? 100}
+        onChange={(e) => {
+          const v = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+          onAllocationChange(v);
+        }}
+        className="w-11 h-auto text-[12px] font-semibold text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-1.5 py-1 text-center"
+      />
+      <span className="text-[11px] font-bold text-gray-400">%</span>
+    </div>
     <IconButton
       icon={X}
       variant="ghost"
@@ -229,6 +249,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
         name: `${m.first_name} ${m.last_name}`.trim(),
         avatar: m.avatar || '',
         role: m.role || 'MEMBER',
+        allocation_percent: m.allocation_percent ?? 100,
       })));
       // Owner/Team Leader: normalize_project() already includes the full
       // `owner`/`team_leader` objects (id/first_name/last_name/avatar), so
@@ -301,7 +322,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       // it's a foreign key and an empty string fails the DB constraint, silently
       // rolling back the whole project creation.
       leader_id: teamLeaders[0]?.id || undefined,
-      members: teamMembers.map(m => ({ user_id: m.id, role: m.role || 'MEMBER' })),
+      members: teamMembers.map(m => ({ user_id: m.id, role: m.role || 'MEMBER', allocation_percent: m.allocation_percent ?? 100 })),
     };
 
     try {
@@ -539,12 +560,13 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
                           key={m.id}
                           member={m}
                           onRoleChange={(role) => setTeamMembers(prev => prev.map(p => p.id === m.id ? { ...p, role } : p))}
+                          onAllocationChange={(allocation_percent) => setTeamMembers(prev => prev.map(p => p.id === m.id ? { ...p, allocation_percent } : p))}
                           onRemove={() => setTeamMembers(prev => prev.filter(p => p.id !== m.id))}
                         />
                       ))}
                     </AnimatePresence>
                     <UserSelectDropdown
-                      onSelect={(u) => setTeamMembers(prev => [...prev, { ...u, role: 'MEMBER' }])}
+                      onSelect={(u) => setTeamMembers(prev => [...prev, { ...u, role: 'MEMBER', allocation_percent: 100 }])}
                       excludeIds={teamMembers.map(p => p.id)}
                       placeholder="Add member"
                     />
