@@ -17,6 +17,7 @@ import ExtensionRequestsPanel from './ExtensionRequestsPanel';
 import ProjectKanbanPanel from './ProjectKanbanPanel';
 import DependenciesPanel from './DependenciesPanel';
 import ResourceAllocationPanel from './ResourceAllocationPanel';
+import ProjectCalendarPanel from './ProjectCalendarPanel';
 import ActionModal from './ActionModal';
 import StatusDropdown from './StatusDropdown';
 import { useGetProjectDetails, useUpdateProjectMutation } from '@/services/projectService';
@@ -35,13 +36,14 @@ interface SlideOverProps {
 }
 
 type WorkspaceTab =
-  | 'overview' | 'tasks' | 'milestones' | 'files' | 'activity'
+  | 'overview' | 'tasks' | 'milestones' | 'calendar' | 'files' | 'activity'
   | 'communication' | 'infrastructure' | 'dependencies' | 'team' | 'financial' | 'settings';
 
 const WORKSPACE_TABS: { id: WorkspaceTab; label: string; icon: React.ElementType }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'tasks', label: 'Tasks', icon: KanbanSquare },
   { id: 'milestones', label: 'Milestones', icon: ListChecks },
+  { id: 'calendar', label: 'Calendar', icon: CalendarIcon },
   { id: 'files', label: 'Files', icon: FileText },
   { id: 'activity', label: 'Activity', icon: ActivityIcon },
   { id: 'communication', label: 'Client Communication', icon: MessagesSquare },
@@ -600,6 +602,17 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                   {/* Tasks tab — salvaged Kanban board */}
                   {activeTab === 'tasks' && projectId && (
                     <ProjectKanbanPanel projectId={projectId} />
+                  )}
+
+                  {/* Calendar tab — derived view over existing milestones/tasks/
+                      project end_date, no new backend endpoint or table */}
+                  {activeTab === 'calendar' && projectId && (
+                    <ProjectCalendarPanel
+                      projectId={projectId}
+                      projectEndDate={project?.end_date}
+                      onOpenMilestone={() => setActiveTab('milestones')}
+                      onOpenTask={() => setActiveTab('tasks')}
+                    />
                   )}
 
                   {/* Files tab */}
