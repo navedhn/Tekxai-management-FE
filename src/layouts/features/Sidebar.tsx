@@ -139,30 +139,38 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
   const { data: myPerms } = useMyPermissions();
   const chatUnreadCount = useChatUnreadCount();
 
-  // Employee-only flat nav (no modules) stays exactly as it was — the
-  // 15-module IA below is specific to the admin/HR sidebar.
+  // Employee workspace flat nav (no modules) — shown whenever the current
+  // route is under /employee, regardless of role. Used to be gated on
+  // "lacks erp.workspace.access", which meant Marketing (who has always
+  // held that permission for /admin/crm access) fell through to the
+  // admin-style moduleGroups sidebar below even while sitting on /employee —
+  // the wrong nav for the layout actually rendering. Keying off the route
+  // instead of the permission means every role that reaches /employee
+  // (EMPLOYEE, MARKETING, HR, DIVISION_MANAGER, TEAM_LEAD) sees the same
+  // workspace-appropriate nav there, and the moduleGroups nav stays
+  // exclusive to /admin.
   const employeeLinks: SidebarLink[] | null = useMemo(() => {
-    const isAdmin = ERP_ROLES.includes(role as any);
-    const hasErpAccess = isAdmin || myPerms?.permissions?.includes('erp.workspace.access');
-    const isHrRole = role === USER_ROLES.HR;
+    if (!location.pathname.startsWith('/employee')) return null;
 
-    if (!hasErpAccess && !isHrRole) {
-      return [
-        { to: '/employee',             label: 'Home',            icon: <Home size={18} strokeWidth={SW} />,          end: true },
-        { to: '/employee/projects',    label: 'Projects',        icon: <FolderCheck size={18} strokeWidth={SW} /> },
-        { to: '/employee/starred',     label: 'Starred Queries', icon: <Star size={18} strokeWidth={SW} /> },
-        { to: '/employee/timesheet',   label: 'Timesheet',       icon: <Clock size={18} strokeWidth={SW} /> },
-        { to: '/employee/tickets',     label: 'Support Tickets', icon: <Ticket size={18} strokeWidth={SW} /> },
-        { to: '/employee/documents',   label: 'My Documents',    icon: <FileText size={18} strokeWidth={SW} /> },
-        { to: '/employee/requisitions',label: 'Requisitions',    icon: <Package size={18} strokeWidth={SW} /> },
-        { to: '/employee/daily-report',label: 'Daily Report',    icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
-        { to: '/chat',                 label: 'Messages',        icon: <MessageSquare size={18} strokeWidth={SW} />, badge: chatUnreadCount },
-        { to: '/employee/download-app',label: 'Desktop App',     icon: <Monitor size={18} strokeWidth={SW} /> },
-        { to: '/employee/settings',    label: 'Settings',        icon: <Settings size={18} strokeWidth={SW} /> },
-      ];
-    }
-    return null;
-  }, [role, myPerms, chatUnreadCount]);
+    // Projects mirrors router.tsx's nested guard on /employee/projects:
+    // EMPLOYEE always has it; everyone else needs erp.projects.view
+    // (Division Manager/Team Lead have it, Marketing/HR don't).
+    const canSeeProjects = role === USER_ROLES.EMPLOYEE || !!myPerms?.permissions?.includes('erp.projects.view');
+
+    return [
+      { to: '/employee',             label: 'Home',            icon: <Home size={18} strokeWidth={SW} />,          end: true },
+      ...(canSeeProjects ? [{ to: '/employee/projects', label: 'Projects', icon: <FolderCheck size={18} strokeWidth={SW} /> }] : []),
+      { to: '/employee/starred',     label: 'Starred Queries', icon: <Star size={18} strokeWidth={SW} /> },
+      { to: '/employee/timesheet',   label: 'Timesheet',       icon: <Clock size={18} strokeWidth={SW} /> },
+      { to: '/employee/tickets',     label: 'Support Tickets', icon: <Ticket size={18} strokeWidth={SW} /> },
+      { to: '/employee/documents',   label: 'My Documents',    icon: <FileText size={18} strokeWidth={SW} /> },
+      { to: '/employee/requisitions',label: 'Requisitions',    icon: <Package size={18} strokeWidth={SW} /> },
+      { to: '/employee/daily-report',label: 'Daily Report',    icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
+      { to: '/chat',                 label: 'Messages',        icon: <MessageSquare size={18} strokeWidth={SW} />, badge: chatUnreadCount },
+      { to: '/employee/download-app',label: 'Desktop App',     icon: <Monitor size={18} strokeWidth={SW} /> },
+      { to: '/employee/settings',    label: 'Settings',        icon: <Settings size={18} strokeWidth={SW} /> },
+    ];
+  }, [role, myPerms, chatUnreadCount, location.pathname]);
 
   const moduleGroups: ModuleGroup[] = useMemo(() => {
     const isAdmin = ERP_ROLES.includes(role as any);
