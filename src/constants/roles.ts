@@ -39,7 +39,10 @@ export const getRoleHomePath = (role: string | null | undefined): string => {
   if (role === USER_ROLES.SUPER_ADMIN) return '/admin';
   if (role === USER_ROLES.ADMIN) return '/admin';
   if (role === USER_ROLES.HR) return '/admin';
-  if (role === USER_ROLES.MARKETING) return '/admin';
+  // Marketing lands in the Employee workspace, not /admin — they use the
+  // same day-to-day tools (timesheet, tickets, documents) as an EMPLOYEE,
+  // just without Projects (see /employee/projects' route guard).
+  if (role === USER_ROLES.MARKETING) return '/employee';
   if (role === USER_ROLES.DIVISION_MANAGER || role === USER_ROLES.TEAM_LEAD) return '/admin';
   if (role === USER_ROLES.EMPLOYEE || role === USER_ROLES.EMPLLOYEE) return '/employee';
   return '/login';
