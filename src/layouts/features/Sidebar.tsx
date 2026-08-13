@@ -54,7 +54,14 @@ type ModuleName = typeof MODULE_ORDER[number];
 //                erpOnlyItems, hidden from plain HR-role users)
 // 'executive'  — is_super_admin or erp.executive-analytics.view permission
 // 'superadmin' — role === SUPER_ADMIN literally
-type Tier = 'all' | 'admin' | 'executive' | 'superadmin';
+type Tier = 'all' | 'erpOps' | 'admin' | 'executive' | 'superadmin';
+
+// Mirrors router.tsx's erpOpsRoles: the HR/ops-heavy modules (Workforce,
+// Recruitment, Attendance, Performance, Payroll, Assets, Procurement,
+// Contracts, Policies, Monitoring) are for roles that actually manage that
+// data — not Marketing, which only needs erp.workspace.access to reach
+// /admin/crm and /admin/my-salaries.
+const ERP_OPS_ROLES = [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.HR, USER_ROLES.DIVISION_MANAGER, USER_ROLES.TEAM_LEAD];
 interface ModuleLink extends Omit<SidebarLink, 'section'> {
   module: ModuleName;
   tier: Tier;
@@ -171,36 +178,36 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Dashboard', tier: 'executive', to: '/admin/executive-dashboard', label: 'Executive Dashboard', icon: <Gauge size={18} strokeWidth={SW} /> },
 
       // ── Workforce ──────────────────────────────────────────────────────
-      { module: 'Workforce', tier: 'all', to: '/admin/employee-directory', label: 'Employee Directory', icon: <UserSearch size={18} strokeWidth={SW} /> },
-      { module: 'Workforce', tier: 'all', to: '/admin/add-employee', label: 'Add Employee', icon: <PlusCircle size={18} strokeWidth={SW} /> },
-      { module: 'Workforce', tier: 'all', to: '/admin/business-units', label: 'Business Units', icon: <Landmark size={18} strokeWidth={SW} /> },
-      { module: 'Workforce', tier: 'all', to: '/admin/departments', label: 'Departments', icon: <Building2 size={18} strokeWidth={SW} /> },
-      { module: 'Workforce', tier: 'all', to: '/admin/divisions', label: 'Divisions', icon: <Layers size={18} strokeWidth={SW} /> },
+      { module: 'Workforce', tier: 'erpOps', to: '/admin/employee-directory', label: 'Employee Directory', icon: <UserSearch size={18} strokeWidth={SW} /> },
+      { module: 'Workforce', tier: 'erpOps', to: '/admin/add-employee', label: 'Add Employee', icon: <PlusCircle size={18} strokeWidth={SW} /> },
+      { module: 'Workforce', tier: 'erpOps', to: '/admin/business-units', label: 'Business Units', icon: <Landmark size={18} strokeWidth={SW} /> },
+      { module: 'Workforce', tier: 'erpOps', to: '/admin/departments', label: 'Departments', icon: <Building2 size={18} strokeWidth={SW} /> },
+      { module: 'Workforce', tier: 'erpOps', to: '/admin/divisions', label: 'Divisions', icon: <Layers size={18} strokeWidth={SW} /> },
       { module: 'Workforce', tier: 'admin', to: '/admin/team', label: 'Teams', icon: <Users2 size={18} strokeWidth={SW} /> },
-      { module: 'Workforce', tier: 'all', to: '/admin/designations', label: 'Designations', icon: <Tag size={18} strokeWidth={SW} /> },
-      { module: 'Workforce', tier: 'all', to: '/admin/grades', label: 'Grades', icon: <TrendingUp size={18} strokeWidth={SW} /> },
-      { module: 'Workforce', tier: 'all', to: '/admin/org-chart', label: 'Org Chart', icon: <Network size={18} strokeWidth={SW} /> },
-      { module: 'Workforce', tier: 'all', to: '/admin/job-descriptions', label: 'Job Descriptions', icon: <Briefcase size={18} strokeWidth={SW} /> },
-      { module: 'Workforce', tier: 'all', to: '/admin/hr-reports', label: 'HR Reports', icon: <BarChart3 size={18} strokeWidth={SW} /> },
+      { module: 'Workforce', tier: 'erpOps', to: '/admin/designations', label: 'Designations', icon: <Tag size={18} strokeWidth={SW} /> },
+      { module: 'Workforce', tier: 'erpOps', to: '/admin/grades', label: 'Grades', icon: <TrendingUp size={18} strokeWidth={SW} /> },
+      { module: 'Workforce', tier: 'erpOps', to: '/admin/org-chart', label: 'Org Chart', icon: <Network size={18} strokeWidth={SW} /> },
+      { module: 'Workforce', tier: 'erpOps', to: '/admin/job-descriptions', label: 'Job Descriptions', icon: <Briefcase size={18} strokeWidth={SW} /> },
+      { module: 'Workforce', tier: 'erpOps', to: '/admin/hr-reports', label: 'HR Reports', icon: <BarChart3 size={18} strokeWidth={SW} /> },
 
       // ── Recruitment ────────────────────────────────────────────────────
-      { module: 'Recruitment', tier: 'all', to: '/admin/job-requisitions', label: 'Job Requisitions', icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
-      { module: 'Recruitment', tier: 'all', to: '/admin/onboarding', label: 'Hiring & Onboarding', icon: <UserPlus size={18} strokeWidth={SW} /> },
-      { module: 'Recruitment', tier: 'all', to: '/admin/offboarding', label: 'Offboarding', icon: <UserMinus size={18} strokeWidth={SW} /> },
+      { module: 'Recruitment', tier: 'erpOps', to: '/admin/job-requisitions', label: 'Job Requisitions', icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
+      { module: 'Recruitment', tier: 'erpOps', to: '/admin/onboarding', label: 'Hiring & Onboarding', icon: <UserPlus size={18} strokeWidth={SW} /> },
+      { module: 'Recruitment', tier: 'erpOps', to: '/admin/offboarding', label: 'Offboarding', icon: <UserMinus size={18} strokeWidth={SW} /> },
 
       // ── Attendance ─────────────────────────────────────────────────────
-      { module: 'Attendance', tier: 'all', to: '/admin/attendance', label: 'Attendance', icon: <Clock size={18} strokeWidth={SW} /> },
-      { module: 'Attendance', tier: 'all', to: '/admin/overtime', label: 'Overtime', icon: <AlarmClock size={18} strokeWidth={SW} /> },
-      { module: 'Attendance', tier: 'all', to: '/admin/employee-timesheets', label: 'Employee Timesheets', icon: <Clock size={18} strokeWidth={SW} /> },
+      { module: 'Attendance', tier: 'erpOps', to: '/admin/attendance', label: 'Attendance', icon: <Clock size={18} strokeWidth={SW} /> },
+      { module: 'Attendance', tier: 'erpOps', to: '/admin/overtime', label: 'Overtime', icon: <AlarmClock size={18} strokeWidth={SW} /> },
+      { module: 'Attendance', tier: 'erpOps', to: '/admin/employee-timesheets', label: 'Employee Timesheets', icon: <Clock size={18} strokeWidth={SW} /> },
       { module: 'Attendance', tier: 'admin', to: '/admin/manager-review', label: 'Manager Review', icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
       { module: 'Attendance', tier: 'admin', to: '/admin/compliance-violations', label: 'Compliance Violations', icon: <AlarmClock size={18} strokeWidth={SW} /> },
 
       // ── Performance ────────────────────────────────────────────────────
-      { module: 'Performance', tier: 'all', to: '/admin/performance', label: 'Performance', icon: <TrendingUp size={18} strokeWidth={SW} /> },
-      { module: 'Performance', tier: 'all', to: '/admin/performance-scoring', label: 'Performance Scoring', icon: <TrendingUp size={18} strokeWidth={SW} /> },
+      { module: 'Performance', tier: 'erpOps', to: '/admin/performance', label: 'Performance', icon: <TrendingUp size={18} strokeWidth={SW} /> },
+      { module: 'Performance', tier: 'erpOps', to: '/admin/performance-scoring', label: 'Performance Scoring', icon: <TrendingUp size={18} strokeWidth={SW} /> },
 
       // ── Payroll ────────────────────────────────────────────────────────
-      { module: 'Payroll', tier: 'all', to: '/admin/increments', label: 'Increments', icon: <TrendingUp size={18} strokeWidth={SW} /> },
+      { module: 'Payroll', tier: 'erpOps', to: '/admin/increments', label: 'Increments', icon: <TrendingUp size={18} strokeWidth={SW} /> },
       { module: 'Payroll', tier: 'admin', to: '/admin/payroll', label: 'Payroll', icon: <Banknote size={18} strokeWidth={SW} /> },
 
       // ── Finance ────────────────────────────────────────────────────────
@@ -208,18 +215,18 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Finance', tier: 'superadmin', to: '/admin/finance/financial-reports', label: 'Financial Reports', icon: <BarChart3 size={18} strokeWidth={SW} /> },
 
       // ── Assets ─────────────────────────────────────────────────────────
-      { module: 'Assets', tier: 'all', to: '/admin/assets', label: 'Assets', icon: <Package size={18} strokeWidth={SW} /> },
+      { module: 'Assets', tier: 'erpOps', to: '/admin/assets', label: 'Assets', icon: <Package size={18} strokeWidth={SW} /> },
 
       // ── Procurement ────────────────────────────────────────────────────
-      { module: 'Procurement', tier: 'all', to: '/admin/requisitions', label: 'Requisitions', icon: <Package size={18} strokeWidth={SW} /> },
+      { module: 'Procurement', tier: 'erpOps', to: '/admin/requisitions', label: 'Requisitions', icon: <Package size={18} strokeWidth={SW} /> },
 
       // ── Contracts ──────────────────────────────────────────────────────
-      { module: 'Contracts', tier: 'all', to: '/admin/contracts', label: 'Contracts', icon: <FileText size={18} strokeWidth={SW} /> },
-      { module: 'Contracts', tier: 'all', to: '/admin/documents', label: 'HR Documents', icon: <FileText size={18} strokeWidth={SW} /> },
-      { module: 'Contracts', tier: 'all', to: '/admin/document-templates', label: 'Document Templates', icon: <Layers size={18} strokeWidth={SW} /> },
+      { module: 'Contracts', tier: 'erpOps', to: '/admin/contracts', label: 'Contracts', icon: <FileText size={18} strokeWidth={SW} /> },
+      { module: 'Contracts', tier: 'erpOps', to: '/admin/documents', label: 'HR Documents', icon: <FileText size={18} strokeWidth={SW} /> },
+      { module: 'Contracts', tier: 'erpOps', to: '/admin/document-templates', label: 'Document Templates', icon: <Layers size={18} strokeWidth={SW} /> },
 
       // ── Policies ───────────────────────────────────────────────────────
-      { module: 'Policies', tier: 'all', to: '/admin/policies', label: 'Policies', icon: <ShieldCheck size={18} strokeWidth={SW} /> },
+      { module: 'Policies', tier: 'erpOps', to: '/admin/policies', label: 'Policies', icon: <ShieldCheck size={18} strokeWidth={SW} /> },
 
       // ── Ticketing ──────────────────────────────────────────────────────
       { module: 'Ticketing', tier: 'admin', to: '/admin/tickets', label: 'Support Tickets', icon: <Ticket size={18} strokeWidth={SW} /> },
@@ -228,8 +235,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Ticketing', tier: 'admin', to: '/admin/approvals', label: 'Approvals', icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
 
       // ── Monitoring ─────────────────────────────────────────────────────
-      { module: 'Monitoring', tier: 'all', to: '/admin/monitoring', label: 'Monitoring', icon: <Monitor size={18} strokeWidth={SW} /> },
-      { module: 'Monitoring', tier: 'all', to: '/admin/download-app', label: 'Desktop App', icon: <Monitor size={18} strokeWidth={SW} /> },
+      { module: 'Monitoring', tier: 'erpOps', to: '/admin/monitoring', label: 'Monitoring', icon: <Monitor size={18} strokeWidth={SW} /> },
+      { module: 'Monitoring', tier: 'erpOps', to: '/admin/download-app', label: 'Desktop App', icon: <Monitor size={18} strokeWidth={SW} /> },
 
       // ── My Workspace ───────────────────────────────────────────────────
       { module: 'My Workspace', tier: 'all', to: '/admin/timesheet', label: 'Timesheet', icon: <Clock size={18} strokeWidth={SW} /> },
@@ -256,7 +263,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Projects', tier: 'admin', to: '/admin/starred', label: 'Starred', icon: <Star size={18} strokeWidth={SW} /> },
     ];
 
-    const tierVisible: Record<Tier, boolean> = { all: true, admin: isAdmin, executive: isExecutive, superadmin: isSuperAdmin };
+    const isErpOps = ERP_OPS_ROLES.includes(role as any);
+    const tierVisible: Record<Tier, boolean> = { all: true, erpOps: isErpOps, admin: isAdmin, executive: isExecutive, superadmin: isSuperAdmin };
     const visible = allItems.filter((item) => tierVisible[item.tier]);
 
     // Group by module in MODULE_ORDER, not array-concatenation order, so a

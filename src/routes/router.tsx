@@ -136,6 +136,14 @@ const ChatPage               = lazy(() => import('@/pages/chat'));
 const adminRoles = [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN] as any[];
 const hrRoles    = [USER_ROLES.HR, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN] as any[];
 const allRoles   = Object.values(USER_ROLES) as any[];
+// The HR/ops-heavy bulk of /admin/* (employee records, departments,
+// requisitions, attendance, payroll, etc) — everyone who legitimately
+// manages that data. Deliberately excludes MARKETING: Marketing holds
+// erp.workspace.access only to reach /admin/crm and /admin/my-salaries
+// (see permission-keys.js's MARKETING comment), and until this list existed
+// every /admin/* sub-page lacked its own guard, so that one permission was
+// silently enough to reach this entire HR/ops surface too.
+const erpOpsRoles = [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.HR, USER_ROLES.DIVISION_MANAGER, USER_ROLES.TEAM_LEAD] as any[];
 
 const routes: RouteObject[] = [
   // ── Public ──────────────────────────────────────────────────────────────────
@@ -172,16 +180,28 @@ const routes: RouteObject[] = [
         element: <ProtectedRoute roles={hrRoles} permission="erp.workspace.access" />,
         children: [
           { path: '/admin',                      element: <AdminDashboard /> },
+          // Neutral/personal pages plus the two CRM-adjacent ones Marketing
+          // is specifically meant to reach — stay directly under the outer
+          // erp.workspace.access gate.
+          { path: '/admin/settings',             element: <AdminSettings /> },
+          { path: '/admin/notifications',        element: <SharedNotifications /> },
+          { path: '/admin/profile/:memberId?',   element: <ProfilePage /> },
+          { path: '/admin/download-app',          element: <DownloadApp /> },
+          { path: '/admin/crm',                 element: <AdminCRM /> },
+          { path: '/admin/my-salaries',           element: <MarketingMySalaries /> },
+          {
+            // Everything else under /admin — HR records, projects, ops,
+            // payroll, tickets, etc — is for the roles that actually manage
+            // that data, not Marketing. See erpOpsRoles' comment.
+            element: <ProtectedRoute roles={erpOpsRoles} />,
+            children: [
           { path: '/admin/projects',             element: <AdminProjects /> },
           { path: '/admin/project-tracking',     element: <AdminProjectTracking /> },
           { path: '/admin/project-timeline',     element: <AdminProjectTimeline /> },
           { path: '/admin/timesheet',            element: <AdminTimesheet /> },
           { path: '/admin/starred',              element: <AdminSaved /> },
           { path: '/admin/team',                 element: <AdminTeam /> },
-          { path: '/admin/settings',             element: <AdminSettings /> },
           { path: '/admin/users',                element: <AdminUsers /> },
-          { path: '/admin/notifications',        element: <SharedNotifications /> },
-          { path: '/admin/profile/:memberId?',   element: <ProfilePage /> },
           { path: '/admin/monitoring',           element: <AdminMonitoring /> },
           { path: '/admin/reports',              element: <AdminReports /> },
           { path: '/admin/project-report',       element: <AdminProjectReport /> },
@@ -201,9 +221,7 @@ const routes: RouteObject[] = [
           { path: '/admin/attendance',          element: <AdminAttendance /> },
           { path: '/admin/employee-timesheets', element: <AdminEmployeeTimesheets /> },
           { path: '/admin/job-descriptions',    element: <AdminJobDescriptions /> },
-          { path: '/admin/crm',                 element: <AdminCRM /> },
           { path: '/admin/contracts',           element: <AdminContracts /> },
-          { path: '/admin/reports',             element: <AdminReports /> },
           { path: '/admin/onboarding',          element: <AdminOnboarding /> },
           { path: '/admin/job-requisitions',    element: <AdminJobRequisitions /> },
           { path: '/admin/offboarding',         element: <AdminOffboarding /> },
@@ -234,13 +252,13 @@ const routes: RouteObject[] = [
           { path: '/admin/documents',             element: <AdminHrDocuments /> },
           { path: '/admin/documents/:id',         element: <AdminHrDocumentDetail /> },
           { path: '/admin/document-templates',    element: <AdminHrDocumentTemplates /> },
-          { path: '/admin/my-salaries',           element: <MarketingMySalaries /> },
           { path: '/admin/employee-directory',    element: <EmployeeDirectory /> },
           { path: '/admin/add-employee/:employeeId?', element: <AddEmployee /> },
           { path: '/admin/hr-reports',            element: <HRReports /> },
           { path: '/admin/overtime',              element: <OvertimePage /> },
           { path: '/admin/increments',            element: <IncrementsPage /> },
-          { path: '/admin/download-app',          element: <DownloadApp /> },
+            ],
+          },
           {
             element: <ProtectedRoute roles={adminRoles} permission="erp.executive-analytics.view" />,
             children: [
