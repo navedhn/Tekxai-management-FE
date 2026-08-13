@@ -312,10 +312,29 @@ const routes: RouteObject[] = [
     element: <EmployeeLayout />,
     children: [
       {
-        element: <ProtectedRoute roles={[USER_ROLES.EMPLOYEE]} />,
+        // Permission-based, not role-based: erp.employee_workspace.access is
+        // granted to every role legitimately using this workspace (EMPLOYEE,
+        // MARKETING, HR, DIVISION_MANAGER, TEAM_LEAD) — see DEFAULT_ROLE_PERMISSIONS
+        // in be-work's permission-keys.js. roles= is kept as a belt-and-suspenders
+        // fast path (ProtectedRoute checks role match before permission), not the
+        // source of truth.
+        element: (
+          <ProtectedRoute
+            roles={[USER_ROLES.EMPLOYEE, USER_ROLES.MARKETING, USER_ROLES.HR, USER_ROLES.DIVISION_MANAGER, USER_ROLES.TEAM_LEAD]}
+            permission="erp.employee_workspace.access"
+          />
+        ),
         children: [
           { path: '/employee',                     element: <EmployeeDashboard /> },
-          { path: '/employee/projects',            element: <EmployeeProjects /> },
+          {
+            // Projects is intentionally excluded from Marketing (and HR, which
+            // also lacks erp.projects.view) — only roles/permissions that
+            // already grant project visibility elsewhere in the app reach this.
+            element: <ProtectedRoute roles={[USER_ROLES.EMPLOYEE]} permission="erp.projects.view" />,
+            children: [
+              { path: '/employee/projects', element: <EmployeeProjects /> },
+            ],
+          },
           { path: '/employee/starred',             element: <StarredQueries /> },
           { path: '/employee/timesheet',           element: <EmployeeTimesheet /> },
           { path: '/employee/tickets',             element: <EmployeeTickets /> },
