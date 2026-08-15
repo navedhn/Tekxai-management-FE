@@ -97,6 +97,7 @@ const EmailLogsPage          = lazy(() => import('@/pages/admin/email-logs'));
 const PayrollPage            = lazy(() => import('@/pages/admin/payroll'));
 const WebhooksPage           = lazy(() => import('@/pages/admin/webhooks'));
 const ReportBuilderPage      = lazy(() => import('@/pages/admin/report-builder'));
+const ReportsAnalyticsPage   = lazy(() => import('@/pages/admin/reports-analytics'));
 const ExecutiveDashboardPage = lazy(() => import('@/pages/admin/executive-dashboard'));
 
 // const MarketingWonDeals      = lazy(() => import('@/pages/marketing/won-deals'));
@@ -279,6 +280,7 @@ const routes: RouteObject[] = [
               { path: '/admin/financial-reports',   element: <Navigate to="/admin/finance/financial-reports" replace /> },
               { path: '/admin/email-logs',          element: <EmailLogsPage /> },
               { path: '/admin/system-settings',     element: <SystemSettings /> },
+              { path: '/admin/reports-analytics',   element: <ReportsAnalyticsPage /> },
             ],
           },
         ],
