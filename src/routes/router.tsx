@@ -144,7 +144,7 @@ const allRoles   = Object.values(USER_ROLES) as any[];
 // (see permission-keys.js's MARKETING comment), and until this list existed
 // every /admin/* sub-page lacked its own guard, so that one permission was
 // silently enough to reach this entire HR/ops surface too.
-const erpOpsRoles = [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.HR, USER_ROLES.DIVISION_MANAGER, USER_ROLES.TEAM_LEAD] as any[];
+const erpOpsRoles = [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.HR, USER_ROLES.DIVISION_MANAGER, USER_ROLES.TEAM_LEAD, USER_ROLES.HR_ASSOCIATE, USER_ROLES.HR_MANAGER, USER_ROLES.HEAD_OF_HR] as any[];
 
 const routes: RouteObject[] = [
   // ── Public ──────────────────────────────────────────────────────────────────

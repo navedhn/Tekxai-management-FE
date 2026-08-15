@@ -17,6 +17,13 @@ export const USER_ROLES = {
   // getRoleHomePath() straight to /login. Production readiness audit finding H4.
   DIVISION_MANAGER: 'DIVISION_MANAGER',
   TEAM_LEAD: 'TEAM_LEAD',
+  // HR access-role tiers (approved HR RBAC matrix) — additive alongside HR,
+  // same H4-pattern fix as DIVISION_MANAGER/TEAM_LEAD above: must be listed
+  // here or these roles are denied by every ProtectedRoute and fall through
+  // getRoleHomePath() straight to /login.
+  HR_ASSOCIATE: 'HR_ASSOCIATE',
+  HR_MANAGER: 'HR_MANAGER',
+  HEAD_OF_HR: 'HEAD_OF_HR',
 } as const;
 
 export type UserRole = (typeof USER_ROLES)[keyof typeof USER_ROLES];
@@ -29,6 +36,9 @@ export const ADMIN_ROLES: UserRole[] = [
   USER_ROLES.MARKETING,
   USER_ROLES.DIVISION_MANAGER,
   USER_ROLES.TEAM_LEAD,
+  USER_ROLES.HR_ASSOCIATE,
+  USER_ROLES.HR_MANAGER,
+  USER_ROLES.HEAD_OF_HR,
 ];
 
 export const isUserRole = (value: string | null | undefined): value is UserRole =>
@@ -44,6 +54,10 @@ export const getRoleHomePath = (role: string | null | undefined): string => {
   // just without Projects (see /employee/projects' route guard).
   if (role === USER_ROLES.MARKETING) return '/employee';
   if (role === USER_ROLES.DIVISION_MANAGER || role === USER_ROLES.TEAM_LEAD) return '/admin';
+  // HR access-role tiers land in the same ERP/Admin workspace as HR itself —
+  // they're viewing the same employees/attendance/payroll modules, just
+  // with different permission grants once inside.
+  if (role === USER_ROLES.HR_ASSOCIATE || role === USER_ROLES.HR_MANAGER || role === USER_ROLES.HEAD_OF_HR) return '/admin';
   if (role === USER_ROLES.EMPLOYEE || role === USER_ROLES.EMPLLOYEE) return '/employee';
   return '/login';
 };
