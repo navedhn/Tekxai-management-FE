@@ -6,7 +6,11 @@ export type ValidationError = string | undefined;
 
 export const validateEmail = (value: string | undefined): ValidationError => {
   if (!value) return 'Email is required';
-  const emailRegex = /^[^\s@]+@[a-zA-Z][a-zA-Z0-9-]*\.[a-zA-Z]{2,}$/;
+  // Domain must allow multiple labels (e.g. constructestimates.com.au,
+  // company.co.uk) — a single-dot-only pattern here previously rejected
+  // every multi-level-TLD email as "invalid" despite the address being
+  // real and deliverable.
+  const emailRegex = /^[^\s@]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;
   if (!emailRegex.test(value)) return 'Please enter a valid email address';
   return undefined;
 };
