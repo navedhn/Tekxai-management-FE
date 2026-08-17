@@ -147,8 +147,8 @@ export default function SystemSettings() {
             <Timer size={18} className="text-amber-600" />
           </div>
           <div>
-            <h2 className="font-bold text-gray-900">Idle &amp; Shift-End Auto-Checkout</h2>
-            <p className="text-xs text-gray-400">Automatically manage forgotten check-outs based on desktop agent activity and assigned shift times</p>
+            <h2 className="font-bold text-gray-900">Idle Break &amp; Shift-End Automation</h2>
+            <p className="text-xs text-gray-400">Automatically places inactive employees on break based on desktop activity and handles forgotten check-outs after assigned shift end.</p>
           </div>
         </div>
 
@@ -167,7 +167,7 @@ export default function SystemSettings() {
               ))}
             </select>
             <p className="text-xs text-gray-400 mt-1">
-              If the desktop agent reports no activity for this duration, the open session is marked <strong>On Break</strong> (not closed) — it resumes automatically once activity is seen again.
+              If the desktop agent reports no activity for this duration, the open session is marked <strong>On Break</strong> (not closed and not checked out). The employee must explicitly click <strong>Resume Work</strong> to continue — it does not resume on its own just because activity is seen again.
             </p>
           </div>
           <div>
@@ -238,7 +238,7 @@ export default function SystemSettings() {
             >
               {YES_NO.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
-            <p className="text-xs text-gray-400 mt-1">If Yes, the desktop app blocks Check Out until the Daily Report is submitted (employees can still choose "Skip and submit later").</p>
+            <p className="text-xs text-gray-400 mt-1">If Yes, the desktop app blocks Check Out until the Daily Report is submitted. This is enforced by the server — there is no "Skip Now" or bypass option.</p>
           </div>
           <div>
             <label className="text-xs font-bold text-gray-500 mb-1.5 block">Missing Report Creates Violation</label>
