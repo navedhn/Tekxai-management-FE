@@ -19,7 +19,7 @@ import {
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useGetShiftsQuery, useGetViolationsQuery, useUpsertShiftMutation, useAssignShiftMutation, useDeleteShiftMutation, useGetNoCheckinsQuery, useMarkAbsenteesMutation, exportNoCheckinPdf } from '@/services/attendanceService';
-import { useFetchUsersQuery } from '@/services/userService';
+import { useGetEmployeeDirectory } from '@/services/employeeService';
 import { useGetTeamsQuery } from '@/services/adminService';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
 import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
@@ -203,13 +203,20 @@ const AttendancePage: React.FC = () => {
   // the tab happens to have selected.
   const { data: lateTodayData } = useGetViolationsQuery({ violation_type: 'LATE', ...getTodayRange() });
   const { data: shifts = [], isLoading: sLoading } = useGetShiftsQuery();
-  // Same pagination-default issue as the Monitoring dropdown (see
-  // monitoring/index.tsx): GET /user defaults to page=1/limit=20 ordered by
-  // created_at desc, so an unbounded call here only ever returns the 20
-  // newest employees — the Assign Shift "Single Employee" picker (which does
-  // local-only filtering, no server-side search) silently lost the rest of
-  // the company to whatever was created most recently.
-  const { data: users = [] } = useFetchUsersQuery({ limit: 1000 });
+  // GET /user (erp.users.view) is unscoped — no department restriction at
+  // all — and 403s for HR_ASSOCIATE/HR_MANAGER/HEAD_OF_HR (they hold
+  // hr.employees.view, not erp.users.view), so it can't be used here: either
+  // every HR tier sees nothing, or scoped HR roles would see the whole
+  // company. GET /employee (hr.employees.view) is the correct source — it
+  // already carries the real department scoping built for the Employee
+  // Directory (SUPER_ADMIN/ADMIN/HR/HEAD_OF_HR unscoped, HR_ASSOCIATE/
+  // HR_MANAGER restricted to their own department), so every consumer of
+  // `users` below (Assign Shift picker, Violations filter, Reports employee
+  // lookup) automatically gets the same scoping without reimplementing it.
+  // limit is capped at 100 server-side (see employees.routes.js) — plenty
+  // for the ~70-person roster this was built against.
+  const { data: employeeDirectory } = useGetEmployeeDirectory({ limit: 100 });
+  const users = employeeDirectory?.records || [];
   const { data: teamsData } = useGetTeamsQuery();
   const teams = (teamsData as any)?.payload?.records || [];
   const { data: departmentsData } = useGetDepartmentsQuery();
