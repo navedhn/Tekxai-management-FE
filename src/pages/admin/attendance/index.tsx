@@ -203,7 +203,13 @@ const AttendancePage: React.FC = () => {
   // the tab happens to have selected.
   const { data: lateTodayData } = useGetViolationsQuery({ violation_type: 'LATE', ...getTodayRange() });
   const { data: shifts = [], isLoading: sLoading } = useGetShiftsQuery();
-  const { data: users = [] } = useFetchUsersQuery({});
+  // Same pagination-default issue as the Monitoring dropdown (see
+  // monitoring/index.tsx): GET /user defaults to page=1/limit=20 ordered by
+  // created_at desc, so an unbounded call here only ever returns the 20
+  // newest employees — the Assign Shift "Single Employee" picker (which does
+  // local-only filtering, no server-side search) silently lost the rest of
+  // the company to whatever was created most recently.
+  const { data: users = [] } = useFetchUsersQuery({ limit: 1000 });
   const { data: teamsData } = useGetTeamsQuery();
   const teams = (teamsData as any)?.payload?.records || [];
   const { data: departmentsData } = useGetDepartmentsQuery();
