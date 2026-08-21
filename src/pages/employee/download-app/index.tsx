@@ -168,11 +168,6 @@ export default function DownloadApp() {
                     <Download size={14} />
                     Download ({p.ext})
                   </a>
-                  {p.checksum && (
-                    <p className="text-[10px] text-gray-400 text-center font-mono leading-tight break-all">
-                      SHA256: {p.checksum.slice(0, 16)}…
-                    </p>
-                  )}
                   {p.altUrl && (
                     <a
                       href={p.altUrl}
