@@ -4,6 +4,7 @@ import { Settings, Camera, Clock, Save, HardDrive, Timer, ClipboardList } from '
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import ReportingEmailSettings from './ReportingEmailSettings';
 
 const INTERVAL_OPTIONS = [
   { value: '1',  label: 'Every 1 minute' },
@@ -263,6 +264,11 @@ export default function SystemSettings() {
           </div>
         </div>
       </div>
+
+      {/* Reporting Email — per-Business-Unit, independently loaded/saved from
+          the generic key-value form above (structured data: per-BU toggle +
+          an open-ended recipient list, not a single scalar setting). */}
+      <ReportingEmailSettings />
 
       {/* S3 credentials notice */}
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">

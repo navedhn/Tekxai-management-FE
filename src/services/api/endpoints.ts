@@ -98,6 +98,10 @@ export const API_ENDPOINTS = {
     // strips role_id unconditionally on the backend.
     ROLE_CHANGE: (id: string | number) => `${v1}/user/${id}/role`,
     EMPLOYEE_ID_PREVIEW: (departmentId: string | number) => `${v1}/user/employee-id/preview?department_id=${departmentId}`,
+    // Dedicated correction endpoint — the only one allowed to change an
+    // already-assigned Employee ID. Deliberately separate from UPDATE
+    // (generic profile PUT), which strips employee_id unconditionally.
+    EMPLOYEE_ID_CHANGE: (id: string | number) => `${v1}/user/${id}/employee-id`,
     // E2E DM encryption — see fe-work/src/lib/e2eCrypto.ts. Opaque public-key
     // storage only, no server-side crypto.
     MY_PUBLIC_KEY:   `${v1}/user/me/public-key`,
@@ -180,6 +184,8 @@ export const API_ENDPOINTS = {
     PASSWORD:      `${v1}/settings/password`,
     SYSTEM:        `${v1}/settings/system`,
     SYSTEM_PUBLIC: `${v1}/settings/system/public`,
+    BUSINESS_UNIT_REPORT_EMAIL:      `${v1}/settings/business-unit-report-email`,
+    BUSINESS_UNIT_REPORT_EMAIL_ITEM: (businessUnitId: string) => `${v1}/settings/business-unit-report-email/${businessUnitId}`,
   },
   STARRED: {
     QUERIES:    `${v1}/starred/queries`,
