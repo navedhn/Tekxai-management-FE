@@ -171,6 +171,20 @@ export const useChangeUserRoleMutation = () => {
   });
 };
 
+// Deliberately separate from useUpdateUserMutation (generic profile PUT),
+// which the backend now strips employee_id from unconditionally — see
+// EMPLOYEE_ID_CHANGE's own comment.
+export const useUpdateEmployeeIdMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, employee_id }: { id: string | number; employee_id: string }) =>
+      apiRequest(API_ENDPOINTS.USER.EMPLOYEE_ID_CHANGE(id), { method: 'PATCH', body: JSON.stringify({ employee_id }) }),
+    onSuccess: (_data, variables) => {
+      invalidateUserAndDependents(queryClient, String(variables.id));
+    },
+  });
+};
+
 export const useDeleteUserMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({

@@ -4,10 +4,11 @@ import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Button } from '@/components/ui/Button';
-import { useCreateUserMutation, useUpdateUserMutation, useChangeUserRoleMutation } from '@/services/userService';
+import { useCreateUserMutation, useUpdateUserMutation, useChangeUserRoleMutation, useUpdateEmployeeIdMutation } from '@/services/userService';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetRolesQuery } from '@/services/roleService';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
+import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
 import { useDepartmentScopedTeams } from '@/services/adminService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { apiRequest } from '@/lib/queryClient';
@@ -23,7 +24,13 @@ export interface QuickEditUser {
   email: string;
   employee_id?: string | null;
   designation_id?: string | null;
-  department?: { id: string } | null;
+  // Business Unit Reporting Email Configuration — the employee's own direct
+  // business_unit_id (real FK to business_units), independent of
+  // department.business_unit's derived value below (kept for the fallback
+  // in toFormState — an employee's department implies a BU even before
+  // they have their own explicit assignment).
+  business_unit_id?: string | null;
+  department?: { id: string; business_unit?: { id: string } | null } | null;
   // Single-team-per-user shape — same as employees.routes.js's directory
   // list response and users.repository.js's normalize_user (see be-work).
   team?: { id: string; name: string } | null;
@@ -38,7 +45,7 @@ interface QuickCreateUserModalProps {
   editUser?: QuickEditUser | null;
 }
 
-const EMPTY_FORM = { first_name: '', last_name: '', email: '', password: '', designation_id: '', department_id: '', team_id: '', role_id: '', hire_date: '' };
+const EMPTY_FORM = { first_name: '', last_name: '', email: '', password: '', employee_id: '', designation_id: '', business_unit_id: '', department_id: '', team_id: '', role_id: '', hire_date: '' };
 
 function toFormState(u: QuickEditUser) {
   return {
@@ -46,7 +53,13 @@ function toFormState(u: QuickEditUser) {
     last_name: u.last_name || '',
     email: u.email || '',
     password: '',
+    employee_id: u.employee_id || '',
     designation_id: u.designation_id || '',
+    // Business Unit Reporting Email Configuration — real FK, prefers the
+    // employee's own direct assignment; falls back to the department's BU
+    // (the pre-existing derived value) only if the employee has none of
+    // their own yet, so an already-linked employee's dropdown isn't blank.
+    business_unit_id: u.business_unit_id || u.department?.business_unit?.id || '',
     department_id: u.department?.id || '',
     team_id: u.team?.id || '',
     role_id: u.role_id || '',
@@ -74,9 +87,11 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
   const createUser = useCreateUserMutation();
   const updateUser = useUpdateUserMutation();
   const changeRole = useChangeUserRoleMutation();
+  const changeEmployeeId = useUpdateEmployeeIdMutation();
   const { data: designations = [] } = useGetDesignationsQuery();
   const { data: roles = [] } = useGetRolesQuery();
   const { data: departments = [] } = useGetDepartmentsQuery();
+  const { data: businessUnits = [] } = useGetBusinessUnitsQuery();
 
   const isEditMode = !!editUser;
 
@@ -103,7 +118,12 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
 
   const designationOptions = designations.map((d) => ({ value: d.id, label: d.name }));
   const roleOptions = roles.map((r) => ({ value: r.id, label: r.name.replace(/_/g, ' ') }));
-  const departmentOptions = departments.map((d: any) => ({ value: d.id, label: d.name }));
+  const businessUnitOptions = businessUnits.map((bu: any) => ({ value: bu.id, label: bu.name }));
+  // Same filter as the full Add Employee wizard's StepEmployment — Department
+  // is scoped to the selected Business Unit via departments.business_unit_id.
+  const departmentOptions = departments
+    .filter((d: any) => !formData.business_unit_id || (d.business_unit_id || d.business_unit?.id) === formData.business_unit_id)
+    .map((d: any) => ({ value: d.id, label: d.name }));
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -120,6 +140,13 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
   // submitted (e.g. Marketing Department -> Engineering Team).
   const handleDepartmentChange = (val: string | number) => {
     setFormData((prev) => ({ ...prev, department_id: String(val ?? ''), team_id: '' }));
+  };
+
+  // Business Unit -> Department: switching Business Unit clears Department
+  // (and therefore Team) so a stale cross-unit department can't linger —
+  // same rule the Add Employee wizard's StepEmployment applies.
+  const handleBusinessUnitChange = (val: string | number) => {
+    setFormData((prev) => ({ ...prev, business_unit_id: String(val ?? ''), department_id: '', team_id: '' }));
   };
 
   // Safety net for the case above: once the Team list for the (possibly
@@ -144,6 +171,7 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
     else if (formData.password && formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters';
     if (!formData.designation_id) newErrors.designation_id = 'Designation is required';
     if (!formData.role_id) newErrors.role_id = 'Role is required';
+    if (isEditMode && !formData.employee_id.trim()) newErrors.employee_id = 'Employee ID is required';
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
 
@@ -154,6 +182,10 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
         email: formData.email.trim(),
         designation_id: formData.designation_id,
         department_id: formData.department_id || null,
+        // Employee's own direct Business Unit assignment (real FK) — see
+        // toFormState's comment for why it may start out derived from the
+        // department instead of an explicit prior choice.
+        business_unit_id: formData.business_unit_id || null,
         // Always sent (never omitted) in edit mode — team_id === undefined
         // means "leave team membership alone" server-side (see
         // update_existing_user in be-work), but Quick Edit's Team field is a
@@ -163,17 +195,22 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
       };
       if (formData.password) data.password = formData.password;
 
+      const roleChanged = formData.role_id && formData.role_id !== editUser.role_id;
+      const employeeIdChanged = formData.employee_id.trim() && formData.employee_id.trim() !== (editUser.employee_id || '');
+
+      // Employee ID and role both have their own dedicated write paths on
+      // the backend (see EMPLOYEE_ID_CHANGE/ROLE_CHANGE's own comments) —
+      // neither can go through the generic profile PUT below, so each fires
+      // as its own follow-up call only when actually changed.
       updateUser.mutate({ id: editUser.id, data }, {
-        onSuccess: () => {
-          const roleChanged = formData.role_id && formData.role_id !== editUser.role_id;
-          if (roleChanged) {
-            changeRole.mutate({ id: editUser.id, role_id: formData.role_id }, {
-              onSuccess: () => { toast.success('Employee updated successfully'); onClose(); },
-              onError: (err: any) => toast.error(err?.message || 'Profile updated, but role change failed'),
-            });
-          } else {
+        onSuccess: async () => {
+          try {
+            if (roleChanged) await changeRole.mutateAsync({ id: editUser.id, role_id: formData.role_id });
+            if (employeeIdChanged) await changeEmployeeId.mutateAsync({ id: editUser.id, employee_id: formData.employee_id.trim() });
             toast.success('Employee updated successfully');
             onClose();
+          } catch (err: any) {
+            toast.error(err?.message || err?.response?.data?.message || 'Profile updated, but a follow-up change failed');
           }
         },
         onError: (err: any) => toast.error(err?.message || 'Failed to update employee'),
@@ -194,6 +231,7 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
       quick_create: true,
     };
     if (formData.department_id) payload.department_id = formData.department_id;
+    if (formData.business_unit_id) payload.business_unit_id = formData.business_unit_id;
     if (formData.team_id) payload.team_id = formData.team_id;
     if (formData.hire_date) payload.hire_date = formData.hire_date;
 
@@ -228,7 +266,7 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
   };
 
   const modalTitle = isEditMode ? 'Quick Edit' : 'Quick Create User';
-  const isSaving = isEditMode ? (updateUser.isPending || changeRole.isPending) : (createUser.isPending || fetchingEmployeeId);
+  const isSaving = isEditMode ? (updateUser.isPending || changeRole.isPending || changeEmployeeId.isPending) : (createUser.isPending || fetchingEmployeeId);
 
   if (created) {
     return (
@@ -262,13 +300,25 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={modalTitle} size="lg">
       <div className="flex flex-col gap-5 p-2">
-        <Input
-          label="Employee ID"
-          value={isEditMode ? (editUser?.employee_id || 'Not yet assigned') : 'Auto-generated on save'}
-          disabled
-          readOnly
-          className="h-12 rounded-xl bg-gray-50 text-gray-400"
-        />
+        {isEditMode ? (
+          <Input
+            label="Employee ID *"
+            name="employee_id"
+            value={formData.employee_id}
+            onChange={handleChange}
+            error={errors.employee_id}
+            placeholder="Not yet assigned"
+            className="h-12 rounded-xl font-mono"
+          />
+        ) : (
+          <Input
+            label="Employee ID"
+            value="Auto-generated on save"
+            disabled
+            readOnly
+            className="h-12 rounded-xl bg-gray-50 text-gray-400"
+          />
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <Input
@@ -336,6 +386,15 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
             clearable={false}
           />
         </div>
+
+        <SearchableSelect
+          label="Business Unit"
+          options={businessUnitOptions}
+          value={formData.business_unit_id}
+          onChange={(v) => handleBusinessUnitChange(v ?? '')}
+          placeholder="Select Business Unit"
+          className="h-12 !rounded-xl"
+        />
 
         <SearchableSelect
           label="Department"

@@ -924,7 +924,7 @@ export default function AddEmployee() {
       // even though a real department_id is already set. The full-record
       // endpoint returns the department relation (not just department_id), which
       // carries its own business_unit_id.
-      business_unit_id: user?.department?.business_unit_id || '',
+      business_unit_id: user?.department?.business_unit?.id || '',
       department_id: user?.department_id || '',
       team_id: user?.team_memberships?.[0]?.team?.id || '',
       designation: user?.designation || '',

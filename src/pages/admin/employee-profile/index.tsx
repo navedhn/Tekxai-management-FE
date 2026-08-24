@@ -573,7 +573,7 @@ const EmploymentSection: React.FC<{
           <InfoRow label="Designation" value={user.designation_ref?.name || user.designation} />
           <InfoRow label="Grade" value={user.grade?.name} />
           <InfoRow label="Department" value={user.department?.name} />
-          <InfoRow label="Business Unit" value={user.business_unit?.name || user.division?.name} />
+          <InfoRow label="Business Unit" value={user.department?.business_unit?.name || user.division?.name} />
           <InfoRow label="Reporting Manager" value={user.supervisor ? `${user.supervisor.first_name} ${user.supervisor.last_name}` : null} />
         </div>
       )}
