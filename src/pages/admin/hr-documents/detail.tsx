@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, FileText, Download, Send, Ban, Archive, X, RotateCw, PenLine, Check } from 'lucide-react';
 import {
-  useGetDocumentDetail, useGetDocumentPdf, useSendDocument, useViewDocument,
+  useGetDocumentDetail, useGetDocumentPdf, useSendDocument, useResendDocument, useViewDocument,
   useRejectDocument, useCancelDocument, useArchiveDocument, useSignDocument,
   useRenewDocument, useApproveDraftDocument, download_document_docx,
 } from '@/services/hrDocumentsService';
@@ -87,6 +87,7 @@ export default function HrDocumentDetailPage() {
   const { data: doc, isLoading } = useGetDocumentDetail(id);
   const pdfMutation = useGetDocumentPdf();
   const sendMutation = useSendDocument();
+  const resendMutation = useResendDocument();
   const approveDraftMutation = useApproveDraftDocument();
   const viewMutation = useViewDocument();
   const rejectMutation = useRejectDocument();
@@ -172,7 +173,11 @@ export default function HrDocumentDetailPage() {
         <div className="flex-1">
           <h1 className="text-xl font-black text-gray-900">{doc.title}</h1>
           <p className="text-xs text-gray-400 mt-0.5">
-            {doc.user ? [doc.user.first_name, doc.user.last_name].filter(Boolean).join(' ') : '—'} · {doc.category?.name} · {doc.type?.name}
+            {doc.user
+              ? [doc.user.first_name, doc.user.last_name].filter(Boolean).join(' ')
+              : doc.candidate
+                ? `${[doc.candidate.first_name, doc.candidate.last_name].filter(Boolean).join(' ')} (Candidate)`
+                : '—'} · {doc.category?.name} · {doc.type?.name}
             {doc.template_version && <> · {doc.template?.name || 'Template'} (v{doc.template_version.version})</>}
           </p>
         </div>
@@ -201,7 +206,13 @@ export default function HrDocumentDetailPage() {
 
           {isHr && doc.status === 'GENERATED' && (
             <button onClick={() => runAction(sendMutation, 'Sent')} className="flex items-center gap-2 px-3.5 h-9 bg-primary-600 text-white rounded-xl text-xs font-semibold hover:bg-primary-700">
-              <Send size={14} />Send to Employee
+              <Send size={14} />{doc.candidate_id ? 'Send Signing Link' : 'Send to Employee'}
+            </button>
+          )}
+
+          {isHr && doc.candidate_id && ['SENT', 'VIEWED'].includes(doc.status) && (
+            <button onClick={() => runAction(resendMutation, 'Signing link resent')} className="flex items-center gap-2 px-3.5 h-9 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-50">
+              <RotateCw size={14} />Resend Link
             </button>
           )}
 

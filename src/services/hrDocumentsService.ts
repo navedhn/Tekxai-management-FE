@@ -67,7 +67,9 @@ export interface DocumentSignature {
 
 export interface HrDocument {
   id: string;
-  user_id: string;
+  user_id?: string | null;
+  candidate_id?: string | null;
+  candidate?: { id: string; first_name: string; last_name: string; email: string } | null;
   category_id: string;
   type_id: string;
   template_id?: string | null;
@@ -297,7 +299,7 @@ export const useGenerateDocument = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: {
-      user_id: string; category_id: string; type_id: string;
+      user_id?: string; candidate_id?: string; category_id: string; type_id: string;
       template_id?: string; raw_content?: string; title?: string;
       valid_from?: string; valid_until?: string;
     }) => apiRequest<any>(API_ENDPOINTS.HR_DOCUMENTS.GENERATE, { method: 'POST', body: JSON.stringify(data) }),
@@ -326,6 +328,8 @@ function make_status_mutation(endpoint: (id: string) => string) {
 }
 
 export const useSendDocument = make_status_mutation(API_ENDPOINTS.HR_DOCUMENTS.SEND);
+// Candidate-addressed documents only — regenerates & re-sends the signing link.
+export const useResendDocument = make_status_mutation(API_ENDPOINTS.HR_DOCUMENTS.RESEND);
 export const useApproveDraftDocument = make_status_mutation(API_ENDPOINTS.HR_DOCUMENTS.APPROVE_DRAFT);
 export const useViewDocument = make_status_mutation(API_ENDPOINTS.HR_DOCUMENTS.VIEW);
 export const useRejectDocument = make_status_mutation(API_ENDPOINTS.HR_DOCUMENTS.REJECT);
