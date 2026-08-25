@@ -6,7 +6,7 @@ import {
   MessageSquare, FileText, Package, CalendarDays, Table2, Layers, Video, Gauge,
   Building2, TrendingUp, UserPlus, ShieldCheck, Briefcase, Heart, AlarmClock,
   UserSearch, PlusCircle, Tag, Network, Landmark, ChevronDown, ChevronRight,
-  Bell as BellIcon, UserMinus,
+  Bell as BellIcon, UserMinus, ListChecks,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
@@ -164,6 +164,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { to: '/employee/timesheet',   label: 'Timesheet',       icon: <Clock size={18} strokeWidth={SW} /> },
       { to: '/employee/tickets',     label: 'Support Tickets', icon: <Ticket size={18} strokeWidth={SW} /> },
       { to: '/employee/documents',   label: 'My Documents',    icon: <FileText size={18} strokeWidth={SW} /> },
+      { to: '/employee/onboarding',  label: 'My Onboarding',   icon: <ListChecks size={18} strokeWidth={SW} /> },
       { to: '/employee/requisitions',label: 'Requisitions',    icon: <Package size={18} strokeWidth={SW} /> },
       { to: '/employee/daily-report',label: 'Daily Report',    icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
       { to: '/chat',                 label: 'Messages',        icon: <MessageSquare size={18} strokeWidth={SW} />, badge: chatUnreadCount },

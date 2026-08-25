@@ -126,6 +126,7 @@ const EmployeeTickets        = lazy(() => import('@/pages/employee/tickets'));
 const StarredQueries         = lazy(() => import('@/pages/employee/starred'));
 const DailyReport            = lazy(() => import('@/pages/employee/daily-report'));
 const EmployeeDocuments      = lazy(() => import('@/pages/employee/documents'));
+const EmployeeOnboarding     = lazy(() => import('@/pages/employee/onboarding'));
 const DownloadApp            = lazy(() => import('@/pages/employee/download-app'));
 
 // Shared
@@ -364,6 +365,7 @@ const routes: RouteObject[] = [
           { path: '/employee/settings',            element: <EmployeeSettings /> },
           { path: '/employee/daily-report',        element: <DailyReport /> },
           { path: '/employee/documents',           element: <EmployeeDocuments /> },
+          { path: '/employee/onboarding',          element: <EmployeeOnboarding /> },
           { path: '/employee/documents/:id',       element: <AdminHrDocumentDetail /> },
           { path: '/employee/download-app',        element: <DownloadApp /> },
           { path: '/employee/requisitions',        element: <AdminRequisitions /> },
