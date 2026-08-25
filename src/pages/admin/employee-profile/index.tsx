@@ -25,7 +25,10 @@ import {
 } from '@/services/hrService';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetGradesQuery } from '@/services/gradeService';
-import { useSetLifecycleStageMutation } from '@/services/userService';
+import {
+  useSetLifecycleStageMutation, useMoveToProbationMutation, useEnterNoticePeriodMutation,
+  useMoveToExitClearanceMutation, useArchiveEmployeeMutation,
+} from '@/services/userService';
 import { useGetMyAttendanceSummary } from '@/services/attendanceService';
 import { useGetUserLeaveBalances } from '@/services/leaveBalanceService';
 import { useGetPerformanceScoreByEmployee } from '@/services/performanceScoringService';
@@ -1148,6 +1151,10 @@ const EmployeeProfilePage: React.FC = () => {
 
   const { data: record, isLoading } = useGetEmployeeFullRecord(employeeId);
   const setLifecycleStage = useSetLifecycleStageMutation();
+  const moveToProbation = useMoveToProbationMutation();
+  const enterNoticePeriod = useEnterNoticePeriodMutation();
+  const moveToExitClearance = useMoveToExitClearanceMutation();
+  const archiveEmployee = useArchiveEmployeeMutation();
   const { data: docs = [] } = useGetEmployeeDocs(employeeId);
   const { data: docTypes = [] } = useGetDocTypes();
   const upsertProfile = useUpsertHRProfile(employeeId!);
@@ -1203,6 +1210,41 @@ const EmployeeProfilePage: React.FC = () => {
       onError: (e: any) => toast.error(e?.message || 'Failed to save'),
     });
   };
+
+  // Sensitive stages must go through their gated, safety-checked transition
+  // endpoint (checklist/asset/approval requirements enforced server-side)
+  // rather than the direct-override set-stage endpoint. Only lateral moves
+  // with no dedicated gated endpoint (ONBOARDING <-> ACTIVE_EMPLOYMENT) fall
+  // through to set-stage here.
+  const SENSITIVE_STAGE_MUTATIONS: Record<string, { mutate: (opts: { onSuccess: () => void; onError: (e: any) => void }) => void }> = {
+    PROBATION: { mutate: (opts) => moveToProbation.mutate(employeeId!, opts) },
+    NOTICE_PERIOD: { mutate: (opts) => enterNoticePeriod.mutate({ userId: employeeId! }, opts) },
+    EXIT_CLEARANCE: { mutate: (opts) => moveToExitClearance.mutate(employeeId!, opts) },
+    ARCHIVED: { mutate: (opts) => archiveEmployee.mutate(employeeId!, opts) },
+  };
+
+  const handleLifecycleStageChange = (value: string | number) => {
+    const stage = String(value);
+    const onSuccess = () => { toast.success('Lifecycle stage updated'); setEditingLifecycle(false); };
+    const onError = (e: any) => {
+      // Surface the gated endpoint's 409 rejection reason (e.g. outstanding
+      // assets / incomplete checklist) instead of a generic failure.
+      toast.error(e?.message || (e?.status === 409 ? 'Transition blocked — requirements not met' : 'Failed to update lifecycle stage'));
+    };
+
+    const sensitive = SENSITIVE_STAGE_MUTATIONS[stage];
+    if (sensitive) {
+      sensitive.mutate({ onSuccess, onError });
+      return;
+    }
+
+    // No gated endpoint for this stage (e.g. ONBOARDING <-> ACTIVE_EMPLOYMENT
+    // lateral moves) — fall back to the admin override.
+    setLifecycleStage.mutate({ user_ids: [employeeId!], lifecycle_stage: stage }, { onSuccess, onError });
+  };
+
+  const isLifecycleStagePending = setLifecycleStage.isPending || moveToProbation.isPending
+    || enterNoticePeriod.isPending || moveToExitClearance.isPending || archiveEmployee.isPending;
 
   const handleAddDoc = () => {
     if (!newDoc.title) { toast.error('Title is required'); return; }
@@ -1358,15 +1400,8 @@ const EmployeeProfilePage: React.FC = () => {
                 <SearchableSelect
                   options={Object.entries(LIFECYCLE_LABELS).map(([value, label]) => ({ value, label }))}
                   value={profile.lifecycle_stage}
-                  onChange={(value) => {
-                    setLifecycleStage.mutate(
-                      { user_ids: [employeeId!], lifecycle_stage: String(value) },
-                      {
-                        onSuccess: () => { toast.success('Lifecycle stage updated'); setEditingLifecycle(false); },
-                        onError: (e: any) => toast.error(e?.message || 'Failed to update lifecycle stage'),
-                      }
-                    );
-                  }}
+                  onChange={handleLifecycleStageChange}
+                  disabled={isLifecycleStagePending}
                   className="min-w-[160px]"
                 />
               ) : (

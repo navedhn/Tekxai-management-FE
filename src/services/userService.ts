@@ -224,3 +224,96 @@ export const useSetLifecycleStageMutation = () => {
     },
   });
 };
+
+// Gated single-employee lifecycle transitions. Each is safety-checked
+// server-side (e.g. archive rejects with 409 if the offboarding checklist /
+// outstanding assets / approvals aren't cleared). These are what the normal
+// employee-profile / offboarding UI should call for sensitive transitions —
+// useSetLifecycleStageMutation above is reserved for the explicit bulk
+// admin-override flow.
+export const useMoveToProbationMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) =>
+      apiRequest(API_ENDPOINTS.EMPLOYEE_LIFECYCLE.MOVE_TO_PROBATION(userId), { method: 'POST' }),
+    onSuccess: (_data, userId) => invalidateUserAndDependents(queryClient, String(userId)),
+  });
+};
+
+export const useEnterNoticePeriodMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, notice_period_days }: { userId: string; notice_period_days?: number }) =>
+      apiRequest(API_ENDPOINTS.EMPLOYEE_LIFECYCLE.ENTER_NOTICE_PERIOD(userId), {
+        method: 'POST',
+        body: JSON.stringify(notice_period_days ? { notice_period_days } : {}),
+      }),
+    onSuccess: (_data, variables) => invalidateUserAndDependents(queryClient, String(variables.userId)),
+  });
+};
+
+export const useMoveToExitClearanceMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) =>
+      apiRequest(API_ENDPOINTS.EMPLOYEE_LIFECYCLE.MOVE_TO_EXIT_CLEARANCE(userId), { method: 'POST' }),
+    onSuccess: (_data, userId) => invalidateUserAndDependents(queryClient, String(userId)),
+  });
+};
+
+export const useArchiveEmployeeMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) =>
+      apiRequest(API_ENDPOINTS.EMPLOYEE_LIFECYCLE.ARCHIVE(userId), { method: 'POST' }),
+    onSuccess: (_data, userId) => invalidateUserAndDependents(queryClient, String(userId)),
+  });
+};
+
+export const useRequestConfirmEmployeeMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, reason }: { userId: string; reason?: string }) =>
+      apiRequest(API_ENDPOINTS.EMPLOYEE_LIFECYCLE.REQUEST_CONFIRM_EMPLOYEE(userId), {
+        method: 'POST',
+        body: JSON.stringify(reason ? { reason } : {}),
+      }),
+    onSuccess: (_data, variables) => invalidateUserAndDependents(queryClient, String(variables.userId)),
+  });
+};
+
+export const useRequestExtendProbationMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, reason, new_probation_end }: { userId: string; reason?: string; new_probation_end: string }) =>
+      apiRequest(API_ENDPOINTS.EMPLOYEE_LIFECYCLE.REQUEST_EXTEND_PROBATION(userId), {
+        method: 'POST',
+        body: JSON.stringify({ reason, new_probation_end }),
+      }),
+    onSuccess: (_data, variables) => invalidateUserAndDependents(queryClient, String(variables.userId)),
+  });
+};
+
+export const useRequestTerminateProbationMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, reason }: { userId: string; reason?: string }) =>
+      apiRequest(API_ENDPOINTS.EMPLOYEE_LIFECYCLE.REQUEST_TERMINATE_PROBATION(userId), {
+        method: 'POST',
+        body: JSON.stringify(reason ? { reason } : {}),
+      }),
+    onSuccess: (_data, variables) => invalidateUserAndDependents(queryClient, String(variables.userId)),
+  });
+};
+
+export const useRequestArchiveMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, reason }: { userId: string; reason?: string }) =>
+      apiRequest(API_ENDPOINTS.EMPLOYEE_LIFECYCLE.REQUEST_ARCHIVE(userId), {
+        method: 'POST',
+        body: JSON.stringify(reason ? { reason } : {}),
+      }),
+    onSuccess: (_data, variables) => invalidateUserAndDependents(queryClient, String(variables.userId)),
+  });
+};

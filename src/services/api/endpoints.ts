@@ -108,7 +108,20 @@ export const API_ENDPOINTS = {
     PUBLIC_KEY:      (id: string | number) => `${v1}/user/${id}/public-key`,
   },
   EMPLOYEE_LIFECYCLE: {
+    // Deliberately-unsafe bulk override — bypasses safety checks by design.
+    // Reserved for the explicit "Bulk Override" admin flow. The normal
+    // single-employee UI must use the gated transition endpoints below.
     SET_STAGE: `${v1}/employee-lifecycle/set-stage`,
+    // Gated single-employee transitions — instant, safety-checked.
+    MOVE_TO_PROBATION:     (userId: string | number) => `${v1}/employee-lifecycle/${userId}/move-to-probation`,
+    ENTER_NOTICE_PERIOD:   (userId: string | number) => `${v1}/employee-lifecycle/${userId}/enter-notice-period`,
+    MOVE_TO_EXIT_CLEARANCE:(userId: string | number) => `${v1}/employee-lifecycle/${userId}/move-to-exit-clearance`,
+    ARCHIVE:               (userId: string | number) => `${v1}/employee-lifecycle/${userId}/archive`,
+    // Gated single-employee transitions — create a pending approval request.
+    REQUEST_CONFIRM_EMPLOYEE:    (userId: string | number) => `${v1}/employee-lifecycle/${userId}/request-confirm-employee`,
+    REQUEST_EXTEND_PROBATION:    (userId: string | number) => `${v1}/employee-lifecycle/${userId}/request-extend-probation`,
+    REQUEST_TERMINATE_PROBATION: (userId: string | number) => `${v1}/employee-lifecycle/${userId}/request-terminate-probation`,
+    REQUEST_ARCHIVE:              (userId: string | number) => `${v1}/employee-lifecycle/${userId}/request-archive`,
   },
   PROJECT: {
     LIST:      `${v1}/project`,
