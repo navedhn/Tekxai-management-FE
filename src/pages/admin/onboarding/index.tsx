@@ -10,7 +10,7 @@ import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import {
   useGetCandidates, useCreateCandidate, useCreateOffer, useSendOffer, useAcceptOffer,
-  useGetOnboardingTasks, useCreateOnboardingTask, useCompleteOnboardingTask,
+  useGetOnboardingTasks, useCreateOnboardingTask, useCompleteOnboardingTask, useGetOnboardingReadiness,
 } from '@/services/onboardingService';
 import { useCreateInterview } from '@/services/interviewsService';
 
@@ -256,6 +256,7 @@ function ScheduleInterviewModal({ candidateId, candidateName, onClose }: { candi
 function OnboardingTasksModal({ userId, userName, onClose }: { userId: string; userName: string; onClose: () => void }) {
   const toast = useToastContext();
   const { data: tasks = [], isLoading } = useGetOnboardingTasks(userId);
+  const { data: readiness } = useGetOnboardingReadiness(userId);
   const createTask = useCreateOnboardingTask(userId);
   const completeTask = useCompleteOnboardingTask(userId);
   const [newTitle, setNewTitle] = useState('');
@@ -270,10 +271,20 @@ function OnboardingTasksModal({ userId, userName, onClose }: { userId: string; u
   };
 
   const doneCount = tasks.filter((t: any) => t.is_completed).length;
+  const blockingIds = new Set((readiness?.blocking || []).map((b: any) => b.id));
 
   return (
     <Modal isOpen onClose={onClose} title={`Onboarding Tasks — ${userName}`}>
       <div className="flex flex-col gap-4 mt-4">
+        {readiness && (
+          <div className={cn(
+            'rounded-xl border px-3 py-2.5 text-xs font-bold flex items-center justify-between',
+            readiness.ready ? 'bg-green-50 border-green-100 text-green-600' : 'bg-yellow-50 border-yellow-100 text-yellow-700',
+          )}>
+            <span>{readiness.ready ? 'Onboarding complete — ready to move to Probation' : 'Onboarding in progress'}</span>
+            <span>{readiness.required_complete}/{readiness.required_total} required{readiness.optional_total ? ` · ${readiness.optional_complete}/${readiness.optional_total} optional` : ''}</span>
+          </div>
+        )}
         <p className="text-xs text-gray-400 font-semibold">{doneCount} / {tasks.length} tasks done</p>
         {isLoading ? (
           <p className="text-sm text-gray-400 text-center py-6">Loading…</p>
@@ -281,23 +292,31 @@ function OnboardingTasksModal({ userId, userName, onClose }: { userId: string; u
           <p className="text-sm text-gray-400 text-center py-6">No onboarding tasks yet. Add one below.</p>
         ) : (
           <div className="flex flex-col gap-2 max-h-72 overflow-y-auto">
-            {tasks.map((t: any) => (
-              <label key={t.id} className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-xl border text-sm',
-                t.is_completed ? 'bg-gray-50 border-gray-100 text-gray-400 line-through' : 'border-gray-200 text-gray-700',
-              )}>
-                <input
-                  type="checkbox"
-                  checked={!!t.is_completed}
-                  disabled={t.is_completed || completeTask.isPending}
-                  onChange={async () => {
-                    try { await completeTask.mutateAsync(t.id); } catch { toast.error('Failed to complete task'); }
-                  }}
-                  className="h-4 w-4 rounded accent-primary-600"
-                />
-                <span className="flex-1">{t.title}</span>
-              </label>
-            ))}
+            {tasks.map((t: any) => {
+              const derived = t.task_type === 'DOCUMENT' || t.task_type === 'ASSET';
+              const computedComplete = derived ? !blockingIds.has(t.id) && !!readiness : !!t.is_completed;
+              return (
+                <label key={t.id} className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-xl border text-sm',
+                  computedComplete ? 'bg-gray-50 border-gray-100 text-gray-400 line-through' : 'border-gray-200 text-gray-700',
+                )}>
+                  <input
+                    type="checkbox"
+                    checked={computedComplete}
+                    disabled={derived || t.is_completed || completeTask.isPending}
+                    onChange={async () => {
+                      try { await completeTask.mutateAsync(t.id); } catch { toast.error('Failed to complete task'); }
+                    }}
+                    className="h-4 w-4 rounded accent-primary-600"
+                  />
+                  <span className="flex-1">
+                    {t.title}
+                    {!t.is_required && <span className="ml-2 text-[10px] font-black uppercase text-gray-300">Optional</span>}
+                    {derived && <span className="ml-2 text-[10px] font-black uppercase text-primary-400">{t.task_type === 'DOCUMENT' ? 'Auto: e-signature' : 'Auto: asset assignment'}</span>}
+                  </span>
+                </label>
+              );
+            })}
           </div>
         )}
         <form onSubmit={handleAdd} className="flex gap-2 pt-2 border-t border-gray-100">
