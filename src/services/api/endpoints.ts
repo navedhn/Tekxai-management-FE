@@ -633,8 +633,16 @@ export const API_ENDPOINTS = {
 
     SIGN:             (id: string) => `${v1}/hr-documents/${id}/sign`,
 
+    RESEND:           (id: string) => `${v1}/hr-documents/${id}/resend`,
+
     PDF:              (id: string) => `${v1}/hr-documents/${id}/pdf`,
     DOCX:             (id: string) => `${v1}/hr-documents/${id}/docx`,
+  },
+
+  // Public candidate e-signature signing link — no auth token attached.
+  HR_DOCUMENTS_PUBLIC: {
+    DETAIL: (token: string) => `${v1}/public/hr-documents/${token}`,
+    SIGN:   (token: string) => `${v1}/public/hr-documents/${token}/sign`,
   },
 
   EXECUTIVE_ANALYTICS: {
