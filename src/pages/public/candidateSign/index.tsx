@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { FileText, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useGetPublicDocumentQuery, useSignPublicDocumentMutation } from '@/services/hrDocumentsPublicService';
+import SignaturePad from '@/components/hr-documents/SignaturePad';
+import { cn } from '@/utils/cn';
 
 // Public, unauthenticated candidate signing page — reachable at /sign/:token
 // with no login. Every state (loading / not-found / expired / already
@@ -38,7 +40,9 @@ const CandidateSignPage: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const { data, isLoading, isError } = useGetPublicDocumentQuery(token || '');
   const signMutation = useSignPublicDocumentMutation(token || '');
+  const [mode, setMode] = useState<'type' | 'draw'>('type');
   const [typedName, setTypedName] = useState('');
+  const [drawnSignature, setDrawnSignature] = useState<string | null>(null);
   const [signed, setSigned] = useState(false);
 
   const doc = (data as any)?.payload;
@@ -84,10 +88,13 @@ const CandidateSignPage: React.FC = () => {
     );
   }
 
+  const canSign = mode === 'type' ? !!typedName.trim() : !!drawnSignature;
+
   const handleSign = () => {
-    if (!typedName.trim()) return;
+    const signature_data = mode === 'type' ? typedName.trim() : drawnSignature;
+    if (!signature_data) return;
     signMutation.mutate(
-      { signature_data: typedName.trim() },
+      { signature_data },
       { onSuccess: () => setSigned(true) }
     );
   };
@@ -111,23 +118,55 @@ const CandidateSignPage: React.FC = () => {
           </div>
         </div>
         <div className="p-6 border-t border-gray-100 bg-gray-50/50">
-          <p className="text-xs text-gray-400 mb-3">Type your full name below to apply your signature to this document.</p>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <input
-              autoFocus
-              className="flex-1 h-11 px-3 border border-gray-200 rounded-xl text-sm font-serif italic focus:outline-none focus:border-primary-400 bg-white"
-              placeholder="Your full name"
-              value={typedName}
-              onChange={(e) => setTypedName(e.target.value)}
-            />
+          <div className="flex gap-1 mb-3 bg-gray-100 rounded-xl p-1 max-w-xs">
             <button
-              disabled={!typedName.trim() || signMutation.isPending}
-              onClick={handleSign}
-              className="h-11 px-6 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40 whitespace-nowrap"
+              type="button"
+              onClick={() => setMode('type')}
+              className={cn('flex-1 h-8 rounded-lg text-xs font-semibold', mode === 'type' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500')}
             >
-              {signMutation.isPending ? 'Signing…' : 'Apply Signature'}
+              Type Name
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('draw')}
+              className={cn('flex-1 h-8 rounded-lg text-xs font-semibold', mode === 'draw' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500')}
+            >
+              Draw Signature
             </button>
           </div>
+          {mode === 'type' ? (
+            <>
+              <p className="text-xs text-gray-400 mb-3">Type your full name below to apply your signature to this document.</p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  autoFocus
+                  className="flex-1 h-11 px-3 border border-gray-200 rounded-xl text-sm font-serif italic focus:outline-none focus:border-primary-400 bg-white"
+                  placeholder="Your full name"
+                  value={typedName}
+                  onChange={(e) => setTypedName(e.target.value)}
+                />
+                <button
+                  disabled={!canSign || signMutation.isPending}
+                  onClick={handleSign}
+                  className="h-11 px-6 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40 whitespace-nowrap"
+                >
+                  {signMutation.isPending ? 'Signing…' : 'Apply Signature'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-gray-400 mb-3">Draw your signature below with your mouse or finger.</p>
+              <SignaturePad onChange={setDrawnSignature} />
+              <button
+                disabled={!canSign || signMutation.isPending}
+                onClick={handleSign}
+                className="mt-3 h-11 px-6 w-full sm:w-auto bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40 whitespace-nowrap"
+              >
+                {signMutation.isPending ? 'Signing…' : 'Apply Signature'}
+              </button>
+            </>
+          )}
           {signMutation.isError && (
             <p className="text-xs text-red-500 mt-2 font-medium">
               {(signMutation.error as any)?.message || 'Something went wrong — please try again or contact HR.'}

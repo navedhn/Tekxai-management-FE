@@ -9,6 +9,7 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { cn } from '@/utils/cn';
+import SignaturePad from '@/components/hr-documents/SignaturePad';
 
 const STATUS_STYLE: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-600',
@@ -24,10 +25,13 @@ const STATUS_STYLE: Record<string, string> = {
 
 const HR_ROLES = ['ADMIN', 'SUPER_ADMIN', 'HR', 'DIVISION_MANAGER'];
 
-function SignModal({ role, onClose, onSign, isPending, cnicError }: { role: 'EMPLOYEE' | 'HR'; onClose: () => void; onSign: (typedName: string, cnic: string) => void; isPending: boolean; cnicError?: string | null }) {
+function SignModal({ role, onClose, onSign, isPending, cnicError }: { role: 'EMPLOYEE' | 'HR'; onClose: () => void; onSign: (signatureData: string, cnic: string) => void; isPending: boolean; cnicError?: string | null }) {
+  const [mode, setMode] = useState<'type' | 'draw'>('type');
   const [typedName, setTypedName] = useState('');
+  const [drawnSignature, setDrawnSignature] = useState<string | null>(null);
   const [cnic, setCnic] = useState('');
   const needsCnic = role === 'EMPLOYEE';
+  const canSubmit = mode === 'type' ? !!typedName.trim() : !!drawnSignature;
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
@@ -35,14 +39,39 @@ function SignModal({ role, onClose, onSign, isPending, cnicError }: { role: 'EMP
           <h2 className="text-lg font-black text-gray-900">Sign as {role === 'EMPLOYEE' ? 'Employee' : 'HR'}</h2>
           <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
         </div>
-        <p className="text-xs text-gray-400 mb-3">Type your full name to apply your signature to this document.</p>
-        <input
-          autoFocus
-          className="w-full h-11 px-3 border border-gray-200 rounded-xl text-sm font-serif italic focus:outline-none focus:border-primary-400"
-          placeholder="Your full name"
-          value={typedName}
-          onChange={(e) => setTypedName(e.target.value)}
-        />
+        <div className="flex gap-1 mb-3 bg-gray-100 rounded-xl p-1">
+          <button
+            type="button"
+            onClick={() => setMode('type')}
+            className={cn('flex-1 h-8 rounded-lg text-xs font-semibold', mode === 'type' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500')}
+          >
+            Type Name
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('draw')}
+            className={cn('flex-1 h-8 rounded-lg text-xs font-semibold', mode === 'draw' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500')}
+          >
+            Draw Signature
+          </button>
+        </div>
+        {mode === 'type' ? (
+          <>
+            <p className="text-xs text-gray-400 mb-3">Type your full name to apply your signature to this document.</p>
+            <input
+              autoFocus
+              className="w-full h-11 px-3 border border-gray-200 rounded-xl text-sm font-serif italic focus:outline-none focus:border-primary-400"
+              placeholder="Your full name"
+              value={typedName}
+              onChange={(e) => setTypedName(e.target.value)}
+            />
+          </>
+        ) : (
+          <>
+            <p className="text-xs text-gray-400 mb-3">Draw your signature below with your mouse or finger.</p>
+            <SignaturePad onChange={setDrawnSignature} />
+          </>
+        )}
         {needsCnic && (
           <div className="mt-3">
             <label className="text-xs font-semibold text-gray-500 block mb-1.5">CNIC / National ID</label>
@@ -63,8 +92,8 @@ function SignModal({ role, onClose, onSign, isPending, cnicError }: { role: 'EMP
         <div className="flex gap-3 mt-5">
           <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
           <button
-            disabled={!typedName.trim() || isPending}
-            onClick={() => onSign(typedName.trim(), cnic.trim())}
+            disabled={!canSubmit || isPending}
+            onClick={() => onSign(mode === 'type' ? typedName.trim() : (drawnSignature as string), cnic.trim())}
             className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40"
           >
             {isPending ? 'Signing…' : 'Apply Signature'}
@@ -146,11 +175,11 @@ export default function HrDocumentDetailPage() {
     });
   };
 
-  const handleSign = (typedName: string, cnic: string) => {
+  const handleSign = (signatureData: string, cnic: string) => {
     if (!signAs) return;
     setCnicError(null);
     signMutation.mutate(
-      { id: doc.id, signer_role: signAs, signature_data: typedName, ...(cnic ? { cnic } : {}) },
+      { id: doc.id, signer_role: signAs, signature_data: signatureData, ...(cnic ? { cnic } : {}) },
       {
         onSuccess: () => { toast.success('Signature applied'); setSignAs(null); },
         onError: (e: any) => {
