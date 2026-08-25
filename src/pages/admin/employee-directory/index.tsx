@@ -615,8 +615,9 @@ export default function EmployeeDirectory() {
               leftIcon={RefreshCw}
               onClick={() => setBulkLifecycleOpen(true)}
               className="!px-3 !py-1.5 h-auto !shadow-none text-xs !text-primary-700 !bg-white !border-primary-200 hover:!bg-primary-50"
+              title="Administrative override — bypasses the normal approval-gated transition checks"
             >
-              Change Status
+              Bulk Override
             </Button>
             <Button
               variant="outline"
@@ -647,7 +648,7 @@ export default function EmployeeDirectory() {
         {bulkLifecycleOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-              <h3 className="text-base font-black text-gray-900 mb-2">Set Lifecycle Stage for {selected.size} Employee{selected.size > 1 ? 's' : ''}</h3>
+              <h3 className="text-base font-black text-gray-900 mb-2">Bulk Override: Lifecycle Stage for {selected.size} Employee{selected.size > 1 ? 's' : ''}</h3>
               <p className="text-sm text-gray-500 mb-4">
                 This directly overrides the lifecycle stage for the selected employee{selected.size > 1 ? 's' : ''}, bypassing the normal approval workflow. Use for correcting stuck/incorrect stages, not routine transitions.
               </p>
