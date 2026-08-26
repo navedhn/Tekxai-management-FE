@@ -21,6 +21,7 @@ const ParamRedirect: React.FC<{ build: (params: Record<string, string | undefine
 // Public
 const HomePage               = lazy(() => import('@/pages/public/homePage'));
 const CandidateSignPage      = lazy(() => import('@/pages/public/candidateSign'));
+const OfferReviewPage        = lazy(() => import('@/pages/public/offerReview'));
 const NotFound               = lazy(() => import('@/pages/404'));
 const Forbidden              = lazy(() => import('@/pages/403'));
 
@@ -155,6 +156,7 @@ const routes: RouteObject[] = [
     children: [
       { path: '/',    element: <HomePage /> },
       { path: '/sign/:token', element: <CandidateSignPage /> },
+      { path: '/offer/:id', element: <OfferReviewPage /> },
       { path: '/403', element: <Forbidden /> },
       { path: '/404', element: <NotFound /> },
       { path: '*',    element: <NotFound /> },

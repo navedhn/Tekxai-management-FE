@@ -645,6 +645,12 @@ export const API_ENDPOINTS = {
     SIGN:   (token: string) => `${v1}/public/hr-documents/${token}/sign`,
   },
 
+  ONBOARDING_OFFERS_PUBLIC: {
+    DETAIL: (token: string) => `${v1}/public/onboarding/offers/${token}`,
+    ACCEPT: (token: string) => `${v1}/public/onboarding/offers/${token}/accept`,
+    REJECT: (token: string) => `${v1}/public/onboarding/offers/${token}/reject`,
+  },
+
   EXECUTIVE_ANALYTICS: {
     DASHBOARD: `${v1}/executive-analytics/dashboard`,
   },
