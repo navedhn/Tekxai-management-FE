@@ -698,6 +698,7 @@ export default function EmployeeDirectory() {
                   { label: 'Reporting Manager', col: null },
                   { label: 'Status',          col: 'status' },
                   { label: 'Join Date',       col: 'hire_date' },
+                  { label: 'Added On',        col: 'created_at' },
                   { label: 'Actions',         col: null },
                 ].map(({ label, col }) => (
                   <th key={label}
@@ -794,6 +795,9 @@ export default function EmployeeDirectory() {
                     </td>
                     <td className="py-3 px-2 text-gray-500 text-xs whitespace-nowrap">
                       {emp.hire_date ? new Date(emp.hire_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                    </td>
+                    <td className="py-3 px-2 text-gray-500 text-xs whitespace-nowrap">
+                      {emp.created_at ? new Date(emp.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                     </td>
                     <td className="py-3 px-2">
                       <div className="flex items-center gap-1">
