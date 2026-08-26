@@ -153,6 +153,17 @@ export default function HrDocumentDetailPage() {
   const canAct = isHr || isOwner;
   const employeeSigned = doc.signatures?.some((s) => s.signer_role === 'EMPLOYEE' && s.signed_at);
   const hrSigned = doc.signatures?.some((s) => s.signer_role === 'HR' && s.signed_at);
+  // Mirrors _perform_sign()'s roles_needed fallback in
+  // hr-documents.service.js: required_signer_roles (when set) always wins;
+  // when null/empty (legacy docs), the implicit default is a single
+  // EMPLOYEE signer — HR is never an implicit default. A role's sign/
+  // countersign action should only ever be offered when that role is
+  // actually in the effective roles-needed list, so we don't dead-end
+  // an HR viewer into a 422 for documents that never required an HR
+  // countersignature.
+  const rolesNeeded = doc.required_signer_roles?.length ? doc.required_signer_roles : ['EMPLOYEE'];
+  const employeeCanSign = rolesNeeded.includes('EMPLOYEE') && !employeeSigned;
+  const hrCanSign = rolesNeeded.includes('HR') && !hrSigned;
 
   const handleDownload = () => {
     pdfMutation.mutate(doc.id, {
@@ -245,12 +256,12 @@ export default function HrDocumentDetailPage() {
             </button>
           )}
 
-          {['SENT', 'VIEWED'].includes(doc.status) && isOwner && !employeeSigned && (
+          {['SENT', 'VIEWED'].includes(doc.status) && isOwner && employeeCanSign && (
             <button onClick={() => setSignAs('EMPLOYEE')} className="flex items-center gap-2 px-3.5 h-9 bg-green-600 text-white rounded-xl text-xs font-semibold hover:bg-green-700">
               <PenLine size={14} />Sign Document
             </button>
           )}
-          {['SENT', 'VIEWED'].includes(doc.status) && isHr && !hrSigned && (
+          {['SENT', 'VIEWED'].includes(doc.status) && isHr && hrCanSign && (
             <button onClick={() => setSignAs('HR')} className="flex items-center gap-2 px-3.5 h-9 bg-green-600 text-white rounded-xl text-xs font-semibold hover:bg-green-700">
               <PenLine size={14} />Countersign as HR
             </button>
