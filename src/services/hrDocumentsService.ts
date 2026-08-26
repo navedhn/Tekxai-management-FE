@@ -88,6 +88,7 @@ export interface HrDocument {
   archived_at?: string | null;
   previous_document_id?: string | null;
   created_by?: string | null;
+  required_signer_roles?: string[] | null;
   created_at: string;
   updated_at: string;
   user?: { id: string; first_name: string; last_name: string; email: string; avatar?: string | null };
