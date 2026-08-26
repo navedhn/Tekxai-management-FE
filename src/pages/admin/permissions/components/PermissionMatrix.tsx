@@ -30,7 +30,21 @@ const PermissionMatrix: React.FC<PermissionMatrixProps> = ({ definitions, grants
     return <div className="py-16 text-center text-sm text-gray-400">No permissions match the current filters.</div>;
   }
 
-  const modules = Array.from(new Set(definitions.map((d) => d.module)));
+  // Grouped by workspace+module, not module alone: the ERP tab folds in
+  // still-live hr.* keys (see PermissionsPage's workspaceDefs comment), and
+  // several modules exist under both erp.* and hr.* with the same module
+  // name (e.g. "performance") but distinct permission keys. Keying by module
+  // alone collapsed them into one row and one byModuleAction map entry,
+  // silently shadowing whichever workspace's definition iterated first —
+  // erp.performance.approve was unreachable in the UI because
+  // hr.performance.approve (later in PERMISSION_DEFINITIONS) always won.
+  const moduleGroups = Array.from(new Set(definitions.map((d) => `${d.workspace}:${d.module}`)));
+  const distinctWorkspacesByModule = new Map<string, Set<string>>();
+  definitions.forEach((d) => {
+    if (!distinctWorkspacesByModule.has(d.module)) distinctWorkspacesByModule.set(d.module, new Set());
+    distinctWorkspacesByModule.get(d.module)!.add(d.workspace);
+  });
+
   const actionsPresent = Array.from(new Set(definitions.map((d) => d.action)));
   const actions = [
     ...STANDARD_ACTION_ORDER.filter((a) => actionsPresent.includes(a)),
@@ -38,7 +52,7 @@ const PermissionMatrix: React.FC<PermissionMatrixProps> = ({ definitions, grants
   ];
 
   const byModuleAction = new Map<string, PermissionDef>();
-  definitions.forEach((d) => byModuleAction.set(`${d.module}:${d.action}`, d));
+  definitions.forEach((d) => byModuleAction.set(`${d.workspace}:${d.module}:${d.action}`, d));
 
   return (
     <div className="overflow-x-auto rounded-2xl border border-gray-100">
@@ -52,11 +66,19 @@ const PermissionMatrix: React.FC<PermissionMatrixProps> = ({ definitions, grants
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
-          {modules.map((module) => (
-            <tr key={module} className="hover:bg-primary-50/30 transition-colors">
-              <td className="py-3 px-4 font-semibold text-gray-700 sticky left-0 bg-white whitespace-nowrap">{moduleLabel(module)}</td>
+          {moduleGroups.map((group) => {
+            const [groupWorkspace, module] = group.split(':');
+            // Only append a workspace suffix when this module name is
+            // genuinely ambiguous in the current view (e.g. "performance"
+            // exists under both erp.* and hr.*) — every other row keeps its
+            // plain, familiar label.
+            const needsSuffix = (distinctWorkspacesByModule.get(module)?.size ?? 1) > 1;
+            const rowLabel = needsSuffix ? `${moduleLabel(module)} (${groupWorkspace.toUpperCase()})` : moduleLabel(module);
+            return (
+            <tr key={group} className="hover:bg-primary-50/30 transition-colors">
+              <td className="py-3 px-4 font-semibold text-gray-700 sticky left-0 bg-white whitespace-nowrap">{rowLabel}</td>
               {actions.map((action) => {
-                const def = byModuleAction.get(`${module}:${action}`);
+                const def = byModuleAction.get(`${group}:${action}`);
                 if (!def) return <td key={action} className="text-center py-3 px-3 text-gray-300">—</td>;
                 const checked = grants[def.permission] ?? false;
                 const inherited = inheritedKeys?.has(def.permission) ?? false;
@@ -73,7 +95,8 @@ const PermissionMatrix: React.FC<PermissionMatrixProps> = ({ definitions, grants
                 );
               })}
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>
