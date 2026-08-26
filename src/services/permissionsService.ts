@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
+import { QUERY_KEYS } from '@/services/api/tanstackKeys';
 
 const BASE = 'api/v1/permission';
 
@@ -327,6 +328,13 @@ export function useCreateRole() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['permissions', 'roles'] });
       qc.invalidateQueries({ queryKey: ['permissions', 'matrix'] });
+      // A newly created role must be immediately assignable from Quick
+      // Create User / employee edit — those read a separate cache
+      // (useGetRolesQuery, GET /users/roles) that this mutation never
+      // touched, so a role created here could sit invisible in that
+      // dropdown for up to its 5-minute staleTime. Same root cause as
+      // useDeleteRole below.
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.ROLE.LIST });
     },
   });
 }
@@ -338,6 +346,7 @@ export function useDeleteRole() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['permissions', 'roles'] });
       qc.invalidateQueries({ queryKey: ['permissions', 'matrix'] });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.ROLE.LIST });
     },
   });
 }
