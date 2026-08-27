@@ -43,20 +43,20 @@ export default function PermissionsPage() {
   const { data, isLoading } = usePermissionsMatrix();
   const saveMutation = useSaveRolePermissions();
 
-  const [localGrants, setLocalGrants] = useState<Record<string, Record<string, boolean>>>({});
-  const [hasChanges, setHasChanges] = useState(false);
+  // Only ever holds permissions the user has actually toggled in this session,
+  // keyed by role then permission — never a full snapshot of the matrix. This
+  // is deliberate: server data (data.by_role) is always the source of truth
+  // for anything the user hasn't touched, so a stale/unrefreshed local copy
+  // can never be sent back to the server and overwrite a concurrent change
+  // (see incident postmortem, 2026-08-26 — a one-time full-snapshot copy that
+  // never re-synced was sent wholesale on Save and wiped 43 real grants).
+  const [pendingEdits, setPendingEdits] = useState<Record<string, Record<string, boolean>>>({});
   const [selectedRole, setSelectedRole] = useState('');
   const [workspace, setWorkspace] = useState('erp');
   const [search, setSearch] = useState('');
   const [moduleFilter, setModuleFilter] = useState('');
   const [actionFilter, setActionFilter] = useState('');
   const [warnings, setWarnings] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (data?.by_role && Object.keys(localGrants).length === 0) {
-      setLocalGrants(JSON.parse(JSON.stringify(data.by_role)));
-    }
-  }, [data, localGrants]);
 
   useEffect(() => {
     if (data?.roles?.length && !selectedRole) setSelectedRole(data.roles[0]);
@@ -81,43 +81,66 @@ export default function PermissionsPage() {
     return true;
   }), [workspaceDefs, moduleFilter, actionFilter, search]);
 
-  const roleGrants = localGrants[selectedRole] || {};
+  // Server truth for the selected role, overlaid with any un-saved local edits.
+  const serverGrants = data?.by_role?.[selectedRole] || {};
+  const roleEdits = pendingEdits[selectedRole] || {};
+  const roleGrants = useMemo(() => ({ ...serverGrants, ...roleEdits }), [serverGrants, roleEdits]);
   const grantedInWorkspace = workspaceDefs.filter((d) => roleGrants[d.permission]).length;
+
+  const hasChanges = Object.keys(roleEdits).length > 0;
 
   const grantCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    (data?.roles || []).forEach((r) => { counts[r] = Object.values(localGrants[r] || {}).filter(Boolean).length; });
+    (data?.roles || []).forEach((r) => {
+      const merged = { ...(data?.by_role?.[r] || {}), ...(pendingEdits[r] || {}) };
+      counts[r] = Object.values(merged).filter(Boolean).length;
+    });
     return counts;
-  }, [data, localGrants]);
+  }, [data, pendingEdits]);
 
   const handleToggle = (permission: string, value: boolean) => {
-    setLocalGrants((prev) => ({ ...prev, [selectedRole]: { ...prev[selectedRole], [permission]: value } }));
-    setHasChanges(true);
+    setPendingEdits((prev) => {
+      const nextRoleEdits = { ...prev[selectedRole], [permission]: value };
+      // Toggling back to the server's actual value means there's nothing to save for this key.
+      if (serverGrants[permission] === value) delete nextRoleEdits[permission];
+      return { ...prev, [selectedRole]: nextRoleEdits };
+    });
     setWarnings([]);
   };
 
   const handleSelectRole = (role: string) => {
     setSelectedRole(role);
-    setHasChanges(false);
     setWarnings([]);
   };
 
   const handleSave = async () => {
-    const grants = Object.entries(localGrants[selectedRole] ?? {}).map(([permission, granted]) => ({ permission, granted }));
+    // Delta only — never the full matrix. Anything the user hasn't touched
+    // is left exactly as the server already has it. `previous` is what this
+    // tab believes is currently granted for each key — the backend rejects
+    // the whole save (409) if that no longer matches reality, instead of
+    // silently overwriting a change made elsewhere since this tab loaded.
+    const grants = Object.entries(roleEdits).map(([permission, granted]) => ({
+      permission, granted, previous: serverGrants[permission] ?? false,
+    }));
+    if (!grants.length) return;
     try {
       const res: any = await saveMutation.mutateAsync({ roleName: selectedRole, grants });
-      setHasChanges(false);
+      setPendingEdits((prev) => ({ ...prev, [selectedRole]: {} }));
       const w = res?.payload?.warnings || [];
       setWarnings(w);
       toast.success(w.length ? `Permissions saved with ${w.length} warning(s)` : 'Permissions saved');
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to save permissions');
+      const conflicts = e?.data?.conflicts;
+      if (conflicts?.length) {
+        toast.error(`Someone else changed ${conflicts.length} of these permissions since this page loaded. Refresh and re-apply your changes.`);
+      } else {
+        toast.error(e?.message || e?.data?.message || 'Failed to save permissions');
+      }
     }
   };
 
   const handleReset = () => {
-    if (data?.by_role) setLocalGrants(JSON.parse(JSON.stringify(data.by_role)));
-    setHasChanges(false);
+    setPendingEdits((prev) => ({ ...prev, [selectedRole]: {} }));
     setWarnings([]);
   };
 
