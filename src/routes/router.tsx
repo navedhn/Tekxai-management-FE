@@ -8,7 +8,7 @@ import PublicRoute from '@/pages/layout/PublicRoute';
 import AuthLayout from '@/layouts/authLayout';
 import MarketingLayout from '@/layouts/marketingLayout';
 import ChatLayout from '@/layouts/chatLayout';
-import { ADMIN_ROLES, USER_ROLES } from '@/constants/roles';
+import { USER_ROLES } from '@/constants/roles';
 
 // Redirects a retired /hr/* URL (which may carry route params) to its new
 // /admin/* home — <Navigate> alone can't interpolate params, so this reads
@@ -140,14 +140,36 @@ const ChatPage               = lazy(() => import('@/pages/chat'));
 const adminRoles = [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN] as any[];
 const hrRoles    = [USER_ROLES.HR, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN] as any[];
 const allRoles   = Object.values(USER_ROLES) as any[];
-// The HR/ops-heavy bulk of /admin/* (employee records, departments,
-// requisitions, attendance, payroll, etc) — everyone who legitimately
-// manages that data. Deliberately excludes MARKETING: Marketing holds
-// erp.workspace.access only to reach /admin/crm and /admin/my-salaries
-// (see permission-keys.js's MARKETING comment), and until this list existed
-// every /admin/* sub-page lacked its own guard, so that one permission was
-// silently enough to reach this entire HR/ops surface too.
-const erpOpsRoles = [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.HR, USER_ROLES.DIVISION_MANAGER, USER_ROLES.TEAM_LEAD, USER_ROLES.HR_ASSOCIATE, USER_ROLES.HR_MANAGER, USER_ROLES.HEAD_OF_HR] as any[];
+// RBAC finalization — erpOpsRoles (a hardcoded org-role-name array gating
+// the entire HR/ops-heavy bulk of /admin/*) is retired. It broke the moment
+// every non-SUPER_ADMIN user was normalized onto a single EMPLOYEE role:
+// none of ADMIN/HR/DIVISION_MANAGER/TEAM_LEAD/HR_ASSOCIATE/HR_MANAGER/
+// HEAD_OF_HR exist as an assignable role name any more, so this single
+// gate would have locked every one of those people out of the entire
+// surface, even though the outer erp.workspace.access gate above already
+// let them into /admin in the first place.
+//
+// It also turned out to be wrong even before that: querying production
+// showed MARKETING already holds erp.projects.view=true (this array's own
+// comment claimed Marketing was excluded from exactly that), while lacking
+// erp.dashboard.view/erp.timesheet.view/erp.teams.view/erp.users.view/
+// erp.reports.view — there was never one permission that correctly stood
+// in for this whole heterogeneous page bundle.
+//
+// Replaced with a per-route permission map below (mirroring tek-pulse-FE's
+// ROUTE_PERMISSIONS pattern) — each /admin/* sub-page gets its own
+// ProtectedRoute wrapper keyed to its actual be-work permission-registry
+// key, verified to exist in permission-keys.js. A handful of routes
+// (project-tracking/timeline/starred → erp.projects.view;
+// employee-timesheets → erp.timesheet.view; org-chart/divisions →
+// erp.departments.view; manager-review/performance-scoring →
+// erp.performance.view; report-builder → erp.reports.view;
+// employee-directory → hr.employees.view; add-employee → erp.users.create;
+// approvals → erp.requisitions.approve) don't have a page-specific
+// permission key of their own yet and were mapped to the closest existing
+// one covering the same data — flagged here for a human to confirm rather
+// than silently assumed correct. /admin/hr is a pure redirect to /admin
+// with no content of its own and is left ungated.
 
 const routes: RouteObject[] = [
   // ── Public ──────────────────────────────────────────────────────────────────
@@ -195,76 +217,68 @@ const routes: RouteObject[] = [
           { path: '/admin/download-app',          element: <DownloadApp /> },
           { path: '/admin/crm',                 element: <AdminCRM /> },
           { path: '/admin/my-salaries',           element: <MarketingMySalaries /> },
-          {
-            // Everything else under /admin — HR records, projects, ops,
-            // payroll, tickets, etc — is for the roles that actually manage
-            // that data, not Marketing. See erpOpsRoles' comment.
-            element: <ProtectedRoute roles={erpOpsRoles} />,
-            children: [
-          { path: '/admin/projects',             element: <AdminProjects /> },
-          { path: '/admin/project-tracking',     element: <AdminProjectTracking /> },
-          { path: '/admin/project-timeline',     element: <AdminProjectTimeline /> },
-          { path: '/admin/timesheet',            element: <AdminTimesheet /> },
-          { path: '/admin/starred',              element: <AdminSaved /> },
-          { path: '/admin/team',                 element: <AdminTeam /> },
-          { path: '/admin/users',                element: <AdminUsers /> },
-          { path: '/admin/monitoring',           element: <AdminMonitoring /> },
-          { path: '/admin/reports',              element: <AdminReports /> },
-          { path: '/admin/project-report',       element: <AdminProjectReport /> },
-          { path: '/admin/estimator',            element: <AdminEstimator /> },
-          { path: '/admin/employee/:employeeId', element: <AdminEmployeeProfile /> },
+          { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/admin/projects', element: <AdminProjects /> }] },
+          { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/admin/project-tracking', element: <AdminProjectTracking /> }] },
+          { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/admin/project-timeline', element: <AdminProjectTimeline /> }] },
+          { element: <ProtectedRoute permission="erp.timesheet.view" />, children: [{ path: '/admin/timesheet', element: <AdminTimesheet /> }] },
+          { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/admin/starred', element: <AdminSaved /> }] },
+          { element: <ProtectedRoute permission="erp.teams.view" />, children: [{ path: '/admin/team', element: <AdminTeam /> }] },
+          { element: <ProtectedRoute permission="erp.users.view" />, children: [{ path: '/admin/users', element: <AdminUsers /> }] },
+          { element: <ProtectedRoute permission="erp.monitoring.view" />, children: [{ path: '/admin/monitoring', element: <AdminMonitoring /> }] },
+          { element: <ProtectedRoute permission="erp.reports.view" />, children: [{ path: '/admin/reports', element: <AdminReports /> }] },
+          { element: <ProtectedRoute permission="erp.reports.view" />, children: [{ path: '/admin/project-report', element: <AdminProjectReport /> }] },
+          { element: <ProtectedRoute permission="erp.estimator.view" />, children: [{ path: '/admin/estimator', element: <AdminEstimator /> }] },
+          { element: <ProtectedRoute permission="hr.employee_profiles.view" />, children: [{ path: '/admin/employee/:employeeId', element: <AdminEmployeeProfile /> }] },
           // Legacy admin HR routes (still accessible)
-          { path: '/admin/assets',              element: <AdminAssets /> },
-          { path: '/admin/performance',         element: <AdminPerformance /> },
-          { path: '/admin/departments',         element: <AdminDepartments /> },
-          { path: '/admin/divisions',           element: <AdminDivisions /> },
-          { path: '/admin/designations',        element: <AdminDesignations /> },
-          { path: '/admin/grades',              element: <AdminGrades /> },
-          { path: '/admin/ticket-categories',   element: <AdminTicketCategories /> },
-          { path: '/admin/ticket-types',        element: <AdminTicketTypes /> },
-          { path: '/admin/org-chart',           element: <AdminOrgChart /> },
-          { path: '/admin/hr',                  element: <Navigate to="/admin" replace /> },
-          { path: '/admin/attendance',          element: <AdminAttendance /> },
-          { path: '/admin/employee-timesheets', element: <AdminEmployeeTimesheets /> },
-          { path: '/admin/job-descriptions',    element: <AdminJobDescriptions /> },
-          { path: '/admin/contracts',           element: <AdminContracts /> },
-          { path: '/admin/onboarding',          element: <AdminOnboarding /> },
-          { path: '/admin/job-requisitions',    element: <AdminJobRequisitions /> },
-          { path: '/admin/offboarding',         element: <AdminOffboarding /> },
-          { path: '/admin/policies',            element: <AdminPolicies /> },
-          { path: '/admin/requisitions',        element: <AdminRequisitions /> },
-          { path: '/admin/approvals',           element: <AdminApprovals /> },
-          { path: '/admin/tickets',             element: <AdminTickets /> },
-          { path: '/admin/meetings',             element: <AdminMeetingDashboard /> },
-          { path: '/admin/meetings/rooms',        element: <AdminMeetingRooms /> },
-          { path: '/admin/meetings/room/:roomId', element: <AdminMeetingRoomDetail /> },
-          { path: '/admin/meetings/meeting/:meetingId', element: <AdminMeetingDetail /> },
-          { path: '/admin/meetings/action-items', element: <AdminMeetingActionItems /> },
+          { element: <ProtectedRoute permission="erp.assets.view" />, children: [{ path: '/admin/assets', element: <AdminAssets /> }] },
+          { element: <ProtectedRoute permission="erp.performance.view" />, children: [{ path: '/admin/performance', element: <AdminPerformance /> }] },
+          { element: <ProtectedRoute permission="erp.departments.view" />, children: [{ path: '/admin/departments', element: <AdminDepartments /> }] },
+          { element: <ProtectedRoute permission="erp.departments.view" />, children: [{ path: '/admin/divisions', element: <AdminDivisions /> }] },
+          { element: <ProtectedRoute permission="erp.designations.view" />, children: [{ path: '/admin/designations', element: <AdminDesignations /> }] },
+          { element: <ProtectedRoute permission="erp.grades.view" />, children: [{ path: '/admin/grades', element: <AdminGrades /> }] },
+          { element: <ProtectedRoute permission="erp.ticket-categories.view" />, children: [{ path: '/admin/ticket-categories', element: <AdminTicketCategories /> }] },
+          { element: <ProtectedRoute permission="erp.ticket-types.view" />, children: [{ path: '/admin/ticket-types', element: <AdminTicketTypes /> }] },
+          { element: <ProtectedRoute permission="erp.departments.view" />, children: [{ path: '/admin/org-chart', element: <AdminOrgChart /> }] },
+          { element: <ProtectedRoute permission="erp.attendance.view" />, children: [{ path: '/admin/attendance', element: <AdminAttendance /> }] },
+          { element: <ProtectedRoute permission="erp.timesheet.view" />, children: [{ path: '/admin/employee-timesheets', element: <AdminEmployeeTimesheets /> }] },
+          { element: <ProtectedRoute permission="hr.job_descriptions.view" />, children: [{ path: '/admin/job-descriptions', element: <AdminJobDescriptions /> }] },
+          { element: <ProtectedRoute permission="hr.contracts.view" />, children: [{ path: '/admin/contracts', element: <AdminContracts /> }] },
+          { element: <ProtectedRoute permission="hr.onboarding.view" />, children: [{ path: '/admin/onboarding', element: <AdminOnboarding /> }] },
+          { element: <ProtectedRoute permission="hr.job_requisitions.view" />, children: [{ path: '/admin/job-requisitions', element: <AdminJobRequisitions /> }] },
+          { element: <ProtectedRoute permission="hr.offboarding.view" />, children: [{ path: '/admin/offboarding', element: <AdminOffboarding /> }] },
+          { element: <ProtectedRoute permission="hr.policies.view" />, children: [{ path: '/admin/policies', element: <AdminPolicies /> }] },
+          { element: <ProtectedRoute permission="erp.requisitions.view" />, children: [{ path: '/admin/requisitions', element: <AdminRequisitions /> }] },
+          { element: <ProtectedRoute permission="erp.requisitions.approve" />, children: [{ path: '/admin/approvals', element: <AdminApprovals /> }] },
+          { element: <ProtectedRoute permission="erp.tickets.view" />, children: [{ path: '/admin/tickets', element: <AdminTickets /> }] },
+          { element: <ProtectedRoute permission="erp.meetings.view" />, children: [{ path: '/admin/meetings', element: <AdminMeetingDashboard /> }] },
+          { element: <ProtectedRoute permission="erp.meetings.view" />, children: [{ path: '/admin/meetings/rooms', element: <AdminMeetingRooms /> }] },
+          { element: <ProtectedRoute permission="erp.meetings.view" />, children: [{ path: '/admin/meetings/room/:roomId', element: <AdminMeetingRoomDetail /> }] },
+          { element: <ProtectedRoute permission="erp.meetings.view" />, children: [{ path: '/admin/meetings/meeting/:meetingId', element: <AdminMeetingDetail /> }] },
+          { element: <ProtectedRoute permission="erp.meetings.view" />, children: [{ path: '/admin/meetings/action-items', element: <AdminMeetingActionItems /> }] },
           // Finance module — Expense Claims + Financial Reports live under
           // /admin/finance/*. Old flat /admin/expenses(/...) paths redirect
           // below so existing bookmarks/links keep working.
-          { path: '/admin/compliance-violations',       element: <ComplianceViolations /> },
-          { path: '/admin/manager-review',              element: <ManagerReview /> },
-          { path: '/admin/finance/expenses',            element: <AdminExpenses /> },
-          { path: '/admin/finance/expenses/:userId',    element: <AdminExpenseLedger /> },
-          { path: '/admin/expenses',            element: <Navigate to="/admin/finance/expenses" replace /> },
-          { path: '/admin/expenses/:userId',    element: <ParamRedirect build={(p) => `/admin/finance/expenses/${p.userId}`} /> },
-          { path: '/admin/performance-scoring', element: <AdminPerformanceScoring /> },
-          { path: '/admin/payroll',            element: <PayrollPage /> },
-          { path: '/admin/webhooks',           element: <WebhooksPage /> },
-          { path: '/admin/report-builder',     element: <ReportBuilderPage /> },
+          { element: <ProtectedRoute permission="erp.compliance_violations.manage" />, children: [{ path: '/admin/compliance-violations', element: <ComplianceViolations /> }] },
+          { element: <ProtectedRoute permission="erp.performance.view" />, children: [{ path: '/admin/manager-review', element: <ManagerReview /> }] },
+          { element: <ProtectedRoute permission="erp.expenses.view" />, children: [{ path: '/admin/finance/expenses', element: <AdminExpenses /> }] },
+          { element: <ProtectedRoute permission="erp.expenses.view" />, children: [{ path: '/admin/finance/expenses/:userId', element: <AdminExpenseLedger /> }] },
+          { element: <ProtectedRoute permission="erp.expenses.view" />, children: [{ path: '/admin/expenses', element: <Navigate to="/admin/finance/expenses" replace /> }] },
+          { element: <ProtectedRoute permission="erp.expenses.view" />, children: [{ path: '/admin/expenses/:userId', element: <ParamRedirect build={(p) => `/admin/finance/expenses/${p.userId}`} /> }] },
+          { element: <ProtectedRoute permission="erp.performance.view" />, children: [{ path: '/admin/performance-scoring', element: <AdminPerformanceScoring /> }] },
+          { element: <ProtectedRoute permission="erp.payroll.view" />, children: [{ path: '/admin/payroll', element: <PayrollPage /> }] },
+          { element: <ProtectedRoute permission="erp.webhooks.manage" />, children: [{ path: '/admin/webhooks', element: <WebhooksPage /> }] },
+          { element: <ProtectedRoute permission="erp.reports.view" />, children: [{ path: '/admin/report-builder', element: <ReportBuilderPage /> }] },
           // Former HR-workspace-only pages, folded in as part of the HR/Admin merge
-          { path: '/admin/business-units',        element: <AdminBusinessUnits /> },
-          { path: '/admin/documents',             element: <AdminHrDocuments /> },
-          { path: '/admin/documents/:id',         element: <AdminHrDocumentDetail /> },
-          { path: '/admin/document-templates',    element: <AdminHrDocumentTemplates /> },
-          { path: '/admin/employee-directory',    element: <EmployeeDirectory /> },
-          { path: '/admin/add-employee/:employeeId?', element: <AddEmployee /> },
-          { path: '/admin/hr-reports',            element: <HRReports /> },
-          { path: '/admin/overtime',              element: <OvertimePage /> },
-          { path: '/admin/increments',            element: <IncrementsPage /> },
-            ],
-          },
+          { element: <ProtectedRoute permission="erp.business_units.view" />, children: [{ path: '/admin/business-units', element: <AdminBusinessUnits /> }] },
+          { element: <ProtectedRoute permission="erp.hr_documents.view" />, children: [{ path: '/admin/documents', element: <AdminHrDocuments /> }] },
+          { element: <ProtectedRoute permission="erp.hr_documents.view" />, children: [{ path: '/admin/documents/:id', element: <AdminHrDocumentDetail /> }] },
+          { element: <ProtectedRoute permission="erp.hr_documents.view" />, children: [{ path: '/admin/document-templates', element: <AdminHrDocumentTemplates /> }] },
+          { element: <ProtectedRoute permission="hr.employees.view" />, children: [{ path: '/admin/employee-directory', element: <EmployeeDirectory /> }] },
+          { element: <ProtectedRoute permission="erp.users.create" />, children: [{ path: '/admin/add-employee/:employeeId?', element: <AddEmployee /> }] },
+          { element: <ProtectedRoute permission="hr.reports.view" />, children: [{ path: '/admin/hr-reports', element: <HRReports /> }] },
+          { element: <ProtectedRoute permission="erp.overtime.view" />, children: [{ path: '/admin/overtime', element: <OvertimePage /> }] },
+          { element: <ProtectedRoute permission="hr.increments.view" />, children: [{ path: '/admin/increments', element: <IncrementsPage /> }] },
+          { path: '/admin/hr', element: <Navigate to="/admin" replace /> },  // pure redirect to /admin, no content of its own — left ungated
           {
             element: <ProtectedRoute roles={adminRoles} permission="erp.executive-analytics.view" />,
             children: [

@@ -17,8 +17,8 @@ import {
 } from '@/services/jobRequisitionsService';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
 import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
-import { useAuth } from '@/hooks/useAuth';
 import PermissionGate from '@/components/ui/PermissionGate';
+import { useMyPermissions } from '@/services/permissionsService';
 
 const STATUS_STYLES: Record<string, string> = {
   PENDING:   'bg-yellow-50 text-yellow-700 border-yellow-200',
@@ -28,8 +28,6 @@ const STATUS_STYLES: Record<string, string> = {
   CANCELLED: 'bg-gray-100 text-gray-500 border-gray-300',
 };
 
-const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'HR'];
-
 const EMPTY_FORM = {
   title: '', department_id: '', business_unit_id: '', headcount: 1,
   employment_type: 'FULL_TIME', justification: '', target_start_date: '',
@@ -38,8 +36,12 @@ const EMPTY_FORM = {
 
 const JobRequisitionsPage: React.FC = () => {
   const toast = useToastContext();
-  const { user } = useAuth();
-  const isAdmin = ADMIN_ROLES.includes((user as any)?.role_name || (user as any)?.role || '');
+  // RBAC finalization — was a hardcoded SUPER_ADMIN/ADMIN/HR role-name
+  // array; same fix as requisitions/index.tsx — drives the outer view
+  // choice from the same permission the nested PermissionGate below
+  // already gates the approve action on.
+  const { data: myPerms } = useMyPermissions();
+  const isAdmin = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('hr.job_requisitions.approve');
 
   const [filters, setFilters] = useState<any>({});
   const [createOpen, setCreateOpen] = useState(false);

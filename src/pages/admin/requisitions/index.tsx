@@ -16,8 +16,8 @@ import {
   useConvertRequisitionToAsset,
 } from '@/services/hrService';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
-import { useAuth } from '@/hooks/useAuth';
 import PermissionGate from '@/components/ui/PermissionGate';
+import { useMyPermissions } from '@/services/permissionsService';
 
 const STATUS_STYLES: Record<string, string> = {
   DRAFT:        'bg-gray-50 text-gray-500 border-gray-200',
@@ -37,12 +37,18 @@ const PRIORITY_STYLES: Record<string, string> = {
   URGENT: 'bg-red-50 text-red-700',
 };
 
-const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'HR'];
-
 const RequisitionsPage: React.FC = () => {
   const toast = useToastContext();
-  const { user } = useAuth();
-  const isAdmin = ADMIN_ROLES.includes((user as any)?.role_name || (user as any)?.role || '');
+  // RBAC finalization — was a hardcoded SUPER_ADMIN/ADMIN/HR role-name
+  // array. isAdmin here decides which VIEW this page shows (bulk
+  // management with filters/approve buttons, vs a plain self-service
+  // submission list) — matches the same capability the nested
+  // PermissionGate below already gates the approve action on, so this is
+  // just that same permission driving the outer view choice too, instead
+  // of a separate role-name check that would go stale the moment a role
+  // is renamed or a custom role is granted the same real capability.
+  const { data: myPerms } = useMyPermissions();
+  const isAdmin = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.requisitions.approve');
 
   // Non-admin (employee) view previously started with no status filter at
   // all, so the very first fetch (GET /requisition?mine=true) returned every
