@@ -8,31 +8,24 @@ import PublicRoute from '@/pages/layout/PublicRoute';
 import AuthLayout from '@/layouts/authLayout';
 import MarketingLayout from '@/layouts/marketingLayout';
 import ChatLayout from '@/layouts/chatLayout';
-import { USER_ROLES } from '@/constants/roles';
 
-// Redirects a retired /hr/* URL (which may carry route params) to its new
-// /admin/* home — <Navigate> alone can't interpolate params, so this reads
-// them via useParams() and lets the caller build the target path.
 const ParamRedirect: React.FC<{ build: (params: Record<string, string | undefined>) => string }> = ({ build }) => {
   const params = useParams();
   return <Navigate to={build(params)} replace />;
 };
 
-// Public
 const HomePage               = lazy(() => import('@/pages/public/homePage'));
 const CandidateSignPage      = lazy(() => import('@/pages/public/candidateSign'));
 const OfferReviewPage        = lazy(() => import('@/pages/public/offerReview'));
 const NotFound               = lazy(() => import('@/pages/404'));
 const Forbidden              = lazy(() => import('@/pages/403'));
 
-// Auth
 const Login                  = lazy(() => import('@/pages/auth/Login'));
 const ForgetPassword         = lazy(() => import('@/pages/auth/ForgetPassword'));
 const VerifyOTP              = lazy(() => import('@/pages/auth/VerifyOTP'));
 const ResetPassword          = lazy(() => import('@/pages/auth/ResetPassword'));
 const AcceptInvite           = lazy(() => import('@/pages/auth/AcceptInvite'));
 
-// Admin / ERP core
 const AdminDashboard         = lazy(() => import('@/pages/admin/dashboard'));
 const AdminProjects          = lazy(() => import('@/pages/admin/projects'));
 const AdminProjectTracking   = lazy(() => import('@/pages/admin/project-tracking'));
@@ -58,7 +51,6 @@ const AdminPermissions       = lazy(() => import('@/pages/admin/permissions'));
 const AdminDesktopManagement = lazy(() => import('@/pages/admin/desktop-management'));
 const AdminApprovals         = lazy(() => import('@/pages/admin/approvals'));
 
-// HR workspace pages (reuse admin pages)
 const AdminCRM               = lazy(() => import('@/pages/admin/crm'));
 const AdminContracts         = lazy(() => import('@/pages/admin/contracts'));
 const AdminHrDocuments       = lazy(() => import('@/pages/admin/hr-documents'));
@@ -83,7 +75,6 @@ const AdminTicketTypes       = lazy(() => import('@/pages/admin/ticket-types'));
 const AdminOrgChart          = lazy(() => import('@/pages/admin/org-chart'));
 const AdminRequisitions      = lazy(() => import('@/pages/admin/requisitions'));
 
-// HR new pages
 const EmployeeDirectory      = lazy(() => import('@/pages/admin/employee-directory'));
 const AddEmployee            = lazy(() => import('@/pages/admin/add-employee'));
 const HRReports              = lazy(() => import('@/pages/admin/hr-reports'));
@@ -102,22 +93,19 @@ const ReportBuilderPage      = lazy(() => import('@/pages/admin/report-builder')
 const ReportsAnalyticsPage   = lazy(() => import('@/pages/admin/reports-analytics'));
 const ExecutiveDashboardPage = lazy(() => import('@/pages/admin/executive-dashboard'));
 
-// const MarketingWonDeals      = lazy(() => import('@/pages/marketing/won-deals'));
-// const MarketingUpwork        = lazy(() => import('@/pages/marketing/upwork'));
-// const MarketingLinkedIn      = lazy(() => import('@/pages/marketing/linkedin'));
-// const MarketingEmailLeads    = lazy(() => import('@/pages/marketing/email-leads'));
-// const MarketingDeposits      = lazy(() => import('@/pages/marketing/deposits'));
-// const MarketingTargets       = lazy(() => import('@/pages/marketing/targets'));
-// const MarketingMyReport      = lazy(() => import('@/pages/marketing/my-report'));
-// const MarketingHRDashboard   = lazy(() => import('@/pages/marketing/hr-dashboard'));
-// const MarketingSalaryHistory = lazy(() => import('@/pages/marketing/salary-history'));
-// MarketingMySalaries and MarketingSalaryBuilder stay imported below — still used
-// by /hr/my-salaries and /marketing/salary-builder/:memberId respectively.
+const MarketingWonDeals      = lazy(() => import('@/pages/marketing/won-deals'));
+const MarketingUpwork        = lazy(() => import('@/pages/marketing/upwork'));
+const MarketingLinkedIn      = lazy(() => import('@/pages/marketing/linkedin'));
+const MarketingEmailLeads    = lazy(() => import('@/pages/marketing/email-leads'));
+const MarketingDeposits      = lazy(() => import('@/pages/marketing/deposits'));
+const MarketingTargets       = lazy(() => import('@/pages/marketing/targets'));
+const MarketingMyReport      = lazy(() => import('@/pages/marketing/my-report'));
+const MarketingHRDashboard   = lazy(() => import('@/pages/marketing/hr-dashboard'));
+const MarketingSalaryHistory = lazy(() => import('@/pages/marketing/salary-history'));
 const MarketingMySalaries    = lazy(() => import('@/pages/marketing/my-salaries'));
 const MarketingSalaryBuilder = lazy(() => import('@/pages/marketing/salary-builder'));
 const MarketingDashboard     = lazy(() => import('@/pages/marketing/dashboard'));
 
-// Employee
 const EmployeeDashboard      = lazy(() => import('@/pages/employee/dashboard'));
 const EmployeeProjects       = lazy(() => import('@/pages/employee/projects'));
 const EmployeeTimesheet      = lazy(() => import('@/pages/employee/timesheet'));
@@ -130,49 +118,12 @@ const EmployeeDocuments      = lazy(() => import('@/pages/employee/documents'));
 const EmployeeOnboarding     = lazy(() => import('@/pages/employee/onboarding'));
 const DownloadApp            = lazy(() => import('@/pages/employee/download-app'));
 
-// Shared
 const SharedNotifications    = lazy(() => import('@/pages/shared/notifications'));
 const ProfilePage            = lazy(() => import('@/pages/shared/profile'));
 
-// Chat
 const ChatPage               = lazy(() => import('@/pages/chat'));
 
-const adminRoles = [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN] as any[];
-const hrRoles    = [USER_ROLES.HR, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN] as any[];
-const allRoles   = Object.values(USER_ROLES) as any[];
-// RBAC finalization — erpOpsRoles (a hardcoded org-role-name array gating
-// the entire HR/ops-heavy bulk of /admin/*) is retired. It broke the moment
-// every non-SUPER_ADMIN user was normalized onto a single EMPLOYEE role:
-// none of ADMIN/HR/DIVISION_MANAGER/TEAM_LEAD/HR_ASSOCIATE/HR_MANAGER/
-// HEAD_OF_HR exist as an assignable role name any more, so this single
-// gate would have locked every one of those people out of the entire
-// surface, even though the outer erp.workspace.access gate above already
-// let them into /admin in the first place.
-//
-// It also turned out to be wrong even before that: querying production
-// showed MARKETING already holds erp.projects.view=true (this array's own
-// comment claimed Marketing was excluded from exactly that), while lacking
-// erp.dashboard.view/erp.timesheet.view/erp.teams.view/erp.users.view/
-// erp.reports.view — there was never one permission that correctly stood
-// in for this whole heterogeneous page bundle.
-//
-// Replaced with a per-route permission map below (mirroring tek-pulse-FE's
-// ROUTE_PERMISSIONS pattern) — each /admin/* sub-page gets its own
-// ProtectedRoute wrapper keyed to its actual be-work permission-registry
-// key, verified to exist in permission-keys.js. A handful of routes
-// (project-tracking/timeline/starred → erp.projects.view;
-// employee-timesheets → erp.timesheet.view; org-chart/divisions →
-// erp.departments.view; manager-review/performance-scoring →
-// erp.performance.view; report-builder → erp.reports.view;
-// employee-directory → hr.employees.view; add-employee → erp.users.create;
-// approvals → erp.requisitions.approve) don't have a page-specific
-// permission key of their own yet and were mapped to the closest existing
-// one covering the same data — flagged here for a human to confirm rather
-// than silently assumed correct. /admin/hr is a pure redirect to /admin
-// with no content of its own and is left ungated.
-
 const routes: RouteObject[] = [
-  // ── Public ──────────────────────────────────────────────────────────────────
   {
     element: <PublicLayout />,
     children: [
@@ -184,7 +135,6 @@ const routes: RouteObject[] = [
       { path: '*',    element: <NotFound /> },
     ],
   },
-  // ── Auth ────────────────────────────────────────────────────────────────────
   {
     element: <AuthLayout />,
     children: [
@@ -200,17 +150,13 @@ const routes: RouteObject[] = [
       },
     ],
   },
-  // ── ERP Workspace (/admin) ──────────────────────────────────────────────────
   {
     element: <AdminLayout />,
     children: [
       {
-        element: <ProtectedRoute roles={hrRoles} permission="erp.workspace.access" />,
+        element: <ProtectedRoute permission="erp.workspace.access" />,
         children: [
           { path: '/admin',                      element: <AdminDashboard /> },
-          // Neutral/personal pages plus the two CRM-adjacent ones Marketing
-          // is specifically meant to reach — stay directly under the outer
-          // erp.workspace.access gate.
           { path: '/admin/settings',             element: <AdminSettings /> },
           { path: '/admin/notifications',        element: <SharedNotifications /> },
           { path: '/admin/profile/:memberId?',   element: <ProfilePage /> },
@@ -229,7 +175,6 @@ const routes: RouteObject[] = [
           { element: <ProtectedRoute permission="erp.reports.view" />, children: [{ path: '/admin/project-report', element: <AdminProjectReport /> }] },
           { element: <ProtectedRoute permission="erp.estimator.view" />, children: [{ path: '/admin/estimator', element: <AdminEstimator /> }] },
           { element: <ProtectedRoute permission="hr.employee_profiles.view" />, children: [{ path: '/admin/employee/:employeeId', element: <AdminEmployeeProfile /> }] },
-          // Legacy admin HR routes (still accessible)
           { element: <ProtectedRoute permission="erp.assets.view" />, children: [{ path: '/admin/assets', element: <AdminAssets /> }] },
           { element: <ProtectedRoute permission="erp.performance.view" />, children: [{ path: '/admin/performance', element: <AdminPerformance /> }] },
           { element: <ProtectedRoute permission="erp.departments.view" />, children: [{ path: '/admin/departments', element: <AdminDepartments /> }] },
@@ -255,9 +200,6 @@ const routes: RouteObject[] = [
           { element: <ProtectedRoute permission="erp.meetings.view" />, children: [{ path: '/admin/meetings/room/:roomId', element: <AdminMeetingRoomDetail /> }] },
           { element: <ProtectedRoute permission="erp.meetings.view" />, children: [{ path: '/admin/meetings/meeting/:meetingId', element: <AdminMeetingDetail /> }] },
           { element: <ProtectedRoute permission="erp.meetings.view" />, children: [{ path: '/admin/meetings/action-items', element: <AdminMeetingActionItems /> }] },
-          // Finance module — Expense Claims + Financial Reports live under
-          // /admin/finance/*. Old flat /admin/expenses(/...) paths redirect
-          // below so existing bookmarks/links keep working.
           { element: <ProtectedRoute permission="erp.compliance_violations.manage" />, children: [{ path: '/admin/compliance-violations', element: <ComplianceViolations /> }] },
           { element: <ProtectedRoute permission="erp.performance.view" />, children: [{ path: '/admin/manager-review', element: <ManagerReview /> }] },
           { element: <ProtectedRoute permission="erp.expenses.view" />, children: [{ path: '/admin/finance/expenses', element: <AdminExpenses /> }] },
@@ -268,7 +210,6 @@ const routes: RouteObject[] = [
           { element: <ProtectedRoute permission="erp.payroll.view" />, children: [{ path: '/admin/payroll', element: <PayrollPage /> }] },
           { element: <ProtectedRoute permission="erp.webhooks.manage" />, children: [{ path: '/admin/webhooks', element: <WebhooksPage /> }] },
           { element: <ProtectedRoute permission="erp.reports.view" />, children: [{ path: '/admin/report-builder', element: <ReportBuilderPage /> }] },
-          // Former HR-workspace-only pages, folded in as part of the HR/Admin merge
           { element: <ProtectedRoute permission="erp.business_units.view" />, children: [{ path: '/admin/business-units', element: <AdminBusinessUnits /> }] },
           { element: <ProtectedRoute permission="erp.hr_documents.view" />, children: [{ path: '/admin/documents', element: <AdminHrDocuments /> }] },
           { element: <ProtectedRoute permission="erp.hr_documents.view" />, children: [{ path: '/admin/documents/:id', element: <AdminHrDocumentDetail /> }] },
@@ -278,20 +219,15 @@ const routes: RouteObject[] = [
           { element: <ProtectedRoute permission="hr.reports.view" />, children: [{ path: '/admin/hr-reports', element: <HRReports /> }] },
           { element: <ProtectedRoute permission="erp.overtime.view" />, children: [{ path: '/admin/overtime', element: <OvertimePage /> }] },
           { element: <ProtectedRoute permission="hr.increments.view" />, children: [{ path: '/admin/increments', element: <IncrementsPage /> }] },
-          { path: '/admin/hr', element: <Navigate to="/admin" replace /> },  // pure redirect to /admin, no content of its own — left ungated
+          { path: '/admin/hr', element: <Navigate to="/admin" replace /> },
           {
-            element: <ProtectedRoute roles={adminRoles} permission="erp.executive-analytics.view" />,
+            element: <ProtectedRoute permission="erp.executive-analytics.view" />,
             children: [
               { path: '/admin/executive-dashboard', element: <ExecutiveDashboardPage /> },
             ],
           },
-          // SUPER_ADMIN-only sub-pages: the sidebar already hides these from
-          // plain ADMIN users, but the route itself previously only required
-          // {adminRoles: [SUPER_ADMIN, ADMIN]} + erp.workspace.access — which
-          // an ordinary ADMIN satisfies via role match alone (bypassing the
-          // permission check entirely), letting them reach these by URL.
           {
-            element: <ProtectedRoute roles={[USER_ROLES.SUPER_ADMIN]} />,
+            element: <ProtectedRoute superAdminOnly />,
             children: [
               { path: '/admin/permissions',         element: <AdminPermissions /> },
               { path: '/admin/desktop-management',  element: <AdminDesktopManagement /> },
@@ -307,12 +243,7 @@ const routes: RouteObject[] = [
       { path: '/admin/*', element: <NotFound /> },
     ],
   },
-  // ── CRM Workspace (/crm) — retired. CRM is now its own product on its own
-  // domain (TekPulse CRM); tekxai.services (this ERP) has no CRM awareness.
-  // Old bookmarks/links redirect to /admin instead of 404ing.
   { path: '/crm/*',                        element: <Navigate to="/admin" replace /> },
-  // ── HR Workspace (/hr) — retired, folded into /admin. Old bookmarks/links ──
-  // redirect to their new /admin/* home instead of 404ing.
   { path: '/hr',                           element: <Navigate to="/admin" replace /> },
   { path: '/hr/employees',                 element: <Navigate to="/admin/employee-directory" replace /> },
   { path: '/hr/business-units',            element: <Navigate to="/admin/business-units" replace /> },
@@ -346,30 +277,19 @@ const routes: RouteObject[] = [
   { path: '/hr/monitoring',                element: <Navigate to="/admin/monitoring" replace /> },
   { path: '/hr/download-app',              element: <Navigate to="/admin/download-app" replace /> },
   { path: '/hr/*',                         element: <NotFound /> },
-  // ── Employee Workspace (/employee) ─────────────────────────────────────────
   {
     element: <EmployeeLayout />,
     children: [
       {
-        // Permission-based, not role-based: erp.employee_workspace.access is
-        // granted to every role legitimately using this workspace (EMPLOYEE,
-        // MARKETING, HR, DIVISION_MANAGER, TEAM_LEAD) — see DEFAULT_ROLE_PERMISSIONS
-        // in be-work's permission-keys.js. roles= is kept as a belt-and-suspenders
-        // fast path (ProtectedRoute checks role match before permission), not the
-        // source of truth.
         element: (
           <ProtectedRoute
-            roles={[USER_ROLES.EMPLOYEE, USER_ROLES.MARKETING, USER_ROLES.HR, USER_ROLES.DIVISION_MANAGER, USER_ROLES.TEAM_LEAD]}
             permission="erp.employee_workspace.access"
           />
         ),
         children: [
           { path: '/employee',                     element: <EmployeeDashboard /> },
           {
-            // Projects is intentionally excluded from Marketing (and HR, which
-            // also lacks erp.projects.view) — only roles/permissions that
-            // already grant project visibility elsewhere in the app reach this.
-            element: <ProtectedRoute roles={[USER_ROLES.EMPLOYEE]} permission="erp.projects.view" />,
+            element: <ProtectedRoute permission="erp.projects.view" />,
             children: [
               { path: '/employee/projects', element: <EmployeeProjects /> },
             ],
@@ -392,32 +312,22 @@ const routes: RouteObject[] = [
       { path: '/employee/*', element: <NotFound /> },
     ],
   },
-  // ── Marketing salary-builder (legacy path, unrelated to the retired CRM
-  // workspace — kept since it's still a live feature) ────────────────────────
   {
     element: <MarketingLayout />,
     children: [
       {
-        element: <ProtectedRoute roles={[USER_ROLES.MARKETING, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN, USER_ROLES.HR]} />,
+        element: <ProtectedRoute permission="crm.salary.view" />,
         children: [
           { path: '/marketing',                          element: <Navigate to="/admin" replace /> },
           { path: '/marketing/salary-builder/:memberId', element: <MarketingSalaryBuilder /> },
-          // The other legacy /marketing/* redirects (won-deals, salary-history,
-          // upwork, linkedin, email-leads, deposits, targets, my-report,
-          // my-salaries, hr-dashboard) pointed at /crm/* pages that were already
-          // de-navigated in an earlier CRM split phase — every one of them was
-          // silently 404ing via the /crm/* catch-all below. Removed rather than
-          // fixed, since there's nothing live to redirect to and nothing else in
-          // the app links to these paths (confirmed via grep) — CRM/ERP split
-          // Milestone 4 (no dead navigation).
+
         ],
       },
       { path: '/marketing/*', element: <NotFound /> },
     ],
   },
-  // ── Chat (all roles) ────────────────────────────────────────────────────────
   {
-    element: <ProtectedRoute roles={allRoles} />,
+    element: <ProtectedRoute />,
     children: [
       {
         element: <ChatLayout />,

@@ -4,32 +4,36 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ProtectedRoute from './ProtectedRoute';
 import { useAuthStore } from '@/stores/authStore';
-import { USER_ROLES } from '@/constants/roles';
+import type { MyPermissions } from '@/services/permissionsService';
 
 const ProtectedContent = () => <div>Protected Content</div>;
 
-// ProtectedRoute calls useMyPermissions() (a useQuery) unconditionally, even
-// before the isLoggedIn check, so every render needs a QueryClientProvider.
-const withQueryClient = (node: React.ReactNode) => {
+const withQueryClient = (node: React.ReactNode, myPerms?: MyPermissions) => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  if (myPerms) {
+    queryClient.setQueryData(['permissions', 'me'], myPerms);
+  }
   return <QueryClientProvider client={queryClient}>{node}</QueryClientProvider>;
 };
 
-const renderProtectedRoute = (roles?: Array<(typeof USER_ROLES)[keyof typeof USER_ROLES]>) =>
+const renderProtectedRoute = (
+  props: { permission?: string; superAdminOnly?: boolean },
+  myPerms?: MyPermissions,
+) =>
   render(
     withQueryClient(
       <MemoryRouter initialEntries={['/private']}>
         <Routes>
           <Route path="/login" element={<div>Login Page</div>} />
-          <Route path="/employee" element={<div>Employee Dashboard</div>} />
-          <Route path="/admin" element={<div>Admin Dashboard</div>} />
-          <Route element={<ProtectedRoute roles={roles} />}>
+          <Route path="/403" element={<div>Access Denied Page</div>} />
+          <Route element={<ProtectedRoute {...props} />}>
             <Route path="/private" element={<ProtectedContent />} />
           </Route>
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
+      myPerms,
     )
   );
 
@@ -38,44 +42,66 @@ describe('ProtectedRoute', () => {
     useAuthStore.setState({ isLoggedIn: false, user: null, role: null });
   });
 
-  it('redirects unauthenticated users to login', () => {
-    renderProtectedRoute([USER_ROLES.ADMIN]);
+  it('redirects unauthenticated users to login regardless of permission', () => {
+    renderProtectedRoute({ permission: 'erp.workspace.access' });
     expect(screen.getByText('Login Page')).toBeInTheDocument();
   });
 
-  it('renders outlet for authorized admin users', () => {
-    useAuthStore.setState({
-      isLoggedIn: true,
-      role: USER_ROLES.ADMIN,
-      user: { id: '1', role_name: USER_ROLES.ADMIN } as never,
-    });
-
-    renderProtectedRoute([USER_ROLES.ADMIN]);
+  it('renders outlet when the live permission is granted', () => {
+    useAuthStore.setState({ isLoggedIn: true, role: 'EMPLOYEE', user: { id: '1' } as never });
+    renderProtectedRoute(
+      { permission: 'erp.workspace.access' },
+      { roles: ['EMPLOYEE'], permissions: ['erp.workspace.access'], is_super_admin: false },
+    );
     expect(screen.getByText('Protected Content')).toBeInTheDocument();
   });
 
-  it('redirects users with the wrong role to the 403 page without logging out', () => {
-    useAuthStore.setState({
-      isLoggedIn: true,
-      role: USER_ROLES.EMPLLOYEE,
-      user: { id: '2', role_name: USER_ROLES.EMPLLOYEE } as never,
-    });
-
-    render(
-      withQueryClient(
-        <MemoryRouter initialEntries={['/private']}>
-          <Routes>
-            <Route path="/login" element={<div>Login Page</div>} />
-            <Route path="/403" element={<div>Access Denied Page</div>} />
-            <Route element={<ProtectedRoute roles={[USER_ROLES.ADMIN]} />}>
-              <Route path="/private" element={<ProtectedContent />} />
-            </Route>
-          </Routes>
-        </MemoryRouter>
-      )
+  it('redirects to /403 when the live permission is absent, without logging out', () => {
+    useAuthStore.setState({ isLoggedIn: true, role: 'EMPLOYEE', user: { id: '2' } as never });
+    renderProtectedRoute(
+      { permission: 'erp.workspace.access' },
+      { roles: ['EMPLOYEE'], permissions: [], is_super_admin: false },
     );
-
     expect(screen.getByText('Access Denied Page')).toBeInTheDocument();
     expect(useAuthStore.getState().isLoggedIn).toBe(true);
+  });
+
+  it('denies access even when a fictional/unknown role name is present, if the permission is absent', () => {
+    useAuthStore.setState({ isLoggedIn: true, role: 'SOME_FICTIONAL_ADMIN_SOUNDING_ROLE', user: { id: '3' } as never });
+    renderProtectedRoute(
+      { permission: 'erp.workspace.access' },
+      { roles: ['SOME_FICTIONAL_ADMIN_SOUNDING_ROLE'], permissions: [], is_super_admin: false },
+    );
+    expect(screen.getByText('Access Denied Page')).toBeInTheDocument();
+  });
+
+  it('grants access to any permission when is_super_admin is true', () => {
+    useAuthStore.setState({ isLoggedIn: true, role: 'SUPER_ADMIN', user: { id: '4' } as never });
+    renderProtectedRoute(
+      { permission: 'erp.some.arbitrary.permission' },
+      { roles: ['SUPER_ADMIN'], permissions: [], is_super_admin: true },
+    );
+    expect(screen.getByText('Protected Content')).toBeInTheDocument();
+  });
+
+  it('superAdminOnly denies a caller with is_super_admin false, even with every permission granted', () => {
+    useAuthStore.setState({ isLoggedIn: true, role: 'ADMIN', user: { id: '5' } as never });
+    renderProtectedRoute(
+      { superAdminOnly: true },
+      { roles: ['ADMIN'], permissions: ['erp.workspace.access', 'erp.settings.manage'], is_super_admin: false },
+    );
+    expect(screen.getByText('Access Denied Page')).toBeInTheDocument();
+  });
+
+  it('superAdminOnly grants a caller with is_super_admin true', () => {
+    useAuthStore.setState({ isLoggedIn: true, role: 'SUPER_ADMIN', user: { id: '6' } as never });
+    renderProtectedRoute({ superAdminOnly: true }, { roles: ['SUPER_ADMIN'], permissions: [], is_super_admin: true });
+    expect(screen.getByText('Protected Content')).toBeInTheDocument();
+  });
+
+  it('with neither permission nor superAdminOnly, admits any authenticated user', () => {
+    useAuthStore.setState({ isLoggedIn: true, role: 'EMPLOYEE', user: { id: '7' } as never });
+    renderProtectedRoute({}, { roles: ['EMPLOYEE'], permissions: [], is_super_admin: false });
+    expect(screen.getByText('Protected Content')).toBeInTheDocument();
   });
 });

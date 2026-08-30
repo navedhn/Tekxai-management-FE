@@ -14,17 +14,11 @@ import { cn } from '@/utils/cn';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useFetchUsersQuery } from '@/services/userService';
 import { useToastContext } from '@/components/toast/ToastProvider';
-import { useAuth } from '@/hooks/useAuth';
+import { useMyPermissions } from '@/services/permissionsService';
 
 const v1 = 'api/v1';
 const BUILDER = `${v1}/report/builder`;
 
-// Sprint 1 Milestone 6 — Tickets by Category/Type/Priority/Assignee/
-// Department, entirely via the generic report_builder aggregate engine.
-// SLA Breaches / Average Resolution Time are NOT offered here — see
-// report_builder.controller.js's ENTITY_MAP comment: neither is expressible
-// via flat filters/single-column aggregates without ticket-specific logic
-// inside the generic engine, which this milestone explicitly rules out.
 const TICKET_DIMENSIONS = [
   { key: 'priority', label: 'By Priority', group_by: 'priority' },
   { key: 'type', label: 'By Type', group_by: 'ticket_type_id' },
@@ -43,7 +37,6 @@ function TicketReportsSection() {
 
   React.useEffect(() => {
     aggregateMutation.mutate({ entity: 'support_tickets', group_by: dimension.group_by });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dimKey]);
 
   const rows = useMemo(() => {
@@ -99,17 +92,13 @@ const PRIORITY_STYLES: Record<string, string> = {
   medium: 'bg-orange-100 text-orange-600',
   high:   'bg-red-100 text-red-700',
 };
-// Values are stored/entered with inconsistent casing (e.g. a stray 'MEDIUM'
-// alongside the normal 'medium'), so these style lookups must be
-// case-insensitive or a badge silently renders with no color/background at
-// all — normalize before indexing rather than assuming lowercase everywhere.
 const styleFor = (map: Record<string, string>, value?: string | null) => (value ? map[value.toLowerCase()] : undefined) || 'bg-gray-100 text-gray-600';
 
 export default function AdminTickets() {
   const qc = useQueryClient();
   const toast = useToastContext();
-  const { role } = useAuth();
-  const isSuperAdmin = role === 'SUPER_ADMIN';
+  const { data: myPerms } = useMyPermissions();
+  const isSuperAdmin = !!myPerms?.is_super_admin;
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
@@ -125,9 +114,6 @@ export default function AdminTickets() {
     queryKey: ['tickets', 'admin-list', statusFilter, priorityFilter, debouncedSearch, slaOverdueOnly],
     queryFn: async () => {
       const params = new URLSearchParams({ limit: '100' });
-      // statusFilter here is always one of the 3 abstract stat-card buckets
-      // (or 'all') — resolved server-side to the concrete per-type status
-      // literals it covers, same as the stat cards themselves.
       if (statusFilter !== 'all') params.set('bucket', statusFilter);
       if (priorityFilter !== 'all') params.set('priority', priorityFilter);
       if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
@@ -167,30 +153,17 @@ export default function AdminTickets() {
     onError: (e: any) => toast.error(e?.response?.data?.message || e?.message || 'Failed to submit approval decision.'),
   });
 
-  // Search is now server-side (subject/description/ticket number) — the list
-  // is exactly what the backend returned.
   const tickets = data?.records ?? [];
 
-  // A service-desk ticket at an approval-gated workflow step gets
-  // Approve/Reject actions instead of a free status dropdown.
   const currentStep = (t: SupportTicket) =>
     t.typeSnapshot?.workflow?.find((s) => s.key === t.status);
   const nextSteps = (t: SupportTicket) => {
     const wf = t.typeSnapshot?.workflow;
-    if (!wf) return null; // legacy ticket — free statuses
+    if (!wf) return null;
     const idx = wf.findIndex((s) => s.key === t.status);
     return wf.filter((_, i) => i !== idx);
   };
 
-  // Previously computed via 3 separate report_builder KPI calls filtering
-  // on the literal status values 'pending'/'in_progress'/'resolved' — wrong
-  // because workflow-driven tickets use per-type status keys like OPEN,
-  // MANAGER_APPROVAL, PURCHASE, CLOSED, etc., none of which are those three
-  // literals, so every card always read 0. /ticket/stats now returns a
-  // `by_bucket` breakdown computed server-side from each ticket type's own
-  // workflow (first step = pending, last step = resolved, else in progress),
-  // which is the single source of truth also used by the stat-card
-  // click-through filter below (`bucket` query param).
   const statsQ = useQuery({
     queryKey: ['ticket-stats'],
     queryFn: () => apiRequest<any>(ENDPOINTS.TICKET.STATS).then((r: any) => r?.payload),
@@ -317,7 +290,6 @@ export default function AdminTickets() {
                         View / Reply
                       </Button>
                       {currentStep(t)?.requires_approval ? (
-                        // Approval-gated workflow step — status can only move via approve/reject
                         <>
                           <Button
                             variant="link"
@@ -345,7 +317,6 @@ export default function AdminTickets() {
                           </Button>
                         </>
                       ) : nextSteps(t) ? (
-                        // Service-desk ticket — statuses come from its workflow snapshot
                         !t.closedAt && (
                           <SearchableSelect
                             options={nextSteps(t)!.map((s) => ({ label: s.label, value: s.key }))}
@@ -361,7 +332,6 @@ export default function AdminTickets() {
                           />
                         )
                       ) : (
-                        // Legacy ticket — original free-status behavior
                         t.status !== 'resolved' && (
                           <SearchableSelect
                             options={[

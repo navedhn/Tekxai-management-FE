@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/Button';
 import Loader from '@/components/ui/Loader';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/hooks/useAuth';
+import { useMyPermissions } from '@/services/permissionsService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import {
   useGetEmployeeFullRecord, useUpsertHRProfile, useUpdateUserOrg,
@@ -72,9 +73,6 @@ const STATUS_COLORS: Record<string, string> = {
   DECEASED: 'bg-gray-100 text-gray-600 border-gray-200',
 };
 
-// Employee Lifecycle — a separate concept from Employment Status above
-// (journey stage vs. operational state). Distinct color family so the two
-// badges are never visually confused.
 const LIFECYCLE_COLORS: Record<string, string> = {
   ONBOARDING: 'bg-blue-50 text-blue-700 border-blue-100',
   PROBATION: 'bg-purple-50 text-purple-700 border-purple-100',
@@ -122,13 +120,6 @@ const PROBATION_STATUSES = [
   { value: 'EXTENDED', label: 'Extended' },
   { value: 'FAILED', label: 'Failed' },
 ];
-
-// ── Internal render sections ────────────────────────────────────────────────
-// Presentation-only split of the tab bodies below. Sections that need their
-// own network calls own those calls internally and are only ever mounted
-// while their tab is active (the page renders a single active tab's
-// component at a time), which keeps every fetch lazy without extra
-// `enabled` plumbing.
 
 const OverviewSection: React.FC<{
   user: any; profile: any; onboarding_tasks: any[]; asset_assignments: any[]; leave_balances: any[];
@@ -649,11 +640,6 @@ const EmploymentSection: React.FC<{
   </div>
 );
 
-// Default "required" document types the report/gap-check treats as the core
-// set every employee should have on file — must match be-work's
-// REQUIRED_DOC_TYPES (employee-documents/constants/doc-types.js) so the
-// profile's "Missing" placeholders never disagree with the Missing
-// Documents report's own gap computation.
 const REQUIRED_DOC_TYPES = ['CNIC', 'RESUME', 'OFFER_LETTER', 'CONTRACT', 'NDA'];
 
 const DOC_STATUS_BADGE: Record<string, string> = {
@@ -680,8 +666,8 @@ const DocumentsSection: React.FC<{
   const [uploading, setUploading] = useState(false);
   const [replacingId, setReplacingId] = useState<string | null>(null);
   const toast = useToastContext();
-  const { role } = useAuth();
-  const canVerify = role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR';
+  const { data: myPerms } = useMyPermissions();
+  const canVerify = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('hr.employee_documents.edit');
 
   const handleVerify = (doc: any, status: 'VERIFIED' | 'REJECTED') => {
     updateDoc.mutate({ docId: doc.id, data: { verification_status: status } }, {
@@ -697,9 +683,6 @@ const DocumentsSection: React.FC<{
     });
   };
 
-  // Canonical doc types the employee has NOT uploaded at all — shown as
-  // explicit "Missing" placeholders so HR sees the gap directly on the
-  // profile, not just in the Missing Documents report.
   const uploadedTypes = new Set(docs.map((d) => d.document_type));
   const missingTypes = REQUIRED_DOC_TYPES.filter((t) => !uploadedTypes.has(t));
 
@@ -1011,7 +994,7 @@ const ActivityTimelineSection: React.FC<{ employeeId?: string }> = ({ employeeId
 };
 
 const NotesSection: React.FC<{ employeeId?: string }> = ({ employeeId }) => {
-  const { user: currentUser, role } = useAuth();
+  const { user: currentUser } = useAuth();
   const toast = useToastContext();
   const { data: notes = [], isLoading } = useGetEmployeeNotes(employeeId);
   const createNote = useCreateEmployeeNote(employeeId || '');
@@ -1024,7 +1007,8 @@ const NotesSection: React.FC<{ employeeId?: string }> = ({ employeeId }) => {
   const [editBody, setEditBody] = useState('');
   const [editPrivate, setEditPrivate] = useState(false);
 
-  const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const { data: myPerms } = useMyPermissions();
+  const isAdmin = !!myPerms?.is_super_admin;
 
   const handleAdd = () => {
     if (!body.trim()) { toast.error('Note cannot be empty'); return; }
@@ -1211,11 +1195,6 @@ const EmployeeProfilePage: React.FC = () => {
     });
   };
 
-  // Sensitive stages must go through their gated, safety-checked transition
-  // endpoint (checklist/asset/approval requirements enforced server-side)
-  // rather than the direct-override set-stage endpoint. Only lateral moves
-  // with no dedicated gated endpoint (ONBOARDING <-> ACTIVE_EMPLOYMENT) fall
-  // through to set-stage here.
   const SENSITIVE_STAGE_MUTATIONS: Record<string, { mutate: (opts: { onSuccess: () => void; onError: (e: any) => void }) => void }> = {
     PROBATION: { mutate: (opts) => moveToProbation.mutate(employeeId!, opts) },
     NOTICE_PERIOD: { mutate: (opts) => enterNoticePeriod.mutate({ userId: employeeId! }, opts) },
@@ -1227,8 +1206,6 @@ const EmployeeProfilePage: React.FC = () => {
     const stage = String(value);
     const onSuccess = () => { toast.success('Lifecycle stage updated'); setEditingLifecycle(false); };
     const onError = (e: any) => {
-      // Surface the gated endpoint's 409 rejection reason (e.g. outstanding
-      // assets / incomplete checklist) instead of a generic failure.
       toast.error(e?.message || (e?.status === 409 ? 'Transition blocked — requirements not met' : 'Failed to update lifecycle stage'));
     };
 
@@ -1238,8 +1215,6 @@ const EmployeeProfilePage: React.FC = () => {
       return;
     }
 
-    // No gated endpoint for this stage (e.g. ONBOARDING <-> ACTIVE_EMPLOYMENT
-    // lateral moves) — fall back to the admin override.
     setLifecycleStage.mutate({ user_ids: [employeeId!], lifecycle_stage: stage }, { onSuccess, onError });
   };
 
@@ -1255,11 +1230,6 @@ const EmployeeProfilePage: React.FC = () => {
     });
   };
 
-  // Configuration-driven tabs — 16 tabs covering the full 360° employee
-  // profile. Each `render()` mounts only while its tab is active, so any
-  // component that owns its own `useQuery` call fetches lazily for free
-  // (no explicit `enabled` flags needed beyond what individual hooks add
-  // defensively).
   const tabs = [
     {
       id: 'Overview',

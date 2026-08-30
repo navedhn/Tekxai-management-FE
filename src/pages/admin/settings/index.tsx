@@ -18,7 +18,6 @@ import ActionModal from '@/components/ui/ActionModal';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
-// ─── 2FA helpers ─────────────────────────────────────────────────────────────
 const use2FAStatus = () =>
   useQuery({
     queryKey: ['2fa-status'],
@@ -210,9 +209,8 @@ const MonitoringSettings: React.FC = () => {
 const Setting: React.FC = () => {
     const toast = useToastContext();
     const navigate = useNavigate();
-    const { role, userLogout } = useAuthStore();
+    const { userLogout } = useAuthStore();
     const logoutMutation = useLogoutMutation();
-    const isSuperAdmin = role === 'SUPER_ADMIN';
     const [activeTab, setActiveTab] = useState('security');
 
     const { data: calStatus, refetch: refetchCalStatus } = useQuery({
@@ -262,7 +260,6 @@ const Setting: React.FC = () => {
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
     const [selectedInvite, setSelectedInvite] = useState<any>(null);
 
-    // Invites filters
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -270,7 +267,7 @@ const Setting: React.FC = () => {
     const debouncedSearch = useDebounce(search, 500);
 
     const { data: invitesData, isLoading: isLoadingInvites } = useGetInvitesQuery({}, activeTab === 'invites');
-    
+
     const { data: settingsData } = useGetMySettingsQuery();
     const updatePreferences = useUpdatePreferencesMutation();
     const changePassword = useChangePasswordMutation();
@@ -331,12 +328,6 @@ const Setting: React.FC = () => {
                 setOldPassword('');
                 setNewPassword('');
                 setConfirmNewPassword('');
-                // The backend already revokes every refresh token session for this
-                // user on password change (see change_password() in
-                // settings.service.js) — the current access token would otherwise
-                // keep working until it naturally expires, silently leaving the
-                // old session active for up to its lifetime. Log out immediately
-                // instead of waiting for that.
                 try { await logoutMutation.mutateAsync(); } catch { /* best-effort */ }
                 clearAuthTokens();
                 userLogout();

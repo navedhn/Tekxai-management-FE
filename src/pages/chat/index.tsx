@@ -30,8 +30,6 @@ import { getOrCreateKeyPair, importPublicKey, deriveSharedKey, encryptMessage, d
 import { useChatTopbarStore } from '@/stores/chatTopbarStore';
 import { getSocket } from '@/lib/socket';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
 interface ChatUser {
   id: string;
   first_name: string;
@@ -102,9 +100,6 @@ interface ChatMessage {
   pinned_by?: { id: string; first_name: string; last_name: string } | null;
   link_preview?: LinkPreview | null;
   poll?: Poll | null;
-  // E2E DM encryption (see lib/e2eCrypto.ts) — when is_encrypted is true,
-  // `content` is AES-GCM ciphertext (base64) and `iv` is the matching
-  // base64 nonce. Only ever set for DM channels.
   is_encrypted?: boolean;
   iv?: string | null;
 }
@@ -125,12 +120,8 @@ interface Channel {
   members: ChannelMember[];
   messages: ChatMessage[];
   _count?: { messages: number; members: number };
-  // Nullable — legacy/ungrouped channels never set this. Only channels
-  // created inside a Server (see serversService.ts) do.
   server_id?: string | null;
 }
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function getOtherMember(channel: Channel, currentUserId: string): ChatUser | undefined {
   return channel.members?.find((m) => m.user_id !== currentUserId)?.user;
@@ -139,9 +130,6 @@ function getOtherMember(channel: Channel, currentUserId: string): ChatUser | und
 function getChannelDisplayName(channel: Channel, currentUserId: string): string {
   if (channel.type === 'DM') {
     const other = getOtherMember(channel, currentUserId);
-    // first_name/last_name are optional in the DB — some seeded accounts
-    // have no last_name at all, and unconditionally interpolating both
-    // rendered the literal string "null" next to the first name.
     const name = other ? [other.first_name, other.last_name].filter(Boolean).join(' ').trim() : '';
     return name || 'Direct Message';
   }
@@ -160,17 +148,8 @@ function fmtTime(iso: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-// Module-level (not React state) so the plain isOnline() helper below can
-// read it from anywhere it's called — mutated by the presence:update socket
-// listener in ChatPage, which also bumps a small React state counter so
-// components showing online dots actually re-render when this changes.
 const onlineUserIds = new Set<string>();
 
-// "Online" prefers a real push signal (presence:update, see socket listener
-// in ChatPage) — true real-time, not polled. Falls back to the
-// last_active_at heartbeat heuristic for anyone we haven't received a
-// presence event for yet (e.g. right after page load, before their next
-// connect/disconnect fires while we're around to see it).
 const ONLINE_WINDOW_MS = 2 * 60 * 1000;
 function isOnline(user?: ChatUser | null): boolean {
   if (!user?.id) return false;
@@ -214,8 +193,6 @@ const SLASH_COMMANDS: Array<{ command: string; icon: React.ReactNode; usage: str
   { command: '/remind', icon: <AlarmClock size={13} />,  usage: '/remind Message in 2 hours',                  description: 'Get pinged later' },
 ];
 
-// ─── Avatar ──────────────────────────────────────────────────────────────────
-
 const Avatar: React.FC<{ user?: ChatUser; size?: 'xs' | 'sm' | 'md'; active?: boolean; showStatus?: boolean }> = ({
   user, size = 'md', active = false, showStatus = false,
 }) => {
@@ -250,8 +227,6 @@ const Avatar: React.FC<{ user?: ChatUser; size?: 'xs' | 'sm' | 'md'; active?: bo
   );
 };
 
-// ─── Members Modal ────────────────────────────────────────────────────────────
-
 function MembersModal({
   channelId, currentUserId, currentUserRole, isGlobalAdmin, onClose,
 }: {
@@ -266,9 +241,6 @@ function MembersModal({
   const [addSearch, setAddSearch] = useState('');
   const [showAddDropdown, setShowAddDropdown] = useState(false);
   const [selectedDesignationId, setSelectedDesignationId] = useState('');
-  // Mirrors the backend's is_global_admin(req) bypass on add_member/
-  // remove_member — a SUPER_ADMIN/ADMIN can manage membership even for a
-  // channel they aren't a member (or OWNER/ADMIN member) of themselves.
   const canManage = isGlobalAdmin || ['OWNER', 'ADMIN'].includes(currentUserRole || '');
 
   const { data: members = [] } = useQuery<ChannelMember[]>({
@@ -332,11 +304,6 @@ function MembersModal({
   });
 
   const existingIds = new Set(members.map((m) => m.user_id));
-  // A channel_members row can outlive the user it points to (account
-  // deleted/deactivated without a cleanup pass) — its `user` include comes
-  // back null and the row list below skips it, so the header count must use
-  // this same filtered set or it shows a member count nothing on screen
-  // backs up (e.g. "3 members" with only 2 rows visible).
   const visibleMembers = members.filter((m) => m.user);
 
   return (
@@ -429,11 +396,6 @@ function MembersModal({
   );
 }
 
-// ─── Saved Messages Panel ────────────────────────────────────────────────────
-// Personal, cross-channel — unlike PinnedMessagesPanel (scoped to one
-// channel), this lists everything the current user has bookmarked from any
-// conversation they're in, with a "Jump to channel" action per item.
-
 function SavedMessagesPanel({
   onClose,
   onJumpToChannel,
@@ -450,10 +412,6 @@ function SavedMessagesPanel({
     },
   });
 
-  // Channel id in the URL is unused server-side for save/unsave (the
-  // backend derives the channel from the message itself) — "_" is just a
-  // harmless placeholder so this panel doesn't need to know which channel
-  // each saved message came from just to unsave it.
   const unsaveMutation = useMutation({
     mutationFn: (msgId: string) => apiRequest<any>(API_ENDPOINTS.CHAT.SAVE('_', msgId), { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['chat-saved'] }),
@@ -512,8 +470,6 @@ function SavedMessagesPanel({
     </div>
   );
 }
-
-// ─── Pinned Messages Panel ───────────────────────────────────────────────────
 
 function PinnedMessagesPanel({
   channelId,
@@ -585,8 +541,6 @@ function PinnedMessagesPanel({
   );
 }
 
-// ─── Channel Settings Modal ───────────────────────────────────────────────────
-
 function ChannelSettingsModal({
   channel, currentUserRole, isGlobalAdmin, canMakePublic, onClose, onSaved, onLeftOrDeleted,
 }: {
@@ -602,22 +556,9 @@ function ChannelSettingsModal({
   const [name, setName] = useState(channel.name);
   const [description, setDescription] = useState(channel.description || '');
   const [type, setType] = useState<'PUBLIC' | 'PRIVATE'>(channel.type === 'PRIVATE' ? 'PRIVATE' : 'PUBLIC');
-  // Mirrors the backend's is_global_admin(req) bypass on update_channel/
-  // archive_channel/delete_channel — a SUPER_ADMIN/ADMIN can act on any
-  // channel even if they hold no role in it (or aren't a member at all),
-  // same as the backend already allows. Without this, currentUserRole is
-  // undefined for a channel the admin never joined, and every one of these
-  // stayed hidden regardless of global role.
   const canEdit = isGlobalAdmin || ['OWNER', 'ADMIN'].includes(currentUserRole || '');
   const canArchive = isGlobalAdmin || currentUserRole === 'OWNER';
   const canDelete = isGlobalAdmin || currentUserRole === 'OWNER';
-  // A project channel's roster follows the project team (project-chat sync
-  // on the backend) — leaving would just fight that on the next project
-  // update, so the backend rejects it and this button is hidden to match.
-  // DMs have no "leave" concept either.
-  // Global admins can now open Settings for a channel they were never added
-  // to (see canDelete/canArchive above) — "Leave" only makes sense if you
-  // actually hold a role in the channel to begin with.
   const canLeave = !!currentUserRole && channel.type !== 'DM' && channel.entity_type !== 'PROJECT';
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -696,10 +637,6 @@ function ChannelSettingsModal({
               <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1.5">Privacy</label>
               <div className="flex gap-2">
                 {(['PUBLIC', 'PRIVATE'] as const)
-                  // Retyping to PUBLIC is Super Admin/Admin/HR only on the
-                  // backend (update_channel) — same gate as creating one
-                  // public in the first place. Hide the option rather than
-                  // let someone pick it and hit a 403 on save.
                   .filter((t) => t !== 'PUBLIC' || canMakePublic)
                   .map((t) => (
                   <button
@@ -798,8 +735,6 @@ function ChannelSettingsModal({
     </div>
   );
 }
-
-// ─── Search Modal ─────────────────────────────────────────────────────────────
 
 interface SearchResults {
   channels: Array<{ id: string; name: string; type: string; is_archived: boolean; entity_type?: string | null }>;
@@ -920,13 +855,6 @@ function SearchModal({
   );
 }
 
-// ─── Server Rail ──────────────────────────────────────────────────────────────
-// Discord-style icon rail on the far left: "Home" (DMs) at top, one icon per
-// Server the user belongs to, "+" to create a new one (admin/HR-gated, same
-// role check as CAN_CREATE_CHANNEL). Purely additive to the existing chat
-// module — legacy ungrouped channels are unaffected and still live under
-// "Home" alongside DMs (only server_id-tagged channels move under a server).
-
 const SERVER_COLORS = [
   'from-[#005CDA] to-[#001F4A]', 'from-emerald-500 to-emerald-800', 'from-orange-500 to-orange-800',
   'from-fuchsia-500 to-fuchsia-800', 'from-cyan-500 to-cyan-800', 'from-rose-500 to-rose-800',
@@ -941,7 +869,7 @@ function ServerRail({
   servers, activeServerId, onSelectHome, onSelectServer, onAddServer, canCreate,
 }: {
   servers: ChatServer[];
-  activeServerId: string | null; // null = Home (DMs + legacy channels)
+  activeServerId: string | null;
   onSelectHome: () => void;
   onSelectServer: (id: string) => void;
   onAddServer: () => void;
@@ -1004,8 +932,6 @@ function ServerRail({
     </div>
   );
 }
-
-// ─── Create Server Modal ──────────────────────────────────────────────────────
 
 function CreateServerModal({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
   const [name, setName] = useState('');
@@ -1071,10 +997,6 @@ function CreateServerModal({ onClose, onCreated }: { onClose: () => void; onCrea
   );
 }
 
-// ─── Server Members Modal ─────────────────────────────────────────────────────
-// "Server Settings → Members" — same add/remove-member UX pattern as the
-// existing per-channel MembersModal above, retargeted at server_members.
-
 function ServerMembersModal({ serverId, isGlobalAdmin, onClose }: { serverId: string; isGlobalAdmin?: boolean; onClose: () => void }) {
   const [addSearch, setAddSearch] = useState('');
   const [showAddDropdown, setShowAddDropdown] = useState(false);
@@ -1093,9 +1015,6 @@ function ServerMembersModal({ serverId, isGlobalAdmin, onClose }: { serverId: st
 
   const members = server?.members || [];
   const existingIds = new Set(members.map((m) => m.user_id));
-  // The add/remove controls are always shown here — the backend is the real
-  // gate (server OWNER/ADMIN or global admin, see servers.controller.js's
-  // assert_server_manage); a non-privileged member just gets a 403 toast.
   const canManage = true;
 
   return (
@@ -1163,8 +1082,6 @@ function ServerMembersModal({ serverId, isGlobalAdmin, onClose }: { serverId: st
   );
 }
 
-// ─── New Channel Modal ────────────────────────────────────────────────────────
-
 type NewChatTab = 'direct' | 'private' | 'public' | 'announcement';
 
 function NewChannelModal({
@@ -1174,10 +1091,6 @@ function NewChannelModal({
 }: {
   onClose: () => void;
   onCreated: (id: string) => void;
-  // When set (the rail has a Server open), Group/Private/Public/Announcement
-  // channels are created inside that server (channels.server_id) instead of
-  // ungrouped — see chat.controller.js's assert_can_create_in_server. DMs
-  // are never server-scoped (get_or_create_dm has no server_id concept).
   serverId?: string | null;
 }) {
   const qc = useQueryClient();
@@ -1185,12 +1098,6 @@ function NewChannelModal({
     qc.invalidateQueries({ queryKey: ['chat-channels'] });
     if (serverId) qc.invalidateQueries({ queryKey: ['server-channels', serverId] });
   };
-  // Group/Private/Public channel creation is admin/HR-only server-side (see
-  // chat.routes.js CAN_CREATE_CHANNEL) — regular employees can only start
-  // Direct messages. Hide the tabs rather than let someone pick one and hit
-  // a 403 on submit. Derived from the live, server-verified permissions
-  // fetch (useMyPermissions) — never from authStore's persisted `role`,
-  // which is plain localStorage and directly editable via DevTools.
   const { data: myPerms } = useMyPermissions();
   const canCreateChannels = !!myPerms?.is_super_admin || (myPerms?.roles || []).some((r) => ['ADMIN', 'HR'].includes(r));
   const [tab, setTab] = useState<NewChatTab>('direct');
@@ -1234,10 +1141,6 @@ function NewChannelModal({
     },
   });
 
-  // Same endpoint publicMutation uses — just a different `type` in the
-  // body. Read access is open to everyone (assert_channel_access treats
-  // ANNOUNCEMENT the same as PUBLIC); only posting is restricted to
-  // OWNER/ADMIN members, enforced in send_message.
   const announcementMutation = useMutation({
     mutationFn: ({ name, description }: { name: string; description: string }) =>
       apiRequest<any>(API_ENDPOINTS.CHAT.CHANNELS, { method: 'POST', body: JSON.stringify({ name, description, type: 'ANNOUNCEMENT', server_id: serverId || undefined }) }),
@@ -1386,14 +1289,6 @@ function NewChannelModal({
   );
 }
 
-// ─── Channel Section ──────────────────────────────────────────────────────────
-
-// ─── Grouped Channel List (sidebar folders) ─────────────────────────────────
-// Groups the flat channel list into collapsible sections using data the app
-// already has (channel.type, channel.entity_type) rather than a new
-// manually-managed folder system — "Projects" is exactly the existing
-// entity_type==='PROJECT' auto-sync channels, same set the header's
-// "Project" badge already identifies elsewhere in this file.
 const CHANNEL_GROUPS: Array<{ key: string; label: string; icon: React.ReactNode; match: (ch: Channel) => boolean }> = [
   { key: 'dm',       label: 'Direct Messages', icon: <User size={11} />,      match: (ch) => ch.type === 'DM' },
   { key: 'projects', label: 'Projects',        icon: <FolderOpen size={11} />, match: (ch) => ch.type !== 'DM' && ch.entity_type === 'PROJECT' },
@@ -1466,9 +1361,6 @@ function ChannelSection({
         const name = getChannelDisplayName(ch, currentUserId);
         const lastMsg = ch.messages?.[0];
         const otherUser = ch.type === 'DM' ? getOtherMember(ch, currentUserId) : undefined;
-        // Server-computed (channel_members.last_read_at vs messages.created_at,
-        // excluding your own messages) — replaces a client-side date heuristic
-        // that couldn't tell "1 unread" from "40 unread".
         const unreadCount = ch.unread_count || 0;
         const hasUnread = unreadCount > 0;
         const mentionCount = ch.mention_count || 0;
@@ -1535,15 +1427,6 @@ function ChannelSection({
   );
 }
 
-// ─── Poll Card ────────────────────────────────────────────────────────────────
-// Renders in place of a message's plain text whenever msg.poll is set (see
-// create_poll_ctrl — the poll's announcement IS a regular message row).
-// Tallies are computed client-side from the raw votes array the backend
-// sends, same convention MessageBubble's own reactionMap already uses for
-// reactions. Other members see a vote/close live via message:edited (the
-// poll's announcement message is a regular message row — see
-// vote_poll_ctrl/close_poll_ctrl in chat.controller.js); the voter/closer's
-// own client already gets it from their mutation's onSuccess refetch.
 function PollCard({ poll, channelId, currentUserId, isGlobalAdmin }: {
   poll: Poll;
   channelId: string;
@@ -1625,8 +1508,6 @@ function PollCard({ poll, channelId, currentUserId, isGlobalAdmin }: {
   );
 }
 
-// ─── Message Bubble ───────────────────────────────────────────────────────────
-
 function MessageBubble({
   msg, isOwn, showSenderName, currentUserId, channelId, isGlobalAdmin, isSaved,
   onDelete, onReply, onOpenThread, onEdit, onImageClick, seenBy, dmSharedKey,
@@ -1643,24 +1524,12 @@ function MessageBubble({
   onOpenThread: () => void;
   onEdit: (msg: ChatMessage) => void;
   onImageClick?: (url: string, name?: string | null) => void;
-  // Only computed/passed for the sender's own most recent message — other
-  // members whose channel_members.last_read_at is on/after this message's
-  // created_at (see chat.controller.js's send_message/get_messages
-  // last_read_at upsert). Undefined everywhere else, matching typical chat
-  // "seen by" UX (you only see who's read what YOU sent).
   seenBy?: ChatUser[];
-  // E2E DM decryption — the AES-GCM key already derived (ECDH) for this
-  // conversation, cached at the page level (ChatPage's sharedKeyCacheRef).
-  // Undefined until the peer's public key has loaded and been derived.
   dmSharedKey?: CryptoKey;
 }) {
   const qc = useQueryClient();
   const [hovered, setHovered] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  // Decrypted plaintext for an encrypted DM message — undefined = not
-  // attempted/pending, null = decryption failed (wrong/missing key, corrupt
-  // ciphertext, message predates key generation), string = success. Only
-  // decrypts once per (message id, key) pair — see the effect below.
   const [decrypted, setDecrypted] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
@@ -1691,8 +1560,6 @@ function MessageBubble({
     onSuccess: () => qc.invalidateQueries({ queryKey: ['chat-messages', channelId] }),
   });
 
-  // Any member can pin/unpin — same trust level the backend grants (no
-  // owner/admin-only gate), matching how reactions already work.
   const pinMutation = useMutation({
     mutationFn: () => apiRequest<any>(API_ENDPOINTS.CHAT.PIN(channelId, msg.id), { method: 'POST' }),
     onSuccess: () => {
@@ -1819,10 +1686,6 @@ function MessageBubble({
           )}
 
           {msg.poll ? (
-            // Polls render as their own card, not inside the usual colored
-            // bubble — the interactive vote buttons need a neutral
-            // background regardless of who sent it, same reasoning link
-            // previews already render as a separate white card.
             <PollCard poll={msg.poll} channelId={channelId} currentUserId={currentUserId} isGlobalAdmin={isGlobalAdmin} />
           ) : (
             <div className="text-sm text-gray-800 leading-relaxed">
@@ -1859,9 +1722,6 @@ function MessageBubble({
                     <Lock size={11} /> Decrypting…
                   </span>
                 ) : decrypted === null ? (
-                  // Wrong/missing key, corrupt data, or a message that
-                  // predates this device's key generation — never render
-                  // raw ciphertext or throw; a clear placeholder instead.
                   <span className="italic text-gray-400 flex items-center gap-1 text-xs">
                     🔒 Unable to decrypt this message
                   </span>
@@ -1940,11 +1800,6 @@ function MessageBubble({
   );
 }
 
-// Skype-style read receipt: a small overlapping avatar stack under the
-// sender's own last message. Hover (desktop) or tap (touch) opens a popover
-// listing each viewer's name + picture — matches the "hover or click shows
-// the person's name with their profile picture" request rather than a plain
-// text "Seen by X" line.
 function SeenByIndicator({ users }: { users: ChatUser[] }) {
   const [open, setOpen] = useState(false);
   return (
@@ -1985,8 +1840,6 @@ function SeenByIndicator({ users }: { users: ChatUser[] }) {
   );
 }
 
-// ─── Thread Panel ─────────────────────────────────────────────────────────────
-
 function ThreadPanel({
   channelId, msgId, currentUserId, onClose,
 }: {
@@ -2006,14 +1859,8 @@ function ThreadPanel({
       return r?.payload;
     },
     enabled: !!channelId && !!msgId,
-    // No refetchInterval — the socket listener below (a thread reply is
-    // just a message:new/edited/deleted with parent_id set) is the only
-    // update path once this loads; reconnect recovery is handled by the
-    // chat page's own top-level socket 'connect' handler, not a poll here.
   });
 
-  // Other participants' replies/edits/deletes in this thread — own replies
-  // already invalidate on the mutation's onSuccess above.
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -2125,11 +1972,6 @@ function ThreadPanel({
   );
 }
 
-// ─── Camera Capture Modal ───────────────────────────────────────────────────
-// Standard chat "take a photo" flow: live camera preview → capture a still
-// frame to canvas → review/retake → hand the resulting File back to the
-// composer, which uploads it through the exact same handleAttachmentSelect
-// path a picked file or a pasted screenshot already goes through.
 function CameraCaptureModal({
   onClose,
   onCapture,
@@ -2167,7 +2009,6 @@ function CameraCaptureModal({
   useEffect(() => {
     if (!photoDataUrl) startStream();
     return () => stopStream();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [facingMode, photoDataUrl]);
 
   const handleCapture = () => {
@@ -2260,21 +2101,11 @@ function CameraCaptureModal({
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
-
 export default function ChatPage() {
   const currentUser = useAuthStore((s) => s.user);
   const currentUserId = currentUser?.id || '';
-  // Every admin-gated affordance below (server/channel creation, public/
-  // announcement posting, member management, archive/delete) is derived
-  // from the live, server-verified GET /permission/my-permissions response
-  // — never from authStore's persisted `role`, which lives in localStorage
-  // and can be edited via DevTools to claim any role. The actual mutating
-  // requests are independently re-checked server-side regardless, but this
-  // keeps the UI itself from ever rendering admin affordances for a
-  // spoofed role.
   const { data: myPerms } = useMyPermissions();
-  const isGlobalAdmin = !!myPerms?.is_super_admin || (myPerms?.roles || []).includes('ADMIN');
+  const isGlobalAdmin = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.chat.manage');
   const qc = useQueryClient();
   const toast = useToastContext();
 
@@ -2296,21 +2127,13 @@ export default function ChatPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [recordingError, setRecordingError] = useState<string | null>(null);
-  // Live speech-to-text while recording (Web Speech API) — empty string
-  // whenever unsupported/not yet transcribed anything, in which case the
-  // recording bar just falls back to its plain "Recording…" label.
   const [liveTranscript, setLiveTranscript] = useState('');
-  // @-mention autocomplete — null means "not currently typing a mention".
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [showComposerEmoji, setShowComposerEmoji] = useState(false);
   const [showPinned, setShowPinned] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
 
-  // ── Servers (Discord-style rail) ────────────────────────────────────────
-  // null = "Home" — DMs + legacy ungrouped channels, exactly as chat behaved
-  // before this feature. A server id narrows the sidebar to that server's
-  // own channels (fetched separately, GET /servers/:id/channels).
   const [activeServerId, setActiveServerId] = useState<string | null>(null);
   const [showCreateServerModal, setShowCreateServerModal] = useState(false);
   const [showServerMembersModal, setShowServerMembersModal] = useState(false);
@@ -2318,14 +2141,9 @@ export default function ChatPage() {
   const { data: servers = [] } = useGetServersQuery();
   const { data: serverChannels = [] } = useGetServerChannelsQuery(activeServerId);
 
-  // ── E2E DM encryption bootstrap ─────────────────────────────────────────
-  // On first chat-page load: get/create this browser's ECDH keypair
-  // (IndexedDB-backed, private key never leaves it — see e2eCrypto.ts) and
-  // upload the public half. Cheap/idempotent to re-run (upload always
-  // upserts), so no "already done" guard is needed beyond the empty dep array.
   const privateKeyRef = useRef<CryptoKey | null>(null);
-  const sharedKeyCacheRef = useRef<Map<string, CryptoKey>>(new Map()); // peer user id -> derived AES-GCM key
-  const decryptedCacheRef = useRef<Map<string, string | null>>(new Map()); // message id -> plaintext (or null = failed)
+  const sharedKeyCacheRef = useRef<Map<string, CryptoKey>>(new Map());
+  const decryptedCacheRef = useRef<Map<string, string | null>>(new Map());
   const [, forceDecryptRerender] = useState(0);
   const updateMyPublicKeyMutation = useUpdateMyPublicKeyMutation();
 
@@ -2338,14 +2156,10 @@ export default function ChatPage() {
         privateKeyRef.current = privateKey;
         updateMyPublicKeyMutation.mutate(publicKeySpkiB64);
       } catch (e) {
-        // Web Crypto/IndexedDB unavailable (very old browser, private mode
-        // restrictions, etc.) — DMs simply fall back to being unreadable as
-        // encrypted; nothing else in the page depends on this succeeding.
         console.error('E2E keypair bootstrap failed', e);
       }
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -2356,24 +2170,11 @@ export default function ChatPage() {
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordingStreamRef = useRef<MediaStream | null>(null);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Set once a recording is deliberately discarded (Cancel) so the
-  // MediaRecorder's onstop handler — which fires either way — knows not to
-  // turn the just-cancelled clip into an attachment.
   const recordingCancelledRef = useRef(false);
-  // Untyped — SpeechRecognition isn't in the standard DOM lib types, and
-  // only webkitSpeechRecognition exists in Chrome anyway.
   const speechRecognitionRef = useRef<any>(null);
   const finalTranscriptRef = useRef('');
-  // Whether the user is scrolled near the bottom of the message list — only
-  // auto-scroll when true, so a socket-delivered message:new doesn't yank
-  // someone back to the bottom while they're reading upward.
   const isNearBottomRef = useRef(true);
-  // Throttles the typing ping to at most once per 3s of continuous typing —
-  // the backend's typing TTL is 6s, so re-sending every 3s keeps it fresh
-  // with margin without pinging on every single keystroke.
   const lastTypingSentAtRef = useRef(0);
-
-  // ── Queries ───────────────────────────────────────────────────────────────
 
   const { data: channels = [], isLoading: channelsLoading } = useQuery<Channel[]>({
     queryKey: ['chat-channels'],
@@ -2381,10 +2182,6 @@ export default function ChatPage() {
       const r = await apiRequest<any>(API_ENDPOINTS.CHAT.CHANNELS);
       return r?.payload?.records || r?.payload || [];
     },
-    // No refetchInterval — message:new/conversation:update (socket, below)
-    // invalidate this instantly on anything that changes the sidebar.
-    // Reconnect recovery is handled by the socket 'connect' handler below,
-    // not a poll.
   });
 
   const otherDmMemberId = useMemo(() => {
@@ -2396,8 +2193,6 @@ export default function ChatPage() {
 
   const { data: peerPublicKey } = useGetUserPublicKeyQuery(otherDmMemberId);
 
-  // Derives (once) and caches the shared AES-GCM key for the open DM's peer,
-  // as soon as both our private key and their public key are available.
   useEffect(() => {
     if (!otherDmMemberId || !peerPublicKey?.public_key || !privateKeyRef.current) return;
     if (sharedKeyCacheRef.current.has(otherDmMemberId)) return;
@@ -2406,7 +2201,7 @@ export default function ChatPage() {
         const peerKey = await importPublicKey(peerPublicKey.public_key);
         const shared = await deriveSharedKey(privateKeyRef.current!, peerKey);
         sharedKeyCacheRef.current.set(otherDmMemberId, shared);
-        forceDecryptRerender((n) => n + 1); // let already-rendered encrypted messages re-attempt decryption
+        forceDecryptRerender((n) => n + 1);
       } catch (e) {
         console.error('Failed to derive shared DM key', e);
       }
@@ -2420,56 +2215,22 @@ export default function ChatPage() {
       return r?.payload?.records || r?.payload || [];
     },
     enabled: !!selectedChannelId,
-    // No refetchInterval — message:new (socket, below) delivers new
-    // messages instantly. Reconnect recovery (anything missed during a
-    // disconnect gap) is handled by the socket 'connect' handler below.
   });
 
-  // Forces a re-render when the module-level onlineUserIds Set (mutated by
-  // the presence:update handler below) changes, so isOnline() reads reflect
-  // in the UI — the Set itself isn't React state, just what isOnline() reads.
   const [, setPresenceTick] = useState(0);
 
-  // Drives the "Reconnecting…" banner — socket.io-client's built-in
-  // reconnection (see lib/socket.ts) handles the actual retry/backoff, this
-  // just surfaces that state so the user isn't left wondering why nothing's
-  // arriving live during a drop.
   const [socketConnected, setSocketConnected] = useState(true);
 
-  // Read by the reconnect-recovery handler below without needing
-  // selectedChannelId/activeServerId in that effect's dependency array —
-  // the listener-registration effect intentionally runs once per mount
-  // (see its own comment), not on every channel/server switch.
   const selectedChannelIdRef = useRef(selectedChannelId);
   useEffect(() => { selectedChannelIdRef.current = selectedChannelId; }, [selectedChannelId]);
   const activeServerIdRef = useRef(activeServerId);
   useEffect(() => { activeServerIdRef.current = activeServerId; }, [activeServerId]);
 
-  // ── Real-time (WebSocket) ────────────────────────────────────────────────
-  // The sole delivery path for messages/channels/members/pinned/typing/
-  // presence/notifications/servers — every query above that reads chat data
-  // has no refetchInterval; this effect's listeners are what keep them
-  // current. Connects once per page mount (getSocket() reuses the existing
-  // connection if one's already open), explicitly re-joins the open
-  // channel's room on every switch (covers channels created after the
-  // initial connect-time join — see be-work's shared/socket), and
-  // reconnects automatically via socket.io-client's built-in reconnection —
-  // handleConnect's reconnect-recovery invalidation (below) is what catches
-  // up anything missed during the drop, since there's no poll left to
-  // eventually notice the drift on its own.
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
 
     setSocketConnected(socket.connected);
-    // Reconnect recovery — every other listener below only ever pushes an
-    // update that happens WHILE connected; anything that happened during a
-    // disconnect gap (dropped wifi, laptop sleep, server restart) needs a
-    // one-time catch-up once the connection is back, since there's no
-    // periodic poll anymore to eventually notice the drift on its own.
-    // `hasConnectedBefore` distinguishes that real reconnect from this
-    // effect's own first connect (which never needs "recovering" — the
-    // queries below already fetched fresh on mount).
     let hasConnectedBefore = socket.connected;
     const handleConnect = () => {
       setSocketConnected(true);
@@ -2492,17 +2253,14 @@ export default function ChatPage() {
     socket.on('disconnect', handleDisconnect);
 
     const handleNewMessage = (msg: ChatMessage & { channel_id: string }) => {
-      // get_messages only ever returns parent_id:null (top-level) rows —
-      // a thread reply must not leak into the main channel view's cache.
-      // ThreadPanel has its own message:new listener for replies.
       if (!msg.parent_id) {
         qc.setQueryData<ChatMessage[]>(['chat-messages', msg.channel_id], (prev) => {
           if (!prev) return prev;
-          if (prev.some((m) => m.id === msg.id)) return prev; // sender already has it from the POST response
+          if (prev.some((m) => m.id === msg.id)) return prev;
           return [...prev, msg];
         });
       }
-      qc.invalidateQueries({ queryKey: ['chat-channels'] }); // last-message preview/unread badge
+      qc.invalidateQueries({ queryKey: ['chat-channels'] });
     };
     socket.on('message:new', handleNewMessage);
 
@@ -2510,8 +2268,6 @@ export default function ChatPage() {
       qc.setQueryData<ChatMessage[]>(['chat-messages', msg.channel_id], (prev) =>
         prev?.map((m) => (m.id === msg.id ? msg : m))
       );
-      // Also covers pin/unpin — same event, since is_pinned is just a field
-      // on the message row (see pin_message_ctrl/unpin_message_ctrl).
       qc.invalidateQueries({ queryKey: ['chat-pinned', msg.channel_id] });
     };
     socket.on('message:edited', handleMessageEdited);
@@ -2523,36 +2279,23 @@ export default function ChatPage() {
     };
     socket.on('message:deleted', handleMessageDeleted);
 
-    // Read receipts ("seen by") — pushed the instant someone actually opens
-    // the channel (see get_messages's message:read emit).
     const handleMessageRead = ({ channelId }: { channelId: string }) => {
       qc.invalidateQueries({ queryKey: ['chat-members', channelId] });
     };
     socket.on('message:read', handleMessageRead);
 
-    // Channel metadata/membership changes (rename, archive, delete, join/
-    // leave/add/remove-member) that don't already ride along with a
-    // message:new — sidebar list + open channel's member list both depend
-    // on this.
     const handleConversationUpdate = ({ channelId }: { channelId: string } = {} as any) => {
       qc.invalidateQueries({ queryKey: ['chat-channels'] });
       if (channelId) qc.invalidateQueries({ queryKey: ['chat-members', channelId] });
     };
     socket.on('conversation:update', handleConversationUpdate);
 
-    // Server (Discord-style workspace) list/membership/channel changes —
-    // see notify_server_members in be-work's chat.controller.js and the
-    // emit_to_user calls in servers.controller.js. serversService.ts has no
-    // refetchInterval of its own; this is its only update path besides the
-    // requester's own mutation onSuccess.
     const handleServerUpdate = ({ serverId }: { serverId: string }) => {
       qc.invalidateQueries({ queryKey: ['servers'] });
       if (serverId) qc.invalidateQueries({ queryKey: ['server-channels', serverId] });
     };
     socket.on('server:update', handleServerUpdate);
 
-    // True push presence — see isOnline()/onlineUserIds above. Only touches
-    // the module-level Set + a re-render trigger, no query involved.
     const handlePresenceUpdate = ({ userId, online }: { userId: string; online: boolean }) => {
       if (online) onlineUserIds.add(userId);
       else onlineUserIds.delete(userId);
@@ -2560,16 +2303,11 @@ export default function ChatPage() {
     };
     socket.on('presence:update', handlePresenceUpdate);
 
-    // Cross-app notification bell — same event the notifications module now
-    // emits for every notification source, not just chat.
     const handleNotificationNew = () => {
       qc.invalidateQueries({ queryKey: ['notifications'] });
     };
     socket.on('notification:new', handleNotificationNew);
 
-    // Typing payloads carry only a userId, not the full user object the
-    // ['chat-typing', channelId] query returns — simplest correct fix is to
-    // just trigger an immediate refetch instead of reshaping the cache.
     const handleTypingUpdate = ({ channelId }: { channelId: string }) => {
       qc.invalidateQueries({ queryKey: ['chat-typing', channelId] });
     };
@@ -2596,12 +2334,6 @@ export default function ChatPage() {
     socket?.emit('channel:join', selectedChannelId);
   }, [selectedChannelId]);
 
-  // "Seen by" read receipts — reuses channel_members.last_read_at (already
-  // bumped on every get_messages call, see chat.controller.js), no new
-  // backend endpoint needed. message:read/conversation:update (socket,
-  // below) invalidate this the instant someone opens the channel or the
-  // member list changes. No refetchInterval — reconnect recovery is
-  // handled by the socket 'connect' handler below.
   const { data: channelMembers = [] } = useQuery<ChannelMember[]>({
     queryKey: ['chat-members', selectedChannelId],
     queryFn: async () => {
@@ -2611,10 +2343,6 @@ export default function ChatPage() {
     enabled: !!selectedChannelId,
   });
 
-  // Typing indicator — backend state is in-memory with a ~6s TTL per user
-  // per channel; see set_typing_ctrl/get_typing_ctrl in chat.controller.js.
-  // typing:update (socket, below) invalidates this the instant it changes;
-  // no refetchInterval needed.
   const { data: typingUsers = [] } = useQuery<ChatUser[]>({
     queryKey: ['chat-typing', selectedChannelId],
     queryFn: async () => {
@@ -2624,8 +2352,6 @@ export default function ChatPage() {
     enabled: !!selectedChannelId,
   });
 
-  // @-mention autocomplete — reuses the same "chat users" endpoint the New
-  // Chat picker already uses; only fetches while actively typing a mention.
   const { data: mentionResults = [] } = useQuery<ChatUser[]>({
     queryKey: ['chat-mention-users', mentionQuery],
     queryFn: async () => {
@@ -2635,8 +2361,6 @@ export default function ChatPage() {
     enabled: mentionQuery !== null,
   });
 
-  // Pinned messages — message:edited (socket, below) invalidates this on
-  // every pin/unpin; no refetchInterval needed.
   const { data: pinnedMessages = [] } = useQuery<ChatMessage[]>({
     queryKey: ['chat-pinned', selectedChannelId],
     queryFn: async () => {
@@ -2646,13 +2370,6 @@ export default function ChatPage() {
     enabled: !!selectedChannelId,
   });
 
-  // Saved/bookmarked messages — cross-channel, so fetched once for the whole
-  // page rather than per-channel. Small personal list; fetching it whole and
-  // deriving a Set client-side is simpler than a per-message "is this saved"
-  // join on every get_messages call. Only ever changes via the current
-  // user's own save/unsave action (already invalidated on that mutation's
-  // onSuccess) or a reconnect (socket 'connect' handler below) — no
-  // periodic refetch, this is a single-user list with no other writer.
   const { data: savedEntries = [] } = useQuery<SavedMessageEntry[]>({
     queryKey: ['chat-saved'],
     queryFn: async () => {
@@ -2661,8 +2378,6 @@ export default function ChatPage() {
     },
   });
   const savedMessageIds = useMemo(() => new Set(savedEntries.map((s) => s.message.id)), [savedEntries]);
-
-  // ── Mutations ─────────────────────────────────────────────────────────────
 
   const sendMutation = useMutation({
     mutationFn: async (payload: {
@@ -2714,20 +2429,9 @@ export default function ChatPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['chat-channels'] }),
   });
 
-  // Fire-and-forget REST call — persists the in-memory TTL fallback
-  // get_typing_ctrl serves on a plain GET (used if a client's socket is
-  // ever down); the live broadcast to other members happens separately via
-  // the 'typing:start' socket emit right after this mutate() call below, no
-  // query invalidation needed on this end since it's the local user's own
-  // typing state, not something this client itself needs to see reflected
-  // back.
   const typingMutation = useMutation({
     mutationFn: () => apiRequest<any>(API_ENDPOINTS.CHAT.TYPING(selectedChannelId!), { method: 'POST' }),
   });
-
-  // ── Slash commands ───────────────────────────────────────────────────────
-  // /poll, /task, /remind are quick entry points that skip a separate modal
-  // flow entirely — the whole point is that you never leave the composer.
 
   const createPollMutation = useMutation({
     mutationFn: (payload: { question: string; options: string[] }) =>
@@ -2764,9 +2468,6 @@ export default function ChatPage() {
     onError: (e: any) => toast.error(e?.message || 'Failed to set reminder — try "/remind Message in 2 hours"'),
   });
 
-  // Returns true if the draft was a (recognized or unrecognized) slash
-  // command and has been fully handled — the caller should not also send it
-  // as a plain message either way.
   const handleSlashCommand = (): boolean => {
     const trimmed = draft.trim();
     if (!trimmed.startsWith('/')) return false;
@@ -2795,19 +2496,12 @@ export default function ChatPage() {
     return true;
   };
 
-  // ── Effects ───────────────────────────────────────────────────────────────
-
-  // Auto-scroll only if the user was already near the bottom — without this
-  // guard, every socket-delivered message would force-scroll back to the
-  // bottom even while someone had scrolled up to read older messages.
   useEffect(() => {
     if (isNearBottomRef.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
 
-  // Always snap to bottom on a channel switch or right after sending —
-  // "near bottom" tracking only matters while idly reading a channel.
   useEffect(() => {
     isNearBottomRef.current = true;
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
@@ -2820,11 +2514,6 @@ export default function ChatPage() {
     isNearBottomRef.current = distanceFromBottom < 120;
   };
 
-  // Only auto-select from DM channels here, and only while Home is active —
-  // without the activeServerId guard, this fired on every poll while a
-  // server was open too (selectedChannelId is briefly null right after
-  // switching to a server) and silently snapped the view back to a DM,
-  // making it look like the server switch never worked.
   useEffect(() => {
     if (activeServerId !== null) return;
     const homeDmChannels = channels.filter((ch) => ch.type === 'DM');
@@ -2833,14 +2522,8 @@ export default function ChatPage() {
     }
   }, [channels, selectedChannelId, activeServerId]);
 
-  // Per-server "last visited channel" memory (Discord-style: switch servers,
-  // come back, land where you left off) — kept in a ref rather than state
-  // since updating it must never itself trigger a re-render/effect re-run.
   const lastChannelByServerRef = useRef<Record<string, string>>({});
 
-  // When a server becomes active (or its channel list finishes loading),
-  // open its remembered last-visited channel, falling back to #general,
-  // falling back to its first channel — but never leave a Home DM showing.
   useEffect(() => {
     if (activeServerId === null) return;
     const list = serverChannels as Channel[];
@@ -2861,13 +2544,6 @@ export default function ChatPage() {
     }
   };
 
-  // ── Desktop notifications ──────────────────────────────────────────────
-  // Popup a browser Notification for a new incoming message — in a DM, a
-  // group, or any channel — as long as it isn't the channel currently open
-  // and focused (no point popping up for what's already on screen). Driven
-  // off the channels list (already polled every 5s and already carries each
-  // channel's most recent message for the sidebar preview), so this covers
-  // every channel, not just whichever one is open.
   const prevLastMessageIdRef = useRef<Record<string, string>>({});
   const hasSeenFirstChannelsLoadRef = useRef(false);
 
@@ -2885,8 +2561,6 @@ export default function ChatPage() {
       const lastMsg = ch.messages?.[0];
       nextIds[ch.id] = lastMsg?.id || '';
 
-      // Skip the initial load — only notify for messages that arrive after
-      // the page is already open, never for history already sitting there.
       if (!hasSeenFirstChannelsLoadRef.current) return;
       if (!supportsNotifications || Notification.permission !== 'granted') return;
       if (!lastMsg || lastMsg.user_id === currentUserId) return;
@@ -2910,16 +2584,12 @@ export default function ChatPage() {
         });
         n.onclick = () => { window.focus(); setSelectedChannelId(ch.id); n.close(); };
       } catch {
-        // Notification constructor can throw in some embedded/iframe contexts —
-        // never let a popup failure break the chat page itself.
       }
     });
 
     prevLastMessageIdRef.current = nextIds;
     hasSeenFirstChannelsLoadRef.current = true;
   }, [channels, currentUserId, selectedChannelId]);
-
-  // ── Handlers ─────────────────────────────────────────────────────────────
 
   const handleAttachmentSelect = async (file: File | null) => {
     setAttachmentFile(file);
@@ -2947,11 +2617,7 @@ export default function ChatPage() {
   const handleSend = async () => {
     if (!selectedChannelId || sendMutation.isPending || isUploadingAttachment) return;
     if (!draft.trim() && !attachmentFile) return;
-    // A "/"-prefixed draft is always a command attempt, never literal text —
-    // handleSlashCommand fully owns sending (or rejecting) it either way.
     if (!attachmentFile && handleSlashCommand()) return;
-    // Attachment already uploaded at selection time (handleAttachmentSelect) —
-    // if it's still in flight, isUploadingAttachment above already blocks Send.
     if (attachmentFile && !uploadedAttachment) return;
 
     const mentioned_user_ids = extractMentionedUserIds(draft);
@@ -2967,12 +2633,6 @@ export default function ChatPage() {
         }
       : { content: draft.trim(), mentioned_user_ids };
 
-    // E2E DM encryption — never applies to a file attachment (file_url
-    // travels un-encrypted regardless; the plan scopes E2E to text content
-    // only) or when the shared key isn't derived yet (peer hasn't uploaded
-    // a public key, or it hasn't loaded). Falling back to plaintext in that
-    // case rather than silently dropping the send — matches "no realtime
-    // layer, HTTP-only" simplicity elsewhere in this module.
     const dmChannel = channels.find((c) => c.id === selectedChannelId);
     if (dmChannel?.type === 'DM' && !uploadedAttachment && draft.trim()) {
       const sharedKey = otherDmMemberId ? sharedKeyCacheRef.current.get(otherDmMemberId) : null;
@@ -2993,11 +2653,6 @@ export default function ChatPage() {
     setMentionQuery(null);
   };
 
-  // Replaces the "@partial-name" the user just typed with a structured
-  // @[Display Name](user:ID) token — see messageContent.tsx's renderer/
-  // extractor, which both work off this exact syntax. Using an explicit
-  // token instead of fuzzy-matching plain "@Name" text at render time
-  // avoids any ambiguity when two people share a first name.
   const insertMention = (user: ChatUser) => {
     const textarea = textareaRef.current;
     const cursor = textarea?.selectionStart ?? draft.length;
@@ -3016,10 +2671,6 @@ export default function ChatPage() {
     });
   };
 
-  // @here / @channel — inserted as plain "@here "/"@channel " text (not a
-  // @[Name](user:ID) token, since it isn't a specific user). The backend
-  // recognizes these two literal words in resolve_mentions() and expands
-  // them to every current channel member at send time.
   const insertBroadcastMention = (word: 'here' | 'channel') => {
     const textarea = textareaRef.current;
     const cursor = textarea?.selectionStart ?? draft.length;
@@ -3046,10 +2697,6 @@ export default function ChatPage() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  // Formatting toolbar buttons — wraps the current textarea selection with
-  // the markdown-lite syntax messageContent.tsx's renderer understands. If
-  // nothing is selected, drops placeholder text between the markers and
-  // selects it, matching the usual editor convention for this kind of button.
   const wrapSelection = (before: string, after: string, placeholder: string) => {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -3070,9 +2717,6 @@ export default function ChatPage() {
     e.target.style.height = 'auto';
     e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
 
-    // Detect an in-progress "@query" right before the cursor — mirrors the
-    // usual Slack/Discord trigger: "@" preceded by nothing or whitespace,
-    // followed by word characters only (a space or another "@" cancels it).
     const cursor = e.target.selectionStart;
     const uptoCursor = value.slice(0, cursor);
     const mentionMatch = /(?:^|\s)@([a-zA-Z0-9]*)$/.exec(uptoCursor);
@@ -3088,9 +2732,6 @@ export default function ChatPage() {
     }
   };
 
-  // Copy-pasting a screenshot/image (Cmd/Ctrl+V) attaches it the same way
-  // the paperclip button does — clipboard image items don't come with a
-  // real filename, so one is generated from the mime type.
   const handleComposerPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = e.clipboardData?.items;
     if (!items?.length) return;
@@ -3104,16 +2745,10 @@ export default function ChatPage() {
     handleAttachmentSelect(file);
   };
 
-  // Camera capture hands back a File the exact same way a picked/pasted
-  // file does — reuses the whole upload → preview chip → Send flow already
-  // built for attachments instead of a parallel send path.
   const handleCameraCapture = (file: File) => {
     handleAttachmentSelect(file);
   };
 
-  // Authenticated file download — same "fetch the blob with a bearer token,
-  // then click a synthetic <a>" shape reportService.ts's download_report
-  // already uses, since a plain <a href> can't carry an Authorization header.
   const downloadChannelExport = async (format: 'csv' | 'pdf') => {
     if (!selectedChannelId || !selectedChannel) return;
     setShowExportMenu(false);
@@ -3142,16 +2777,6 @@ export default function ChatPage() {
     recordingStreamRef.current = null;
   };
 
-  // Voice message: same idea as camera capture — record to a Blob, wrap it
-  // in a File, and feed it into the existing attachment pipeline so it gets
-  // uploaded/previewed/sent exactly like any other file (playback on the
-  // receiving end already works — MessageBubble renders anything with an
-  // audio/* mime type as an <audio> player). Alongside the recording, also
-  // run the browser's own live speech-to-text (Web Speech API) — no server
-  // cost, no API key, and it means the clip ships with real searchable
-  // content instead of being an opaque blob. Chrome/Edge only; anywhere
-  // else this silently no-ops and the message still sends as audio-only,
-  // exactly as before this feature existed.
   const startRecording = async () => {
     setRecordingError(null);
     try {
@@ -3197,9 +2822,6 @@ export default function ChatPage() {
           }
           setLiveTranscript((finalTranscriptRef.current + interim).trim());
         };
-        // Non-fatal by design — e.g. a brief "no-speech" gap shouldn't kill
-        // the recording, only the transcript. The audio recorder is
-        // completely independent of this.
         recognition.onerror = () => {};
         speechRecognitionRef.current = recognition;
         try { recognition.start(); } catch { /* unsupported/blocked — audio-only, silently */ }
@@ -3232,14 +2854,8 @@ export default function ChatPage() {
     setLiveTranscript('');
   };
 
-  // Guard against an in-flight recording/stream surviving a channel switch
-  // or unmount (e.g. clicking away mid-recording).
   useEffect(() => () => { stopRecordingStream(); mediaRecorderRef.current?.stop(); stopSpeechRecognition(); }, []);
 
-  // ── Derived ───────────────────────────────────────────────────────────────
-
-  // Selected channel can come from either the flat "Home" list or the
-  // currently-open server's channel list — search both.
   const selectedChannel = channels.find((ch) => ch.id === selectedChannelId)
     || (serverChannels as Channel[]).find((ch) => ch.id === selectedChannelId)
     || null;
@@ -3247,15 +2863,8 @@ export default function ChatPage() {
     ? selectedChannel.members?.some((m) => m.user_id === currentUserId) || selectedChannel.type === 'PUBLIC' || selectedChannel.type === 'ANNOUNCEMENT'
     : false;
   const myMembership = selectedChannel?.members?.find((m) => m.user_id === currentUserId);
-  // Mirrors the backend's assert_can_post_announcement — everyone can read
-  // an ANNOUNCEMENT channel, only OWNER/ADMIN members (or a global admin)
-  // can post in it.
   const canPostHere = selectedChannel?.type !== 'ANNOUNCEMENT' || isGlobalAdmin || ['OWNER', 'ADMIN'].includes(myMembership?.role || '');
 
-  // "Home" = Direct Messages only, matching Discord's Home/Friends view —
-  // no channels of any kind (Public/Private/Group/Announcement all only
-  // ever show inside a server now). Selecting a server in the rail shows
-  // that server's own channels instead (serverChannels, fetched separately).
   const homeChannels = channels.filter((ch) => ch.type === 'DM');
   const sidebarSourceChannels = activeServerId ? (serverChannels as Channel[]) : homeChannels;
 
@@ -3264,10 +2873,6 @@ export default function ChatPage() {
     return getChannelDisplayName(ch, currentUserId).toLowerCase().includes(channelSearch.toLowerCase());
   });
 
-  // Flat list, no Direct/Private/Groups/Channels section split — sorted by
-  // most recent activity (last message, falling back to the channel's own
-  // updated_at) so the sidebar behaves like every other chat app's single
-  // conversation list.
   const sortedChannels = [...filteredChannels].sort((a, b) => {
     const aTime = a.messages?.[0]?.created_at || a.updated_at;
     const bTime = b.messages?.[0]?.created_at || b.updated_at;
@@ -3276,9 +2881,6 @@ export default function ChatPage() {
 
   const badge = selectedChannel ? PRIVACY_BADGE[selectedChannel.type] : null;
 
-  // Find the sender's own most recent message and who's seen it — only that
-  // one message shows a "Seen by" line, matching typical chat UX (you only
-  // care about read status on the latest thing you sent).
   const lastOwnMsg = [...messages].reverse().find((m) => m.user_id === currentUserId);
   const seenByForLastOwnMsg = lastOwnMsg
     ? channelMembers
@@ -3288,11 +2890,6 @@ export default function ChatPage() {
 
   const activeServer = activeServerId ? servers.find((s) => s.id === activeServerId) || null : null;
 
-  // Server name moved to the shared AdminTopbar (via chatTopbarStore) instead
-  // of repeating it in this panel's own header — see ChatLayout, which reads
-  // this store to override the topbar's default "Messages" title. Reset to
-  // null on unmount so leaving /chat doesn't leave a stale title behind for
-  // whatever page the topbar renders on next.
   const setChatTopbarTitle = useChatTopbarStore((s) => s.setTitle);
   useEffect(() => {
     setChatTopbarTitle(activeServer ? activeServer.name : null);
@@ -3556,9 +3153,6 @@ export default function ChatPage() {
             ) : (
               messages.map((msg) => {
                 const isOwn = msg.user_id === currentUserId;
-                // Discord-style layout: every message shows the sender's name above it,
-                // regardless of channel type or ownership (previously only shown in
-                // group channels and never for the current user's own messages).
                 const showName = true;
                 if (editingMsg?.id === msg.id) {
                   return (
@@ -3863,10 +3457,6 @@ export default function ChatPage() {
           <button
             onClick={async (e) => {
               e.stopPropagation();
-              // Images are presigned without an attachment Content-Disposition
-              // (so they render inline in <img>), so a plain `<a download>`
-              // is ignored cross-origin — fetch the bytes and force a real
-              // client-side download via a blob URL instead.
               try {
                 const res = await fetch(lightboxImage.url);
                 const blob = await res.blob();

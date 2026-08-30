@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Monitor, CheckCircle, Package, Wrench, Filter, X, Plus, Search, RotateCcw, ClipboardList, Trash2, BarChart3, TrendingDown, AlertTriangle, Clock, Boxes, UserCheck2, Layers3 } from 'lucide-react';
+import { Monitor, CheckCircle, Package, Wrench, Filter, X, Plus, Search, RotateCcw, ClipboardList, Trash2, BarChart3, TrendingDown, AlertTriangle, Clock, Boxes, UserCheck2, Layers3, Repeat, Inbox, History } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
@@ -380,10 +380,42 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
 
 // ─── Assign Modal ─────────────────────────────────────────────────────────────
 
+// Free-form "comma separated accessories" input, shared by Assign/Return/
+// Receive — stored as a JSON array (asset_custody_events.accessories_issued
+// / accessories_returned), no new UI component needed for something this
+// small.
+function parse_accessories(text: string): string[] | undefined {
+  const items = text.split(',').map(s => s.trim()).filter(Boolean);
+  return items.length ? items : undefined;
+}
+
+async function upload_custody_attachment(assetId: string, eventId: string, file: File) {
+  const form = new FormData();
+  form.append('file', file);
+  return apiRequest<any>(API_ENDPOINTS.ASSET.CUSTODY_EVENT_ATTACHMENTS(assetId, eventId), { method: 'POST', body: form as any });
+}
+
+function AttachmentPicker({ file, onChange }: { file: File | null; onChange: (f: File | null) => void }) {
+  return (
+    <div>
+      <label className={labelCls}>Attachment / Photo (optional)</label>
+      <input type="file" accept="image/*,.pdf"
+        onChange={e => onChange(e.target.files?.[0] || null)}
+        className="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary-50 file:text-primary-700" />
+      {file && <p className="text-xs text-gray-400 mt-1">{file.name}</p>}
+    </div>
+  );
+}
+
 function AssignModal({ asset, onClose }: { asset: any; onClose: () => void }) {
   const qc = useQueryClient();
   const { success: showSuccessToast } = useToastContext();
   const [userId, setUserId] = useState('');
+  const [condition, setCondition] = useState('GOOD');
+  const [accessories, setAccessories] = useState('');
+  const [remarks, setRemarks] = useState('');
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
   const [err, setErr] = useState('');
 
   const { data: users } = useQuery({
@@ -395,11 +427,23 @@ function AssignModal({ asset, onClose }: { asset: any; onClose: () => void }) {
   const mutation = useMutation({
     mutationFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.ASSIGN(asset.id), {
       method: 'POST',
-      body: JSON.stringify({ user_id: userId }),
+      body: JSON.stringify({
+        user_id: userId,
+        condition_at_handover: condition,
+        accessories_issued: parse_accessories(accessories),
+        notes: remarks || undefined,
+        // Acknowledgement here is the recipient confirming receipt at
+        // handover time — recorded against the employee being assigned to,
+        // per the approved "documentation, not approval friction" model.
+        acknowledged_by: acknowledged ? userId : undefined,
+        acknowledged_at: acknowledged ? new Date().toISOString() : undefined,
+      }),
     }),
-    onSuccess: () => {
+    onSuccess: async (res: any) => {
+      const eventId = res?.payload?.custody_event?.id;
+      if (file && eventId) await upload_custody_attachment(asset.id, eventId, file).catch(() => {});
       qc.invalidateQueries({ queryKey: ['assets-list'] });
-      showSuccessToast('Asset assigned successfully');
+      showSuccessToast('Asset handed over successfully');
       onClose();
     },
     onError: (e: any) => setErr(e?.message || 'Failed to assign'),
@@ -407,25 +451,49 @@ function AssignModal({ asset, onClose }: { asset: any; onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-black text-gray-900">Assign Asset</h2>
+          <h2 className="text-lg font-black text-gray-900">Asset Handover</h2>
           <IconButton icon={X} variant="ghost" size="sm" aria-label="Close" onClick={onClose} className="!h-auto !w-auto p-1.5 text-gray-400" />
         </div>
-        <p className="text-sm text-gray-500 mb-4">Assigning: <span className="font-semibold text-gray-900">{asset.name}</span></p>
-        <div>
-          <label className={labelCls}>Assign To <span className="text-red-500">*</span></label>
-          <select className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 text-gray-700"
-            value={userId} onChange={e => setUserId(e.target.value)}>
-            <option value="">Select employee</option>
-            {(users || []).map((u: any) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
-          </select>
+        <p className="text-sm text-gray-500 mb-4">Handing over: <span className="font-semibold text-gray-900">{asset.name}</span></p>
+        <div className="space-y-3">
+          <div>
+            <label className={labelCls}>Recipient (Employee) <span className="text-red-500">*</span></label>
+            <select className={inputCls} value={userId} onChange={e => setUserId(e.target.value)}>
+              <option value="">Select employee</option>
+              {(users || []).map((u: any) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Condition at Handover</label>
+            <select className={inputCls} value={condition} onChange={e => setCondition(e.target.value)}>
+              <option value="NEW">New</option>
+              <option value="GOOD">Good</option>
+              <option value="FAIR">Fair</option>
+              <option value="POOR">Poor</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Accessories Issued</label>
+            <input className={inputCls} value={accessories} onChange={e => setAccessories(e.target.value)} placeholder="Charger, bag, mouse…" />
+          </div>
+          <div>
+            <label className={labelCls}>Remarks</label>
+            <textarea rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
+              value={remarks} onChange={e => setRemarks(e.target.value)} placeholder="Any notes on this handover…" />
+          </div>
+          <AttachmentPicker file={file} onChange={setFile} />
+          <label className="flex items-center gap-2 text-sm text-gray-600">
+            <input type="checkbox" checked={acknowledged} onChange={e => setAcknowledged(e.target.checked)} className="rounded" />
+            Recipient acknowledges receipt of this asset
+          </label>
         </div>
         {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
         <div className="flex gap-3 mt-5">
           <Button variant="outline" size="sm" animation="none" fullWidth onClick={onClose} className="!h-10 flex-1">Cancel</Button>
           <Button variant="primary" size="sm" fullWidth onClick={() => mutation.mutate()} disabled={!userId} loading={mutation.isPending} className="!h-10 flex-1">
-            Assign
+            Confirm Handover
           </Button>
         </div>
       </div>
@@ -440,14 +508,31 @@ function ReturnModal({ asset, onClose }: { asset: any; onClose: () => void }) {
   const { success: showSuccessToast } = useToastContext();
   const [condition, setCondition] = useState('GOOD');
   const [notes, setNotes] = useState('');
+  const [accessoriesReturned, setAccessoriesReturned] = useState('');
+  const [missingItems, setMissingItems] = useState('');
+  const [dispositionStatus, setDispositionStatus] = useState('AVAILABLE');
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
   const [err, setErr] = useState('');
+
+  const assignedUser = asset.assignments?.[0]?.user;
 
   const mutation = useMutation({
     mutationFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.RETURN(asset.id), {
       method: 'POST',
-      body: JSON.stringify({ returned_condition: condition, notes }),
+      body: JSON.stringify({
+        returned_condition: condition,
+        notes,
+        accessories_returned: parse_accessories(accessoriesReturned),
+        missing_items: missingItems || undefined,
+        disposition_status: dispositionStatus,
+        acknowledged_by: acknowledged && assignedUser ? assignedUser.id : undefined,
+        acknowledged_at: acknowledged ? new Date().toISOString() : undefined,
+      }),
     }),
-    onSuccess: () => {
+    onSuccess: async (res: any) => {
+      const eventId = res?.payload?.id;
+      if (file && eventId) await upload_custody_attachment(asset.id, eventId, file).catch(() => {});
       qc.invalidateQueries({ queryKey: ['assets-list'] });
       showSuccessToast('Asset returned successfully');
       onClose();
@@ -455,13 +540,11 @@ function ReturnModal({ asset, onClose }: { asset: any; onClose: () => void }) {
     onError: (e: any) => setErr(e?.message || 'Failed to return asset'),
   });
 
-  const assignedUser = asset.assignments?.[0]?.user;
-
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-black text-gray-900">Return Asset</h2>
+          <h2 className="text-lg font-black text-gray-900">Asset Return</h2>
           <IconButton icon={X} variant="ghost" size="sm" aria-label="Close" onClick={onClose} className="!h-auto !w-auto p-1.5 text-gray-400" />
         </div>
         <p className="text-sm text-gray-500 mb-1">Asset: <span className="font-semibold text-gray-900">{asset.name}</span></p>
@@ -470,7 +553,7 @@ function ReturnModal({ asset, onClose }: { asset: any; onClose: () => void }) {
         )}
         <div className="space-y-3">
           <div>
-            <label className={labelCls}>Return Condition</label>
+            <label className={labelCls}>Condition at Return</label>
             <select className={inputCls} value={condition} onChange={e => setCondition(e.target.value)}>
               <option value="NEW">New</option>
               <option value="GOOD">Good</option>
@@ -479,10 +562,33 @@ function ReturnModal({ asset, onClose }: { asset: any; onClose: () => void }) {
             </select>
           </div>
           <div>
+            <label className={labelCls}>Asset Status After Return</label>
+            <select className={inputCls} value={dispositionStatus} onChange={e => setDispositionStatus(e.target.value)}>
+              <option value="AVAILABLE">Available</option>
+              <option value="UNDER_REPAIR">Under Repair</option>
+              <option value="RETIRED">Retired</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Accessories Returned</label>
+            <input className={inputCls} value={accessoriesReturned} onChange={e => setAccessoriesReturned(e.target.value)} placeholder="Charger, bag, mouse…" />
+          </div>
+          <div>
+            <label className={labelCls}>Missing Items</label>
+            <input className={inputCls} value={missingItems} onChange={e => setMissingItems(e.target.value)} placeholder="e.g. Charger not returned" />
+          </div>
+          <div>
             <label className={labelCls}>Notes</label>
             <textarea rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
               value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any remarks on return…" />
           </div>
+          <AttachmentPicker file={file} onChange={setFile} />
+          {assignedUser && (
+            <label className="flex items-center gap-2 text-sm text-gray-600">
+              <input type="checkbox" checked={acknowledged} onChange={e => setAcknowledged(e.target.checked)} className="rounded" />
+              Employee confirmed this return in person
+            </label>
+          )}
         </div>
         {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
         <div className="flex gap-3 mt-5">
@@ -491,6 +597,265 @@ function ReturnModal({ asset, onClose }: { asset: any; onClose: () => void }) {
             Confirm Return
           </Button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Receive (no prior recorded assignment) Modal ─────────────────────────────
+
+function ReceiveModal({ asset, onClose }: { asset: any; onClose: () => void }) {
+  const qc = useQueryClient();
+  const { success: showSuccessToast } = useToastContext();
+  const [fromUserId, setFromUserId] = useState('');
+  const [condition, setCondition] = useState('GOOD');
+  const [accessoriesReturned, setAccessoriesReturned] = useState('');
+  const [missingItems, setMissingItems] = useState('');
+  const [remarks, setRemarks] = useState('');
+  const [dispositionStatus, setDispositionStatus] = useState('AVAILABLE');
+  const [err, setErr] = useState('');
+
+  const { data: users } = useQuery({
+    queryKey: ['user-list-brief'],
+    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200&status=ACTIVE`),
+    select: (r: any) => [...(r?.payload?.records || [])].sort((a: any, b: any) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)),
+  });
+
+  const mutation = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.RECEIVE(asset.id), {
+      method: 'POST',
+      body: JSON.stringify({
+        from_user_id: fromUserId || undefined,
+        condition,
+        accessories_returned: parse_accessories(accessoriesReturned),
+        missing_items: missingItems || undefined,
+        remarks: remarks || undefined,
+        disposition_status: dispositionStatus,
+      }),
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['assets-list'] });
+      showSuccessToast('Asset receipt recorded');
+      onClose();
+    },
+    onError: (e: any) => setErr(e?.message || 'Failed to record receipt'),
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-black text-gray-900">Receive Asset (No Prior Assignment)</h2>
+          <IconButton icon={X} variant="ghost" size="sm" aria-label="Close" onClick={onClose} className="!h-auto !w-auto p-1.5 text-gray-400" />
+        </div>
+        <p className="text-sm text-gray-500 mb-4">
+          For an asset an employee or another department is handing to IT that wasn't previously tracked as assigned.
+        </p>
+        <p className="text-sm text-gray-500 mb-4">Asset: <span className="font-semibold text-gray-900">{asset.name}</span></p>
+        <div className="space-y-3">
+          <div>
+            <label className={labelCls}>Received From (optional)</label>
+            <select className={inputCls} value={fromUserId} onChange={e => setFromUserId(e.target.value)}>
+              <option value="">Unspecified / department</option>
+              {(users || []).map((u: any) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Condition</label>
+            <select className={inputCls} value={condition} onChange={e => setCondition(e.target.value)}>
+              <option value="NEW">New</option>
+              <option value="GOOD">Good</option>
+              <option value="FAIR">Fair</option>
+              <option value="POOR">Poor</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Asset Status</label>
+            <select className={inputCls} value={dispositionStatus} onChange={e => setDispositionStatus(e.target.value)}>
+              <option value="AVAILABLE">Available</option>
+              <option value="UNDER_REPAIR">Under Repair</option>
+              <option value="RETIRED">Retired</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Accessories Returned</label>
+            <input className={inputCls} value={accessoriesReturned} onChange={e => setAccessoriesReturned(e.target.value)} placeholder="Charger, bag…" />
+          </div>
+          <div>
+            <label className={labelCls}>Missing Items</label>
+            <input className={inputCls} value={missingItems} onChange={e => setMissingItems(e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Remarks</label>
+            <textarea rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
+              value={remarks} onChange={e => setRemarks(e.target.value)} />
+          </div>
+        </div>
+        {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
+        <div className="flex gap-3 mt-5">
+          <Button variant="outline" size="sm" animation="none" fullWidth onClick={onClose} className="!h-10 flex-1">Cancel</Button>
+          <Button variant="primary" size="sm" fullWidth onClick={() => mutation.mutate()} loading={mutation.isPending} className="!h-10 flex-1">
+            Record Receipt
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Replace Modal ─────────────────────────────────────────────────────────────
+
+function ReplaceModal({ asset, onClose }: { asset: any; onClose: () => void }) {
+  const qc = useQueryClient();
+  const { success: showSuccessToast } = useToastContext();
+  const [newAssetId, setNewAssetId] = useState('');
+  const [reason, setReason] = useState('FAULTY');
+  const [disposition, setDisposition] = useState('UNDER_REPAIR');
+  const [notes, setNotes] = useState('');
+  const [err, setErr] = useState('');
+
+  const currentUser = asset.assignments?.[0]?.user;
+
+  const { data: candidateAssets } = useQuery({
+    queryKey: ['assets-list', 'AVAILABLE', asset.category_id, asset.category?.id],
+    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.ASSET.LIST}?status=AVAILABLE&category_id=${asset.category_id || asset.category?.id}&limit=200`),
+    select: (r: any) => (r?.payload?.records || []).filter((a: any) => a.id !== asset.id),
+  });
+
+  const mutation = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.REPLACEMENTS, {
+      method: 'POST',
+      body: JSON.stringify({
+        old_asset_id: asset.id,
+        new_asset_id: newAssetId,
+        user_id: currentUser?.id,
+        reason,
+        old_asset_disposition: disposition,
+        notes: notes || undefined,
+      }),
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['assets-list'] });
+      showSuccessToast('Asset replaced successfully');
+      onClose();
+    },
+    onError: (e: any) => setErr(e?.message || 'Failed to replace asset'),
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-black text-gray-900">Replace Asset</h2>
+          <IconButton icon={X} variant="ghost" size="sm" aria-label="Close" onClick={onClose} className="!h-auto !w-auto p-1.5 text-gray-400" />
+        </div>
+        <p className="text-sm text-gray-500 mb-1">Old asset: <span className="font-semibold text-gray-900">{asset.name}</span></p>
+        {currentUser ? (
+          <p className="text-sm text-gray-500 mb-4">Responsible employee: <span className="font-semibold text-gray-900">{currentUser.first_name} {currentUser.last_name}</span></p>
+        ) : (
+          <p className="text-xs text-red-500 mb-4">This asset has no current assignee — assign it before replacing.</p>
+        )}
+        <div className="space-y-3">
+          <div>
+            <label className={labelCls}>Replacement Asset <span className="text-red-500">*</span></label>
+            <select className={inputCls} value={newAssetId} onChange={e => setNewAssetId(e.target.value)}>
+              <option value="">Select an available asset in the same category</option>
+              {(candidateAssets || []).map((a: any) => (
+                <option key={a.id} value={a.id}>{a.name} ({a.asset_tag || 'no tag'})</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Reason for Replacement</label>
+            <select className={inputCls} value={reason} onChange={e => setReason(e.target.value)}>
+              <option value="FAULTY">Faulty</option>
+              <option value="DAMAGED">Damaged</option>
+              <option value="LOST">Lost</option>
+              <option value="UPGRADE">Upgrade</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Old Asset Disposition</label>
+            <select className={inputCls} value={disposition} onChange={e => setDisposition(e.target.value)}>
+              <option value="AVAILABLE">Returned to Stock (Available)</option>
+              <option value="UNDER_REPAIR">Under Repair</option>
+              <option value="RETIRED">Retired</option>
+              <option value="LOST">Lost</option>
+              <option value="DAMAGED">Damaged</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Notes</label>
+            <textarea rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
+              value={notes} onChange={e => setNotes(e.target.value)} />
+          </div>
+        </div>
+        {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
+        <div className="flex gap-3 mt-5">
+          <Button variant="outline" size="sm" animation="none" fullWidth onClick={onClose} className="!h-10 flex-1">Cancel</Button>
+          <Button variant="primary" size="sm" fullWidth onClick={() => mutation.mutate()} disabled={!newAssetId || !currentUser} loading={mutation.isPending} className="!h-10 flex-1">
+            Confirm Replacement
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Custody History Modal ─────────────────────────────────────────────────────
+// Read-only — visible to anyone with erp.assets.view (HR included), no
+// asset-management mutation permission required. Same GET the backend
+// gates on ASSETS_VIEW, not ASSETS_MANAGE.
+
+function CustodyHistoryModal({ asset, onClose }: { asset: any; onClose: () => void }) {
+  const { data: events, isLoading } = useQuery({
+    queryKey: ['asset-custody-events', asset.id],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.CUSTODY_EVENTS(asset.id)),
+    select: (r: any) => r?.payload || [],
+  });
+
+  const name = (u: any) => u ? `${u.first_name} ${u.last_name || ''}`.trim() : '—';
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 max-h-[85vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-black text-gray-900">Custody History — {asset.name}</h2>
+          <IconButton icon={X} variant="ghost" size="sm" aria-label="Close" onClick={onClose} className="!h-auto !w-auto p-1.5 text-gray-400" />
+        </div>
+        {isLoading ? (
+          <p className="text-sm text-gray-400">Loading…</p>
+        ) : !events?.length ? (
+          <p className="text-sm text-gray-400">No custody events recorded yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {events.map((ev: any) => (
+              <div key={ev.id} className="border border-gray-100 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wide text-primary-700">{ev.event_type.replace(/_/g, ' ')}</span>
+                  <span className="text-xs text-gray-400">{new Date(ev.occurred_at).toLocaleString()}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600">
+                  <p>Recipient: <span className="font-medium text-gray-800">{name(ev.recipient)}</span></p>
+                  <p>Department: <span className="font-medium text-gray-800">{ev.department?.name || '—'}</span></p>
+                  <p>Handed over by: <span className="font-medium text-gray-800">{name(ev.handed_over_by_user)}</span></p>
+                  <p>Received by: <span className="font-medium text-gray-800">{name(ev.received_by_user)}</span></p>
+                  <p>Condition: <span className="font-medium text-gray-800">{ev.condition || '—'}</span></p>
+                  <p>Quantity: <span className="font-medium text-gray-800">{ev.quantity ?? '—'}</span></p>
+                  {ev.accessories_issued?.length > 0 && <p className="col-span-2">Accessories issued: {ev.accessories_issued.join(', ')}</p>}
+                  {ev.accessories_returned?.length > 0 && <p className="col-span-2">Accessories returned: {ev.accessories_returned.join(', ')}</p>}
+                  {ev.missing_items && <p className="col-span-2 text-red-600">Missing: {ev.missing_items}</p>}
+                  {ev.remarks && <p className="col-span-2">Remarks: {ev.remarks}</p>}
+                  {ev.acknowledged_by_user && (
+                    <p className="col-span-2 text-green-700">Acknowledged by {name(ev.acknowledged_by_user)} on {ev.acknowledged_at ? new Date(ev.acknowledged_at).toLocaleDateString() : '—'}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -930,7 +1295,8 @@ function AssetKpiRow({ warrantyCount, categoriesCount }: { warrantyCount: number
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AssetsPage() {
-  const [tab, setTab] = useState<'assets' | 'requests' | 'disposals' | 'reports'>('assets');
+  const [tab, setTab] = useState<'assets' | 'requests' | 'disposals' | 'history' | 'reports'>('assets');
+  const [historyEventTypeFilter, setHistoryEventTypeFilter] = useState('');
 
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -939,6 +1305,9 @@ export default function AssetsPage() {
   const [assignTarget, setAssignTarget] = useState<any>(null);
   const [returnTarget, setReturnTarget] = useState<any>(null);
   const [disposeTarget, setDisposeTarget] = useState<any>(null);
+  const [receiveTarget, setReceiveTarget] = useState<any>(null);
+  const [replaceTarget, setReplaceTarget] = useState<any>(null);
+  const [historyTarget, setHistoryTarget] = useState<any>(null);
   const [showCreate, setShowCreate] = useState(false);
 
   const [requestStatusFilter, setRequestStatusFilter] = useState('');
@@ -989,6 +1358,28 @@ export default function AssetsPage() {
     enabled: tab === 'disposals',
   });
 
+  // Handover/Return/Replacement documentation history — HR's primary
+  // "review records" view, cross-asset, not gated behind opening each
+  // asset one at a time.
+  const { data: historyData, isLoading: historyLoading } = useQuery({
+    queryKey: ['asset-custody-history', historyEventTypeFilter],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (historyEventTypeFilter) params.set('event_type', historyEventTypeFilter);
+      params.set('limit', '50');
+      return apiRequest<any>(`${API_ENDPOINTS.ASSET.ALL_CUSTODY_EVENTS}?${params}`);
+    },
+    select: (r: any) => r?.payload,
+    enabled: tab === 'history',
+  });
+
+  const { data: replacementsData, isLoading: replacementsLoading } = useQuery({
+    queryKey: ['asset-replacements-list'],
+    queryFn: () => apiRequest<any>(`${API_ENDPOINTS.ASSET.REPLACEMENTS}?limit=50`),
+    select: (r: any) => r?.payload,
+    enabled: tab === 'history',
+  });
+
   const { data: depreciationData, isLoading: depreciationLoading } = useQuery({
     queryKey: ['asset-report-depreciation'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.ASSET.REPORT_DEPRECIATION),
@@ -1008,6 +1399,7 @@ export default function AssetsPage() {
   const assigned = assets.filter((a: any) => a.status === 'ASSIGNED').length;
   const available = assets.filter((a: any) => a.status === 'AVAILABLE').length;
   const maintenance = assets.filter((a: any) => a.status === 'MAINTENANCE').length;
+  const underRepair = assets.filter((a: any) => a.status === 'UNDER_REPAIR').length;
 
   const requests: any[] = requestsData?.records || [];
   const disposals: any[] = disposalsData?.records || [];
@@ -1042,6 +1434,7 @@ export default function AssetsPage() {
           { key: 'assets',    label: 'Assets',    icon: Package },
           { key: 'requests',  label: 'Requests',  icon: ClipboardList },
           { key: 'disposals', label: 'Disposals', icon: Trash2 },
+          { key: 'history',   label: 'Handover & Return History', icon: History },
           { key: 'reports',   label: 'Reports',   icon: BarChart3 },
         ].map(t => (
           <button
@@ -1108,6 +1501,7 @@ export default function AssetsPage() {
                 <option value="">All Status</option>
                 <option value="AVAILABLE">Available</option>
                 <option value="ASSIGNED">Assigned</option>
+                <option value="UNDER_REPAIR">Under Repair</option>
                 <option value="MAINTENANCE">Maintenance</option>
                 <option value="RETIRED">Retired</option>
               </select>
@@ -1184,6 +1578,21 @@ export default function AssetsPage() {
                                 Return
                               </Button>
                             )}
+                            {asset.status === 'ASSIGNED' && (
+                              <Button variant="ghost" size="sm" animation="none" rounded={false} leftIcon={Repeat} onClick={() => setReplaceTarget(asset)}
+                                className="!px-3 !h-7 h-auto !shadow-none text-xs !bg-blue-100 !text-blue-700 hover:!bg-blue-200">
+                                Replace
+                              </Button>
+                            )}
+                            {asset.status !== 'ASSIGNED' && asset.status !== 'RETIRED' && (
+                              <Button variant="ghost" size="sm" animation="none" rounded={false} leftIcon={Inbox} onClick={() => setReceiveTarget(asset)}
+                                className="!px-3 !h-7 h-auto !shadow-none text-xs !bg-purple-100 !text-purple-700 hover:!bg-purple-200">
+                                Receive
+                              </Button>
+                            )}
+                            <IconButton icon={History} variant="ghost" size="sm" aria-label="Custody History" title="Custody History"
+                              onClick={() => setHistoryTarget(asset)}
+                              className="!h-7 !w-7 p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100" />
                             {asset.status !== 'RETIRED' && (
                               <Button variant="ghost" size="sm" animation="none" rounded={false} leftIcon={Trash2} onClick={() => setDisposeTarget(asset)}
                                 className="!px-3 !h-7 h-auto !shadow-none text-xs !bg-red-100 !text-red-700 hover:!bg-red-200">
@@ -1308,6 +1717,103 @@ export default function AssetsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {tab === 'history' && (
+        <div className="flex flex-col gap-4">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-gray-900">Custody Events — Handovers, Returns &amp; Receipts</h3>
+              <select value={historyEventTypeFilter} onChange={e => setHistoryEventTypeFilter(e.target.value)}
+                className="h-9 px-3 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:border-primary-400">
+                <option value="">All Event Types</option>
+                <option value="HANDOVER">Handover</option>
+                <option value="RETURN">Return</option>
+                <option value="RECEIVED_BY_IT">Received by IT</option>
+              </select>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    {['Asset', 'Type', 'Recipient / Department', 'Handed Over By', 'Received By', 'Condition', 'Date'].map(h => (
+                      <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {historyLoading ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                      <tr key={i}><td colSpan={7} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                    ))
+                  ) : !historyData?.records?.length ? (
+                    <tr><td colSpan={7} className="py-12 text-center text-gray-400 text-sm">No custody events recorded yet</td></tr>
+                  ) : historyData.records.map((ev: any) => (
+                    <tr key={ev.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="py-3 px-2">
+                        <p className="font-semibold text-gray-900">{ev.asset?.name || '—'}</p>
+                        <p className="text-xs text-gray-400 font-mono">{ev.asset?.asset_tag || '—'}</p>
+                      </td>
+                      <td className="py-3 px-2">
+                        <span className="text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-primary-50 text-primary-700">{ev.event_type.replace(/_/g, ' ')}</span>
+                      </td>
+                      <td className="py-3 px-2 text-gray-700 whitespace-nowrap">
+                        {ev.recipient ? `${ev.recipient.first_name} ${ev.recipient.last_name || ''}`.trim() : (ev.department?.name || '—')}
+                      </td>
+                      <td className="py-3 px-2 text-gray-600 whitespace-nowrap">
+                        {ev.handed_over_by_user ? `${ev.handed_over_by_user.first_name} ${ev.handed_over_by_user.last_name || ''}`.trim() : '—'}
+                      </td>
+                      <td className="py-3 px-2 text-gray-600 whitespace-nowrap">
+                        {ev.received_by_user ? `${ev.received_by_user.first_name} ${ev.received_by_user.last_name || ''}`.trim() : '—'}
+                      </td>
+                      <td className="py-3 px-2 text-gray-600">{ev.condition || '—'}</td>
+                      <td className="py-3 px-2 text-gray-500 whitespace-nowrap">{new Date(ev.occurred_at).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <h3 className="text-sm font-bold text-gray-900 mb-3">Asset Replacements</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    {['Old Asset', 'New Asset', 'Employee', 'Reason', 'Old Asset Disposition', 'Date'].map(h => (
+                      <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {replacementsLoading ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <tr key={i}><td colSpan={6} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                    ))
+                  ) : !replacementsData?.records?.length ? (
+                    <tr><td colSpan={6} className="py-12 text-center text-gray-400 text-sm">No replacements recorded yet</td></tr>
+                  ) : replacementsData.records.map((r: any) => (
+                    <tr key={r.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="py-3 px-2">
+                        <p className="font-semibold text-gray-900">{r.old_asset?.name}</p>
+                        <p className="text-xs text-gray-400 font-mono">{r.old_asset?.asset_tag || '—'}</p>
+                      </td>
+                      <td className="py-3 px-2">
+                        <p className="font-semibold text-gray-900">{r.new_asset?.name}</p>
+                        <p className="text-xs text-gray-400 font-mono">{r.new_asset?.asset_tag || '—'}</p>
+                      </td>
+                      <td className="py-3 px-2 text-gray-700 whitespace-nowrap">{r.user ? `${r.user.first_name} ${r.user.last_name || ''}`.trim() : '—'}</td>
+                      <td className="py-3 px-2 text-gray-600">{r.reason}</td>
+                      <td className="py-3 px-2 text-gray-600">{r.old_asset_disposition}</td>
+                      <td className="py-3 px-2 text-gray-500 whitespace-nowrap">{new Date(r.replacement_date).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -1478,6 +1984,9 @@ export default function AssetsPage() {
       {assignTarget && <AssignModal asset={assignTarget} onClose={() => setAssignTarget(null)} />}
       {returnTarget && <ReturnModal asset={returnTarget} onClose={() => setReturnTarget(null)} />}
       {disposeTarget && <DisposeModal asset={disposeTarget} onClose={() => setDisposeTarget(null)} />}
+      {receiveTarget && <ReceiveModal asset={receiveTarget} onClose={() => setReceiveTarget(null)} />}
+      {replaceTarget && <ReplaceModal asset={replaceTarget} onClose={() => setReplaceTarget(null)} />}
+      {historyTarget && <CustodyHistoryModal asset={historyTarget} onClose={() => setHistoryTarget(null)} />}
       {showCreateRequest && <CreateRequestModal onClose={() => setShowCreateRequest(false)} />}
       {approveTarget && <ApproveRequestModal request={approveTarget} onClose={() => setApproveTarget(null)} />}
       {rejectTarget && <RejectRequestModal request={rejectTarget} onClose={() => setRejectTarget(null)} />}

@@ -277,6 +277,12 @@ export const API_ENDPOINTS = {
     DISPOSALS:        `${v1}/asset/disposals`,
     REPORT_DEPRECIATION: `${v1}/asset/reports/depreciation`,
     REPORT_INVENTORY:    `${v1}/asset/reports/inventory`,
+    RECEIVE:      (id: string | number) => `${v1}/asset/${id}/receive`,
+    CUSTODY_EVENTS: (id: string | number) => `${v1}/asset/${id}/custody-events`,
+    ALL_CUSTODY_EVENTS: `${v1}/asset/custody-events`,
+    CUSTODY_EVENT_ATTACHMENTS: (id: string | number, eventId: string) => `${v1}/asset/${id}/custody-events/${eventId}/attachments`,
+    CUSTODY_EVENT_ATTACHMENT_DELETE: (id: string | number, eventId: string, attachmentId: string) => `${v1}/asset/${id}/custody-events/${eventId}/attachments/${attachmentId}`,
+    REPLACEMENTS: `${v1}/asset/replacements`,
   },
   PERFORMANCE: {
     DAILY_REPORTS: `${v1}/performance/daily-report`,

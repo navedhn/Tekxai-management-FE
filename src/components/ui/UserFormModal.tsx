@@ -10,7 +10,7 @@ import { useToastContext } from '@/components/toast/ToastProvider';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
-import { useAuthStore } from '@/stores/authStore';
+import { useMyPermissions } from '@/services/permissionsService';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import ActionModal from '@/components/ui/ActionModal';
@@ -26,11 +26,10 @@ const statuses = [
   { value: 'INACTIVE', label: 'Inactive' },
 ];
 
-// Roles hidden from non-super-admin users
 const SUPER_ADMIN_ONLY_ROLES = ['SUPER_ADMIN'];
 
 const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) => {
-  const currentRole = useAuthStore(s => s.role);
+  const { data: myPerms } = useMyPermissions();
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -44,18 +43,10 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
     hire_date: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  // The role this user actually had when the modal opened — used to detect
-  // whether the operator genuinely changed the role selection, vs. it just
-  // carrying through untouched in the generic profile-save payload (which is
-  // exactly the mechanism that silently demoted a SUPER_ADMIN to EMPLOYEE).
   const [originalRoleId, setOriginalRoleId] = useState('');
   const [pendingRoleChange, setPendingRoleChange] = useState<{ id: string; role_id: string; roleName: string } | null>(null);
 
   const toast = useToastContext();
-  // Business Unit -> Division -> Department -> Team -> Employee hierarchy:
-  // Team options are scoped to the currently selected Department, via the
-  // one shared data-loading pattern also used by Quick Create/Edit User
-  // (QuickCreateUserModal) — see useDepartmentScopedTeams in adminService.ts.
   const { teamsData, teamRecords, teamOptions } = useDepartmentScopedTeams(formData.department_id);
   const createUser = useCreateUserMutation();
   const updateUser = useUpdateUserMutation();
@@ -73,7 +64,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
   const { data: departmentsData = [] } = useGetDepartmentsQuery();
   const { data: designationsData = [] } = useGetDesignationsQuery();
 
-  const isSuperAdmin = currentRole === 'SUPER_ADMIN';
+  const isSuperAdmin = !!myPerms?.is_super_admin;
   const roleOptions = rolesData
     .filter((r: any) => isSuperAdmin || !SUPER_ADMIN_ONLY_ROLES.includes(r.name))
     .map((r: any) => ({ value: r.id, label: r.name.replace(/_/g, ' ') }));
@@ -88,13 +79,6 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
   useEffect(() => {
     if (!isOpen) return;
     if (user) {
-      // RBAC fix: the old chain `user.roles?.[0]?.role?.id || user.role_id`
-      // never matched either backend shape this modal is actually fed
-      // (Users admin page returns `user.role.id`; Employee Directory returns
-      // a bare `user.role_id` after the accompanying backend fix) — it
-      // always fell through to defaultRoleId (EMPLOYEE), silently. Reading
-      // both real shapes here means the dropdown now reflects the user's
-      // TRUE current role instead of defaulting.
       const currentRoleId = user.role?.id || user.role_id || defaultRoleId;
       setOriginalRoleId(currentRoleId);
       const deptId = user.department?.id || user.department_id || '';
@@ -104,9 +88,6 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
         email: user.email || '',
         password: '',
         department_id: deptId,
-        // designation_id is the FK-based single write path (change_user_designation,
-        // same one Employee Profile's Organization card uses) — the legacy
-        // free-text `designation` string column is no longer read/written here.
         designation_id: user.designation_ref?.id || user.designation_id || '',
         team_id: user.team_memberships?.[0]?.team?.id || user.team_id || '',
         role_id: currentRoleId,
@@ -128,8 +109,6 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
       });
     }
     setErrors({});
-  // Only re-initialize when the modal opens or the user changes, not when async data loads
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, isOpen]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -141,25 +120,15 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
     setFormData(prev => ({ ...prev, [name]: String(val) }));
   };
 
-  // Department -> Team is a hard hierarchy (Business Unit -> Division ->
-  // Department -> Team -> Employee) — switching Department immediately
-  // clears the selected Team so a stale cross-department pick can never be
-  // submitted. Mirrors QuickCreateUserModal's identical handler.
   const handleDepartmentChange = (val: string | number) => {
     setFormData(prev => ({ ...prev, department_id: String(val ?? ''), team_id: '' }));
   };
 
-  // Safety net for edit-mode prefill, where Department and Team are set
-  // together from the incoming `user` record before the Team list for that
-  // Department has loaded: once it loads, drop team_id if it isn't actually
-  // in the list (e.g. stale/legacy assignment that predates department
-  // scoping).
   useEffect(() => {
     if (!formData.team_id || !teamsData) return;
     if (!teamRecords.some((t: any) => t.id === formData.team_id)) {
       setFormData(prev => ({ ...prev, team_id: '' }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamsData]);
 
   const handleSubmit = () => {
@@ -177,10 +146,6 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, user }) 
     const selectedRole = rolesData.find((r: any) => r.id === role_id);
 
     if (isEdit) {
-      // RBAC ISOLATION: the profile-update payload never includes role_id —
-      // this is the fix for the SUPER_ADMIN -> EMPLOYEE corruption bug. Role
-      // changes, if any, are submitted separately below via the dedicated
-      // change-role endpoint, gated behind an explicit confirmation.
       const { role_id: _omit, ...profileFields } = formData;
       const payload: any = { ...profileFields };
       if (!password) delete payload.password;

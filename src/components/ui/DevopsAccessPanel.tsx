@@ -9,6 +9,7 @@ import ScoreRing from './ScoreRing';
 import Badge from './Badge';
 import Loader from './Loader';
 import { useAuth } from '@/hooks/useAuth';
+import { useMyPermissions } from '@/services/permissionsService';
 import { useDevopsAccess, useUpdateDevopsAccess } from '@/services/devopsAccessService';
 import { useTrackingLinks, useCreateTrackingLink, useDeleteTrackingLink } from '@/services/trackingLinksService';
 import type {
@@ -32,8 +33,6 @@ const AWS_OPTIONS: StatusOption[] = [
   { label: 'N/A', value: 'NOT_APPLICABLE', colorClassName: 'bg-gray-50 text-gray-500 border-gray-200' },
 ];
 
-// Azure mirrors AWS (also supports Limited); OpenAI/Stripe use the plain
-// 3-value vocabulary the same as Git/Server/Domain/SMTP above.
 const AZURE_OPTIONS = AWS_OPTIONS;
 
 const PROGRESS_SHARED_OPTIONS: StatusOption[] = [
@@ -126,7 +125,6 @@ interface DevopsAccessPanelProps {
   healthStatus?: 'HEALTHY' | 'AT_RISK' | 'WARNING' | 'CRITICAL';
 }
 
-// 4-tier Green/Yellow/Orange/Red.
 const HEALTH_STYLES: Record<string, { color: string; badge: string }> = {
   HEALTHY:  { color: '#027A48', badge: 'bg-[#ECFDF3] text-[#027A48] border-[#ABEFC6]' },
   AT_RISK:  { color: '#B54708', badge: 'bg-[#FFFAEB] text-[#B54708] border-[#FEDF89]' },
@@ -135,7 +133,8 @@ const HEALTH_STYLES: Record<string, { color: string; badge: string }> = {
 };
 
 const DevopsAccessPanel: React.FC<DevopsAccessPanelProps> = ({ projectId, ownerId, leaderId, accessScore, healthScore, healthStatus }) => {
-  const { user, role } = useAuth();
+  const { user } = useAuth();
+  const { data: myPerms } = useMyPermissions();
   const toast = useToastContext();
   const { data, isLoading } = useDevopsAccess(projectId);
   const { mutate, isPending } = useUpdateDevopsAccess(projectId);
@@ -146,7 +145,7 @@ const DevopsAccessPanel: React.FC<DevopsAccessPanelProps> = ({ projectId, ownerI
   const [showAddLink, setShowAddLink] = useState(false);
   const [linkForm, setLinkForm] = useState({ link_type: 'CLICKUP', label: '', url: '' });
 
-  const canEdit = role === 'ADMIN' || role === 'SUPER_ADMIN' || user?.id === ownerId || user?.id === leaderId;
+  const canEdit = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.projects.edit') || user?.id === ownerId || user?.id === leaderId;
 
   const [remarks, setRemarks] = useState('');
   const [infraForm, setInfraForm] = useState<InfraFormState>(EMPTY_INFRA_FORM);
@@ -213,13 +212,6 @@ const DevopsAccessPanel: React.FC<DevopsAccessPanelProps> = ({ projectId, ownerI
 
   const health = healthStatus ? HEALTH_STYLES[healthStatus] : null;
 
-  // Progress-Shared recency bucket — same "Today/Yesterday/2 Days Ago/3 Days
-  // Ago/1 Week/Custom Date/Never" logic as normalize_project()'s
-  // compute_progress_shared_recency() (projects.repository.js), kept as a
-  // small local helper here rather than a second backend call, since this
-  // is just an immediate-feedback label on the edit control itself — the
-  // authoritative figure for dashboards/warnings comes from that backend
-  // computation, not from here.
   const progressSharedRecency = (() => {
     const date = data.progress_shared_date;
     if (!date) return { label: 'Never', stale: true };

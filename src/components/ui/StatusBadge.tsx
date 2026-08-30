@@ -38,6 +38,7 @@ const STATUS_TONE: Record<string, BadgeTone> = {
   inreview: 'warning',
   earlyout: 'warning',
   maintenance: 'warning',
+  underrepair: 'warning',
 
   rejected: 'danger',
   cancelled: 'danger',

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, ChevronDown, CheckCircle2, Circle, MessageSquare, Plus, Trash2, ArrowRight as ArrowRightIcon, ArrowLeft, Calendar as CalendarIcon, Clock, LayoutDashboard, ListChecks, KanbanSquare, FileText, Activity as ActivityIcon, MessagesSquare, Server, Link2, Users, Wallet, Settings as SettingsIcon, GripVertical } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { useMyPermissions } from '@/services/permissionsService';
 import Badge from './Badge';
 import Button from './Button';
 import RequestExtensionModal from './RequestExtensionModal';
@@ -57,17 +58,13 @@ const WORKSPACE_TABS: { id: WorkspaceTab; label: string; icon: React.ElementType
 const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, projectId, routePrefix = '/admin' }) => {
   const navigate = useNavigate();
   const toast = useToastContext();
-  const { user, role } = useAuth();
+  const { user } = useAuth();
   const { data: project, isLoading } = useGetProjectDetails(projectId);
   const { data: milestones = [], isLoading: milestonesLoading } = useMilestones(projectId);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('overview');
   const deleteMilestoneMutation = useDeleteMilestone(projectId);
   const archiveMilestoneMutation = useArchiveMilestone(projectId);
   const reorderMilestonesMutation = useReorderMilestones(projectId);
-  // Drag-and-drop milestone reorder — dragMilestoneId tracks the row
-  // currently being dragged; on drop we build the full new id order and
-  // send it to PATCH .../milestones/reorder in one call (the endpoint
-  // renumbers 1..N by array position).
   const [dragMilestoneId, setDragMilestoneId] = useState<string | null>(null);
   const [dragOverMilestoneId, setDragOverMilestoneId] = useState<string | null>(null);
   const updateTaskMutation = useUpdateTask(projectId);
@@ -76,7 +73,8 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
 
   const projectOwnerId = project?.owner_id ? String(project.owner_id) : project?.owner?.id;
   const projectLeaderId = project?.leader_id ? String(project.leader_id) : project?.team_leader?.id;
-  const canEditProject = role === 'ADMIN' || role === 'SUPER_ADMIN' || user?.id === projectOwnerId || user?.id === projectLeaderId;
+  const { data: myPerms } = useMyPermissions();
+  const canEditProject = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.projects.edit') || user?.id === projectOwnerId || user?.id === projectLeaderId;
   const [showRequestModel, setShowRequestModael] = useState(false);
   const [showCreateMilestone, setShowCreateMilestone] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -374,9 +372,6 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                         COMPLETED: 'bg-green-50 text-green-700',
                         BLOCKED: 'bg-red-50 text-red-600',
                       };
-                      // 4-tier Green/Yellow/Orange/Red health dot, same convention as
-                      // project-level health_status: Red = blocked, Orange = overdue,
-                      // Yellow = due within 3 days, Green = completed or on track.
                       const daysUntilDue = milestone.due_date ? Math.ceil((new Date(milestone.due_date).getTime() - Date.now()) / 86400000) : null;
                       const milestoneHealth = milestone.status === 'COMPLETED' ? 'HEALTHY'
                         : milestone.status === 'BLOCKED' ? 'CRITICAL'

@@ -20,8 +20,7 @@ import {
 } from '@/services/tasksService';
 import { useAuth } from '@/hooks/useAuth';
 import { useToastContext } from '@/components/toast/ToastProvider';
-
-// --- Types ---
+import { useMyPermissions } from '@/services/permissionsService';
 
 interface TaskDrawerProps {
   task: KanbanTask | null;
@@ -51,8 +50,6 @@ function formatDuration(seconds: number): string {
   if (h > 0) return `${h}h ${m}m`;
   return `${m}m`;
 }
-
-// --- Sub-Tasks Section ---
 
 function SubTasksSection({ projectId, taskId }: { projectId: string; taskId: string }) {
   const { data: subTasks = [] } = useSubTasks(projectId, taskId);
@@ -127,8 +124,6 @@ function SubTasksSection({ projectId, taskId }: { projectId: string; taskId: str
     </div>
   );
 }
-
-// --- Time Log Section ---
 
 function TimeLogSection({ projectId, taskId }: { projectId: string; taskId: string }) {
   const { data: timeLogs = [] } = useTaskTimeLogs(projectId, taskId);
@@ -219,10 +214,9 @@ function TimeLogSection({ projectId, taskId }: { projectId: string; taskId: stri
   );
 }
 
-// --- Comments Section (modeled on Project Discussions' comment/discussion UX) ---
-
 function CommentsSection({ projectId, taskId }: { projectId: string; taskId: string }) {
-  const { user, role } = useAuth();
+  const { user } = useAuth();
+  const { data: myPerms } = useMyPermissions();
   const toast = useToastContext();
   const { data: comments = [] } = useTaskComments(projectId, taskId);
   const createMutation = useCreateTaskComment(projectId, taskId);
@@ -244,10 +238,7 @@ function CommentsSection({ projectId, taskId }: { projectId: string; taskId: str
     });
   };
 
-  // Only list+create exist on the backend task_comments controller (no
-  // update endpoint), so there is no Edit button here — just Delete,
-  // gated the same way the backend gates it: author, or a manager-tier role.
-  const isManager = !!role && ['ADMIN', 'SUPER_ADMIN', 'HR', 'DIVISION_MANAGER'].includes(role);
+  const isManager = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.tasks.manage');
 
   return (
     <div className="flex flex-col gap-3">
@@ -310,9 +301,6 @@ function CommentsSection({ projectId, taskId }: { projectId: string; taskId: str
     </div>
   );
 }
-
-// --- Attachments Section (reuses the shared uploadFile() helper — same
-// component used by Project Documents / Employee Documents) ---
 
 function AttachmentsSection({ projectId, taskId }: { projectId: string; taskId: string }) {
   const toast = useToastContext();
@@ -385,9 +373,6 @@ function AttachmentsSection({ projectId, taskId }: { projectId: string; taskId: 
   );
 }
 
-// --- Dependencies Section (task.depends_on_ids, modeled on how Milestones
-// render/edit milestone.depends_on_ids) ---
-
 const DEP_STATUS_STYLE: Record<string, string> = {
   TODO: 'bg-gray-100 text-gray-500',
   IN_PROGRESS: 'bg-blue-50 text-blue-600',
@@ -401,10 +386,6 @@ function DependenciesSection({ projectId, task, allTasks }: { projectId: string;
   const [open, setOpen] = useState(false);
   const dependsOnIds = task.depends_on_ids || [];
 
-  // Self-exclusion happens client-side here; the backend additionally
-  // rejects a self-dependency with a 400 as a safety net (verified in the
-  // tasks controller). There is no server-side circular-dependency check —
-  // that's a gap, not something added on the frontend.
   const options = allTasks.filter((t) => t.id !== task.id);
   const available = options.filter((t) => !dependsOnIds.includes(t.id));
 
@@ -471,8 +452,6 @@ function DependenciesSection({ projectId, task, allTasks }: { projectId: string;
     </div>
   );
 }
-
-// --- Drawer ---
 
 const TaskDrawer: React.FC<TaskDrawerProps> = ({ task, allTasks = [], projectId, onClose, onUpdateTask }) => {
   const [title, setTitle] = useState('');
