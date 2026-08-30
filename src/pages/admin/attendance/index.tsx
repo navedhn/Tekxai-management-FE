@@ -197,24 +197,9 @@ const AttendancePage: React.FC = () => {
 
   const { data: violationsData, isLoading: vLoading } = useGetViolationsQuery(violationFilters);
   const { data: lateData, isLoading: lateLoading } = useGetViolationsQuery({ violation_type: 'LATE', ...lateDateRange });
-  // Page-level "Late Today" KPI is intentionally a separate query from the
-  // Late Coming tab's own (togglable, defaults-to-unfiltered) lateData above
-  // — the KPI card must always mean literally today, not whatever date range
   // the tab happens to have selected.
   const { data: lateTodayData } = useGetViolationsQuery({ violation_type: 'LATE', ...getTodayRange() });
   const { data: shifts = [], isLoading: sLoading } = useGetShiftsQuery();
-  // GET /user (erp.users.view) is unscoped — no department restriction at
-  // all — and 403s for HR_ASSOCIATE/HR_MANAGER/HEAD_OF_HR (they hold
-  // hr.employees.view, not erp.users.view), so it can't be used here: either
-  // every HR tier sees nothing, or scoped HR roles would see the whole
-  // company. GET /employee (hr.employees.view) is the correct source — it
-  // already carries the real department scoping built for the Employee
-  // Directory (SUPER_ADMIN/ADMIN/HR/HEAD_OF_HR unscoped, HR_ASSOCIATE/
-  // HR_MANAGER restricted to their own department), so every consumer of
-  // `users` below (Assign Shift picker, Violations filter, Reports employee
-  // lookup) automatically gets the same scoping without reimplementing it.
-  // limit is capped at 100 server-side (see employees.routes.js) — plenty
-  // for the ~70-person roster this was built against.
   const { data: employeeDirectory } = useGetEmployeeDirectory({ limit: 100 });
   const users = employeeDirectory?.records || [];
   const { data: teamsData } = useGetTeamsQuery();
@@ -236,10 +221,6 @@ const AttendancePage: React.FC = () => {
   const markAbsentees = useMarkAbsenteesMutation();
   const noCheckinsRaw = (noCheckinsData as any)?.records || [];
   const noCheckinSummary = (noCheckinsData as any)?.summary || { total_employees: 0, checked_in: 0, not_checked_in: 0 };
-
-  // Shift + free-text search narrow the already-fetched list client-side —
-  // both are already present on each row (shift, first/last name, email,
-  // employee_id), so no extra backend filter param is needed for either.
   const noCheckins = useMemo(() => {
     let rows = noCheckinsRaw;
     if (noCheckinShiftFilter) rows = rows.filter((r: any) => r.shift?.id === noCheckinShiftFilter);
@@ -259,15 +240,6 @@ const AttendancePage: React.FC = () => {
     setNoCheckinShiftFilter('');
     setNoCheckinSearch('');
   };
-
-  // Page-level Overview cards — Present/Late/No-check-in are backed by data
-  // this module already computes (find_users_without_checkin's checked_in/
-  // not_checked_in split, and today's LATE violations). "On Leave Today" and
-  // "Work From Home Today" aren't included: no existing endpoint anywhere in
-  // the app returns either count (time_off_requests/employee_profiles aren't
-  // date-range or work_mode queryable via the generic report_builder either),
-  // and adding one would mean touching the backend, which this pass is
-  // explicitly scoped to avoid.
   const todayLateCount = (lateTodayData as any)?.total ?? (lateTodayData as any)?.records?.length ?? 0;
 
   const noCheckinExportRows = (rows: any[]) => rows.map((item: any) => ({

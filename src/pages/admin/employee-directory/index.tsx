@@ -131,8 +131,9 @@ export default function EmployeeDirectory() {
   // views onto the same user, not something the record's origin locks you
   // into.
   const [quickEditTarget, setQuickEditTarget] = useState<any>(null);
-  // Edit-mode chooser — set to the row whose edit icon was just clicked;
-  // shows a small popup offering Quick Edit vs Detailed Edit for that row.
+  // Edit-mode chooser — set to the row whose (single) edit icon was just
+  // clicked; shows a small popup offering Quick Edit vs Detailed Edit for
+  // that row. This is the one and only edit entry point in the directory.
   const [editModeTarget, setEditModeTarget] = useState<any>(null);
   const [deleteTarget, setDeleteTarget]   = useState<any>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -352,8 +353,9 @@ export default function EmployeeDirectory() {
         editUser={quickEditTarget}
       />
 
-      {/* Edit-mode chooser — every employee gets both options now; created_via
-          no longer locks a row into one edit flow. */}
+      {/* Edit-mode chooser — the directory's single edit entry point (one
+          pencil icon per row) opens this, offering Quick Edit vs Detailed
+          Edit. Every employee gets both options regardless of created_via. */}
       <Modal
         isOpen={!!editModeTarget}
         onClose={() => setEditModeTarget(null)}
@@ -695,7 +697,7 @@ export default function EmployeeDirectory() {
                   { label: 'Designation',     col: 'designation' },
                   { label: 'Department',      col: null },
                   { label: 'Business Unit',   col: null },
-                  { label: 'Reporting Manager', col: null },
+                  { label: 'Role',             col: null },
                   { label: 'Status',          col: 'status' },
                   { label: 'Join Date',       col: 'hire_date' },
                   { label: 'Added On',        col: 'created_at' },
@@ -775,12 +777,18 @@ export default function EmployeeDirectory() {
                     <td className="py-3 px-2 text-gray-600">{emp.department?.name || '—'}</td>
                     <td className="py-3 px-2 text-gray-600">{emp.business_unit?.name || '—'}</td>
                     <td className="py-3 px-2">
-                      {emp.manager ? (
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-600">
-                            {emp.manager.first_name?.[0]}
-                          </div>
-                          <span className="text-gray-600 text-xs">{emp.manager.first_name?.[0]}. {emp.manager.last_name}</span>
+                      {/* Real RBAC roles (users.roles -> roles relation), not
+                          derived from designation or hardcoded. */}
+                      {emp.roles?.length ? (
+                        <div className="flex flex-wrap items-center gap-1">
+                          {emp.roles.map((r: { id: string; name: string }) => (
+                            <span
+                              key={r.id}
+                              className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-semibold text-gray-600 whitespace-nowrap"
+                            >
+                              {r.name}
+                            </span>
+                          ))}
                         </div>
                       ) : '—'}
                     </td>
@@ -814,19 +822,13 @@ export default function EmployeeDirectory() {
                           icon={Edit2}
                           variant="ghost"
                           size="sm"
-                          aria-label="Quick Edit"
-                          title="Quick Edit"
-                          onClick={() => setQuickEditTarget(emp)}
-                          className="!h-auto !w-auto p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50"
-                        />
-                        <IconButton
-                          icon={FileText}
-                          variant="ghost"
-                          size="sm"
-                          aria-label="Full Edit"
-                          title="Full Edit"
+                          aria-label="Edit Employee"
+                          title="Edit Employee"
+                          // Single edit entry point — opens the Quick Edit /
+                          // Detailed Edit chooser modal. Both flows remain
+                          // available from here.
                           onClick={() => setEditModeTarget(emp)}
-                          className="!h-auto !w-auto p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                          className="!h-auto !w-auto p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50"
                         />
                         <IconButton
                           icon={Trash2}

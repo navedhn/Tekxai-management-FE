@@ -8,8 +8,8 @@ import {
   useSubmitOvertime, useApproveOvertime, useRejectOvertime, useCancelOvertime,
 } from '@/services/employeeService';
 import { cn } from '@/utils/cn';
-import { useAuth } from '@/hooks/useAuth';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { useMyPermissions } from '@/services/permissionsService';
 
 const STATUS_STYLE: Record<string, string> = {
   PENDING:   'bg-amber-100 text-amber-700',
@@ -22,7 +22,6 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 const THIS_YEAR  = new Date().getFullYear();
 const THIS_MONTH = new Date().getMonth() + 1;
 
-// ── Stats Bar ─────────────────────────────────────────────────────────────────
 function StatsBar({ stats }: { stats: any }) {
   if (!stats) return null;
   return (
@@ -47,7 +46,6 @@ function StatsBar({ stats }: { stats: any }) {
   );
 }
 
-// ── Submit Overtime Modal ─────────────────────────────────────────────────────
 function SubmitModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const toast = useToastContext();
@@ -144,7 +142,6 @@ function SubmitModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ── Approve / Reject Modal ────────────────────────────────────────────────────
 function ApproveModal({ record, onClose }: { record: any; onClose: () => void }) {
   const [comment, setComment] = useState('');
   const approve = useApproveOvertime();
@@ -190,10 +187,9 @@ function ApproveModal({ record, onClose }: { record: any; onClose: () => void })
   );
 }
 
-// ── Main Overtime Page ────────────────────────────────────────────────────────
 export default function OvertimePage() {
-  const { role } = useAuth();
-  const isAdmin = role ? ['ADMIN','SUPER_ADMIN','HR'].includes(role) : false;
+  const { data: myPerms } = useMyPermissions();
+  const isAdmin = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.overtime.approve');
 
   const [status, setStatus]  = useState('');
   const [year, setYear]      = useState(THIS_YEAR);

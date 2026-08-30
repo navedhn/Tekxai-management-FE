@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useGetProjects, ProjectDetail, useDeleteProjectMutation, useRestoreProjectMutation, useSaveProjectMutation, useUnsaveProjectMutation } from '@/services/projectService';
-import { useAuth } from '@/hooks/useAuth';
+import { useMyPermissions } from '@/services/permissionsService';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
@@ -19,8 +19,6 @@ const PRIORITY_STYLE: Record<string, string> = {
   CRITICAL: 'bg-red-50 text-red-600 border-red-200',
 };
 
-// 4-tier Green/Yellow/Orange/Red health indicator, driven by the backend's
-// computed health_status (health_score-derived, never manually set).
 const HEALTH_DOT: Record<string, string> = {
   HEALTHY: 'bg-emerald-500',
   AT_RISK: 'bg-yellow-400',
@@ -40,18 +38,10 @@ import ProjectDashboardKpis from '@/components/ui/ProjectDashboardKpis';
 
 const ProjectManagement: React.FC = () => {
   const toast = useToastContext();
-  const { role } = useAuth();
-  // Matches the backend's exact role gate for archive/restore:
-  // can_or_role('erp.projects.delete', 'ADMIN', 'SUPER_ADMIN') in
-  // be-work/src/modules/projects/routes/projects.routes.js — no owner/leader
-  // exception here (unlike project edit), so only these two roles get the
-  // Archive/Restore buttons.
-  const canArchive = role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const { data: myPerms } = useMyPermissions();
+  const canArchive = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.projects.delete');
 
   const [showArchived, setShowArchived] = useState(false);
-  // limit: 1000 — the table paginates client-side over `filteredData`, so the full
-  // set must be loaded up front; the server default (20) was silently hiding every
-  // project past the first page, which client-side "Page 2/3" pagination never surfaced.
   const { data: projects, isLoading } = useGetProjects({ limit: 1000, archived: showArchived });
   const deleteMutation = useDeleteProjectMutation();
   const restoreMutation = useRestoreProjectMutation();
@@ -230,8 +220,6 @@ const ProjectManagement: React.FC = () => {
     {
       header: 'Team',
       key: 'member_role_counts',
-      // Compact role badges (FE/BE/QA/...) instead of a generic member-count
-      // avatar stack — reuses the same project_members.role column.
       render: (item) => {
         const ROLE_BADGE: Record<string, { label: string; className: string }> = {
           FRONTEND:  { label: 'FE', className: 'bg-blue-50 text-blue-600' },
@@ -443,7 +431,7 @@ const ProjectManagement: React.FC = () => {
         }
         confirmText={projectToToggleSave?.action === 'save' ? "Save Project" : "Unsave Project"}
         loading={saveMutation.isPending || unsaveMutation.isPending}
-        icon="delete" // using default icon structure for now
+        icon="delete"
       />
 
       <div className="flex flex-col gap-1">
@@ -552,4 +540,3 @@ const ProjectManagement: React.FC = () => {
 };
 
 export default ProjectManagement;
-

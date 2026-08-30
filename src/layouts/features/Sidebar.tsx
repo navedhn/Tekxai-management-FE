@@ -13,17 +13,10 @@ import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
 import { useMyPermissions } from '@/services/permissionsService';
 import { USER_ROLES } from '@/constants/roles';
 
-// The ERP workspace's own route guard (router.tsx) only admits SUPER_ADMIN/ADMIN
-// (plus anyone holding the `erp.workspace.access` permission) — ADMIN_ROLES from
-// constants/roles.ts is broader (also includes HR/MARKETING, used for other
-// cross-workspace checks) and must NOT be used here. Using it previously showed
-// the full ERP nav to HR/MARKETING users whose clicks then 403'd against the route
-// guard.
-const ERP_ROLES = [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN];
 import { cn } from '@/utils/cn';
 import tekxaiLogo from '@/assets/icons/tekxai-logo.svg';
 
-const SW = 1.5; // consistent stroke weight for all sidebar icons
+const SW = 1.5;
 
 interface SidebarLink {
   to: string;
@@ -34,34 +27,42 @@ interface SidebarLink {
   badge?: number;
 }
 
-// Target IA: 15 top-level modules from the ERP nav spec, plus "Projects" —
-// preserved as its own module for the pre-existing project-management nav
-// (Projects/Tracking/Timeline/Reports/Meetings/Starred), which the spec's
-// 14 HR-shaped modules have no room for and which must not be dropped.
-// Rendering groups by this fixed order rather than array-concatenation
-// order, so a module's items can live in different permission tiers
-// (e.g. Workforce's own Teams entry is admin-only) without producing a
-// duplicate or out-of-order section header.
 const MODULE_ORDER = [
   'Dashboard', 'Workforce', 'Recruitment', 'Attendance', 'Performance',
   'Payroll', 'Finance', 'Assets', 'Procurement', 'Contracts', 'Policies',
   'Ticketing', 'Monitoring', 'My Workspace', 'Administration', 'Projects',
 ] as const;
 type ModuleName = typeof MODULE_ORDER[number];
-// 'all'        — anyone who reached the admin/HR sidebar (past the outer
-//                hasErpAccess-or-isHrRole gate below)
-// 'admin'      — ERP_ROLES or erp.workspace.access permission (was
-//                erpOnlyItems, hidden from plain HR-role users)
-// 'executive'  — is_super_admin or erp.executive-analytics.view permission
-// 'superadmin' — role === SUPER_ADMIN literally
 type Tier = 'all' | 'erpOps' | 'admin' | 'executive' | 'superadmin';
 
-// Mirrors router.tsx's erpOpsRoles: the HR/ops-heavy modules (Workforce,
-// Recruitment, Attendance, Performance, Payroll, Assets, Procurement,
-// Contracts, Policies, Monitoring) are for roles that actually manage that
-// data — not Marketing, which only needs erp.workspace.access to reach
-// /admin/crm and /admin/my-salaries.
-const ERP_OPS_ROLES = [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.HR, USER_ROLES.DIVISION_MANAGER, USER_ROLES.TEAM_LEAD];
+const ERP_OPS_ROUTE_PERMISSIONS: Record<string, string> = {
+  '/admin/employee-directory': 'hr.employees.view',
+  '/admin/add-employee': 'erp.users.create',
+  '/admin/business-units': 'erp.business_units.view',
+  '/admin/departments': 'erp.departments.view',
+  '/admin/divisions': 'erp.departments.view',
+  '/admin/designations': 'erp.designations.view',
+  '/admin/grades': 'erp.grades.view',
+  '/admin/org-chart': 'erp.departments.view',
+  '/admin/job-descriptions': 'hr.job_descriptions.view',
+  '/admin/hr-reports': 'hr.reports.view',
+  '/admin/job-requisitions': 'hr.job_requisitions.view',
+  '/admin/onboarding': 'hr.onboarding.view',
+  '/admin/offboarding': 'hr.offboarding.view',
+  '/admin/attendance': 'erp.attendance.view',
+  '/admin/overtime': 'erp.overtime.view',
+  '/admin/employee-timesheets': 'erp.timesheet.view',
+  '/admin/performance': 'erp.performance.view',
+  '/admin/performance-scoring': 'erp.performance.view',
+  '/admin/increments': 'hr.increments.view',
+  '/admin/assets': 'erp.assets.view',
+  '/admin/requisitions': 'erp.requisitions.view',
+  '/admin/contracts': 'hr.contracts.view',
+  '/admin/documents': 'erp.hr_documents.view',
+  '/admin/document-templates': 'erp.hr_documents.view',
+  '/admin/policies': 'hr.policies.view',
+  '/admin/monitoring': 'erp.monitoring.view',
+};
 interface ModuleLink extends Omit<SidebarLink, 'section'> {
   module: ModuleName;
   tier: Tier;
@@ -139,22 +140,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
   const { data: myPerms } = useMyPermissions();
   const chatUnreadCount = useChatUnreadCount();
 
-  // Employee workspace flat nav (no modules) — shown whenever the current
-  // route is under /employee, regardless of role. Used to be gated on
-  // "lacks erp.workspace.access", which meant Marketing (who has always
-  // held that permission for /admin/crm access) fell through to the
-  // admin-style moduleGroups sidebar below even while sitting on /employee —
-  // the wrong nav for the layout actually rendering. Keying off the route
-  // instead of the permission means every role that reaches /employee
-  // (EMPLOYEE, MARKETING, HR, DIVISION_MANAGER, TEAM_LEAD) sees the same
-  // workspace-appropriate nav there, and the moduleGroups nav stays
-  // exclusive to /admin.
   const employeeLinks: SidebarLink[] | null = useMemo(() => {
     if (!location.pathname.startsWith('/employee')) return null;
 
-    // Projects mirrors router.tsx's nested guard on /employee/projects:
-    // EMPLOYEE always has it; everyone else needs erp.projects.view
-    // (Division Manager/Team Lead have it, Marketing/HR don't).
     const canSeeProjects = role === USER_ROLES.EMPLOYEE || !!myPerms?.permissions?.includes('erp.projects.view');
 
     return [
@@ -174,19 +162,14 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
   }, [role, myPerms, chatUnreadCount, location.pathname]);
 
   const moduleGroups: ModuleGroup[] = useMemo(() => {
-    const isAdmin = ERP_ROLES.includes(role as any);
-    const isSuperAdmin = role === 'SUPER_ADMIN';
+    const isAdmin = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.workspace.access');
+    const isSuperAdmin = !!myPerms?.is_super_admin;
     const isExecutive = !!(myPerms?.is_super_admin || myPerms?.permissions?.includes('erp.executive-analytics.view'));
 
-    // Every existing nav item, unchanged routes/icons/gating — only the
-    // module grouping is new. tier reproduces exactly the audience each item
-    // already had (see Tier comment above); nothing gained or lost access.
     const allItems: ModuleLink[] = [
-      // ── Dashboard ──────────────────────────────────────────────────────
       { module: 'Dashboard', tier: 'all', to: '/admin', label: 'Dashboard', icon: <Home size={18} strokeWidth={SW} />, end: true },
       { module: 'Dashboard', tier: 'executive', to: '/admin/executive-dashboard', label: 'Executive Dashboard', icon: <Gauge size={18} strokeWidth={SW} /> },
 
-      // ── Workforce ──────────────────────────────────────────────────────
       { module: 'Workforce', tier: 'erpOps', to: '/admin/employee-directory', label: 'Employee Directory', icon: <UserSearch size={18} strokeWidth={SW} /> },
       { module: 'Workforce', tier: 'erpOps', to: '/admin/add-employee', label: 'Add Employee', icon: <PlusCircle size={18} strokeWidth={SW} /> },
       { module: 'Workforce', tier: 'erpOps', to: '/admin/business-units', label: 'Business Units', icon: <Landmark size={18} strokeWidth={SW} /> },
@@ -199,61 +182,48 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Workforce', tier: 'erpOps', to: '/admin/job-descriptions', label: 'Job Descriptions', icon: <Briefcase size={18} strokeWidth={SW} /> },
       { module: 'Workforce', tier: 'erpOps', to: '/admin/hr-reports', label: 'HR Reports', icon: <BarChart3 size={18} strokeWidth={SW} /> },
 
-      // ── Recruitment ────────────────────────────────────────────────────
       { module: 'Recruitment', tier: 'erpOps', to: '/admin/job-requisitions', label: 'Job Requisitions', icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
       { module: 'Recruitment', tier: 'erpOps', to: '/admin/onboarding', label: 'Hiring & Onboarding', icon: <UserPlus size={18} strokeWidth={SW} /> },
       { module: 'Recruitment', tier: 'erpOps', to: '/admin/offboarding', label: 'Offboarding', icon: <UserMinus size={18} strokeWidth={SW} /> },
 
-      // ── Attendance ─────────────────────────────────────────────────────
       { module: 'Attendance', tier: 'erpOps', to: '/admin/attendance', label: 'Attendance', icon: <Clock size={18} strokeWidth={SW} /> },
       { module: 'Attendance', tier: 'erpOps', to: '/admin/overtime', label: 'Overtime', icon: <AlarmClock size={18} strokeWidth={SW} /> },
       { module: 'Attendance', tier: 'erpOps', to: '/admin/employee-timesheets', label: 'Employee Timesheets', icon: <Clock size={18} strokeWidth={SW} /> },
       { module: 'Attendance', tier: 'admin', to: '/admin/manager-review', label: 'Manager Review', icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
       { module: 'Attendance', tier: 'admin', to: '/admin/compliance-violations', label: 'Compliance Violations', icon: <AlarmClock size={18} strokeWidth={SW} /> },
 
-      // ── Performance ────────────────────────────────────────────────────
       { module: 'Performance', tier: 'erpOps', to: '/admin/performance', label: 'Performance', icon: <TrendingUp size={18} strokeWidth={SW} /> },
       { module: 'Performance', tier: 'erpOps', to: '/admin/performance-scoring', label: 'Performance Scoring', icon: <TrendingUp size={18} strokeWidth={SW} /> },
 
-      // ── Payroll ────────────────────────────────────────────────────────
       { module: 'Payroll', tier: 'erpOps', to: '/admin/increments', label: 'Increments', icon: <TrendingUp size={18} strokeWidth={SW} /> },
       { module: 'Payroll', tier: 'admin', to: '/admin/payroll', label: 'Payroll', icon: <Banknote size={18} strokeWidth={SW} /> },
 
-      // ── Finance ────────────────────────────────────────────────────────
       { module: 'Finance', tier: 'admin', to: '/admin/finance/expenses', label: 'Expense Claims', icon: <Receipt size={18} strokeWidth={SW} /> },
       { module: 'Finance', tier: 'superadmin', to: '/admin/finance/financial-reports', label: 'Financial Reports', icon: <BarChart3 size={18} strokeWidth={SW} /> },
 
-      // ── Assets ─────────────────────────────────────────────────────────
       { module: 'Assets', tier: 'erpOps', to: '/admin/assets', label: 'Assets', icon: <Package size={18} strokeWidth={SW} /> },
 
-      // ── Procurement ────────────────────────────────────────────────────
       { module: 'Procurement', tier: 'erpOps', to: '/admin/requisitions', label: 'Requisitions', icon: <Package size={18} strokeWidth={SW} /> },
 
-      // ── Contracts ──────────────────────────────────────────────────────
       { module: 'Contracts', tier: 'erpOps', to: '/admin/contracts', label: 'Contracts', icon: <FileText size={18} strokeWidth={SW} /> },
       { module: 'Contracts', tier: 'erpOps', to: '/admin/documents', label: 'HR Documents', icon: <FileText size={18} strokeWidth={SW} /> },
       { module: 'Contracts', tier: 'erpOps', to: '/admin/document-templates', label: 'Document Templates', icon: <Layers size={18} strokeWidth={SW} /> },
 
-      // ── Policies ───────────────────────────────────────────────────────
       { module: 'Policies', tier: 'erpOps', to: '/admin/policies', label: 'Policies', icon: <ShieldCheck size={18} strokeWidth={SW} /> },
 
-      // ── Ticketing ──────────────────────────────────────────────────────
       { module: 'Ticketing', tier: 'admin', to: '/admin/tickets', label: 'Support Tickets', icon: <Ticket size={18} strokeWidth={SW} /> },
       { module: 'Ticketing', tier: 'admin', to: '/admin/ticket-categories', label: 'Ticket Categories', icon: <Layers size={18} strokeWidth={SW} /> },
       { module: 'Ticketing', tier: 'admin', to: '/admin/ticket-types', label: 'Ticket Types', icon: <Settings size={18} strokeWidth={SW} /> },
       { module: 'Ticketing', tier: 'admin', to: '/admin/approvals', label: 'Approvals', icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
 
-      // ── Monitoring ─────────────────────────────────────────────────────
       { module: 'Monitoring', tier: 'erpOps', to: '/admin/monitoring', label: 'Monitoring', icon: <Monitor size={18} strokeWidth={SW} /> },
-      { module: 'Monitoring', tier: 'erpOps', to: '/admin/download-app', label: 'Desktop App', icon: <Monitor size={18} strokeWidth={SW} /> },
+      { module: 'Monitoring', tier: 'admin', to: '/admin/download-app', label: 'Desktop App', icon: <Monitor size={18} strokeWidth={SW} /> },
 
-      // ── My Workspace ───────────────────────────────────────────────────
       { module: 'My Workspace', tier: 'all', to: '/admin/timesheet', label: 'Timesheet', icon: <Clock size={18} strokeWidth={SW} /> },
       { module: 'My Workspace', tier: 'all', to: '/admin/my-salaries', label: 'My Salaries', icon: <Heart size={18} strokeWidth={SW} /> },
       { module: 'My Workspace', tier: 'all', to: '/chat', label: 'Messages', icon: <MessageSquare size={18} strokeWidth={SW} />, badge: chatUnreadCount },
       { module: 'My Workspace', tier: 'all', to: '/admin/settings', label: 'Settings', icon: <Settings size={18} strokeWidth={SW} /> },
 
-      // ── Administration ─────────────────────────────────────────────────
       { module: 'Administration', tier: 'superadmin', to: '/admin/permissions', label: 'Access Control', icon: <Shield size={18} strokeWidth={SW} /> },
       { module: 'Administration', tier: 'superadmin', to: '/admin/desktop-management', label: 'Desktop Management', icon: <Monitor size={18} strokeWidth={SW} /> },
       { module: 'Administration', tier: 'all', to: '/admin/notifications', label: 'Notifications', icon: <BellIcon size={18} strokeWidth={SW} /> },
@@ -263,7 +233,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Administration', tier: 'superadmin', to: '/admin/email-logs', label: 'Email Logs', icon: <Mail size={18} strokeWidth={SW} /> },
       { module: 'Administration', tier: 'superadmin', to: '/admin/system-settings', label: 'System Settings', icon: <Settings size={18} strokeWidth={SW} /> },
 
-      // ── Projects — preserved, not part of the 14-module HR spec ───────
       { module: 'Projects', tier: 'admin', to: '/admin/projects', label: 'Projects', icon: <FolderCheck size={18} strokeWidth={SW} /> },
       { module: 'Projects', tier: 'admin', to: '/admin/project-tracking', label: 'Project Tracking', icon: <Table2 size={18} strokeWidth={SW} /> },
       { module: 'Projects', tier: 'admin', to: '/admin/project-timeline', label: 'Timeline', icon: <CalendarDays size={18} strokeWidth={SW} /> },
@@ -273,15 +242,14 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Projects', tier: 'admin', to: '/admin/starred', label: 'Starred', icon: <Star size={18} strokeWidth={SW} /> },
     ];
 
-    const isErpOps = ERP_OPS_ROLES.includes(role as any);
-    const tierVisible: Record<Tier, boolean> = { all: true, erpOps: isErpOps, admin: isAdmin, executive: isExecutive, superadmin: isSuperAdmin };
-    const visible = allItems.filter((item) => tierVisible[item.tier]);
+    const hasErpOpsAccess = (route: string) => {
+      const permission = ERP_OPS_ROUTE_PERMISSIONS[route];
+      if (!permission) return false;
+      return !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes(permission);
+    };
+    const tierVisible: Record<Exclude<Tier, 'erpOps'>, boolean> = { all: true, admin: isAdmin, executive: isExecutive, superadmin: isSuperAdmin };
+    const visible = allItems.filter((item) => item.tier === 'erpOps' ? hasErpOpsAccess(item.to) : tierVisible[item.tier]);
 
-    // Group by module in MODULE_ORDER, not array-concatenation order, so a
-    // module whose items span multiple tiers (e.g. Workforce's admin-only
-    // Teams entry) still ends up as one group in the right position —
-    // skip modules with zero visible items entirely (e.g. Finance/Ticketing/
-    // Administration/Projects for a plain HR-role user).
     const groups: ModuleGroup[] = [];
     for (const module of MODULE_ORDER) {
       const items: SidebarLink[] = visible
@@ -292,16 +260,13 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
     return groups;
   }, [role, myPerms, chatUnreadCount]);
 
-  // Whichever module contains the current route starts expanded; the user
-  // can still open a different one manually (independent state below), and
-  // navigating elsewhere re-syncs it.
   const [openModule, setOpenModule] = useState<ModuleName | null>(null);
   useEffect(() => {
     const active = moduleGroups.find((g) => g.items.some((item) => isItemActive(item, location.pathname)));
     if (active) setOpenModule(active.module);
   }, [location.pathname, moduleGroups]);
 
-  const isAdmin = ERP_ROLES.includes(role as any) || myPerms?.permissions?.includes('erp.workspace.access');
+  const isAdmin = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.workspace.access');
   const isHrRole = role === USER_ROLES.HR;
 
   return (
@@ -332,10 +297,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
         {employeeLinks
           ? employeeLinks.map((link) => <NavItem key={link.to + link.label} link={link} />)
           : moduleGroups.map((group) => {
-              // A module with exactly one visible item skips the expand
-              // step entirely — no point forcing a click-to-open for a
-              // single destination. Still shown under the module's own
-              // name/icon for visual consistency with multi-item modules.
               if (group.items.length === 1) {
                 const item = group.items[0];
                 return <NavItem key={group.module} link={{ ...item, icon: group.icon, label: group.module }} />;

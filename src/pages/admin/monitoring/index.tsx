@@ -10,7 +10,7 @@ import { cn } from '@/utils/cn';
 import { apiRequest } from '@/lib/queryClient';
 import { useFetchUsersQuery } from '@/services/userService';
 import { useGetProductivity, useGetAppUsage, useDeleteScreenshot, type Screenshot } from '@/services/monitoringService';
-import { useAuthStore } from '@/stores/authStore';
+import { useMyPermissions } from '@/services/permissionsService';
 import { StatSkeleton } from '@/components/skeletons';
 import ScreenshotHistoryPanel from './ScreenshotHistoryPanel';
 
@@ -19,15 +19,7 @@ const v1 = 'api/v1';
 const BUILDER = `${v1}/report/builder`;
 const SS_EMPLOYEE_STORAGE_KEY = 'monitoring.screenshotHistory.employeeId';
 
-// Sprint 1 Milestone 6 — org-wide Monitoring Reports via the generic
-// report_builder engine. Deliberately separate from the existing
-// "Productivity Overview" tab's per-page aggregateProductivity() (left
-// untouched, same formula, just scoped to whatever page is loaded) — this
-// tab answers the same questions (avg productivity, active vs idle) but
-// correctly across ALL records via KPI AVG/SUM, not just the current page.
 function MonitoringReportsTab() {
-  // Same pagination-default issue as the main Monitoring dropdown below:
-  // without an explicit limit this only returns the first page of users.
   const { data: users = [] } = useFetchUsersQuery({ limit: 1000 });
   const [dimKey, setDimKey] = useState<'apps' | 'websites' | 'employee'>('apps');
 
@@ -55,7 +47,6 @@ function MonitoringReportsTab() {
     if (dimKey === 'apps') aggregateMutation.mutate({ entity: 'app_usage_logs', group_by: 'app_name', metric_field: 'duration_seconds' });
     else if (dimKey === 'websites') aggregateMutation.mutate({ entity: 'app_usage_logs', group_by: 'url', metric_field: 'duration_seconds' });
     else aggregateMutation.mutate({ entity: 'productivity_sessions', group_by: 'user_id', metric_field: 'productivity_score', metric: 'AVG' });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dimKey]);
 
   const rows = useMemo(() => {
@@ -129,7 +120,6 @@ function fmtMinutes(seconds: number): string {
   return `${m}m`;
 }
 
-/** Circular SVG progress ring */
 const ProgressRing: React.FC<{ pct: number; size?: number; stroke?: number }> = ({ pct, size = 88, stroke = 8 }) => {
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
@@ -148,7 +138,6 @@ const ProgressRing: React.FC<{ pct: number; size?: number; stroke?: number }> = 
   );
 };
 
-/** Aggregated stats from productivity records */
 function aggregateProductivity(records: any[]) {
   if (!records.length) return null;
   const total_active = records.reduce((s, r) => s + r.active_seconds, 0);
@@ -162,15 +151,6 @@ function aggregateProductivity(records: any[]) {
 const MonitoringPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('Productivity Overview');
   const [selectedUser, setSelectedUser] = useState('');
-  // Screenshot History has its own required, self-contained employee
-  // selector (see ScreenshotHistoryPanel) — deliberately decoupled from the
-  // page-level "All Employees" filter used by Productivity Overview/Reports,
-  // since this tab must never load data for "everyone" at once.
-  //
-  // Restored from localStorage synchronously (lazy initializer, not a
-  // post-mount effect) so the first render — and the first screenshots
-  // request — already use the last-selected employee. No "flash of no
-  // employee selected" before switching.
   const [ssSelectedUser, setSsSelectedUser] = useState(() => {
     try { return localStorage.getItem(SS_EMPLOYEE_STORAGE_KEY) || ''; } catch { return ''; }
   });
@@ -183,13 +163,10 @@ const MonitoringPage: React.FC = () => {
 
   useEffect(() => { setProdPage(1); }, [selectedUser, dateFrom, dateTo]);
 
-  const { user } = useAuthStore();
-  const isSuperAdmin = (user as any)?.roles?.includes('SUPER_ADMIN') || (user as any)?.role_name === 'SUPER_ADMIN';
+  const { data: myPerms } = useMyPermissions();
+  const isSuperAdmin = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.monitoring.delete');
   const { mutate: deleteScreenshot } = useDeleteScreenshot();
 
-  // The users list endpoint defaults to limit=20 (pagination for the Users
-  // admin table). This dropdown needs every employee, not one page of them,
-  // so it must explicitly ask for a limit large enough to cover the org.
   const { data: users = [] } = useFetchUsersQuery({ limit: 1000 });
 
   const prodParams: Record<string, string> = { page: String(prodPage), limit: String(PAGE_SIZE) };
@@ -203,9 +180,6 @@ const MonitoringPage: React.FC = () => {
   const productivityTotal = (productivityData as any)?.total || 0;
   const { data: appUsage = [], isLoading: appLoading } = useGetAppUsage(hasParams ? prodParams : undefined);
 
-  // Summary cards (avg score, totals) must reflect the whole filtered range,
-  // not just the current page — kept as a separate unpaginated query so
-  // paginating the table doesn't change the KPI numbers underneath it.
   const summaryParams: Record<string, string> = { page: '1', limit: '1000' };
   if (selectedUser) summaryParams.user_id = selectedUser;
   if (dateFrom) summaryParams.from = dateFrom;
@@ -218,9 +192,6 @@ const MonitoringPage: React.FC = () => {
     ...(users as any[]).map((u: any) => ({ value: u.id, label: `${u.first_name} ${u.last_name}` })),
   ];
 
-  // Persist Screenshot History's employee selection so it survives navigating
-  // away and back. Clearing the key on '' keeps localStorage from holding a
-  // stale empty value that would otherwise no-op restore anyway.
   useEffect(() => {
     try {
       if (ssSelectedUser) localStorage.setItem(SS_EMPLOYEE_STORAGE_KEY, ssSelectedUser);
@@ -228,9 +199,6 @@ const MonitoringPage: React.FC = () => {
     } catch { /* localStorage unavailable (private mode, etc.) — not fatal */ }
   }, [ssSelectedUser]);
 
-  // Graceful fallback: if the restored employee ID no longer exists (left
-  // the company, account deleted, etc.), drop back to "no employee selected"
-  // once the real user list has loaded — never leave a dead ID selected.
   useEffect(() => {
     if (ssSelectedUser && users.length > 0 && !(users as any[]).some((u: any) => u.id === ssSelectedUser)) {
       setSsSelectedUser('');

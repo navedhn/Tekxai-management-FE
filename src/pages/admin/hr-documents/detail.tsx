@@ -8,6 +8,7 @@ import {
 } from '@/services/hrDocumentsService';
 import { useAuthStore } from '@/stores/authStore';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { useMyPermissions } from '@/services/permissionsService';
 import { cn } from '@/utils/cn';
 import SignaturePad from '@/components/hr-documents/SignaturePad';
 
@@ -22,8 +23,6 @@ const STATUS_STYLE: Record<string, string> = {
   EXPIRED: 'bg-orange-100 text-orange-700',
   ARCHIVED: 'bg-gray-100 text-gray-400',
 };
-
-const HR_ROLES = ['ADMIN', 'SUPER_ADMIN', 'HR', 'DIVISION_MANAGER'];
 
 function SignModal({ role, onClose, onSign, isPending, cnicError }: { role: 'EMPLOYEE' | 'HR'; onClose: () => void; onSign: (signatureData: string, cnic: string) => void; isPending: boolean; cnicError?: string | null }) {
   const [mode, setMode] = useState<'type' | 'draw'>('type');
@@ -109,8 +108,9 @@ export default function HrDocumentDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToastContext();
-  const { user, role } = useAuthStore();
-  const isHr = !!role && HR_ROLES.includes(role);
+  const { user } = useAuthStore();
+  const { data: myPerms } = useMyPermissions();
+  const isHr = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.hr_documents.manage');
   const backPath = location.pathname.startsWith('/employee') ? '/employee/documents' : '/admin/documents';
 
   const { data: doc, isLoading } = useGetDocumentDetail(id);
@@ -128,13 +128,10 @@ export default function HrDocumentDetailPage() {
   const [cnicError, setCnicError] = useState<string | null>(null);
   const [docxDownloading, setDocxDownloading] = useState(false);
 
-  // Employee portal: opening a SENT document marks it VIEWED — mirrors the
-  // "read receipt" every doc-signing product has, done once per load.
   useEffect(() => {
     if (doc && doc.status === 'SENT' && doc.user_id === user?.id) {
       viewMutation.mutate({ id: doc.id });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc?.id, doc?.status]);
 
   if (isLoading) {
@@ -153,14 +150,6 @@ export default function HrDocumentDetailPage() {
   const canAct = isHr || isOwner;
   const employeeSigned = doc.signatures?.some((s) => s.signer_role === 'EMPLOYEE' && s.signed_at);
   const hrSigned = doc.signatures?.some((s) => s.signer_role === 'HR' && s.signed_at);
-  // Mirrors _perform_sign()'s roles_needed fallback in
-  // hr-documents.service.js: required_signer_roles (when set) always wins;
-  // when null/empty (legacy docs), the implicit default is a single
-  // EMPLOYEE signer — HR is never an implicit default. A role's sign/
-  // countersign action should only ever be offered when that role is
-  // actually in the effective roles-needed list, so we don't dead-end
-  // an HR viewer into a 422 for documents that never required an HR
-  // countersignature.
   const rolesNeeded = doc.required_signer_roles?.length ? doc.required_signer_roles : ['EMPLOYEE'];
   const employeeCanSign = rolesNeeded.includes('EMPLOYEE') && !employeeSigned;
   const hrCanSign = rolesNeeded.includes('HR') && !hrSigned;

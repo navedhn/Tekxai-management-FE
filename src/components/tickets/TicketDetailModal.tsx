@@ -6,7 +6,7 @@ import { SupportTicket, TicketReply } from '@/types/ticket';
 import { formatTicketDate, useTicketTimelineQuery, useDeleteTicketMutation } from '@/services/ticketService';
 import { API_ENDPOINTS as ENDPOINTS } from '@/services/api/endpoints';
 import { apiRequest } from '@/lib/queryClient';
-import { useAuth } from '@/hooks/useAuth';
+import { useMyPermissions } from '@/services/permissionsService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import DeleteTicketModal from './DeleteTicketModal';
 import { Send, User, ShieldCheck, Clock, CheckCircle2, XCircle, History, Trash2 } from 'lucide-react';
@@ -42,18 +42,11 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ ticket, onClose, 
   const [message, setMessage] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const qc = useQueryClient();
-  const { role } = useAuth();
   const toast = useToastContext();
-  const isSuperAdmin = role === 'SUPER_ADMIN';
+  const { data: myPerms } = useMyPermissions();
+  const isSuperAdmin = !!myPerms?.is_super_admin;
   const deleteMutation = useDeleteTicketMutation();
 
-  // `initialData: ticket` means this query shows the prop it was opened with
-  // immediately — but combined with the global 5-minute staleTime and no
-  // polling, it would then sit there unrefreshed for the whole time the
-  // modal stays open, so a status change or reply made by the other party
-  // (admin vs. employee, or a second admin) in another session never
-  // reaches an already-open modal. Same fix as useGetTickets/
-  // useTicketTimelineQuery: poll while the modal is open.
   const { data: fullTicket } = useQuery<SupportTicket>({
     queryKey: ['ticket', ticket?.id],
     queryFn: async () => {
@@ -86,8 +79,6 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ ticket, onClose, 
   const replies = t.replies ?? [];
   const approvals = t.approvals ?? [];
 
-  // Flatten the type snapshot's field schema so custom field values can be
-  // shown with their configured labels (in schema order).
   const customFieldRows: { label: string; value: string }[] = [];
   for (const section of t.typeSnapshot?.field_schema || []) {
     for (const f of section.fields || []) {

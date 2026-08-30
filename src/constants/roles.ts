@@ -1,63 +1,20 @@
-/**
- * Role names must match the API `role_name` values exactly.
- */
 export const USER_ROLES = {
   SUPER_ADMIN: 'SUPER_ADMIN',
-  ADMIN: 'ADMIN',
   HR: 'HR',
   MARKETING: 'MARKETING',
   EMPLOYEE: 'EMPLOYEE',
-  /** Legacy typo variant — kept for backward compat */
-  EMPLLOYEE: 'EMPLLOYEE',
-  // DIVISION_MANAGER and TEAM_LEAD are first-class backend roles (see
-  // be-work/src/modules/permissions/constants/permission-keys.js
-  // ALL_ROLE_NAMES + DEFAULT_ROLE_PERMISSIONS) with their own permission
-  // sets, but were never added here — any user assigned one of these roles
-  // was denied by every ProtectedRoute in the app and fell through
-  // getRoleHomePath() straight to /login. Production readiness audit finding H4.
-  DIVISION_MANAGER: 'DIVISION_MANAGER',
   TEAM_LEAD: 'TEAM_LEAD',
-  // HR access-role tiers (approved HR RBAC matrix) — additive alongside HR,
-  // same H4-pattern fix as DIVISION_MANAGER/TEAM_LEAD above: must be listed
-  // here or these roles are denied by every ProtectedRoute and fall through
-  // getRoleHomePath() straight to /login.
-  HR_ASSOCIATE: 'HR_ASSOCIATE',
-  HR_MANAGER: 'HR_MANAGER',
-  HEAD_OF_HR: 'HEAD_OF_HR',
 } as const;
 
 export type UserRole = (typeof USER_ROLES)[keyof typeof USER_ROLES];
 
-/** Roles that can access the ERP/Admin workspace */
-export const ADMIN_ROLES: UserRole[] = [
-  USER_ROLES.SUPER_ADMIN,
-  USER_ROLES.ADMIN,
-  USER_ROLES.HR,
-  USER_ROLES.MARKETING,
-  USER_ROLES.DIVISION_MANAGER,
-  USER_ROLES.TEAM_LEAD,
-  USER_ROLES.HR_ASSOCIATE,
-  USER_ROLES.HR_MANAGER,
-  USER_ROLES.HEAD_OF_HR,
-];
-
 export const isUserRole = (value: string | null | undefined): value is UserRole =>
   Object.values(USER_ROLES).includes(value as UserRole);
 
-/** Default landing route after login or when access is denied for a role. */
 export const getRoleHomePath = (role: string | null | undefined): string => {
   if (role === USER_ROLES.SUPER_ADMIN) return '/admin';
-  if (role === USER_ROLES.ADMIN) return '/admin';
   if (role === USER_ROLES.HR) return '/admin';
-  // Marketing lands in the Employee workspace, not /admin — they use the
-  // same day-to-day tools (timesheet, tickets, documents) as an EMPLOYEE,
-  // just without Projects (see /employee/projects' route guard).
   if (role === USER_ROLES.MARKETING) return '/employee';
-  if (role === USER_ROLES.DIVISION_MANAGER || role === USER_ROLES.TEAM_LEAD) return '/admin';
-  // HR access-role tiers land in the same ERP/Admin workspace as HR itself —
-  // they're viewing the same employees/attendance/payroll modules, just
-  // with different permission grants once inside.
-  if (role === USER_ROLES.HR_ASSOCIATE || role === USER_ROLES.HR_MANAGER || role === USER_ROLES.HEAD_OF_HR) return '/admin';
-  if (role === USER_ROLES.EMPLOYEE || role === USER_ROLES.EMPLLOYEE) return '/employee';
+  if (role === USER_ROLES.EMPLOYEE) return '/employee';
   return '/login';
 };
