@@ -1,6 +1,6 @@
 import React from 'react';
 import PermissionSwitch from './PermissionSwitch';
-import { PermissionDef } from '@/services/permissionsService';
+import { PermissionDef, PermissionScope } from '@/services/permissionsService';
 
 // Standard action set (per the RBAC redesign spec) — used to order matrix
 // columns consistently; any action found in the data but not in this list
@@ -16,8 +16,10 @@ function moduleLabel(module: string) {
 interface PermissionMatrixProps {
   definitions: PermissionDef[];
   grants: Record<string, boolean>;
+  scopes?: Record<string, PermissionScope>;
   inheritedKeys?: Set<string>;
   onToggle: (permission: string, value: boolean) => void;
+  onScopeChange?: (permission: string, scope: PermissionScope) => void;
   readOnly?: boolean;
 }
 
@@ -25,7 +27,7 @@ interface PermissionMatrixProps {
 // table per workspace instead of N always-expanded module cards. Modeled on
 // the Departments page's checkbox-table idiom (sticky header, row hover)
 // since that's the closest existing "matrix-like" pattern in this app.
-const PermissionMatrix: React.FC<PermissionMatrixProps> = ({ definitions, grants, inheritedKeys, onToggle, readOnly }) => {
+const PermissionMatrix: React.FC<PermissionMatrixProps> = ({ definitions, grants, scopes, inheritedKeys, onToggle, onScopeChange, readOnly }) => {
   if (definitions.length === 0) {
     return <div className="py-16 text-center text-sm text-gray-400">No permissions match the current filters.</div>;
   }
@@ -90,6 +92,8 @@ const PermissionMatrix: React.FC<PermissionMatrixProps> = ({ definitions, grants
                       disabled={readOnly}
                       inherited={inherited}
                       title={def.label}
+                      scope={scopes?.[def.permission]}
+                      onScopeChange={onScopeChange ? (s) => onScopeChange(def.permission, s) : undefined}
                     />
                   </td>
                 );

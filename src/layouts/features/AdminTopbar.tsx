@@ -1,11 +1,12 @@
 import React, { memo, useState, useRef, useEffect } from 'react';
-import { Menu, Bell, User, LogOut, HelpCircle, ChevronDown } from 'lucide-react';
+import { Menu, Bell, User, LogOut, HelpCircle, ChevronDown, ArrowLeftRight } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import NotificationDropdown from './NotificationDropdown';
 import { useNotifications } from '@/services/notificationService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { getPageTitle } from './pageTitles';
+import { useMyPermissions } from '@/services/permissionsService';
 
 import ActionModal from '@/components/ui/ActionModal';
 
@@ -23,6 +24,19 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
     const unreadCount = notifData?.unread_count ?? 0;
     const notifBtnRef = useRef<HTMLButtonElement>(null);
     const profileRef = useRef<HTMLDivElement>(null);
+
+    // Capability-based workspace switcher. Availability comes ONLY from the
+    // caller's actual Access Control grants — never a role name — mirroring
+    // the crm.workspace.access / erp.*.access checks that already gate
+    // route entry (see ProtectedRoute, resolveHomePath). This app IS the
+    // ERP workspace, so it never lists itself; it only offers CRM when the
+    // caller can actually enter it, so e.g. an ICT_MANAGER (ERP tickets +
+    // assets, no CRM grant) sees no CRM item, while a CMO_SOFTWARE_SALES
+    // user (CRM only) never reaches this app in the first place because
+    // resolveHomePath/ProtectedRoute deny it erp.workspace.access.
+    const { data: myPerms } = useMyPermissions();
+    const canAccessCrm = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('crm.workspace.access');
+    const crmAppUrl = import.meta.env.VITE_CRM_APP_URL as string | undefined;
 
     const { title: routeTitle } = getPageTitle(location.pathname, routePrefix);
     const title = titleOverride ?? routeTitle;
@@ -158,6 +172,23 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
 
                                 {/* Menu Items */}
                                 <div className="py-2">
+                                    {canAccessCrm && crmAppUrl && (
+                                        <>
+                                            <div className="px-4 pt-1 pb-2 text-[10px] font-black text-gray-400 tracking-widest uppercase flex items-center gap-2">
+                                                <ArrowLeftRight size={12} />
+                                                Switch Workspace
+                                            </div>
+                                            <a
+                                                href={crmAppUrl}
+                                                onClick={() => setIsProfileOpen(false)}
+                                                className="w-full flex items-center gap-3 px-4 py-3 text-[13px] font-bold text-gray-700 hover:bg-gray-50 hover:text-primary-500 transition-colors text-left"
+                                            >
+                                                <ArrowLeftRight size={16} className="text-gray-400" />
+                                                CRM Workspace
+                                            </a>
+                                            <div className="mx-4 my-1 border-t border-gray-100" />
+                                        </>
+                                    )}
                                     <Link
                                         to={`${routePrefix}/profile`}
                                         onClick={() => setIsProfileOpen(false)}
