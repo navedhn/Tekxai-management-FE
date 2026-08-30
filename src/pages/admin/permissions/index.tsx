@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Shield, Save, RotateCcw, AlertTriangle } from 'lucide-react';
 import Tabs from '@/components/ui/Tabs';
 import { useToastContext } from '@/components/toast/ToastProvider';
-import { usePermissionsMatrix, useSaveRolePermissions, PermissionDef } from '@/services/permissionsService';
+import { usePermissionsMatrix, useSaveRolePermissions, PermissionDef, PermissionScope } from '@/services/permissionsService';
 
 import RoleSelector from './components/RoleSelector';
 import WorkspaceSelector from './components/WorkspaceSelector';
@@ -51,6 +51,11 @@ export default function PermissionsPage() {
   // (see incident postmortem, 2026-08-26 — a one-time full-snapshot copy that
   // never re-synced was sent wholesale on Save and wiped 43 real grants).
   const [pendingEdits, setPendingEdits] = useState<Record<string, Record<string, boolean>>>({});
+  // Parallel to pendingEdits: scope narrowing is a separate edit from
+  // granted/ungranted (you can change a permission's scope without
+  // touching whether it's granted, and vice versa) — kept as its own map
+  // for the same reason pendingEdits is delta-only, see comment above.
+  const [pendingScopeEdits, setPendingScopeEdits] = useState<Record<string, Record<string, PermissionScope>>>({});
   const [selectedRole, setSelectedRole] = useState('');
   const [workspace, setWorkspace] = useState('erp');
   const [search, setSearch] = useState('');
@@ -87,7 +92,11 @@ export default function PermissionsPage() {
   const roleGrants = useMemo(() => ({ ...serverGrants, ...roleEdits }), [serverGrants, roleEdits]);
   const grantedInWorkspace = workspaceDefs.filter((d) => roleGrants[d.permission]).length;
 
-  const hasChanges = Object.keys(roleEdits).length > 0;
+  const serverScopes = data?.by_role_scope?.[selectedRole] || {};
+  const roleScopeEdits = pendingScopeEdits[selectedRole] || {};
+  const roleScopes = useMemo(() => ({ ...serverScopes, ...roleScopeEdits }), [serverScopes, roleScopeEdits]);
+
+  const hasChanges = Object.keys(roleEdits).length > 0 || Object.keys(roleScopeEdits).length > 0;
 
   const grantCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -108,6 +117,15 @@ export default function PermissionsPage() {
     setWarnings([]);
   };
 
+  const handleScopeChange = (permission: string, scopeValue: PermissionScope) => {
+    setPendingScopeEdits((prev) => {
+      const nextRoleEdits = { ...prev[selectedRole], [permission]: scopeValue };
+      if ((serverScopes[permission] ?? 'ALL') === scopeValue) delete nextRoleEdits[permission];
+      return { ...prev, [selectedRole]: nextRoleEdits };
+    });
+    setWarnings([]);
+  };
+
   const handleSelectRole = (role: string) => {
     setSelectedRole(role);
     setWarnings([]);
@@ -119,13 +137,23 @@ export default function PermissionsPage() {
     // tab believes is currently granted for each key — the backend rejects
     // the whole save (409) if that no longer matches reality, instead of
     // silently overwriting a change made elsewhere since this tab loaded.
-    const grants = Object.entries(roleEdits).map(([permission, granted]) => ({
-      permission, granted, previous: serverGrants[permission] ?? false,
+    // Union of every permission touched either way this session — a
+    // scope-only change (granted untouched) must still be sent, and a
+    // granted-only change must still carry whatever scope is currently in
+    // effect (falls back to 'ALL', the same default the backend applies
+    // when scope is omitted).
+    const touchedPermissions = new Set([...Object.keys(roleEdits), ...Object.keys(roleScopeEdits)]);
+    const grants = Array.from(touchedPermissions).map((permission) => ({
+      permission,
+      granted: roleGrants[permission] ?? false,
+      previous: serverGrants[permission] ?? false,
+      scope: roleScopes[permission] ?? 'ALL',
     }));
     if (!grants.length) return;
     try {
       const res: any = await saveMutation.mutateAsync({ roleName: selectedRole, grants });
       setPendingEdits((prev) => ({ ...prev, [selectedRole]: {} }));
+      setPendingScopeEdits((prev) => ({ ...prev, [selectedRole]: {} }));
       const w = res?.payload?.warnings || [];
       setWarnings(w);
       toast.success(w.length ? `Permissions saved with ${w.length} warning(s)` : 'Permissions saved');
@@ -141,6 +169,7 @@ export default function PermissionsPage() {
 
   const handleReset = () => {
     setPendingEdits((prev) => ({ ...prev, [selectedRole]: {} }));
+    setPendingScopeEdits((prev) => ({ ...prev, [selectedRole]: {} }));
     setWarnings([]);
   };
 
@@ -197,7 +226,9 @@ export default function PermissionsPage() {
               <PermissionMatrix
                 definitions={filteredDefs}
                 grants={roleGrants}
+                scopes={roleScopes}
                 onToggle={handleToggle}
+                onScopeChange={handleScopeChange}
               />
             </div>
           </div>

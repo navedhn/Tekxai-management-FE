@@ -3,7 +3,7 @@ import { Formik, Form } from 'formik';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLoginMutation } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
-import { getRoleHomePath } from '@/constants/roles';
+import { fetchMyPermissions, resolveHomePath } from '@/services/permissionsService';
 import { User } from '@/types';
 import { setAuthTokens, extractTokensFromAuthResponse } from '@/utils/tokenMemory';
 import { validateLoginForm } from '@/utils/validationSchemas';
@@ -22,15 +22,20 @@ const Login: React.FC = () => {
   const [tfaCode, setTfaCode] = useState('');
   const [tfaLoading, setTfaLoading] = useState(false);
 
-  const redirectUser = (user: any) => {
-    const typedUser = user as User;
-    const role_name = typedUser?.role_name ?? (typedUser as any)?.roles?.[0] ?? null;
-    // getRoleHomePath is the single source of truth for a role's landing
-    // page (also used by PublicRoute's post-login redirect and 403.tsx) —
-    // this used to duplicate that decision via ADMIN_ROLES, which includes
-    // MARKETING, and kept sending Marketing to /admin even after
-    // getRoleHomePath was fixed to send them to /employee instead.
-    navigate(getRoleHomePath(role_name));
+  // Landing page is derived from the caller's actual Access Control
+  // permissions (erp.workspace.access / erp.employee_workspace.access),
+  // never from role name — resolveHomePath is the single source of truth
+  // for this decision, also used by PublicRoute's post-login redirect and
+  // 403.tsx. Permissions aren't part of the login response, so they're
+  // fetched once here immediately after tokens are set.
+  const redirectUser = async () => {
+    const perms = await fetchMyPermissions().catch(() => null);
+    const home = resolveHomePath(perms);
+    if (home) {
+      navigate(home);
+    } else {
+      toast.error('Your account has no workspace access configured yet. Contact your administrator.');
+    }
   };
 
   const handleSubmit = async (values: { email: string; password: string }) => {
@@ -48,7 +53,7 @@ const Login: React.FC = () => {
       if (accessToken) setAuthTokens(accessToken, refreshToken);
       loggedIn({ user: user as User });
       toast.success('Login successful!');
-      redirectUser(user);
+      redirectUser();
     } catch (error: any) {
       const errorMessage =
         error?.data?.message || error?.message || 'Login failed. Please check your credentials.';
@@ -70,7 +75,7 @@ const Login: React.FC = () => {
         setAuthTokens(data.payload.access_token, data.payload.refresh_token);
         loggedIn({ user: data.payload.user as User });
         toast.success('Login successful!');
-        redirectUser(data.payload.user);
+        redirectUser();
       } else {
         toast.error(data?.message || 'Invalid OTP code');
       }

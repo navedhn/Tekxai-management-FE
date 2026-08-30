@@ -34,6 +34,12 @@ export interface PermissionsMatrix {
   roles: string[];
   definitions: PermissionDef[];
   by_role: Record<string, Record<string, boolean>>;
+  // Scope actually saved for each grant — see be-work's get_all_permissions.
+  // Only meaningful once a role is granted the permission (grants stay
+  // 'ALL' until narrowed here); which permissions actually enforce a
+  // narrower scope varies module-to-module (see scope-resolution.service.js
+  // callers) — this surfaces what's saved, not a guarantee it's enforced.
+  by_role_scope?: Record<string, Record<string, PermissionScope>>;
 }
 
 export interface MyPermissions {
@@ -69,10 +75,25 @@ export interface UserPermissionsData {
 
 // ── My permissions (logged-in user) ──────────────────────────────────────────
 
-const fetchMyPermissions = async (): Promise<MyPermissions> => {
+export const fetchMyPermissions = async (): Promise<MyPermissions> => {
   const res = await apiRequest<any>(API_ENDPOINTS.PERMISSION.MY);
   return res?.payload || { roles: [], permissions: [], is_super_admin: false };
 };
+
+// Workspace entry is capability-driven, not role-driven — the SUPER_ADMIN
+// bypass and the workspace.access permissions below are the ONLY inputs.
+// Do NOT reintroduce role-name checks (role === 'ADMIN', realRoles.includes(...),
+// etc.) here; see fe-work's PRODUCTION ROLE CONFIGURATION task notes.
+// Returns null when the user holds neither workspace-entry permission — the
+// caller must show an explicit "no workspace access" state, never silently
+// fall back to a role-name-derived guess or to /login while authenticated.
+export function resolveHomePath(perms: MyPermissions | undefined | null): string | null {
+  if (!perms) return null;
+  if (perms.is_super_admin) return '/admin';
+  if (perms.permissions?.includes('erp.workspace.access')) return '/admin';
+  if (perms.permissions?.includes('erp.employee_workspace.access')) return '/employee';
+  return null;
+}
 
 export function useMyPermissions() {
   const { isLoggedIn } = useAuthStore();

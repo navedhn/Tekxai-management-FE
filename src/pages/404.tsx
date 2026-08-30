@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useMyPermissions, resolveHomePath } from '@/services/permissionsService';
 import { Button } from '@/components';
 
 /* ─── Animated Canvas Background ─── */
@@ -123,7 +124,8 @@ const CompassIcon: React.FC = () => (
 /* ─── Main 404 Component ─── */
 const NotFound: React.FC = () => {
   const navigate = useNavigate();
-  const { isLoggedIn, role } = useAuth();
+  const { isLoggedIn } = useAuth();
+  const { data: myPerms } = useMyPermissions();
 
   return (
     <div
@@ -243,7 +245,7 @@ const NotFound: React.FC = () => {
             id="btn-go-home-404"
             onClick={() => {
               if (isLoggedIn) {
-                navigate(role === 'ADMIN' ? '/admin' : '/employee');
+                navigate(resolveHomePath(myPerms) ?? '/login');
               } else {
                 navigate('/login');
               }

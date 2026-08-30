@@ -3,6 +3,7 @@ import { Button } from '@/components';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useMyPermissions, resolveHomePath } from '@/services/permissionsService';
 
 /* ══════════════════════════════════════════════
    PARTICLE CANVAS
@@ -170,7 +171,8 @@ const FeatureBadge: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon
 ═══════════════════════════════════════════════ */
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const { isLoggedIn, role } = useAuth();
+  const { isLoggedIn } = useAuth();
+  const { data: myPerms } = useMyPermissions();
   const { days, hours, minutes, seconds } = useCountdown();
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -244,7 +246,7 @@ const HomePage: React.FC = () => {
           <Button
             variant='outline'
             className='rounded-md text-white hover:text-black'
-            onClick={() => navigate(role === 'ADMIN' ? '/admin' : '/employee')}
+            onClick={() => navigate(resolveHomePath(myPerms) ?? '/login')}
           >
             Go to Dashboard
           </Button>

@@ -2,12 +2,13 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldX } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { getRoleHomePath } from '@/constants/roles';
+import { useMyPermissions, resolveHomePath } from '@/services/permissionsService';
 import { Button } from '@/components';
 
 const Forbidden: React.FC = () => {
   const navigate = useNavigate();
-  const { isLoggedIn, role } = useAuth();
+  const { isLoggedIn } = useAuth();
+  const { data: myPerms } = useMyPermissions();
 
   return (
     <div
@@ -82,7 +83,8 @@ const Forbidden: React.FC = () => {
             id="btn-go-dashboard-403"
             onClick={() => {
               if (isLoggedIn) {
-                navigate(getRoleHomePath(role));
+                const home = resolveHomePath(myPerms);
+                navigate(home ?? '/login');
               } else {
                 navigate('/login');
               }
