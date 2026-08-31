@@ -21,6 +21,7 @@ export const QUERY_KEYS = {
     DASHBOARD_STATS: ['employee', 'dashboard-stats'],
     RECENT_ACTIVITY: ['employee', 'recent-activity'],
     PROJECTS:        ['employee', 'projects'],
+    MY_PROJECTS:     ['employee', 'my-projects'],
     TIMESHEET:       ['employee', 'timesheet'],
     MEMBER_PROFILE:  (id: string) => ['employee', 'member-profile', id] as const,
   },

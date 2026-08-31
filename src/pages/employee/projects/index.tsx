@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { useGetProjects, ProjectSummary } from '@/services/employeeService';
+import { useGetEmployeeProjects, ProjectSummary } from '@/services/employeeService';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
@@ -19,7 +19,7 @@ const defaultFilters: FilterState = {
 };
 
 const EmployeeProjects: React.FC = () => {
-  const { data: projects, isLoading } = useGetProjects();
+  const { data: projects, isLoading } = useGetEmployeeProjects();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);

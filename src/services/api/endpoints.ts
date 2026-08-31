@@ -125,6 +125,7 @@ export const API_ENDPOINTS = {
   },
   PROJECT: {
     LIST:      `${v1}/project`,
+    EMPLOYEE_LIST: `${v1}/project/my`,
     CREATE:    `${v1}/project`,
     SAVED:     `${v1}/project/saved`,
     DASHBOARD: `${v1}/project/dashboard`,

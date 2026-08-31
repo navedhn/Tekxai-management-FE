@@ -160,6 +160,29 @@ async function fetchProjects(): Promise<ProjectSummary[]> {
   }
 }
 
+async function fetchEmployeeProjects(): Promise<ProjectSummary[]> {
+  try {
+    const res = await apiRequest<any>(API_ENDPOINTS.PROJECT.EMPLOYEE_LIST + '?limit=1000');
+    const records = res?.payload?.records || res?.payload || [];
+    return (Array.isArray(records) ? records : []).map((p: any) => ({
+      id: p.id,
+      title: p.title,
+      members: (p.members || []).map((m: any) => m.first_name?.[0] || 'U'),
+      hours: p.total_hours || 0,
+      progress: p.progress || 0,
+      status: p.status || 'PENDING',
+      dueDate: p.end_date ? new Date(p.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'TBD',
+      isOverdue: !!p.is_overdue,
+      daysRemaining: typeof p.days_remaining === 'number' ? p.days_remaining : null,
+      clientName: p.client_name || null,
+      devStatus: p.dev_status || null,
+      pendingMilestonesCount: p.pending_milestones_count || 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 // ── Hooks ─────────────────────────────────────────────────────────────────────
 
 export const useGetDashboardStats = () =>
@@ -173,6 +196,9 @@ export const useGetTimesheet = () =>
 
 export const useGetProjects = () =>
   useQuery({ queryKey: QUERY_KEYS.EMPLOYEE.PROJECTS, queryFn: fetchProjects, staleTime: 60000 });
+
+export const useGetEmployeeProjects = () =>
+  useQuery({ queryKey: QUERY_KEYS.EMPLOYEE.MY_PROJECTS, queryFn: fetchEmployeeProjects, staleTime: 60000 });
 
 export const useGetMemberProfile = (id: string | undefined) =>
   useQuery({

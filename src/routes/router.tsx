@@ -289,9 +289,14 @@ const routes: RouteObject[] = [
         children: [
           { path: '/employee',                     element: <EmployeeDashboard /> },
           {
-            element: <ProtectedRoute superAdminOnly />,
+            element: <ProtectedRoute permission="erp.employee_projects.view" />,
             children: [
               { path: '/employee/projects', element: <EmployeeProjects /> },
+            ],
+          },
+          {
+            element: <ProtectedRoute permission="erp.starred_queries.view" />,
+            children: [
               { path: '/employee/starred',  element: <StarredQueries /> },
             ],
           },
@@ -300,9 +305,19 @@ const routes: RouteObject[] = [
           { path: '/employee/saved',               element: <EmployeeSaved /> },
           { path: '/employee/settings',            element: <EmployeeSettings /> },
           { path: '/employee/daily-report',        element: <DailyReport /> },
-          { path: '/employee/documents',           element: <EmployeeDocuments /> },
-          { path: '/employee/onboarding',          element: <EmployeeOnboarding /> },
-          { path: '/employee/documents/:id',       element: <AdminHrDocumentDetail /> },
+          {
+            element: <ProtectedRoute superAdminOnly />,
+            children: [
+              { path: '/employee/documents',     element: <EmployeeDocuments /> },
+              { path: '/employee/documents/:id', element: <AdminHrDocumentDetail /> },
+            ],
+          },
+          {
+            element: <ProtectedRoute superAdminOnly />,
+            children: [
+              { path: '/employee/onboarding', element: <EmployeeOnboarding /> },
+            ],
+          },
           { path: '/employee/download-app',        element: <DownloadApp /> },
           { path: '/employee/requisitions',        element: <AdminRequisitions /> },
           { path: '/employee/notifications',       element: <SharedNotifications /> },
