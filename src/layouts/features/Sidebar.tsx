@@ -144,15 +144,17 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
     if (!location.pathname.startsWith('/employee')) return null;
 
     const isSuperAdmin = !!myPerms?.is_super_admin;
+    const canSeeEmployeeProjects = isSuperAdmin || !!myPerms?.permissions?.includes('erp.employee_projects.view');
+    const canSeeStarredQueries = isSuperAdmin || !!myPerms?.permissions?.includes('erp.starred_queries.view');
 
     return [
       { to: '/employee',             label: 'Home',            icon: <Home size={18} strokeWidth={SW} />,          end: true },
-      ...(isSuperAdmin ? [{ to: '/employee/projects', label: 'Projects', icon: <FolderCheck size={18} strokeWidth={SW} /> }] : []),
-      ...(isSuperAdmin ? [{ to: '/employee/starred', label: 'Starred Queries', icon: <Star size={18} strokeWidth={SW} /> }] : []),
+      ...(canSeeEmployeeProjects ? [{ to: '/employee/projects', label: 'Projects', icon: <FolderCheck size={18} strokeWidth={SW} /> }] : []),
+      ...(canSeeStarredQueries ? [{ to: '/employee/starred', label: 'Starred Queries', icon: <Star size={18} strokeWidth={SW} /> }] : []),
       { to: '/employee/timesheet',   label: 'Timesheet',       icon: <Clock size={18} strokeWidth={SW} /> },
       { to: '/employee/tickets',     label: 'Support Tickets', icon: <Ticket size={18} strokeWidth={SW} /> },
-      { to: '/employee/documents',   label: 'My Documents',    icon: <FileText size={18} strokeWidth={SW} /> },
-      { to: '/employee/onboarding',  label: 'My Onboarding',   icon: <ListChecks size={18} strokeWidth={SW} /> },
+      ...(isSuperAdmin ? [{ to: '/employee/documents', label: 'My Documents', icon: <FileText size={18} strokeWidth={SW} /> }] : []),
+      ...(isSuperAdmin ? [{ to: '/employee/onboarding', label: 'My Onboarding', icon: <ListChecks size={18} strokeWidth={SW} /> }] : []),
       { to: '/employee/requisitions',label: 'Requisitions',    icon: <Package size={18} strokeWidth={SW} /> },
       { to: '/employee/daily-report',label: 'Daily Report',    icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
       { to: '/chat',                 label: 'Messages',        icon: <MessageSquare size={18} strokeWidth={SW} />, badge: chatUnreadCount },
