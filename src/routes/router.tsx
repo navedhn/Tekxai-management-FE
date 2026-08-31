@@ -289,12 +289,12 @@ const routes: RouteObject[] = [
         children: [
           { path: '/employee',                     element: <EmployeeDashboard /> },
           {
-            element: <ProtectedRoute permission="erp.projects.view" />,
+            element: <ProtectedRoute superAdminOnly />,
             children: [
               { path: '/employee/projects', element: <EmployeeProjects /> },
+              { path: '/employee/starred',  element: <StarredQueries /> },
             ],
           },
-          { path: '/employee/starred',             element: <StarredQueries /> },
           { path: '/employee/timesheet',           element: <EmployeeTimesheet /> },
           { path: '/employee/tickets',             element: <EmployeeTickets /> },
           { path: '/employee/saved',               element: <EmployeeSaved /> },
