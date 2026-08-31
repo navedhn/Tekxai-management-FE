@@ -143,12 +143,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
   const employeeLinks: SidebarLink[] | null = useMemo(() => {
     if (!location.pathname.startsWith('/employee')) return null;
 
-    const canSeeProjects = role === USER_ROLES.EMPLOYEE || !!myPerms?.permissions?.includes('erp.projects.view');
+    const isSuperAdmin = !!myPerms?.is_super_admin;
 
     return [
       { to: '/employee',             label: 'Home',            icon: <Home size={18} strokeWidth={SW} />,          end: true },
-      ...(canSeeProjects ? [{ to: '/employee/projects', label: 'Projects', icon: <FolderCheck size={18} strokeWidth={SW} /> }] : []),
-      { to: '/employee/starred',     label: 'Starred Queries', icon: <Star size={18} strokeWidth={SW} /> },
+      ...(isSuperAdmin ? [{ to: '/employee/projects', label: 'Projects', icon: <FolderCheck size={18} strokeWidth={SW} /> }] : []),
+      ...(isSuperAdmin ? [{ to: '/employee/starred', label: 'Starred Queries', icon: <Star size={18} strokeWidth={SW} /> }] : []),
       { to: '/employee/timesheet',   label: 'Timesheet',       icon: <Clock size={18} strokeWidth={SW} /> },
       { to: '/employee/tickets',     label: 'Support Tickets', icon: <Ticket size={18} strokeWidth={SW} /> },
       { to: '/employee/documents',   label: 'My Documents',    icon: <FileText size={18} strokeWidth={SW} /> },
