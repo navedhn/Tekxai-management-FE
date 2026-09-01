@@ -199,6 +199,8 @@ function ReportModal({ onClose, agendaItems }: { onClose: () => void; agendaItem
   const [items, setItems] = useState<ProjectItem[]>(seeded);
   const [additionalNotes, setAdditionalNotes] = useState('');
   const [hoursWorked, setHoursWorked] = useState('');
+  const [blockers, setBlockers] = useState('');
+  const [tomorrowPlan, setTomorrowPlan] = useState('');
   const [codeDeployed, setCodeDeployed] = useState<boolean | null>(null);
   const [err, setErr] = useState('');
 
@@ -214,6 +216,8 @@ function ReportModal({ onClose, agendaItems }: { onClose: () => void; agendaItem
         })),
         additional_notes: additionalNotes || undefined,
         hours_worked: hoursWorked ? +hoursWorked : undefined,
+        blockers: blockers || undefined,
+        tomorrow_plan: tomorrowPlan || undefined,
         ...(showCodeDeployed && codeDeployed !== null ? { code_deployed: codeDeployed } : {}),
       }),
     }),
@@ -266,6 +270,16 @@ function ReportModal({ onClose, agendaItems }: { onClose: () => void; agendaItem
             <label className="text-xs font-semibold text-gray-500 block mb-1.5">Additional Notes (optional)</label>
             <textarea className="w-full h-20 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
               value={additionalNotes} onChange={(e) => setAdditionalNotes(e.target.value)} placeholder="Anything else worth noting…" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 block mb-1.5">Blockers (optional)</label>
+            <textarea className="w-full h-20 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
+              value={blockers} onChange={(e) => setBlockers(e.target.value)} placeholder="Anything blocking your progress…" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 block mb-1.5">Tomorrow's Plan (optional)</label>
+            <textarea className="w-full h-20 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
+              value={tomorrowPlan} onChange={(e) => setTomorrowPlan(e.target.value)} placeholder="What you plan to work on next…" />
           </div>
 
           {showCodeDeployed && (
