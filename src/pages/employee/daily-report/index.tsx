@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, X, FileText, CheckCircle, XCircle, ClipboardList, Trash2 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
@@ -6,6 +6,7 @@ import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 import { useAuthStore } from '@/stores/authStore';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { getSocket } from '@/lib/socket';
 
 const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400';
 
@@ -308,23 +309,28 @@ export default function DailyReportPage() {
   const user = useAuthStore(s => s.user);
   const showCodeDeployed = isDeveloper(user?.designation);
 
+  const qc = useQueryClient();
+
   const { data: complianceStatus } = useQuery({
     queryKey: ['timesheet-compliance-status'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.TIMESHEET.COMPLIANCE_STATUS),
     select: (r: any) => r?.payload,
     refetchInterval: 30000,
+    refetchOnWindowFocus: true,
   });
 
   const { data: todaysAgenda } = useQuery({
     queryKey: ['daily-agenda-today'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.DAILY_PLANNING.AGENDA_TODAY),
     select: (r: any) => r?.payload,
+    refetchOnWindowFocus: true,
   });
 
   const { data: todaysReport } = useQuery({
     queryKey: ['daily-report-today'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.DAILY_PLANNING.REPORT_TODAY),
     select: (r: any) => r?.payload,
+    refetchOnWindowFocus: true,
   });
 
   const { data, isLoading } = useQuery({
@@ -332,6 +338,34 @@ export default function DailyReportPage() {
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PERFORMANCE.DAILY_REPORTS),
     select: (r: any) => r?.payload?.records || r?.payload || [],
   });
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket || !user?.id) return;
+
+    const invalidateAttendanceState = () => {
+      qc.invalidateQueries({ queryKey: ['timesheet-compliance-status'] });
+      qc.invalidateQueries({ queryKey: ['daily-agenda-today'] });
+      qc.invalidateQueries({ queryKey: ['daily-report-today'] });
+    };
+
+    const handlePresenceUpdate = ({ userId }: { userId: string }) => {
+      if (userId === user.id) invalidateAttendanceState();
+    };
+
+    let hasConnectedBefore = socket.connected;
+    const handleConnect = () => {
+      if (hasConnectedBefore) invalidateAttendanceState();
+      hasConnectedBefore = true;
+    };
+
+    socket.on('presence:update', handlePresenceUpdate);
+    socket.on('connect', handleConnect);
+    return () => {
+      socket.off('presence:update', handlePresenceUpdate);
+      socket.off('connect', handleConnect);
+    };
+  }, [qc, user?.id]);
 
   const reports: any[] = data || [];
   const hasOpenSession = !!complianceStatus?.has_open_session;
