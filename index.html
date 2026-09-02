@@ -16,6 +16,14 @@
 </head>
 
 <body>
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('tekxai-theme');
+        if (t && t !== 'clean-light') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) { /* localStorage unavailable — Clean Light default renders as before */ }
+    })();
+  </script>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>

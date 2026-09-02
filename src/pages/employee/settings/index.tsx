@@ -12,6 +12,7 @@ import { useUpdateMyProfileMutation } from '@/services/userService';
 import { useAuthStore } from '@/stores/authStore';
 import { clearAuthTokens } from '@/utils/tokenMemory';
 import { uploadFile } from '@/lib/upload';
+import ThemeSwitcher from '@/components/settings/ThemeSwitcher';
 
 const EmployeeSetting: React.FC = () => {
     const toast = useToastContext();
@@ -149,6 +150,8 @@ const EmployeeSetting: React.FC = () => {
                         {avatarUploading ? 'Uploading...' : 'Change Photo'}
                     </Button>
                 </Card>
+
+                <ThemeSwitcher />
 
                 {/* Notifications Setting */}
                 <Card className="flex items-center justify-between p-6 shadow-sm border border-gray-100 bg-white rounded-xl">

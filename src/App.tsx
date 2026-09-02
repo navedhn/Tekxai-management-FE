@@ -4,9 +4,11 @@ import ErrorBoundary from '@/pages/ErrorBoundary';
 import { router } from '@/routes/router';
 import RouteFallback from '@/components/layout/RouteFallback';
 import { useTokenRefresh } from '@/hooks/useTokenRefresh';
+import { useTheme } from '@/hooks/useTheme';
 
 const App: React.FC = () => {
   useTokenRefresh();
+  useTheme();
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
