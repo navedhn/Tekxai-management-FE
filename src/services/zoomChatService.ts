@@ -14,6 +14,11 @@ export interface ZoomConversation {
   name: string;
   email?: string;
   presence_status?: string;
+  // Zoom's own raw channel type (1 = private, 2 = public) — only present
+  // when type === 'channel'. Used to split "Group Chats" (private) from
+  // "Channels" (public) in the sidebar using real data, since Zoom's API
+  // has no separate group-chat listing endpoint.
+  channel_type?: number;
 }
 
 export interface ZoomConversationsResult {
@@ -36,6 +41,12 @@ export interface ZoomMessage {
 export interface ZoomMessagesResult {
   messages: ZoomMessage[];
   next_page_token: string | null;
+}
+
+export interface ZoomSendResult {
+  id: string;
+  message: string;
+  sent_at: string;
 }
 
 function unwrap<T>(r: any): T {
@@ -84,6 +95,18 @@ export const useZoomConversations = (enabled: boolean) =>
     enabled,
     retry: false,
   });
+
+// Plain async function, not a react-query mutation hook — the composer
+// manages its own local pending/error state (matching how
+// ZoomChatPanel.tsx already fetches messages via direct apiRequest calls
+// rather than a hook, so append-after-send stays simple and predictable).
+export async function sendZoomMessage(target: { to_channel?: string; to_contact?: string }, message: string): Promise<ZoomSendResult> {
+  const r = await apiRequest<any>(API_ENDPOINTS.ZOOM_CHAT.MESSAGES, {
+    method: 'POST',
+    body: JSON.stringify({ ...target, message }),
+  });
+  return unwrap<ZoomSendResult>(r);
+}
 
 export const useZoomMessages = (
   target: { to_channel?: string; to_contact?: string } | null,

@@ -1,23 +1,27 @@
-import React, { useEffect, useState } from 'react';
-import { Hash, Loader2, LogOut, MessageSquare, RefreshCw, User, Video } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Hash, Link2, Loader2, LogOut, MessageSquare, RefreshCw, Search, Send, User, Video } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
+import { getAvatarColor, getInitials } from './chatTypes';
 import {
-  isZoomNotConnectedError, isZoomReauthError, useDisconnectZoom, useStartZoomConnect,
+  isZoomNotConnectedError, isZoomReauthError, sendZoomMessage, useDisconnectZoom, useStartZoomConnect,
   useZoomChatStatus, useZoomConversations,
   type ZoomConversation, type ZoomMessage,
 } from '@/services/zoomChatService';
 
-// Read-only V1 (see the implementation report). Deliberately self-contained
-// and separate from the native channel/message rendering pipeline in
-// index.tsx — a Zoom conversation is never a `channels`/`messages` row, so
-// there is no code path here that could send, edit, or delete anything in
-// Zoom, or accidentally mix a Zoom message into a native TekXAI channel.
+// V1: view + send, own conversations only. This whole panel replaces the
+// native channel/message rendering pipeline (reactions, threads, polls, E2E
+// crypto) for exactly as long as the Zoom rail button is active — it never
+// reads from or writes to the channels/messages tables, so a Zoom
+// conversation can never be confused with, sent as, or deleted as a native
+// TekXAI message. Sending goes through the backend's own Zoom-authenticated
+// send endpoint — never a local/fake message, never a native chat send.
 export default function ZoomChatPanel() {
   const { data: status, isLoading: statusLoading, refetch: refetchStatus } = useZoomChatStatus();
   const startConnect = useStartZoomConnect();
   const disconnect = useDisconnectZoom();
   const [selected, setSelected] = useState<ZoomConversation | null>(null);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -32,143 +36,241 @@ export default function ZoomChatPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (statusLoading) {
-    return (
-      <div className="flex-1 flex items-center justify-center text-gray-400">
-        <Loader2 className="animate-spin" size={20} />
-      </div>
-    );
-  }
-
-  if (!status?.configured) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center px-8">
-        <Video size={32} className="text-gray-300" />
-        <p className="text-sm font-medium text-gray-700">Zoom Team Chat isn't set up yet</p>
-        <p className="text-xs text-gray-400 max-w-xs">
-          This TekXAI environment doesn't have Zoom connected. Ask an administrator to finish the Zoom Marketplace setup.
-        </p>
-      </div>
-    );
-  }
-
-  if (!status.connected) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-8">
-        <Video size={32} className="text-blue-400" />
-        <p className="text-sm font-medium text-gray-700">Connect your Zoom account</p>
-        <p className="text-xs text-gray-400 max-w-xs">
-          See your own Zoom Team Chat conversations here, read-only. TekXAI never sends messages on your behalf.
-        </p>
-        <button
-          onClick={() => startConnect.mutate()}
-          disabled={startConnect.isPending}
-          className="mt-1 px-4 py-2 bg-[#0B5CFF] text-white text-sm font-medium rounded-xl hover:bg-[#0047AB] transition-colors disabled:opacity-60"
-        >
-          {startConnect.isPending ? 'Redirecting to Zoom…' : 'Connect Zoom'}
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-1 min-w-0">
-      <div className="w-64 border-r border-gray-100 flex flex-col shrink-0">
-        <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-gray-900">Zoom</p>
-            <p className="text-xs text-gray-400 truncate">{status.zoom_email}</p>
+    <div className="flex flex-1 min-w-0 flex-col">
+      <WorkspaceHeader />
+      <div className="flex flex-1 min-h-0">
+        {statusLoading ? (
+          <div className="flex-1 flex items-center justify-center text-gray-400">
+            <Loader2 className="animate-spin" size={20} />
           </div>
-          <button
-            onClick={() => disconnect.mutate()}
-            title="Disconnect Zoom"
-            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors shrink-0"
-          >
-            <LogOut size={14} />
-          </button>
-        </div>
-        <ZoomConversationList selected={selected} onSelect={setSelected} />
+        ) : !status?.configured ? (
+          <UnavailableState />
+        ) : !status.connected ? (
+          <ConnectState onConnect={() => startConnect.mutate()} isPending={startConnect.isPending} />
+        ) : (
+          <>
+            <ZoomSidebar
+              search={search}
+              onSearchChange={setSearch}
+              selected={selected}
+              onSelect={setSelected}
+              zoomEmail={status.zoom_email}
+              onDisconnect={() => disconnect.mutate()}
+            />
+            <ZoomConversationPane conversation={selected} onReauthRequired={() => disconnect.mutate()} />
+          </>
+        )}
       </div>
-      <ZoomMessagePane conversation={selected} onReauthRequired={() => disconnect.mutate()} />
     </div>
   );
 }
 
-function ZoomConversationList({
-  selected, onSelect,
-}: { selected: ZoomConversation | null; onSelect: (c: ZoomConversation) => void }) {
+function WorkspaceHeader() {
+  return (
+    <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-gray-100 shrink-0">
+      <span className="flex size-7 items-center justify-center rounded-lg bg-[#0B5CFF] text-white shrink-0">
+        <Video size={15} />
+      </span>
+      <h1 className="text-[15px] font-semibold text-gray-900">Zoom Team Chat</h1>
+    </div>
+  );
+}
+
+function UnavailableState() {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center px-8">
+      <Video size={32} className="text-gray-300" />
+      <p className="text-sm font-medium text-gray-700">Zoom Team Chat isn't set up yet</p>
+      <p className="text-xs text-gray-400 max-w-xs">
+        This TekXAI environment doesn't have Zoom connected. Ask an administrator to finish the Zoom Marketplace setup.
+      </p>
+    </div>
+  );
+}
+
+function ConnectState({ onConnect, isPending }: { onConnect: () => void; isPending: boolean }) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-8">
+      <span className="flex size-12 items-center justify-center rounded-2xl bg-blue-50">
+        <Video size={22} className="text-[#0B5CFF]" />
+      </span>
+      <p className="text-sm font-semibold text-gray-900">Connect your Zoom account</p>
+      <p className="text-xs text-gray-400 max-w-xs">
+        Connect your Zoom account to view your Zoom Team Chats inside TekXAI OS.
+      </p>
+      <button
+        onClick={onConnect}
+        disabled={isPending}
+        className="mt-1 px-4 py-2 bg-[#0B5CFF] text-white text-sm font-medium rounded-xl hover:bg-[#0047AB] transition-colors disabled:opacity-60"
+      >
+        {isPending ? 'Redirecting to Zoom…' : 'Connect Zoom'}
+      </button>
+    </div>
+  );
+}
+
+function ReauthState({ onReconnect, isPending }: { onReconnect: () => void; isPending: boolean }) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-8">
+      <span className="flex size-12 items-center justify-center rounded-2xl bg-amber-50">
+        <Link2 size={22} className="text-amber-600" />
+      </span>
+      <p className="text-sm font-semibold text-gray-900">Reconnect Zoom</p>
+      <p className="text-xs text-gray-400 max-w-xs">
+        Your Zoom connection needs to be reconnected.
+      </p>
+      <button
+        onClick={onReconnect}
+        disabled={isPending}
+        className="mt-1 px-4 py-2 bg-[#0B5CFF] text-white text-sm font-medium rounded-xl hover:bg-[#0047AB] transition-colors disabled:opacity-60"
+      >
+        {isPending ? 'Redirecting to Zoom…' : 'Reconnect Zoom'}
+      </button>
+    </div>
+  );
+}
+
+function Avatar({ name, size = 32 }: { name: string; size?: number }) {
+  return (
+    <div
+      className={`shrink-0 rounded-full bg-gradient-to-br ${getAvatarColor(name)} flex items-center justify-center text-white font-semibold`}
+      style={{ width: size, height: size, fontSize: size * 0.36 }}
+    >
+      {getInitials(name)}
+    </div>
+  );
+}
+
+function ZoomSidebar({
+  search, onSearchChange, selected, onSelect, zoomEmail, onDisconnect,
+}: {
+  search: string;
+  onSearchChange: (v: string) => void;
+  selected: ZoomConversation | null;
+  onSelect: (c: ZoomConversation) => void;
+  zoomEmail: string | null;
+  onDisconnect: () => void;
+}) {
   const { data, isLoading, isError, error, refetch } = useZoomConversations(true);
 
-  if (isLoading) {
-    return <div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin text-gray-300" size={16} /></div>;
-  }
-  if (isError) {
-    const reauth = isZoomReauthError(error);
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-2 px-4 text-center">
-        <p className="text-xs text-gray-500">
-          {reauth ? 'Your Zoom authorization expired or was revoked.' : 'Could not load your Zoom conversations.'}
-        </p>
-        <button onClick={() => refetch()} className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
-          <RefreshCw size={12} /> Retry
-        </button>
-      </div>
-    );
-  }
-
-  const channels = data?.channels || [];
-  const contacts = data?.contacts || [];
-
-  if (channels.length === 0 && contacts.length === 0) {
-    return (
-      <div className="flex-1 flex items-center justify-center px-4 text-center">
-        <p className="text-xs text-gray-400">No Zoom conversations yet.</p>
-      </div>
-    );
-  }
+  const q = search.trim().toLowerCase();
+  const contacts = (data?.contacts || []).filter((c) => !q || c.name.toLowerCase().includes(q));
+  const allChannels = data?.channels || [];
+  // Zoom's own channel_type (1 = private, 2 = public) — no separate
+  // group-chat endpoint exists, so private channels are shown as "Group
+  // Chats" (Zoom's own convention for informal multi-person conversations)
+  // and public, named channels as "Channels". Real data only; nothing
+  // fabricated when channel_type is absent (falls into Channels).
+  const groupChats = allChannels.filter((c) => c.channel_type === 1 && (!q || c.name.toLowerCase().includes(q)));
+  const channels = allChannels.filter((c) => c.channel_type !== 1 && (!q || c.name.toLowerCase().includes(q)));
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      {contacts.length > 0 && (
-        <div className="px-3 pt-3 pb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Direct</div>
-      )}
-      {contacts.map((c) => (
-        <ConversationRow key={`contact-${c.id}`} conv={c} icon={<User size={14} />} active={selected?.id === c.id && selected.type === 'contact'} onClick={() => onSelect(c)} />
-      ))}
-      {channels.length > 0 && (
-        <div className="px-3 pt-3 pb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Channels</div>
-      )}
-      {channels.map((c) => (
-        <ConversationRow key={`channel-${c.id}`} conv={c} icon={<Hash size={14} />} active={selected?.id === c.id && selected.type === 'channel'} onClick={() => onSelect(c)} />
-      ))}
+    <div className="w-72 border-r border-gray-100 flex flex-col shrink-0">
+      <div className="px-3 pt-3 pb-2 shrink-0">
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search Zoom chats..."
+            className="w-full rounded-xl border border-gray-200 bg-gray-50 pl-8 pr-3 py-1.5 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300"
+          />
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-1 pb-3">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-10"><Loader2 className="animate-spin text-gray-300" size={16} /></div>
+        ) : isError ? (
+          <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+            <p className="text-xs text-gray-500">
+              {isZoomReauthError(error) ? 'Your Zoom authorization expired or was revoked.' : 'Could not load your Zoom conversations.'}
+            </p>
+            <button onClick={() => refetch()} className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
+              <RefreshCw size={12} /> Retry
+            </button>
+          </div>
+        ) : contacts.length === 0 && groupChats.length === 0 && channels.length === 0 ? (
+          <div className="flex items-center justify-center py-10 px-4 text-center">
+            <p className="text-xs text-gray-400">{q ? 'No conversations match your search.' : 'No Zoom conversations yet.'}</p>
+          </div>
+        ) : (
+          <>
+            <SidebarSection title="Direct Messages">
+              {contacts.map((c) => (
+                <ConversationRow key={`contact-${c.id}`} conv={c} active={selected?.type === 'contact' && selected.id === c.id} onClick={() => onSelect(c)} />
+              ))}
+            </SidebarSection>
+            <SidebarSection title="Group Chats">
+              {groupChats.map((c) => (
+                <ConversationRow key={`group-${c.id}`} conv={c} active={selected?.type === 'channel' && selected.id === c.id} onClick={() => onSelect(c)} />
+              ))}
+            </SidebarSection>
+            <SidebarSection title="Channels">
+              {channels.map((c) => (
+                <ConversationRow key={`channel-${c.id}`} conv={c} active={selected?.type === 'channel' && selected.id === c.id} onClick={() => onSelect(c)} />
+              ))}
+            </SidebarSection>
+          </>
+        )}
+      </div>
+
+      <div className="px-3 py-2.5 border-t border-gray-100 flex items-center justify-between shrink-0">
+        <p className="text-[11px] text-gray-400 truncate">{zoomEmail}</p>
+        <button
+          onClick={onDisconnect}
+          title="Disconnect Zoom"
+          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+        >
+          <LogOut size={13} />
+        </button>
+      </div>
     </div>
   );
 }
 
-function ConversationRow({
-  conv, icon, active, onClick,
-}: { conv: ZoomConversation; icon: React.ReactNode; active: boolean; onClick: () => void }) {
+function SidebarSection({ title, children }: { title: string; children: React.ReactNode }) {
+  const items = React.Children.toArray(children);
+  if (items.length === 0) return null;
+  return (
+    <div className="mb-1">
+      <div className="px-3 pt-3 pb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function ConversationRow({ conv, active, onClick }: { conv: ZoomConversation; active: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${
-        active ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'
+      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-colors ${
+        active ? 'bg-blue-50' : 'hover:bg-gray-50'
       }`}
     >
-      <span className="text-gray-400 shrink-0">{icon}</span>
-      <span className="truncate">{conv.name}</span>
+      {conv.type === 'contact' ? (
+        <Avatar name={conv.name} size={30} />
+      ) : (
+        <span className="flex size-[30px] items-center justify-center rounded-full bg-gray-100 text-gray-500 shrink-0">
+          <Hash size={14} />
+        </span>
+      )}
+      <span className={`truncate text-sm ${active ? 'text-blue-700 font-medium' : 'text-gray-700'}`}>{conv.name}</span>
     </button>
   );
 }
 
-function ZoomMessagePane({
+function ZoomConversationPane({
   conversation, onReauthRequired,
 }: { conversation: ZoomConversation | null; onReauthRequired: () => void }) {
+  const disconnect = useDisconnectZoom();
   const [messages, setMessages] = useState<ZoomMessage[]>([]);
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<{ reauth: boolean; message: string } | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   const load = async (conv: ZoomConversation, pageToken?: string, append = false) => {
     (append ? setIsLoadingMore : setIsLoading)(true);
@@ -184,12 +286,14 @@ function ZoomMessagePane({
       setNextPageToken(result.next_page_token || null);
     } catch (e: any) {
       if (isZoomReauthError(e)) {
-        setLoadError('Your Zoom authorization expired or was revoked. Reconnecting is required.');
-        onReauthRequired();
+        setLoadError({ reauth: true, message: 'Your Zoom authorization expired or was revoked.' });
       } else if (isZoomNotConnectedError(e)) {
-        setLoadError('Zoom is no longer connected.');
+        setLoadError({ reauth: true, message: 'Zoom is no longer connected.' });
       } else {
-        setLoadError(e?.message || 'Could not load messages from Zoom.');
+        // Never surface the raw Zoom API error text — a generic, honest
+        // message only. The technical detail still exists server-side in
+        // logs, just not exposed here.
+        setLoadError({ reauth: false, message: 'Could not load messages from Zoom.' });
       }
     } finally {
       (append ? setIsLoadingMore : setIsLoading)(false);
@@ -211,19 +315,54 @@ function ZoomMessagePane({
     );
   }
 
+  if (loadError?.reauth) {
+    return <ReauthState onReconnect={() => disconnect.mutate(undefined, { onSuccess: onReauthRequired })} isPending={disconnect.isPending} />;
+  }
+
+  // Appends the backend's own normalized send response directly (Option A
+  // — safer than an immediate re-fetch here: Zoom's send endpoint only
+  // confirms a message_id, not a full echo, so a refetch could legitimately
+  // race with Zoom's own indexing and either miss the new message or show
+  // it twice next to this locally-appended one; appending the one
+  // authoritative response we already have avoids that duplicate risk
+  // entirely — nothing here is fabricated, it's the exact text/id the
+  // backend confirmed Zoom accepted).
+  const handleSend = async (text: string) => {
+    setSendError(null);
+    try {
+      const result = await sendZoomMessage(
+        conversation.type === 'channel' ? { to_channel: conversation.id } : { to_contact: conversation.email || conversation.id },
+        text,
+      );
+      setMessages((prev) => [...prev, {
+        id: result.id,
+        sender: 'me',
+        sender_display_name: 'You',
+        message: result.message,
+        date_time: result.sent_at,
+        edited: false,
+        files: [],
+      }]);
+    } catch (e: any) {
+      if (isZoomReauthError(e) || isZoomNotConnectedError(e)) {
+        setLoadError({ reauth: true, message: 'Your Zoom authorization expired or was revoked.' });
+      } else {
+        setSendError('Could not send this message. Please try again.');
+      }
+      throw e;
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col min-w-0">
-      <div className="px-4 py-3.5 border-b border-gray-100 flex items-center gap-2 shrink-0">
-        {conversation.type === 'channel' ? <Hash size={14} className="text-gray-400" /> : <User size={14} className="text-gray-400" />}
-        <span className="text-sm font-semibold text-gray-900 truncate">{conversation.name}</span>
-      </div>
+      <ConversationHeader conversation={conversation} />
 
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
         {isLoading ? (
           <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-gray-300" size={18} /></div>
         ) : loadError ? (
           <div className="h-full flex flex-col items-center justify-center gap-2 text-center">
-            <p className="text-xs text-gray-500">{loadError}</p>
+            <p className="text-xs text-gray-500">{loadError.message}</p>
             <button onClick={() => load(conversation)} className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
               <RefreshCw size={12} /> Retry
             </button>
@@ -246,29 +385,130 @@ function ZoomMessagePane({
               </div>
             )}
             {messages.map((m) => (
-              <div key={m.id} className="flex flex-col gap-0.5">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-xs font-semibold text-gray-800">{m.sender_display_name}</span>
-                  <span className="text-[11px] text-gray-400">{m.date_time ? new Date(m.date_time).toLocaleString() : m.timestamp}</span>
-                  {m.edited && <span className="text-[10px] text-gray-300">(edited)</span>}
-                </div>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{m.message}</p>
-                {m.files.length > 0 && (
-                  <div className="flex flex-col gap-0.5 mt-0.5">
-                    {m.files.map((f, i) => (
-                      <span key={i} className="text-xs text-gray-400">📎 {f.file_name}</span>
-                    ))}
+              <div key={m.id} className="flex items-start gap-3">
+                <Avatar name={m.sender_display_name} size={32} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-sm font-semibold text-gray-900">{m.sender_display_name}</span>
+                    <span className="text-[11px] text-gray-400">{formatTime(m.date_time || m.timestamp)}</span>
+                    {m.edited && <span className="text-[10px] text-gray-300">(edited)</span>}
                   </div>
-                )}
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{m.message}</p>
+                  {m.files.length > 0 && (
+                    <div className="flex flex-col gap-0.5 mt-1">
+                      {m.files.map((f, i) => (
+                        <span key={i} className="text-xs text-gray-400">📎 {f.file_name}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </>
         )}
       </div>
 
-      <div className="px-4 py-2.5 border-t border-gray-100 text-[11px] text-gray-400 shrink-0">
-        Read-only — sending Zoom messages from TekXAI isn't supported yet.
-      </div>
+      <Composer conversation={conversation} onSend={handleSend} error={sendError} onDismissError={() => setSendError(null)} />
     </div>
   );
+}
+
+function ConversationHeader({ conversation }: { conversation: ZoomConversation }) {
+  return (
+    <div className="flex items-center gap-3 px-5 py-3.5 border-b border-gray-100 shrink-0">
+      {conversation.type === 'contact' ? (
+        <>
+          <Avatar name={conversation.name} size={36} />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-gray-900 truncate">{conversation.name}</p>
+            {conversation.presence_status && (
+              <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                <span className={`size-1.5 rounded-full ${conversation.presence_status.toLowerCase() === 'available' ? 'bg-green-500' : 'bg-gray-300'}`} />
+                {conversation.presence_status}
+              </p>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <span className="flex size-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 shrink-0">
+            <Hash size={16} />
+          </span>
+          <p className="text-sm font-semibold text-gray-900 truncate">{conversation.name}</p>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Styling/behavior mirrors the native TekXAI Messages composer
+// (index.tsx's handleSend/handleKeyDown/textarea — same rounded-xl input,
+// same square send button, same Enter-to-send / Shift+Enter-for-newline
+// convention) — deliberately without the native composer's @-mention,
+// attachment, or slash-command affordances, none of which apply to a Zoom
+// send.
+function Composer({
+  conversation, onSend, error, onDismissError,
+}: { conversation: ZoomConversation; onSend: (text: string) => Promise<void>; error: string | null; onDismissError: () => void }) {
+  const [draft, setDraft] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleSend = async () => {
+    const text = draft.trim();
+    if (!text || isSending) return;
+    setIsSending(true);
+    try {
+      await onSend(text);
+      setDraft('');
+    } catch {
+      // error state already set by the caller; keep the draft so the user
+      // doesn't lose what they typed.
+    } finally {
+      setIsSending(false);
+      textareaRef.current?.focus();
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  };
+
+  return (
+    <div className="px-4 pb-4 pt-2 shrink-0">
+      {error && (
+        <div className="flex items-center justify-between gap-2 mb-2 px-3 py-1.5 rounded-lg bg-red-50 text-red-700 text-xs">
+          <span>{error}</span>
+          <button onClick={onDismissError} className="text-red-400 hover:text-red-600">Dismiss</button>
+        </div>
+      )}
+      <div className="flex items-end gap-2">
+        <textarea
+          ref={textareaRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={`Message ${conversation.name}…`}
+          rows={1}
+          disabled={isSending}
+          className="w-full resize-none px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 disabled:opacity-60"
+          style={{ height: 'auto', minHeight: '42px', maxHeight: '120px' }}
+        />
+        <button
+          onClick={handleSend}
+          disabled={!draft.trim() || isSending}
+          className="h-[42px] w-[42px] bg-primary-600 text-white rounded-xl flex items-center justify-center hover:bg-primary-700 disabled:opacity-40 transition-colors shrink-0"
+        >
+          {isSending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+        </button>
+      </div>
+      <p className="text-[10px] text-gray-300 mt-1 pl-1">Shift+Enter for new line · Enter to send</p>
+    </div>
+  );
+}
+
+function formatTime(value?: string) {
+  if (!value) return '';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? value : d.toLocaleString();
 }
