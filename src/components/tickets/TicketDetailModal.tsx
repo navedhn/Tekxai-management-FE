@@ -3,7 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Modal from '@/components/ui/Modal';
 import TicketStatusBadge from './TicketStatusBadge';
 import { SupportTicket, TicketReply } from '@/types/ticket';
-import { formatTicketDate, useTicketTimelineQuery, useDeleteTicketMutation } from '@/services/ticketService';
+import {
+  formatTicketDate, useTicketTimelineQuery, useDeleteTicketMutation,
+  useReassignTicketMutation, useTicketTypeAssigneesQuery,
+} from '@/services/ticketService';
 import { API_ENDPOINTS as ENDPOINTS } from '@/services/api/endpoints';
 import { apiRequest } from '@/lib/queryClient';
 import { useMyPermissions } from '@/services/permissionsService';
@@ -16,6 +19,39 @@ interface TicketDetailModalProps {
   onClose: () => void;
   isAdmin?: boolean;
 }
+
+const ReassignControl: React.FC<{ ticket: SupportTicket; isSuperAdmin: boolean }> = ({ ticket, isSuperAdmin }) => {
+  const toast = useToastContext();
+  const { data: eligible = [] } = useTicketTypeAssigneesQuery(ticket.ticketType?.id);
+  const reassign = useReassignTicketMutation();
+
+  if (!eligible.length && !isSuperAdmin) return null;
+
+  return (
+    <div>
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Reassign</p>
+      <select
+        className="h-9 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none"
+        value={ticket.assignee?.id || ''}
+        onChange={(e) => {
+          const assigneeId = e.target.value || null;
+          reassign.mutate(
+            { id: ticket.id, assigneeId },
+            {
+              onSuccess: () => toast.success('Ticket reassigned.'),
+              onError: (err: any) => toast.error(err?.response?.data?.message || err?.message || 'Failed to reassign ticket.'),
+            }
+          );
+        }}
+      >
+        <option value="">Unassigned</option>
+        {eligible.map((u) => (
+          <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>
+        ))}
+      </select>
+    </div>
+  );
+};
 
 const ReplyBubble: React.FC<{ reply: TicketReply }> = ({ reply }) => {
   const name = reply.user ? `${reply.user.first_name} ${reply.user.last_name}` : 'Unknown';
@@ -76,6 +112,7 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ ticket, onClose, 
 
   if (!ticket) return null;
   const t = fullTicket ?? ticket;
+  const canReassign = isAdmin && !!t.ticketType?.id && (isSuperAdmin || !!myPerms?.permissions?.includes('erp.tickets.edit'));
   const replies = t.replies ?? [];
   const approvals = t.approvals ?? [];
 
@@ -187,6 +224,10 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ ticket, onClose, 
               </div>
             )}
           </div>
+        )}
+
+        {canReassign && (
+          <ReassignControl ticket={t} isSuperAdmin={isSuperAdmin} />
         )}
 
         {/* Approval history */}
