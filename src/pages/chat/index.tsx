@@ -29,6 +29,7 @@ import { useUpdateMyPublicKeyMutation, useGetUserPublicKeyQuery } from '@/servic
 import { getOrCreateKeyPair, importPublicKey, deriveSharedKey, encryptMessage, decryptMessage } from '@/lib/e2eCrypto';
 import { useChatTopbarStore } from '@/stores/chatTopbarStore';
 import { getSocket } from '@/lib/socket';
+import ZoomChatPanel from './ZoomChatPanel';
 
 interface ChatUser {
   id: string;
@@ -865,13 +866,23 @@ function serverColor(id: string): string {
   return SERVER_COLORS[hash % SERVER_COLORS.length];
 }
 
+// Sentinel activeServerId value for the Zoom Team Chat section — not a real
+// server id, never sent to any API; ServerRail/ChatPage just branch on it
+// to swap the whole right-hand pane for <ZoomChatPanel /> instead of the
+// native channel/message pipeline (see ChatPage's render below). Kept
+// completely separate from real server ids/channels/messages so a Zoom
+// conversation can never be confused with, sent as, or deleted as a native
+// TekXAI chat message.
+const ZOOM_SECTION_ID = '__zoom__';
+
 function ServerRail({
-  servers, activeServerId, onSelectHome, onSelectServer, onAddServer, canCreate,
+  servers, activeServerId, onSelectHome, onSelectServer, onSelectZoom, onAddServer, canCreate,
 }: {
   servers: ChatServer[];
   activeServerId: string | null;
   onSelectHome: () => void;
   onSelectServer: (id: string) => void;
+  onSelectZoom: () => void;
   onAddServer: () => void;
   canCreate: boolean;
 }) {
@@ -901,6 +912,10 @@ function ServerRail({
     <div className="w-[64px] bg-[#EAECF0] flex flex-col items-center py-3 gap-2 shrink-0 h-full overflow-y-auto no-scrollbar">
       <RailIcon active={activeServerId === null} onClick={onSelectHome} title="Home — DMs" className="bg-gradient-to-b from-[#005CDA] to-[#001F4A]">
         <Home size={18} />
+      </RailIcon>
+
+      <RailIcon active={activeServerId === ZOOM_SECTION_ID} onClick={onSelectZoom} title="Zoom Team Chat" className="bg-gradient-to-b from-[#0B5CFF] to-[#0047AB]">
+        <Video size={18} />
       </RailIcon>
 
       <div className="w-8 h-[2px] rounded-full bg-[#D7DADC] my-0.5" />
@@ -2896,6 +2911,23 @@ export default function ChatPage() {
     return () => setChatTopbarTitle(null);
   }, [activeServer, setChatTopbarTitle]);
 
+  if (activeServerId === ZOOM_SECTION_ID) {
+    return (
+      <div className="flex h-[calc(100vh-5.5rem)] bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <ServerRail
+          servers={servers}
+          activeServerId={activeServerId}
+          onSelectHome={() => { setActiveServerId(null); setSelectedChannelId(null); }}
+          onSelectServer={(id) => { setActiveServerId(id); setSelectedChannelId(null); }}
+          onSelectZoom={() => setActiveServerId(ZOOM_SECTION_ID)}
+          onAddServer={() => setShowCreateServerModal(true)}
+          canCreate={canCreateServer}
+        />
+        <ZoomChatPanel />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-[calc(100vh-5.5rem)] bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
 
@@ -2904,6 +2936,7 @@ export default function ChatPage() {
         activeServerId={activeServerId}
         onSelectHome={() => { setActiveServerId(null); setSelectedChannelId(null); }}
         onSelectServer={(id) => { setActiveServerId(id); setSelectedChannelId(null); }}
+        onSelectZoom={() => setActiveServerId(ZOOM_SECTION_ID)}
         onAddServer={() => setShowCreateServerModal(true)}
         canCreate={canCreateServer}
       />

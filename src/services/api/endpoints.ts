@@ -564,6 +564,13 @@ export const API_ENDPOINTS = {
     SAVED:       `${v1}/chat/saved`,
     EXPORT:      (id: string, format: string) => `${v1}/chat/channels/${id}/export?format=${format}`,
   },
+  ZOOM_CHAT: {
+    AUTHORIZE_URL: `${v1}/chat/zoom/authorize-url`,
+    STATUS:        `${v1}/chat/zoom/status`,
+    DISCONNECT:    `${v1}/chat/zoom/disconnect`,
+    CONVERSATIONS: `${v1}/chat/zoom/conversations`,
+    MESSAGES:      `${v1}/chat/zoom/messages`,
+  },
   SERVERS: {
     LIST:        `${v1}/servers`,
     CREATE:      `${v1}/servers`,
