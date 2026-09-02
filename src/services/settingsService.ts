@@ -4,8 +4,9 @@ import { API_ENDPOINTS } from './api/endpoints';
 import { QUERY_KEYS } from './api/tanstackKeys';
 
 export interface SettingsPreferences {
-  show_notifications: boolean;
-  language: string;
+  show_notifications?: boolean;
+  language?: string;
+  theme?: string;
 }
 
 export const useGetMySettingsQuery = (enabled: boolean = true) => {

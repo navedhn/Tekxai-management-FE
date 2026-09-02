@@ -17,6 +17,7 @@ import InviteMemberModal from '@/components/ui/InviteMemberModal';
 import ActionModal from '@/components/ui/ActionModal';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import ThemeSwitcher from '@/components/settings/ThemeSwitcher';
 
 const use2FAStatus = () =>
   useQuery({
@@ -441,6 +442,7 @@ const Setting: React.FC = () => {
             <Tabs
                 options={[
                     { label: 'General & Security', value: 'security' },
+                    { label: 'Appearance', value: 'appearance' },
                     { label: 'Member Invites', value: 'invites' },
                 ]}
                 value={activeTab}
@@ -449,6 +451,11 @@ const Setting: React.FC = () => {
             />
 
             <div className="flex flex-col gap-6">
+                {activeTab === 'appearance' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        <ThemeSwitcher />
+                    </div>
+                )}
                 {activeTab === 'security' && (
                     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
                         {/* Two-Factor Authentication */}

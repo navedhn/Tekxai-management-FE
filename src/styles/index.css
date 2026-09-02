@@ -91,6 +91,13 @@
   --color-sidebar-text: #cbd5e1;
   --color-sidebar-icon: #94a3b8;
 
+  --color-app-bg: #f9f9ff;
+  --color-header-bg: #ffffff;
+  --color-card-bg: #ffffff;
+  --color-card-border: #f3f4f6;
+  --color-glass-bg: rgba(255, 255, 255, 0.72);
+  --color-glass-border: rgba(226, 232, 240, 0.8);
+
   /* ============================================================
      Design System Animation Tokens (Phase 12 foundation)
      One duration scale + one easing curve, matching what Sidebar.tsx/
@@ -171,9 +178,98 @@ html {
 
 body {
 
-  background-color: #F9F9FF;
+  background-color: var(--color-app-bg);
+  color: var(--color-text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color var(--duration-slow) var(--ease-standard);
+}
+
+/* ============================================================
+   Multi-theme system (Appearance settings) — Clean Light is the
+   unstamped default (no [data-theme] attr = identical to the
+   values already above, so an existing session with no preference
+   saved yet renders exactly like production did before this).
+   Overrides ONLY brand/surface/sidebar/glass/text tokens — success/
+   warning/danger/info intentionally stay identical across every
+   theme (semantic meaning must survive a re-skin). Shared 1:1 with
+   tek-pulse-FE's theme block: same theme ids, same variable names,
+   same values, so a user gets one consistent system across CRM+ERP.
+   ============================================================ */
+:root[data-theme="emerald"] {
+  --color-brand-primary: #10b981;
+  --color-brand-primary-hover: #059669;
+  --color-brand-primary-active: #047857;
+  --color-brand-secondary: #064e3b;
+  --color-app-bg: #f0fdf9;
+  --color-header-bg: #ffffff;
+  --color-card-bg: #ffffff;
+  --color-card-border: #d1fae5;
+  --color-glass-bg: rgba(255, 255, 255, 0.7);
+  --color-glass-border: rgba(16, 185, 129, 0.18);
+  --color-sidebar-bg: #064e3b;
+  --color-sidebar-hover: rgba(255, 255, 255, 0.08);
+  --color-sidebar-active: #10b981;
+  --color-sidebar-text: #a7f3d0;
+  --color-sidebar-icon: #6ee7b7;
+  --color-text-primary: #0f2f24;
+  --color-text-secondary: #3f6b5c;
+  --gradient-primary: linear-gradient(180deg, #10b981 0%, #064e3b 100%);
+}
+
+:root[data-theme="royal-purple"] {
+  --color-brand-primary: #8b5cf6;
+  --color-brand-primary-hover: #7c3aed;
+  --color-brand-primary-active: #6d28d9;
+  --color-brand-secondary: #1e1033;
+  --color-app-bg: #150c26;
+  --color-header-bg: #1e1236;
+  --color-card-bg: rgba(30, 18, 54, 0.72);
+  --color-card-border: rgba(139, 92, 246, 0.25);
+  --color-glass-bg: rgba(46, 27, 82, 0.55);
+  --color-glass-border: rgba(167, 139, 250, 0.25);
+  --color-sidebar-bg: #1a0f30;
+  --color-sidebar-hover: rgba(255, 255, 255, 0.08);
+  --color-sidebar-active: #8b5cf6;
+  --color-sidebar-text: #c4b5fd;
+  --color-sidebar-icon: #a78bfa;
+  --color-text-primary: #f3f0ff;
+  --color-text-secondary: #c4b5fd;
+  --gradient-primary: linear-gradient(180deg, #8b5cf6 0%, #4c1d95 100%);
+}
+
+:root[data-theme="midnight-blue"] {
+  --color-brand-primary: #3b82f6;
+  --color-brand-primary-hover: #2563eb;
+  --color-brand-primary-active: #1d4ed8;
+  --color-brand-secondary: #0b1120;
+  --color-app-bg: #090e1a;
+  --color-header-bg: #0f1a2e;
+  --color-card-bg: rgba(15, 23, 42, 0.72);
+  --color-card-border: rgba(59, 130, 246, 0.2);
+  --color-glass-bg: rgba(15, 23, 42, 0.55);
+  --color-glass-border: rgba(96, 165, 250, 0.22);
+  --color-sidebar-bg: #0b1324;
+  --color-sidebar-hover: rgba(255, 255, 255, 0.08);
+  --color-sidebar-active: #3b82f6;
+  --color-sidebar-text: #93c5fd;
+  --color-sidebar-icon: #60a5fa;
+  --color-text-primary: #e5edff;
+  --color-text-secondary: #93c5fd;
+  --gradient-primary: linear-gradient(180deg, #3b82f6 0%, #0b1120 100%);
+}
+
+.theme-surface {
+  background-color: var(--color-card-bg);
+  border-color: var(--color-card-border);
+  color: var(--color-text-primary);
+}
+
+.theme-glass {
+  background-color: var(--color-glass-bg);
+  border: 1px solid var(--color-glass-border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 /* Global Typography */
