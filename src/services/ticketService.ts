@@ -230,6 +230,45 @@ export const useCreateTicketMutation = () => {
   });
 };
 
+export const useReassignTicketMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, assigneeId }: { id: string; assigneeId: string | null }) =>
+      apiRequest<any>(API_ENDPOINTS.TICKET.UPDATE(id), {
+        method: 'PATCH',
+        body: JSON.stringify({ assignee_id: assigneeId }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['ticket-timeline'] });
+    },
+  });
+};
+
+export const useTicketTypeAssigneesQuery = (ticketTypeId?: string) =>
+  useQuery<{ id: string; first_name: string; last_name: string; email: string }[]>({
+    queryKey: ['ticket-type-assignees', ticketTypeId],
+    queryFn: async () => {
+      const res = await apiRequest<any>(API_ENDPOINTS.TICKET_TYPE.ASSIGNEES(ticketTypeId!));
+      return (res?.payload || []) as any[];
+    },
+    enabled: !!ticketTypeId,
+  });
+
+export const useSetTicketTypeAssigneesMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ticketTypeId, userIds }: { ticketTypeId: string; userIds: string[] }) =>
+      apiRequest<any>(API_ENDPOINTS.TICKET_TYPE.ASSIGNEES(ticketTypeId), {
+        method: 'PUT',
+        body: JSON.stringify({ user_ids: userIds }),
+      }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['ticket-type-assignees', variables.ticketTypeId] });
+    },
+  });
+};
+
 export const useDeleteTicketMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({

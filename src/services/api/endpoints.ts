@@ -232,11 +232,12 @@ export const API_ENDPOINTS = {
     ACTIVE: (id: string | number) => `${v1}/ticket-categories/${id}/active`,
   },
   TICKET_TYPE: {
-    LIST:   `${v1}/ticket-types`,
-    CREATE: `${v1}/ticket-types`,
-    DETAIL: (id: string | number) => `${v1}/ticket-types/${id}`,
-    UPDATE: (id: string | number) => `${v1}/ticket-types/${id}`,
-    ACTIVE: (id: string | number) => `${v1}/ticket-types/${id}/active`,
+    LIST:      `${v1}/ticket-types`,
+    CREATE:    `${v1}/ticket-types`,
+    DETAIL:    (id: string | number) => `${v1}/ticket-types/${id}`,
+    UPDATE:    (id: string | number) => `${v1}/ticket-types/${id}`,
+    ACTIVE:    (id: string | number) => `${v1}/ticket-types/${id}/active`,
+    ASSIGNEES: (id: string | number) => `${v1}/ticket-types/${id}/assignees`,
   },
   MARKETING: {
     DEALS:              `${v1}/marketing/deals`,

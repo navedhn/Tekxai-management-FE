@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -7,7 +7,7 @@ import {
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
-import { useTicketCategoriesQuery } from '@/services/ticketService';
+import { useTicketCategoriesQuery, useTicketTypeAssigneesQuery, useSetTicketTypeAssigneesMutation } from '@/services/ticketService';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
 
 // ─── Field & Workflow type definitions (mirrors the backend's field_schema /
@@ -354,6 +354,7 @@ export default function TicketTypeEditor({ type, onClose }: { type?: any; onClos
   const [departmentId, setDepartmentId] = useState(type?.department_id || '');
   const [teamId, setTeamId] = useState(type?.default_team_id || '');
   const [assigneeId, setAssigneeId] = useState(type?.default_assignee_id || '');
+  const [eligibleAssigneeIds, setEligibleAssigneeIds] = useState<string[]>([]);
   const [projectAssociation, setProjectAssociation] = useState(type?.project_association || 'NONE');
   const [responseSla, setResponseSla] = useState(type?.response_sla_mins ?? '');
   const [resolutionSla, setResolutionSla] = useState(type?.resolution_sla_mins ?? '');
@@ -372,6 +373,12 @@ export default function TicketTypeEditor({ type, onClose }: { type?: any; onClos
     queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200`),
     select: (r: any) => [...(r?.payload?.records || r?.payload || [])].sort((a: any, b: any) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)),
   });
+  const { data: currentEligible } = useTicketTypeAssigneesQuery(is_edit ? type.id : undefined);
+  const setEligibleAssignees = useSetTicketTypeAssigneesMutation();
+
+  useEffect(() => {
+    if (currentEligible) setEligibleAssigneeIds(currentEligible.map((u) => u.id));
+  }, [currentEligible]);
 
   const duplicate_keys = useMemo(() => {
     const all = sections.flatMap((s) => s.fields.map((f) => f.key));
@@ -394,7 +401,7 @@ export default function TicketTypeEditor({ type, onClose }: { type?: any; onClos
   const has_errors = duplicate_keys.size > 0 || duplicate_step_names.size > 0 || empty_required_fields || !label.trim() || !categoryId || workflow.length === 0;
 
   const mutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const payload = {
         key: key || slugify(label).toUpperCase(),
         label, description: description || null,
@@ -408,9 +415,13 @@ export default function TicketTypeEditor({ type, onClose }: { type?: any; onClos
         field_schema: sections,
         workflow,
       };
-      return is_edit
-        ? apiRequest<any>(API_ENDPOINTS.TICKET_TYPE.UPDATE(type.id), { method: 'PUT', body: JSON.stringify(payload) })
-        : apiRequest<any>(API_ENDPOINTS.TICKET_TYPE.CREATE, { method: 'POST', body: JSON.stringify(payload) });
+      const saved = is_edit
+        ? await apiRequest<any>(API_ENDPOINTS.TICKET_TYPE.UPDATE(type.id), { method: 'PUT', body: JSON.stringify(payload) })
+        : await apiRequest<any>(API_ENDPOINTS.TICKET_TYPE.CREATE, { method: 'POST', body: JSON.stringify(payload) });
+      if (is_edit) {
+        await setEligibleAssignees.mutateAsync({ ticketTypeId: type.id, userIds: eligibleAssigneeIds });
+      }
+      return saved;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['ticket-types-page'] }); onClose(); },
     onError: (e: any) => setErr(e?.message || 'Failed to save'),
@@ -496,7 +507,24 @@ export default function TicketTypeEditor({ type, onClose }: { type?: any; onClos
                   <option value="">None</option>
                   {(users || []).map((u: any) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
                 </select>
+                <p className="text-[11px] text-gray-400 mt-1">Takes priority over eligible assignees below when set.</p>
               </div>
+              {is_edit && (
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 block mb-1.5">Eligible Assignees</label>
+                  <p className="text-[11px] text-gray-400 mb-1.5">
+                    Controls automatic routing when a new ticket of this type is created — not a permanent lock, tickets can be reassigned afterward among these users.
+                  </p>
+                  <select
+                    multiple
+                    className="w-full min-h-[7rem] px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none"
+                    value={eligibleAssigneeIds}
+                    onChange={(e) => setEligibleAssigneeIds(Array.from(e.target.selectedOptions).map((o) => o.value))}
+                  >
+                    {(users || []).map((u: any) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="text-xs font-semibold text-gray-500 block mb-1.5">Project Association</label>
                 <select className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none" value={projectAssociation} onChange={(e) => setProjectAssociation(e.target.value)}>
