@@ -7,6 +7,7 @@ import {
   Pin, Smile, Bold, Italic, Code, AtSign, Link2,
   BarChart3, CheckSquare, AlarmClock, Slash, XCircle,
   Bookmark, Megaphone, FolderOpen, Download, FileText, Home, ShieldCheck,
+  PanelRight,
 } from 'lucide-react';
 import { apiRequest, BASE_URL } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
@@ -30,6 +31,8 @@ import { getOrCreateKeyPair, importPublicKey, deriveSharedKey, encryptMessage, d
 import { useChatTopbarStore } from '@/stores/chatTopbarStore';
 import { getSocket } from '@/lib/socket';
 import ZoomChatPanel from './ZoomChatPanel';
+import MemberSidebar from './components/MemberSidebar';
+import { useIsMobile } from '@/hooks/use-is-mobile';
 
 interface ChatUser {
   id: string;
@@ -2125,6 +2128,8 @@ export default function ChatPage() {
   const toast = useToastContext();
 
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+  const [showMemberPanel, setShowMemberPanel] = useState(true);
+  const isMobileView = useIsMobile();
   const [threadMsgId, setThreadMsgId] = useState<string | null>(null);
   const [channelSearch, setChannelSearch] = useState('');
   const [draft, setDraft] = useState('');
@@ -2349,7 +2354,7 @@ export default function ChatPage() {
     socket?.emit('channel:join', selectedChannelId);
   }, [selectedChannelId]);
 
-  const { data: channelMembers = [] } = useQuery<ChannelMember[]>({
+  const { data: channelMembers = [], isLoading: membersLoading, isError: membersError } = useQuery<ChannelMember[]>({
     queryKey: ['chat-members', selectedChannelId],
     queryFn: async () => {
       const r = await apiRequest<any>(API_ENDPOINTS.CHAT.MEMBERS(selectedChannelId!));
@@ -3003,6 +3008,7 @@ export default function ChatPage() {
 
       {/* ── Center Panel ── */}
       {selectedChannel ? (
+        <>
         <div className="flex-1 flex flex-col min-w-0">
           {!socketConnected && (
             <div className="px-4 py-1.5 bg-amber-50 text-amber-700 text-xs font-semibold text-center border-b border-amber-100">
@@ -3099,6 +3105,13 @@ export default function ChatPage() {
                 title="Search messages"
               >
                 <Search size={16} />
+              </button>
+              <button
+                onClick={() => setShowMemberPanel((v) => !v)}
+                className={cn('p-1.5 rounded-lg', showMemberPanel ? 'text-primary-600 bg-primary-50' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100')}
+                title={selectedChannel.type === 'DM' ? 'Participants' : 'Members panel'}
+              >
+                <PanelRight size={16} />
               </button>
               {selectedChannel.type !== 'DM' && !isMember && (
                 <button
@@ -3460,6 +3473,23 @@ export default function ChatPage() {
             </div>
           )}
         </div>
+        <MemberSidebar
+          isVisible={showMemberPanel}
+          isMobile={isMobileView}
+          onClose={() => setShowMemberPanel(false)}
+          title={selectedChannel.type === 'DM' ? 'Participants' : 'Members'}
+          compact={selectedChannel.type === 'DM'}
+          isLoading={membersLoading}
+          isError={membersError}
+          members={channelMembers.filter((m) => m.user).map((m) => ({
+            id: m.user.id,
+            name: [m.user.first_name, m.user.last_name].filter(Boolean).join(' ') || 'Unknown',
+            designation: m.user.designation,
+            avatar: m.user.avatar,
+            online: isOnline(m.user),
+          }))}
+        />
+        </>
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center text-gray-300">
           <MessageSquare size={48} className="mb-3" />
