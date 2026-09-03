@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   MessageSquare, Plus, Search, Send, X, Users, User, Loader2,
@@ -2127,7 +2128,8 @@ export default function ChatPage() {
   const qc = useQueryClient();
   const toast = useToastContext();
 
-  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(() => searchParams.get('channel'));
   const [showMemberPanel, setShowMemberPanel] = useState(true);
   const isMobileView = useIsMobile();
   const [threadMsgId, setThreadMsgId] = useState<string | null>(null);
@@ -2154,7 +2156,7 @@ export default function ChatPage() {
   const [showSaved, setShowSaved] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
 
-  const [activeServerId, setActiveServerId] = useState<string | null>(null);
+  const [activeServerId, setActiveServerId] = useState<string | null>(() => searchParams.get('server'));
   const [showCreateServerModal, setShowCreateServerModal] = useState(false);
   const [showServerMembersModal, setShowServerMembersModal] = useState(false);
   const canCreateServer = !!myPerms?.is_super_admin || (myPerms?.roles || []).some((r) => ['ADMIN', 'HR'].includes(r));
@@ -2310,6 +2312,15 @@ export default function ChatPage() {
     };
     socket.on('conversation:update', handleConversationUpdate);
 
+    // Another user's profile (avatar/name/etc) changed — payload is
+    // deliberately not trusted as the new data, just a signal to refetch
+    // the real thing instead of waiting out these queries' staleTime.
+    const handleProfileUpdated = () => {
+      qc.invalidateQueries({ queryKey: ['chat-members'] });
+      qc.invalidateQueries({ queryKey: ['chat-channels'] });
+    };
+    socket.on('user:profile-updated', handleProfileUpdated);
+
     const handleServerUpdate = ({ serverId }: { serverId: string }) => {
       qc.invalidateQueries({ queryKey: ['servers'] });
       if (serverId) qc.invalidateQueries({ queryKey: ['server-channels', serverId] });
@@ -2341,6 +2352,7 @@ export default function ChatPage() {
       socket.off('message:deleted', handleMessageDeleted);
       socket.off('message:read', handleMessageRead);
       socket.off('conversation:update', handleConversationUpdate);
+      socket.off('user:profile-updated', handleProfileUpdated);
       socket.off('server:update', handleServerUpdate);
       socket.off('presence:update', handlePresenceUpdate);
       socket.off('notification:new', handleNotificationNew);
@@ -2534,8 +2546,41 @@ export default function ChatPage() {
     isNearBottomRef.current = distanceFromBottom < 120;
   };
 
+  // Keeps ?server=&channel= in sync with the selected context so a
+  // refresh (or a shared link) restores the same conversation instead of
+  // always landing back on the default DM. Preserves any other existing
+  // query params (e.g. Zoom's own ?zoom_chat= return params).
+  useEffect(() => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (activeServerId) next.set('server', activeServerId); else next.delete('server');
+      if (selectedChannelId) next.set('channel', selectedChannelId); else next.delete('channel');
+      return next;
+    }, { replace: true });
+  }, [activeServerId, selectedChannelId, setSearchParams]);
+
+  // A server id restored from the URL that this user can't actually
+  // access (removed, or never a member) must never be trusted blindly —
+  // fall back to Home once the real, authorized server list has loaded.
+  useEffect(() => {
+    if (!activeServerId || activeServerId === ZOOM_SECTION_ID) return;
+    if (servers.length === 0) return;
+    if (!servers.some((s) => s.id === activeServerId)) {
+      setActiveServerId(null);
+      setSelectedChannelId(null);
+    }
+  }, [activeServerId, servers]);
+
   useEffect(() => {
     if (activeServerId !== null) return;
+    if (channels.length === 0) return;
+    // A channel id restored from the URL that isn't in this user's real,
+    // authorized channel list (deleted, or never accessible) falls back
+    // to the existing default rather than trusting the persisted id.
+    if (selectedChannelId && !channels.some((ch) => ch.id === selectedChannelId)) {
+      setSelectedChannelId(null);
+      return;
+    }
     const homeDmChannels = channels.filter((ch) => ch.type === 'DM');
     if (!selectedChannelId && homeDmChannels.length > 0) {
       setSelectedChannelId(homeDmChannels[0].id);
@@ -3475,6 +3520,7 @@ export default function ChatPage() {
         </div>
         <MemberSidebar
           isVisible={showMemberPanel}
+          conversationId={selectedChannelId}
           isMobile={isMobileView}
           onClose={() => setShowMemberPanel(false)}
           title={selectedChannel.type === 'DM' ? 'Participants' : 'Members'}

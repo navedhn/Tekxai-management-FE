@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search, Loader2 } from 'lucide-react';
 import { getAvatarColor, getInitials } from '../chatTypes';
@@ -13,6 +13,7 @@ export interface MemberSidebarMember {
 
 interface MemberSidebarProps {
   isVisible: boolean;
+  conversationId: string | null;
   members: MemberSidebarMember[];
   isLoading?: boolean;
   isError?: boolean;
@@ -27,6 +28,7 @@ interface MemberSidebarProps {
 
 const MemberSidebar: React.FC<MemberSidebarProps> = ({
   isVisible,
+  conversationId,
   members,
   isLoading = false,
   isError = false,
@@ -36,6 +38,10 @@ const MemberSidebar: React.FC<MemberSidebarProps> = ({
   isMobile = false,
 }) => {
   const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    setSearch('');
+  }, [conversationId]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
