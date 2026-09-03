@@ -1,20 +1,37 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Search } from 'lucide-react';
-import { ChatUser, getAvatarColor, getInitials, getStatusColor } from '../chatTypes';
+import { X, Search, Loader2 } from 'lucide-react';
+import { getAvatarColor, getInitials } from '../chatTypes';
+
+export interface MemberSidebarMember {
+  id: string;
+  name: string;
+  designation?: string | null;
+  avatar?: string | null;
+  online: boolean;
+}
 
 interface MemberSidebarProps {
   isVisible: boolean;
-  users: ChatUser[];
-  onUserSelect?: (user: ChatUser) => void;
+  members: MemberSidebarMember[];
+  isLoading?: boolean;
+  isError?: boolean;
+  title?: string;
+  // DM/1:1 conversations: no search box, no Online/Offline section
+  // headers — just the (at most 2) participants, per the product
+  // requirement that a DM shouldn't get a heavy Discord-style roster.
+  compact?: boolean;
   onClose?: () => void;
   isMobile?: boolean;
 }
 
 const MemberSidebar: React.FC<MemberSidebarProps> = ({
   isVisible,
-  users,
-  onUserSelect,
+  members,
+  isLoading = false,
+  isError = false,
+  title = 'Members',
+  compact = false,
   onClose,
   isMobile = false,
 }) => {
@@ -22,57 +39,79 @@ const MemberSidebar: React.FC<MemberSidebarProps> = ({
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
-    if (!q) return users;
-    return users.filter(u =>
-      u.name.toLowerCase().includes(q) || u.role.toLowerCase().includes(q)
+    if (!q) return members;
+    return members.filter(m =>
+      m.name.toLowerCase().includes(q) || (m.designation || '').toLowerCase().includes(q)
     );
-  }, [users, search]);
+  }, [members, search]);
 
-  const groupedByRole = useMemo(() => {
-    const map = new Map<string, ChatUser[]>();
-    filtered.forEach(user => {
-      const list = map.get(user.role) || [];
-      list.push(user);
-      map.set(user.role, list);
-    });
-    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [filtered]);
+  const online = useMemo(() => filtered.filter(m => m.online), [filtered]);
+  const offline = useMemo(() => filtered.filter(m => !m.online), [filtered]);
 
-  const renderUser = (user: ChatUser) => {
-    const isOffline = user.status === 'offline';
-    return (
-      <button
-        key={user.id}
-        onClick={() => onUserSelect?.(user)}
-        className={`w-full flex items-center gap-2 py-1.5 rounded-md hover:bg-[#E3E5E8] transition-colors group text-left ${
-          isOffline ? 'opacity-50 hover:opacity-70' : ''
-        }`}
-      >
-        <div className="relative flex-shrink-0">
-          <div className={`w-8 h-8 rounded-full bg-gradient-to-b ${
-            isOffline ? 'from-gray-300 to-gray-400' : getAvatarColor(user.name)
-          } flex items-center justify-center text-white text-[10px] font-bold`}>
-            {getInitials(user.name)}
-          </div>
-          <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${getStatusColor(user.status)}`} />
+  const renderMember = (member: MemberSidebarMember) => (
+    <div
+      key={member.id}
+      className={`w-full flex items-center gap-2 py-1.5 rounded-md ${member.online ? '' : 'opacity-50'}`}
+    >
+      <div className="relative flex-shrink-0">
+        <div className={`w-8 h-8 rounded-full bg-gradient-to-b ${
+          member.online ? getAvatarColor(member.name) : 'from-gray-300 to-gray-400'
+        } flex items-center justify-center text-white text-[10px] font-bold overflow-hidden`}>
+          {member.avatar ? (
+            <img src={member.avatar} alt={member.name} className="w-full h-full object-cover" />
+          ) : (
+            getInitials(member.name)
+          )}
         </div>
-        <div className="min-w-0 flex-1">
-          <p className={`text-sm font-medium truncate ${isOffline ? 'text-gray-500' : 'text-gray-700 group-hover:text-gray-900'}`}>
-            {user.name}
+        <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${member.online ? 'bg-green-500' : 'bg-gray-400'}`} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className={`text-sm font-medium truncate ${member.online ? 'text-gray-700' : 'text-gray-500'}`}>
+          {member.name}
+        </p>
+        {member.designation && (
+          <p className="text-[11px] text-gray-400 truncate">{member.designation}</p>
+        )}
+      </div>
+    </div>
+  );
+
+  const body = isLoading ? (
+    <div className="flex items-center justify-center py-10">
+      <Loader2 size={18} className="animate-spin text-gray-300" />
+    </div>
+  ) : isError ? (
+    <p className="text-xs text-gray-400 text-center py-8">Couldn't load members</p>
+  ) : filtered.length === 0 ? (
+    <p className="text-xs text-gray-400 text-center py-8">No members found</p>
+  ) : compact ? (
+    <div className="space-y-0.5">{filtered.map(renderMember)}</div>
+  ) : (
+    <>
+      {online.length > 0 && (
+        <div className="mb-3">
+          <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1">
+            Online — {online.length}
           </p>
+          <div className="space-y-0.5">{online.map(renderMember)}</div>
         </div>
-        <span className="text-[10px] text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity font-medium hidden sm:block flex-shrink-0">
-          Message
-        </span>
-      </button>
-    );
-  };
+      )}
+      {offline.length > 0 && (
+        <div className="mb-3">
+          <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1">
+            Offline — {offline.length}
+          </p>
+          <div className="space-y-0.5">{offline.map(renderMember)}</div>
+        </div>
+      )}
+    </>
+  );
 
   const content = (
     <div className="flex flex-col h-full bg-[#F2F3F5]">
       <div className="h-14 px-3 flex items-center justify-between border-b border-[#E3E5E8] flex-shrink-0">
         <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide truncate">
-          Members — {users.length}
+          {title} — {members.length}
         </h3>
         {isMobile && (
           <button onClick={onClose} className="p-1.5 hover:bg-[#E3E5E8] rounded text-gray-500 shrink-0">
@@ -81,32 +120,22 @@ const MemberSidebar: React.FC<MemberSidebarProps> = ({
         )}
       </div>
 
-      <div className="px-3 py-2 flex-shrink-0">
-        <div className="relative w-full">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search members"
-            className="w-full h-7 pl-8 pr-2 text-xs bg-[#E3E5E8] rounded-md focus:outline-none focus:ring-1 focus:ring-[#005CDA]/30 text-gray-700 placeholder:text-gray-400"
-          />
+      {!compact && (
+        <div className="px-3 py-2 flex-shrink-0">
+          <div className="relative w-full">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search members"
+              className="w-full h-7 pl-8 pr-2 text-xs bg-[#E3E5E8] rounded-md focus:outline-none focus:ring-1 focus:ring-[#005CDA]/30 text-gray-700 placeholder:text-gray-400"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex-1 overflow-y-auto py-2 px-3 no-scrollbar">
-        {groupedByRole.map(([role, roleUsers]) => (
-          <div key={role} className="mb-3">
-            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1">
-              {role} — {roleUsers.length}
-            </p>
-            <div className="space-y-0.5">
-              {roleUsers.map(renderUser)}
-            </div>
-          </div>
-        ))}
-        {groupedByRole.length === 0 && (
-          <p className="text-xs text-gray-400 text-center py-8">No members found</p>
-        )}
+        {body}
       </div>
     </div>
   );
