@@ -9,6 +9,7 @@ import { getPageTitle } from './pageTitles';
 import { useMyPermissions } from '@/services/permissionsService';
 
 import ActionModal from '@/components/ui/ActionModal';
+import ChatMessagePopup from '@/components/chatPopup/ChatMessagePopup';
 
 export type AdminTopbarProps = { onMenu: () => void; routePrefix?: string; fullWidth?: boolean; title?: string };
 
@@ -70,6 +71,7 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
     };
 
     return (
+        <>
         <div className={`fixed top-0 left-0 ${fullWidth ? '' : 'lg:left-sidebar'} gap-3 right-0 h-[5.5rem] bg-white backdrop-blur-md border-b border-gray-100 flex items-center justify-between px-6 md:px-5 z-[100] transition-all duration-300`}>
 
             <div className="flex items-center gap-4 shrink-0">
@@ -225,6 +227,8 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
                 icon="logout"
             />
         </div>
+        <ChatMessagePopup />
+        </>
     );
 });
 
