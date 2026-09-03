@@ -6,11 +6,40 @@ import { X } from 'lucide-react';
 import { getSocket } from '@/lib/socket';
 import { useAuthStore } from '@/stores/authStore';
 import { apiRequest } from '@/lib/queryClient';
+import { API_ENDPOINTS } from '@/services/api/endpoints';
+import { getOrCreateKeyPair, importPublicKey, deriveSharedKey, decryptMessage } from '@/lib/e2eCrypto';
 
 const CHAT_CHANNELS_QUERY_KEY = ['chat-channels'];
 async function fetch_chat_channels() {
-  const r = await apiRequest<any>('api/v1/chat/channels');
+  const r = await apiRequest<any>(API_ENDPOINTS.CHAT.CHANNELS);
   return r?.payload?.records || r?.payload || [];
+}
+
+// DM content is end-to-end encrypted (see chat/index.tsx) — the socket
+// payload's content/iv are ciphertext, not plaintext. Mirrors the same
+// getOrCreateKeyPair → fetch peer public key → deriveSharedKey → decrypt
+// flow chat/index.tsx uses for its own message list, cached per peer so a
+// burst of DMs from the same person only derives the shared key once.
+const sharedKeyCache = new Map<string, CryptoKey>();
+let privateKeyPromise: ReturnType<typeof getOrCreateKeyPair> | null = null;
+
+async function decrypt_dm_content(peerUserId: string, ciphertext: string, iv: string): Promise<string | null> {
+  try {
+    let sharedKey = sharedKeyCache.get(peerUserId);
+    if (!sharedKey) {
+      if (!privateKeyPromise) privateKeyPromise = getOrCreateKeyPair();
+      const { privateKey } = await privateKeyPromise;
+      const r = await apiRequest<any>(API_ENDPOINTS.USER.PUBLIC_KEY(peerUserId));
+      const peerPublicKeyB64 = r?.payload?.public_key;
+      if (!peerPublicKeyB64) return null;
+      const peerKey = await importPublicKey(peerPublicKeyB64);
+      sharedKey = await deriveSharedKey(privateKey, peerKey);
+      sharedKeyCache.set(peerUserId, sharedKey);
+    }
+    return await decryptMessage(sharedKey, ciphertext, iv);
+  } catch {
+    return null;
+  }
 }
 
 const AUTO_DISMISS_MS = 6000;
@@ -87,7 +116,15 @@ const ChatMessagePopup: React.FC = () => {
       if (!channel) return;
 
       const senderName = [msg.user?.first_name, msg.user?.last_name].filter(Boolean).join(' ') || 'Someone';
-      const preview = (msg.content?.trim() || (msg.file_url ? 'Sent an attachment' : '')).slice(0, 120);
+
+      let content = msg.content?.trim() || '';
+      let decryptFailed = false;
+      if (channel.type === 'DM' && msg.is_encrypted && msg.iv && content) {
+        const decrypted = await decrypt_dm_content(msg.user_id, content, msg.iv);
+        decryptFailed = decrypted === null;
+        content = decrypted ?? '';
+      }
+      const preview = (content || (msg.file_url ? 'Sent an attachment' : decryptFailed ? 'New message' : '')).slice(0, 120);
       if (!preview) return;
 
       setItems((prev) => [
