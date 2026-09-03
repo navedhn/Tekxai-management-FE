@@ -5,6 +5,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { getSocket } from '@/lib/socket';
 import { useAuthStore } from '@/stores/authStore';
+import { apiRequest } from '@/lib/queryClient';
+
+const CHAT_CHANNELS_QUERY_KEY = ['chat-channels'];
+async function fetch_chat_channels() {
+  const r = await apiRequest<any>('api/v1/chat/channels');
+  return r?.payload?.records || r?.payload || [];
+}
 
 const AUTO_DISMISS_MS = 6000;
 const MAX_SEEN_IDS = 500;
@@ -44,7 +51,7 @@ const ChatMessagePopup: React.FC = () => {
     const socket = getSocket();
     if (!socket) return;
 
-    const handleNewMessage = (msg: any) => {
+    const handleNewMessage = async (msg: any) => {
       if (!msg?.id || !msg?.channel_id) return;
       if (msg.user_id === currentUserIdRef.current) return; // never popup your own message
 
@@ -64,10 +71,19 @@ const ChatMessagePopup: React.FC = () => {
 
       // Reuse the already-cached, already-authorized channel list (same
       // data the Chat sidebar itself renders from) to get the name/type —
-      // no new backend field needed. A channel that isn't cached yet is
-      // skipped rather than guessed at.
-      const channels = qc.getQueryData<any[]>(['chat-channels']) || [];
-      const channel = channels.find((c) => c.id === msg.channel_id);
+      // no new backend field needed. This popup is global (mounted outside
+      // /chat), so the cache may not have been populated yet in this tab —
+      // fetch it on-demand in that case, sharing the same query key/cache
+      // as chat/index.tsx so there's no duplicate fetch once it exists.
+      let channels = qc.getQueryData<any[]>(CHAT_CHANNELS_QUERY_KEY);
+      if (!channels) {
+        try {
+          channels = await qc.fetchQuery({ queryKey: CHAT_CHANNELS_QUERY_KEY, queryFn: fetch_chat_channels });
+        } catch {
+          return;
+        }
+      }
+      const channel = (channels || []).find((c) => c.id === msg.channel_id);
       if (!channel) return;
 
       const senderName = [msg.user?.first_name, msg.user?.last_name].filter(Boolean).join(' ') || 'Someone';
