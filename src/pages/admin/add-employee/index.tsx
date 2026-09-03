@@ -829,7 +829,7 @@ export default function AddEmployee() {
   // The full-record endpoint accepts either a DB id or a human-readable
   // employee_id (e.g. TXI-0046) — whichever identifier the URL carries.
   const recordLookupId = isEditMode ? (employeeIdParam || legacyDbId) : undefined;
-  const { data: record, isLoading: recordLoading } = useGetEmployeeFullRecord(recordLookupId);
+  const { data: record, isLoading: recordLoading, error: recordError } = useGetEmployeeFullRecord(recordLookupId);
   // The resolved DB id, once the record has loaded — every mutation
   // (save, invalidation) needs the real id, never the URL's employee_id.
   const [resolvedUserId, setResolvedUserId] = useState<string | undefined>(undefined);
@@ -1186,9 +1186,13 @@ export default function AddEmployee() {
   }
 
   if (isEditMode && !recordLoading && !record) {
+    const status = (recordError as any)?.status;
+    const isForbidden = status === 401 || status === 403;
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-32">
-        <p className="text-sm font-semibold text-gray-500">Employee not found.</p>
+        <p className="text-sm font-semibold text-gray-500">
+          {isForbidden ? "You don't have permission to view this employee." : 'Employee not found.'}
+        </p>
         <button onClick={() => navigate('/admin/employee-directory')} className="text-sm text-primary-600 font-semibold hover:underline">
           Back to Employee Directory
         </button>

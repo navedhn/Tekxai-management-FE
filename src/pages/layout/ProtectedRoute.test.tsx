@@ -19,7 +19,7 @@ const withQueryClient = (node: React.ReactNode, myPerms?: MyPermissions) => {
 };
 
 const renderProtectedRoute = (
-  props: { permission?: string; superAdminOnly?: boolean },
+  props: { permission?: string | string[]; superAdminOnly?: boolean },
   myPerms?: MyPermissions,
 ) =>
   render(
@@ -103,5 +103,26 @@ describe('ProtectedRoute', () => {
     useAuthStore.setState({ isLoggedIn: true, role: 'EMPLOYEE', user: { id: '7' } as never });
     renderProtectedRoute({}, { roles: ['EMPLOYEE'], permissions: [], is_super_admin: false });
     expect(screen.getByText('Protected Content')).toBeInTheDocument();
+  });
+
+  // Regression: HR Manager (hr.employees.edit, no erp.users.create) hit
+  // "Employee not found" on /admin/add-employee?mode=edit because the
+  // route required erp.users.create only — an array permission is "any of".
+  it('an array permission grants access when the caller holds only one of the listed keys', () => {
+    useAuthStore.setState({ isLoggedIn: true, role: 'HR_MANAGER', user: { id: '8' } as never });
+    renderProtectedRoute(
+      { permission: ['erp.users.create', 'hr.employees.edit'] },
+      { roles: ['HR_MANAGER'], permissions: ['hr.employees.edit'], is_super_admin: false },
+    );
+    expect(screen.getByText('Protected Content')).toBeInTheDocument();
+  });
+
+  it('an array permission denies access when the caller holds none of the listed keys', () => {
+    useAuthStore.setState({ isLoggedIn: true, role: 'EMPLOYEE', user: { id: '9' } as never });
+    renderProtectedRoute(
+      { permission: ['erp.users.create', 'hr.employees.edit'] },
+      { roles: ['EMPLOYEE'], permissions: [], is_super_admin: false },
+    );
+    expect(screen.getByText('Access Denied Page')).toBeInTheDocument();
   });
 });
