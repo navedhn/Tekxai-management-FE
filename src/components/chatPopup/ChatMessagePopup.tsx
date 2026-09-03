@@ -44,6 +44,52 @@ async function decrypt_dm_content(peerUserId: string, ciphertext: string, iv: st
 
 const AUTO_DISMISS_MS = 6000;
 const MAX_SEEN_IDS = 500;
+const SOUND_THROTTLE_MS = 1000;
+
+// Synthesized two-tone chime via Web Audio — no binary asset, no external
+// URL, no audio library. A single shared AudioContext is created lazily on
+// first attempt (never at module load, so nothing runs before a user
+// gesture); if the browser's autoplay policy has it suspended, we try a
+// silent resume() and just skip this play on failure — never throw, never
+// break the popup. Throttled so a burst of messages plays at most one
+// chime per SOUND_THROTTLE_MS instead of overlapping/stacking sounds.
+let audioCtx: AudioContext | null = null;
+let lastPlayedAt = 0;
+
+function playNotificationSound() {
+  const now = Date.now();
+  if (now - lastPlayedAt < SOUND_THROTTLE_MS) return;
+  lastPlayedAt = now;
+
+  try {
+    const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!Ctx) return;
+    if (!audioCtx) audioCtx = new Ctx();
+    const ctx = audioCtx;
+    const start = () => {
+      const t0 = ctx.currentTime;
+      [[880, t0, 0.09], [1175, t0 + 0.09, 0.11]].forEach(([freq, at, dur]) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq as number;
+        gain.gain.setValueAtTime(0, at as number);
+        gain.gain.linearRampToValueAtTime(0.12, (at as number) + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, (at as number) + (dur as number));
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(at as number);
+        osc.stop((at as number) + (dur as number) + 0.02);
+      });
+    };
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(start).catch(() => {});
+    } else {
+      start();
+    }
+  } catch {
+    // Autoplay blocked or Web Audio unavailable — silently skip, popup still shows.
+  }
+}
 
 interface ChatPopupItem {
   id: string;
@@ -126,6 +172,8 @@ const ChatMessagePopup: React.FC = () => {
       }
       const preview = (content || (msg.file_url ? 'Sent an attachment' : decryptFailed ? 'New message' : '')).slice(0, 120);
       if (!preview) return;
+
+      playNotificationSound();
 
       setItems((prev) => [
         ...prev,
