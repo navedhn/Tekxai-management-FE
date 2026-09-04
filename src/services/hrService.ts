@@ -3,6 +3,7 @@ import { apiRequest, BASE_URL } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { QUERY_KEYS } from '@/services/api/tanstackKeys';
 import { getAccessToken } from '@/utils/tokenMemory';
+import { uploadEmployeeDocument } from '@/lib/upload';
 
 // ── HR Profile ─────────────────────────────────────────────────────────────────
 
@@ -77,6 +78,8 @@ export const useGetDocTypes = () =>
     select: (r: any) => (r?.payload || []) as { value: string; label: string }[],
   });
 
+// JSON create — kept only for a pasted external link (no S3 involvement at
+// all). Any actual uploaded File must go through useUploadEmployeeDoc below.
 export const useCreateEmployeeDoc = (userId: string) => {
   const qc = useQueryClient();
   return useMutation({
@@ -86,11 +89,44 @@ export const useCreateEmployeeDoc = (userId: string) => {
   });
 };
 
+// Direct-to-private-S3 upload + attach in one call — POST /employee-doc/:userId/upload.
+// The backend derives the S3 key from document_type; nothing storage-shaped
+// is sent from here.
+export const useUploadEmployeeDoc = (userId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ file, document_type, title, notes, expiry_date }: { file: File; document_type?: string; title?: string; notes?: string; expiry_date?: string }) =>
+      uploadEmployeeDocument(userId, file, { document_type, title, notes, expiry_date }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['employee-docs', userId] }),
+  });
+};
+
 export const useUpdateEmployeeDoc = (userId: string) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ docId, data }: { docId: string; data: any }) =>
       apiRequest<any>(API_ENDPOINTS.EMPLOYEE_DOC.UPDATE(userId, docId), { method: 'PUT', body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['employee-docs', userId] }),
+  });
+};
+
+// Replace an existing document's FILE (not just its metadata) — multipart PUT
+// to the same UPDATE endpoint; update_doc_ctrl/update_employee_doc on the
+// backend detect req.file and upload straight to
+// Emp-{employeeId}/documents/{category}/... instead of touching the JSON
+// file_key/file_url fields. A plain JSON edit (title/notes/verification)
+// keeps using useUpdateEmployeeDoc above, unaffected.
+export const useReplaceEmployeeDocFile = (userId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ docId, file, document_type, title, notes }: { docId: string; file: File; document_type?: string; title?: string; notes?: string }) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      if (document_type) fd.append('document_type', document_type);
+      if (title) fd.append('title', title);
+      if (notes) fd.append('notes', notes);
+      return apiRequest<any>(API_ENDPOINTS.EMPLOYEE_DOC.UPDATE(userId, docId), { method: 'PUT', body: fd });
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['employee-docs', userId] }),
   });
 };

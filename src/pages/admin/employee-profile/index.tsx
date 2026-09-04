@@ -5,7 +5,6 @@ import {
   RefreshCw, FileSignature, Users, Activity, StickyNote, Monitor, Ticket as TicketIcon,
   CheckSquare, Wallet, TrendingUp, Laptop, CalendarClock, Edit2,
 } from 'lucide-react';
-import { uploadFile } from '@/lib/upload';
 import Tabs from '@/components/ui/Tabs';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -19,7 +18,7 @@ import { useMyPermissions } from '@/services/permissionsService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import {
   useGetEmployeeFullRecord, useUpsertHRProfile, useUpdateUserOrg,
-  useGetEmployeeDocs, useGetDocTypes, useCreateEmployeeDoc, useUpdateEmployeeDoc, useDeleteEmployeeDoc,
+  useGetEmployeeDocs, useGetDocTypes, useCreateEmployeeDoc, useUploadEmployeeDoc, useUpdateEmployeeDoc, useReplaceEmployeeDocFile, useDeleteEmployeeDoc,
   useGetReportingStructure, useGetLifecycleApprovals, useGetActivityLog,
   useGetEmployeeNotes, useCreateEmployeeNote, useUpdateEmployeeNote, useDeleteEmployeeNote,
   useGetEmployeePayslips,
@@ -661,9 +660,8 @@ const VERIFICATION_BADGE: Record<string, string> = {
 
 const DocumentsSection: React.FC<{
   docs: any[]; docTypes: any; showAddDoc: boolean; setShowAddDoc: (v: boolean) => void;
-  newDoc: any; setNewDoc: any; createDoc: any; updateDoc: any; deleteDoc: any; handleAddDoc: () => void;
-}> = ({ docs, docTypes, showAddDoc, setShowAddDoc, newDoc, setNewDoc, createDoc, updateDoc, deleteDoc, handleAddDoc }) => {
-  const [uploading, setUploading] = useState(false);
+  newDoc: any; setNewDoc: any; createDoc: any; uploadDoc: any; updateDoc: any; replaceDocFile: any; deleteDoc: any; handleAddDoc: () => void;
+}> = ({ docs, docTypes, showAddDoc, setShowAddDoc, newDoc, setNewDoc, uploadDoc, updateDoc, replaceDocFile, deleteDoc, handleAddDoc }) => {
   const [replacingId, setReplacingId] = useState<string | null>(null);
   const toast = useToastContext();
   const { data: myPerms } = useMyPermissions();
@@ -686,25 +684,19 @@ const DocumentsSection: React.FC<{
   const uploadedTypes = new Set(docs.map((d) => d.document_type));
   const missingTypes = REQUIRED_DOC_TYPES.filter((t) => !uploadedTypes.has(t));
 
-  const handleNewDocFile = async (file: File) => {
-    setUploading(true);
-    try {
-      const { file_url, file_key } = await uploadFile(file);
-      setNewDoc((p: any) => ({ ...p, file_url, file_key, title: p.title || file.name.replace(/\.[^.]+$/, '') }));
-    } catch (e: any) {
-      toast.error(e?.message || 'Upload failed');
-    }
-    setUploading(false);
+  // No network call here — the file is held locally and only actually
+  // uploaded (direct to private S3, via the dedicated endpoint) when the
+  // admin clicks "Add" (handleAddDoc, in the parent). Matches the same
+  // deferred pattern as the Add Employee wizard's Documents step.
+  const handleNewDocFile = (file: File) => {
+    setNewDoc((p: any) => ({ ...p, file, title: p.title || file.name.replace(/\.[^.]+$/, '') }));
   };
 
   const handleReplaceFile = async (doc: any, file: File) => {
     setReplacingId(doc.id);
     try {
-      const { file_url, file_key } = await uploadFile(file);
-      updateDoc.mutate({ docId: doc.id, data: { title: doc.title, document_type: doc.document_type, notes: doc.notes, file_url, file_key } }, {
-        onSuccess: () => toast.success('Document replaced'),
-        onError: (e: any) => toast.error(e?.message || 'Replace failed'),
-      });
+      await replaceDocFile.mutateAsync({ docId: doc.id, file, document_type: doc.document_type, title: doc.title, notes: doc.notes });
+      toast.success('Document replaced');
     } catch (e: any) {
       toast.error(e?.message || 'Upload failed');
     }
@@ -729,24 +721,19 @@ const DocumentsSection: React.FC<{
               <p className="text-xs font-bold text-gray-500 mb-1">Upload File *</p>
               <label className={cn(
                 'flex items-center gap-2 w-full h-10 px-3 border border-dashed rounded-xl text-sm cursor-pointer transition-colors',
-                uploading ? 'border-blue-300 bg-blue-50 text-blue-500' : 'border-gray-300 hover:border-blue-300 hover:bg-blue-50 text-gray-400 hover:text-blue-500',
+                newDoc.file ? 'border-green-300 bg-green-50 text-green-600' : 'border-gray-300 hover:border-blue-300 hover:bg-blue-50 text-gray-400 hover:text-blue-500',
               )}>
                 <Upload size={14} />
-                <span className="truncate">{uploading ? 'Uploading…' : newDoc.file_url ? 'File uploaded — choose another to replace' : 'Choose file to upload'}</span>
-                <input type="file" className="hidden" disabled={uploading} onChange={e => e.target.files?.[0] && handleNewDocFile(e.target.files[0])} />
+                <span className="truncate">{newDoc.file ? `Selected: ${newDoc.file.name}` : 'Choose file to upload'}</span>
+                <input type="file" className="hidden" onChange={e => e.target.files?.[0] && handleNewDocFile(e.target.files[0])} />
               </label>
-              {newDoc.file_url && (
-                <a href={newDoc.file_url} target="_blank" rel="noreferrer" className="text-xs text-[#005CDA] font-semibold mt-1.5 inline-flex items-center gap-1">
-                  <FileText size={12} />Preview uploaded file
-                </a>
-              )}
             </div>
             <Input type="date" label="Expiry Date (optional)" value={newDoc.expiry_date} onChange={e => setNewDoc((p: any) => ({ ...p, expiry_date: e.target.value }))} className="h-10 rounded-xl" />
             <Input label="Notes (optional)" value={newDoc.notes} onChange={e => setNewDoc((p: any) => ({ ...p, notes: e.target.value }))} className="h-10 rounded-xl col-span-2" />
           </div>
           <div className="flex gap-2 mt-3">
             <Button variant="outline" size="sm" animation="none" rounded={false} className="rounded-xl" onClick={() => setShowAddDoc(false)}>Cancel</Button>
-            <Button variant="primary" size="sm" animation="none" rounded={false} className="rounded-xl" loading={createDoc.isPending} disabled={uploading} onClick={handleAddDoc}>Add</Button>
+            <Button variant="primary" size="sm" animation="none" rounded={false} className="rounded-xl" loading={uploadDoc.isPending} disabled={uploadDoc.isPending} onClick={handleAddDoc}>Add</Button>
           </div>
         </Card>
       )}
@@ -1126,7 +1113,7 @@ const EmployeeProfilePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('Overview');
   const [hrForm, setHrForm] = useState<any>({});
   const [hrEditing, setHrEditing] = useState(false);
-  const [newDoc, setNewDoc] = useState({ title: '', document_type: 'OTHER', file_url: '', file_key: '', notes: '', expiry_date: '' });
+  const [newDoc, setNewDoc] = useState<{ title: string; document_type: string; file_url: string; file?: File; notes: string; expiry_date: string }>({ title: '', document_type: 'OTHER', file_url: '', file: undefined, notes: '', expiry_date: '' });
   const [showAddDoc, setShowAddDoc] = useState(false);
   const [orgEditing, setOrgEditing] = useState(false);
   const [orgForm, setOrgForm] = useState<{ designation_id: string; grade_id: string; supervisor_id: string }>({ designation_id: '', grade_id: '', supervisor_id: '' });
@@ -1143,7 +1130,9 @@ const EmployeeProfilePage: React.FC = () => {
   const { data: docTypes = [] } = useGetDocTypes();
   const upsertProfile = useUpsertHRProfile(employeeId!);
   const createDoc = useCreateEmployeeDoc(employeeId!);
+  const uploadDoc = useUploadEmployeeDoc(employeeId!);
   const updateDoc = useUpdateEmployeeDoc(employeeId!);
+  const replaceDocFile = useReplaceEmployeeDocFile(employeeId!);
   const deleteDoc = useDeleteEmployeeDoc(employeeId!);
   const updateOrg = useUpdateUserOrg(employeeId!);
   const { data: designations } = useGetDesignationsQuery(record?.user?.department?.id);
@@ -1223,9 +1212,9 @@ const EmployeeProfilePage: React.FC = () => {
 
   const handleAddDoc = () => {
     if (!newDoc.title) { toast.error('Title is required'); return; }
-    if (!newDoc.file_url) { toast.error('Please upload a file'); return; }
-    createDoc.mutate(newDoc, {
-      onSuccess: () => { toast.success('Document added'); setShowAddDoc(false); setNewDoc({ title: '', document_type: 'OTHER', file_url: '', file_key: '', notes: '', expiry_date: '' }); },
+    if (!newDoc.file) { toast.error('Please upload a file'); return; }
+    uploadDoc.mutate({ file: newDoc.file, document_type: newDoc.document_type, title: newDoc.title, notes: newDoc.notes, expiry_date: newDoc.expiry_date || undefined }, {
+      onSuccess: () => { toast.success('Document added'); setShowAddDoc(false); setNewDoc({ title: '', document_type: 'OTHER', file_url: '', file: undefined, notes: '', expiry_date: '' }); },
       onError: (e: any) => toast.error(e?.message || 'Failed'),
     });
   };
@@ -1308,7 +1297,7 @@ const EmployeeProfilePage: React.FC = () => {
       render: () => (
         <DocumentsSection
           docs={docs} docTypes={docTypes} showAddDoc={showAddDoc} setShowAddDoc={setShowAddDoc}
-          newDoc={newDoc} setNewDoc={setNewDoc} createDoc={createDoc} updateDoc={updateDoc} deleteDoc={deleteDoc} handleAddDoc={handleAddDoc}
+          newDoc={newDoc} setNewDoc={setNewDoc} createDoc={createDoc} uploadDoc={uploadDoc} updateDoc={updateDoc} replaceDocFile={replaceDocFile} deleteDoc={deleteDoc} handleAddDoc={handleAddDoc}
         />
       ),
     },
