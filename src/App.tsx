@@ -4,10 +4,12 @@ import ErrorBoundary from '@/pages/ErrorBoundary';
 import { router } from '@/routes/router';
 import RouteFallback from '@/components/layout/RouteFallback';
 import { useTokenRefresh } from '@/hooks/useTokenRefresh';
+import { useProfileRefresh } from '@/hooks/useProfileRefresh';
 import { useTheme } from '@/hooks/useTheme';
 
 const App: React.FC = () => {
   useTokenRefresh();
+  useProfileRefresh();
   useTheme();
 
   useEffect(() => {
