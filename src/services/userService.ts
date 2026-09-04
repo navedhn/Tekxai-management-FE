@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from './api/endpoints';
 import { QUERY_KEYS } from './api/tanstackKeys';
+import { uploadEmployeeAvatar } from '@/lib/upload';
 
 export interface User {
   id: string;
@@ -127,6 +128,23 @@ export const useUpdateMyProfileMutation = () => {
       apiRequest<any>(API_ENDPOINTS.USER.ME_UPDATE, { method: 'PATCH', body: JSON.stringify(data) }),
     onSuccess: () => {
       invalidateUserAndDependents(queryClient);
+    },
+  });
+};
+
+// Dedicated employee-avatar upload — direct to private S3
+// (Emp-{employeeId}/profile/profile-picture.ext), replacing the old
+// "uploadFile() then PATCH avatar=file_url" two-step flow for a user who
+// already has an employee_id. Used by both Settings (self, userId = own id)
+// and any HR admin-editing-an-existing-employee flow. Shares the exact same
+// cache invalidation as useUpdateMyProfileMutation/useUpdateUserMutation so
+// Employee Directory/detail/chat member lists all pick up the new avatar.
+export const useUploadAvatarMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, file }: { userId: string; file: File }) => uploadEmployeeAvatar(userId, file),
+    onSuccess: (_data, variables) => {
+      invalidateUserAndDependents(queryClient, variables.userId);
     },
   });
 };

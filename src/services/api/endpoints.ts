@@ -102,6 +102,12 @@ export const API_ENDPOINTS = {
     // already-assigned Employee ID. Deliberately separate from UPDATE
     // (generic profile PUT), which strips employee_id unconditionally.
     EMPLOYEE_ID_CHANGE: (id: string | number) => `${v1}/user/${id}/employee-id`,
+    // Direct-to-private-S3 avatar upload (multipart) — replaces the old
+    // "POST /storage/upload then PATCH avatar=file_url" two-step flow for
+    // an employee who already has an employee_id (self-service Settings,
+    // or HR editing an existing employee). Requires an existing employee_id
+    // server-side — the Add Employee wizard has no avatar-upload step today.
+    AVATAR_UPLOAD: (id: string | number) => `${v1}/user/${id}/avatar`,
     // E2E DM encryption — see fe-work/src/lib/e2eCrypto.ts. Opaque public-key
     // storage only, no server-side crypto.
     MY_PUBLIC_KEY:   `${v1}/user/me/public-key`,
@@ -375,6 +381,11 @@ export const API_ENDPOINTS = {
     TYPES:   `${v1}/employee-doc/types`,
     LIST:    (userId: string) => `${v1}/employee-doc/${userId}`,
     CREATE:  (userId: string) => `${v1}/employee-doc/${userId}`,
+    // Direct-to-private-S3 file upload (multipart) — for an actual uploaded
+    // file. CREATE above stays the JSON path for a pasted external link
+    // (Google Drive/OneDrive — StepDocuments supports both), which never
+    // touches S3 at all.
+    UPLOAD:  (userId: string) => `${v1}/employee-doc/${userId}/upload`,
     UPDATE:  (userId: string, docId: string) => `${v1}/employee-doc/${userId}/${docId}`,
     DELETE:  (userId: string, docId: string) => `${v1}/employee-doc/${userId}/${docId}`,
   },

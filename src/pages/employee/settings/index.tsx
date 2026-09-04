@@ -8,10 +8,9 @@ import { Lock, Globe, User, Camera } from 'lucide-react';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useGetMySettingsQuery, useUpdatePreferencesMutation, useChangePasswordMutation } from '@/services/settingsService';
 import { useLogoutMutation } from '@/services/authService';
-import { useUpdateMyProfileMutation } from '@/services/userService';
+import { useUploadAvatarMutation } from '@/services/userService';
 import { useAuthStore } from '@/stores/authStore';
 import { clearAuthTokens } from '@/utils/tokenMemory';
-import { uploadFile } from '@/lib/upload';
 import ThemeSwitcher from '@/components/settings/ThemeSwitcher';
 
 const EmployeeSetting: React.FC = () => {
@@ -29,7 +28,7 @@ const EmployeeSetting: React.FC = () => {
     const { data: settingsData } = useGetMySettingsQuery();
     const updatePreferences = useUpdatePreferencesMutation();
     const changePassword = useChangePasswordMutation();
-    const updateMyProfile = useUpdateMyProfileMutation();
+    const uploadAvatar = useUploadAvatarMutation();
 
     const initials = `${user?.first_name?.[0] || ''}${user?.last_name?.[0] || ''}`.toUpperCase();
 
@@ -46,11 +45,21 @@ const EmployeeSetting: React.FC = () => {
             toast.error('Image must be under 5MB');
             return;
         }
+        if (!user?.id) {
+            toast.error('Failed to update photo: no active session');
+            return;
+        }
         setAvatarUploading(true);
         try {
-            const { file_url } = await uploadFile(file);
-            await updateMyProfile.mutateAsync({ avatar: file_url });
-            updateUserProfile({ avatar: file_url });
+            // Direct-to-private-S3 upload — the backend persists the object
+            // key (Emp-{employeeId}/profile/profile-picture.ext), never a
+            // public URL, and returns the user record with `avatar` already
+            // resolved to a short-lived presigned URL. That resolved value is
+            // fine to hold in local UI state for immediate display, but is
+            // never the canonical reference (re-resolved fresh server-side on
+            // every subsequent read) — so it's never sent back to the API.
+            const updated = await uploadAvatar.mutateAsync({ userId: user.id, file });
+            updateUserProfile({ avatar: updated?.avatar });
             toast.success('Profile photo updated');
         } catch (err: any) {
             toast.error(err?.message || 'Failed to update photo');

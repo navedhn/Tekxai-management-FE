@@ -4,7 +4,7 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { ChevronRight, ChevronLeft, Check, User, Briefcase, MapPin, FileText, ClipboardList, Save, X, Plus, Trash2, RotateCcw, Upload, ExternalLink, Loader2 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
-import { uploadFile } from '@/lib/upload';
+import { uploadEmployeeDocument } from '@/lib/upload';
 import { cn } from '@/utils/cn';
 import { EMPLOYMENT_STATUS_OPTIONS, EMPLOYMENT_STATUS_LABELS } from '@/constants/employmentStatus';
 import { useGetEmployeeFullRecord } from '@/services/hrService';
@@ -625,39 +625,46 @@ const DOC_TYPE_OPTIONS = [
   { value: 'OTHER',              label: 'Other' },
 ];
 
-interface DocFile { title: string; document_type: string; file_url: string; notes: string; }
+// `file` (a pending, not-yet-uploaded File object) and `file_url` (a pasted
+// external link — Google Drive/OneDrive) are mutually exclusive per row. The
+// actual S3 upload for `file` is deferred until the employee/user row (and
+// its employee_id) exists — see the submit mutation below — never uploaded
+// eagerly on file selection, and never routed through the generic
+// /storage/upload endpoint for a real employee file.
+interface DocFile { title: string; document_type: string; file_url: string; notes: string; file?: File; }
 
 const EMPTY_DOC: DocFile = { title: '', document_type: 'OTHER', file_url: '', notes: '' };
 
-// Required upload validation: both CNIC sides must be present (uploaded file
-// or pasted link) before the wizard can proceed past the Documents step.
-// `existingTypes` (edit mode only) lists document_types already on file from
-// a prior session — a required type already present there also satisfies the
-// check, so re-editing an employee who already uploaded their CNIC docs
-// doesn't get incorrectly blocked just because docFiles (new uploads only)
-// is empty.
+// Required upload validation: both CNIC sides must be present (a pending
+// file selected, an already-uploaded file, or a pasted link) before the
+// wizard can proceed past the Documents step. `existingTypes` (edit mode
+// only) lists document_types already on file from a prior session — a
+// required type already present there also satisfies the check, so
+// re-editing an employee who already uploaded their CNIC docs doesn't get
+// incorrectly blocked just because docFiles (new uploads only) is empty.
 export function missingRequiredDocs(docFiles: DocFile[], existingTypes: string[] = []): string[] {
   return REQUIRED_DOC_TYPES.filter(
-    type => !docFiles.some(d => d.document_type === type && d.file_url.trim()) && !existingTypes.includes(type)
+    type => !docFiles.some(d => d.document_type === type && (d.file_url.trim() || d.file)) && !existingTypes.includes(type)
   ).map(type => DOC_TYPE_OPTIONS.find(o => o.value === type)?.label || type);
 }
 
 function StepDocuments({ docFiles, setDocFiles, existingTypes = [] }: { docFiles: DocFile[]; setDocFiles: React.Dispatch<React.SetStateAction<DocFile[]>>; existingTypes?: string[] }) {
   const missing = missingRequiredDocs(docFiles, existingTypes);
-  const [uploading, setUploading] = React.useState<Record<number, boolean>>({});
   const addRow = () => setDocFiles(prev => [...prev, { ...EMPTY_DOC }]);
   const removeRow = (idx: number) => setDocFiles(prev => prev.filter((_, i) => i !== idx));
   const updateRow = (idx: number, key: keyof DocFile, val: string) =>
     setDocFiles(prev => prev.map((d, i) => i === idx ? { ...d, [key]: val } : d));
 
-  const handleFileUpload = async (idx: number, file: File) => {
-    setUploading(p => ({ ...p, [idx]: true }));
-    try {
-      const { file_url } = await uploadFile(file);
-      updateRow(idx, 'file_url', file_url);
-      if (!docFiles[idx].title) updateRow(idx, 'title', file.name.replace(/\.[^.]+$/, ''));
-    } catch (e) { console.error('Upload failed', e); }
-    setUploading(p => ({ ...p, [idx]: false }));
+  // No network call here anymore — the employee/user row (and its
+  // employee_id) doesn't exist yet at this point in the wizard, and the S3
+  // key is Emp-{employeeId}/documents/{category}/..., so the actual upload
+  // is deferred to submit time, once employee_id is known (see the submit
+  // mutation below). Just holds the raw File in local state; a pasted link
+  // (file_url) is cleared since the two are mutually exclusive per row.
+  const handleFileSelect = (idx: number, file: File) => {
+    setDocFiles(prev => prev.map((d, i) => i === idx
+      ? { ...d, file, file_url: '', title: d.title || file.name.replace(/\.[^.]+$/, '') }
+      : d));
   };
 
   return (
@@ -711,17 +718,18 @@ function StepDocuments({ docFiles, setDocFiles, existingTypes = [] }: { docFiles
                 </div>
               </div>
 
-              {/* File upload */}
+              {/* File upload — deferred: actually uploaded to S3 at submit
+                  time, once the employee record exists (see handleFileSelect
+                  above). */}
               <div>
                 <label className="text-xs font-bold text-gray-500 mb-1 block">Upload File</label>
-                <label className={`flex items-center gap-2 w-full h-9 px-3 border border-dashed rounded-xl text-sm cursor-pointer transition-colors ${uploading[idx] ? 'border-primary-300 bg-primary-50 text-primary-500' : 'border-gray-300 hover:border-primary-300 hover:bg-primary-50 text-gray-400 hover:text-primary-500'}`}>
+                <label className={`flex items-center gap-2 w-full h-9 px-3 border border-dashed rounded-xl text-sm cursor-pointer transition-colors ${doc.file ? 'border-green-300 bg-green-50 text-green-600' : 'border-gray-300 hover:border-primary-300 hover:bg-primary-50 text-gray-400 hover:text-primary-500'}`}>
                   <Upload size={14} />
-                  <span className="truncate">{uploading[idx] ? 'Uploading…' : 'Choose file to upload'}</span>
+                  <span className="truncate">{doc.file ? `Selected: ${doc.file.name}` : 'Choose file to upload'}</span>
                   <input
                     type="file"
                     className="hidden"
-                    disabled={uploading[idx]}
-                    onChange={e => e.target.files?.[0] && handleFileUpload(idx, e.target.files[0])}
+                    onChange={e => e.target.files?.[0] && handleFileSelect(idx, e.target.files[0])}
                   />
                 </label>
               </div>
@@ -733,7 +741,7 @@ function StepDocuments({ docFiles, setDocFiles, existingTypes = [] }: { docFiles
                   className="w-full h-9 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white"
                   placeholder="https://drive.google.com/..."
                   value={doc.file_url}
-                  onChange={e => updateRow(idx, 'file_url', e.target.value)}
+                  onChange={e => setDocFiles(prev => prev.map((d, i) => i === idx ? { ...d, file_url: e.target.value, file: undefined } : d))}
                 />
                 {doc.file_url && (
                   <a href={doc.file_url} target="_blank" rel="noreferrer" className="text-xs text-primary-500 hover:underline mt-1 inline-flex items-center gap-1">
@@ -845,6 +853,14 @@ export default function AddEmployee() {
   const [draftBanner, setDraftBanner] = useState(false);
   const [errorField, setErrorField] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Employee creation itself succeeded, but one or more document uploads
+  // failed afterward (e.g. a real S3 error — upload_employee_file() never
+  // falls back to local disk, it throws). Never silently claim full success
+  // in that case, and never auto-navigate away — the admin needs to see
+  // exactly which document(s) still need to be retried, and the employee
+  // record itself is fully recoverable (it was created; only the attached
+  // file(s) are missing) via Employee Directory > Edit > Documents.
+  const [docUploadWarning, setDocUploadWarning] = useState<string | null>(null);
   const fieldRefs = React.useRef<Record<string, HTMLElement | null>>({});
   const registerRef = (field: string, el: HTMLElement | null) => { fieldRefs.current[field] = el; };
 
@@ -1108,30 +1124,49 @@ export default function AddEmployee() {
         }),
       });
 
+      // The employee/user row (and its employee_id) now exists — this is the
+      // earliest point a file can be uploaded under
+      // Emp-{employeeId}/documents/{category}/... A row with a pending
+      // `file` goes through the dedicated direct-to-S3 upload endpoint; a
+      // row with only a pasted external link (`file_url`, e.g. Google
+      // Drive/OneDrive — never touches S3) keeps using the existing JSON
+      // create endpoint exactly as before.
       const validDocs = docFiles.filter(d => d.title.trim());
+      const failedDocTitles: string[] = [];
       if (validDocs.length > 0) {
-        await Promise.allSettled(
-          validDocs.map(doc =>
-            apiRequest<any>(API_ENDPOINTS.EMPLOYEE_DOC.CREATE(String(userId)), {
-              method: 'POST',
-              body: JSON.stringify(doc),
-            })
+        const results = await Promise.allSettled(
+          validDocs.map(doc => doc.file
+            ? uploadEmployeeDocument(String(userId), doc.file, {
+                document_type: doc.document_type, title: doc.title, notes: doc.notes || undefined,
+              })
+            : apiRequest<any>(API_ENDPOINTS.EMPLOYEE_DOC.CREATE(String(userId)), {
+                method: 'POST',
+                body: JSON.stringify({ document_type: doc.document_type, title: doc.title, file_url: doc.file_url, notes: doc.notes }),
+              })
           )
         );
+        results.forEach((r, i) => { if (r.status === 'rejected') failedDocTitles.push(validDocs[i].title); });
       }
 
-      return userId;
+      return { userId, failedDocTitles };
     },
-    onSuccess: () => {
+    onSuccess: ({ failedDocTitles }) => {
       qc.invalidateQueries({ queryKey: ['employee-directory'] });
       if (isEditMode) {
         qc.invalidateQueries({ queryKey: ['employee-full', recordLookupId] });
         qc.invalidateQueries({ queryKey: ['hr-profile', resolvedUserId] });
-        navigate('/admin/employee-directory');
-      } else {
-        clearDraft();
-        navigate('/admin/employee-directory');
       }
+      if (failedDocTitles.length > 0) {
+        // Partial success — do not navigate away or clear the draft; the
+        // employee record exists and is fine, but these documents still
+        // need to be uploaded (retry from here or from Employee Directory).
+        setDocUploadWarning(
+          `Employee ${isEditMode ? 'updated' : 'created'} successfully, but ${failedDocTitles.length} document(s) failed to upload: ${failedDocTitles.join(', ')}. Please retry uploading ${failedDocTitles.length === 1 ? 'it' : 'them'}.`
+        );
+        return;
+      }
+      if (!isEditMode) clearDraft();
+      navigate('/admin/employee-directory');
     },
     onError: (err: any) => {
       // Generic backend-validation-error routing: the backend's field_error()
@@ -1309,6 +1344,11 @@ export default function AddEmployee() {
                   ? 'Please fix the highlighted field above before saving again.'
                   : (errorMessage || 'Failed to save employee. Please try again.')}
               </p>
+            )}
+            {docUploadWarning && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700 font-semibold mt-3 text-center">
+                {docUploadWarning}
+              </div>
             )}
           </div>
         </div>

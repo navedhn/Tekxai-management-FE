@@ -23,4 +23,14 @@ describe('missingRequiredDocs', () => {
   it('reports nothing missing in edit mode regardless of existingTypes', () => {
     expect(missingRequiredDocs([], [])).toEqual([]);
   });
+
+  // Deferred-upload sequencing: a row with a pending, not-yet-uploaded File
+  // (before the employee record exists) must satisfy the same requirement
+  // an already-uploaded file_url would — the wizard doesn't actually upload
+  // to S3 until after employee creation, so file_url is empty at this point
+  // even though a real file IS attached.
+  it('treats a pending (not-yet-uploaded) file as satisfying the requirement, same as file_url', () => {
+    const pendingFile = { title: 't', document_type: 'CNIC', file_url: '', notes: '', file: new File(['x'], 'cnic.pdf') };
+    expect(missingRequiredDocs([pendingFile])).toEqual([]);
+  });
 });
