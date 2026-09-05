@@ -7,7 +7,7 @@ import Input from './Input';
 import SearchableSelect from './SearchableSelect';
 import Textarea from './Textarea';
 import DatePicker from './DatePicker';
-import { ProjectDetail, ProjectDto, ProjectMemberRole, PROJECT_MEMBER_ROLES, useCreateProjectMutation, useUpdateProjectMutation } from '@/services/projectService';
+import { ProjectDetail, ProjectDto, ProjectMemberRole, PROJECT_MEMBER_ROLES, useCreateProjectMutation, useUpdateProjectMutation, useClientsLookupQuery } from '@/services/projectService';
 import { useFetchUsersQuery } from '@/services/userService';
 import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
 import { useToastContext } from '@/components/toast/ToastProvider';
@@ -218,6 +218,21 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
   const [budget, setBudget] = useState('');
   const [budgetCurrency, setBudgetCurrency] = useState('PKR');
 
+  // Phase 2 Commercial Project Foundation.
+  const [clientId, setClientId] = useState('');
+  const [clientDisplayName, setClientDisplayName] = useState(''); // prefill label only, for the selected-but-not-in-search-results case
+  const [clientSearch, setClientSearch] = useState('');
+  const [bidder, setBidder] = useState<TeamMember | null>(null);
+  const [bidderSearch, setBidderSearch] = useState('');
+  const [source, setSource] = useState('');
+  const [commissionType, setCommissionType] = useState<'' | 'PERCENTAGE' | 'FIXED'>('');
+  const [commissionValue, setCommissionValue] = useState('');
+  // Tracks whether the client selector was actually touched this session —
+  // distinguishes "never touched a legacy free-text client_name" (omit
+  // client_id entirely, leave client_name exactly as-is) from "explicitly
+  // cleared the selection" (send client_id: null to unlink).
+  const [clientTouched, setClientTouched] = useState(false);
+
   const [projectOwners, setProjectOwners] = useState<TeamMember[]>([]);
   const [teamLeaders, setTeamLeaders] = useState<TeamMember[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -227,6 +242,8 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
   const createMutation = useCreateProjectMutation();
   const updateMutation = useUpdateProjectMutation();
   const { data: businessUnits = [] } = useGetBusinessUnitsQuery();
+  const { data: clientResults = [], isLoading: clientsLoading } = useClientsLookupQuery(clientSearch, true);
+  const { data: bidderUsers = [], isLoading: biddersLoading } = useFetchUsersQuery({ search: bidderSearch }, true);
 
   const isEdit = !!project;
 
@@ -244,6 +261,20 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       setBusinessUnitId(project.business_unit_id ? String(project.business_unit_id) : '');
       setBudget(project.budget != null ? String(project.budget) : '');
       setBudgetCurrency(project.budget_currency || 'PKR');
+      // Phase 2 Commercial Project Foundation.
+      setClientId(project.client_id || '');
+      setClientDisplayName(project.client?.name || '');
+      setClientSearch('');
+      setClientTouched(false);
+      setBidder(project.bidder ? {
+        id: project.bidder.id,
+        name: `${project.bidder.first_name} ${project.bidder.last_name}`.trim(),
+        avatar: project.bidder.avatar || '',
+      } : null);
+      setBidderSearch('');
+      setSource(project.source || '');
+      setCommissionType(project.commission_type || '');
+      setCommissionValue(project.commission_value != null ? String(project.commission_value) : '');
       setTeamMembers((project.members || []).map((m) => ({
         id: m.id,
         name: `${m.first_name} ${m.last_name}`.trim(),
@@ -280,6 +311,15 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       setBusinessUnitId('');
       setBudget('');
       setBudgetCurrency('PKR');
+      setClientId('');
+      setClientDisplayName('');
+      setClientSearch('');
+      setClientTouched(false);
+      setBidder(null);
+      setBidderSearch('');
+      setSource('');
+      setCommissionType('');
+      setCommissionValue('');
       setProjectOwners([]);
       setTeamLeaders([]);
       setTeamMembers([]);
@@ -297,6 +337,18 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
     }
     if (projectOwners.length === 0) newErrors.owner = 'At least one project owner is required';
     if (budget !== '' && Number(budget) < 0) newErrors.budget = 'Budget cannot be negative';
+    // Commission must be a complete arrangement (type + value) or fully empty —
+    // mirrors the backend's own validate_commission_fields exactly, so this
+    // never surfaces as a confusing 400 the user couldn't have predicted.
+    const hasCommissionType = commissionType !== '';
+    const hasCommissionValue = commissionValue !== '';
+    if (hasCommissionType !== hasCommissionValue) {
+      newErrors.commission = 'Set both a commission type and value, or leave both empty';
+    } else if (hasCommissionValue) {
+      const n = Number(commissionValue);
+      if (Number.isNaN(n) || n < 0) newErrors.commission = 'Commission value cannot be negative';
+      else if (commissionType === 'PERCENTAGE' && n > 100) newErrors.commission = 'Commission percentage cannot exceed 100';
+    }
 
     setErrors(newErrors);
 
@@ -310,7 +362,6 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       start_date: startDate,
       end_date: endDate,
       total_hours: Number(totalHours),
-      client_name: clientName.trim() || undefined,
       dev_status: devStatus.trim() || undefined,
       status,
       priority: priority as ProjectDto['priority'],
@@ -323,6 +374,20 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       // rolling back the whole project creation.
       leader_id: teamLeaders[0]?.id || undefined,
       members: teamMembers.map(m => ({ user_id: m.id, role: m.role || 'MEMBER', allocation_percent: m.allocation_percent ?? 100 })),
+      // Phase 2 Commercial Project Foundation.
+      //
+      // client_id is only sent if the selector was actually touched this
+      // session — an untouched legacy project (free-text client_name, no
+      // real client_id) must round-trip with its client_name completely
+      // unchanged, not silently nulled out just because the field wasn't
+      // interacted with. Touching it — picking a client OR explicitly
+      // clearing a previous selection — always sends client_id (possibly
+      // null), and the backend re-resolves client_name from it.
+      ...(clientTouched ? { client_id: clientId || null } : {}),
+      bidder_id: bidder?.id || null,
+      source: source.trim() || null,
+      commission_type: hasCommissionType ? (commissionType as 'PERCENTAGE' | 'FIXED') : null,
+      commission_value: hasCommissionValue ? Number(commissionValue) : null,
     };
 
     try {
@@ -395,13 +460,39 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
                   className="min-h-[140px]"
                 />
 
-                <Input
-                  label="Client"
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                  placeholder="Client name"
-                  className="h-12 rounded-xl"
-                />
+                {/* Phase 2 Commercial Project Foundation — a real client_accounts
+                    relation via search, not free text, for new/linked
+                    projects. A legacy project whose client_name was never
+                    linked to a real client shows that value read-only below
+                    the selector so it isn't lost or silently misread as "no
+                    client" — picking a real client here is what formally
+                    links it (or leaves it alone entirely if untouched). */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Client</label>
+                  <SearchableSelect
+                    options={(() => {
+                      const opts = clientResults.map((c) => ({ label: c.company ? `${c.name} (${c.company})` : c.name, value: c.id }));
+                      // Keep the currently-selected client's label visible even
+                      // if it falls outside the latest search results.
+                      if (clientId && !opts.some((o) => String(o.value) === clientId)) {
+                        opts.unshift({ label: clientDisplayName || clientId, value: clientId });
+                      }
+                      return opts;
+                    })()}
+                    value={clientId || null}
+                    onChange={(v) => { setClientTouched(true); setClientId(v ? String(v) : ''); }}
+                    onSearch={setClientSearch}
+                    loading={clientsLoading}
+                    placeholder="Search clients…"
+                    searchPlaceholder="Search by name or company…"
+                    emptyMessage="No clients found"
+                  />
+                  {!clientId && !clientTouched && clientName && (
+                    <span className="text-[11px] text-gray-400 font-medium ml-1">
+                      Legacy client on file (not linked): "{clientName}" — pick a client above to link it
+                    </span>
+                  )}
+                </div>
 
                 <Input
                   label="Dev Status"
@@ -449,6 +540,104 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
                     <span className="text-sm font-bold text-gray-600 ml-1">{project.project_code}</span>
                   </div>
                 )}
+              </div>
+
+              {/* Phase 2 Commercial Project Foundation — Bidder/Source/Commission.
+                  Deliberately its own section, separate from Team Assignment
+                  (bidder is a commercial responsibility, not a delivery role)
+                  and from Financial (milestone-derived Total/Paid/Remaining/
+                  Active) below — each concept keeps its own meaning. */}
+              <div className="flex flex-col gap-4">
+                <h3 className="text-base font-black text-gray-900 tracking-tight">Commercial</h3>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-[13px] font-bold text-gray-600 ml-1">Bidder</label>
+                  {bidder ? (
+                    <div className="flex items-center justify-between gap-2 bg-white border border-gray-100 rounded-xl px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={bidder.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(bidder.name)}&background=random`}
+                          className="w-7 h-7 rounded-full object-cover"
+                          alt={bidder.name}
+                        />
+                        <span className="text-[13px] font-bold text-gray-700">{bidder.name}</span>
+                      </div>
+                      <IconButton
+                        icon={X}
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Remove bidder"
+                        onClick={() => setBidder(null)}
+                        className="!h-auto !w-auto p-1 text-gray-400 hover:text-red-400"
+                      />
+                    </div>
+                  ) : (
+                    <SearchableSelect
+                      options={bidderUsers.map((u: any) => ({ label: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email, value: u.id }))}
+                      value={null}
+                      onChange={(v) => {
+                        const u = bidderUsers.find((x: any) => x.id === v);
+                        if (u) setBidder({ id: u.id, name: `${u.first_name || ''} ${u.last_name || ''}`.trim(), avatar: u.avatar || '' });
+                      }}
+                      onSearch={setBidderSearch}
+                      loading={biddersLoading}
+                      placeholder="Search employees…"
+                      searchPlaceholder="Search by name, email, department…"
+                      emptyMessage="No employees found"
+                    />
+                  )}
+                  <span className="text-[11px] text-gray-400 font-medium ml-1">The employee who bid/won this work — distinct from Project Owner and Team Leader.</span>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Source / Platform</label>
+                  <SearchableSelect
+                    options={[
+                      { label: 'TekXAI', value: 'TekXAI' },
+                      { label: 'Upwork', value: 'Upwork' },
+                      { label: 'LinkedIn', value: 'LinkedIn' },
+                      { label: 'Website', value: 'Website' },
+                      { label: 'Referral', value: 'Referral' },
+                      { label: 'Other', value: 'Other' },
+                      // A legacy/custom value already on the project that isn't
+                      // one of the curated suggestions above — kept visible and
+                      // selectable rather than silently hidden.
+                      ...(source && !['TekXAI', 'Upwork', 'LinkedIn', 'Website', 'Referral', 'Other'].includes(source)
+                        ? [{ label: source, value: source }] : []),
+                    ]}
+                    value={source || null}
+                    onChange={(v) => setSource(v ? String(v) : '')}
+                    placeholder="Select or clear"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Commission Type</label>
+                    <SearchableSelect
+                      options={[{ label: 'Percentage', value: 'PERCENTAGE' }, { label: 'Fixed Amount', value: 'FIXED' }]}
+                      value={commissionType || null}
+                      onChange={(v) => setCommissionType((v as 'PERCENTAGE' | 'FIXED') || '')}
+                      placeholder="No commission"
+                    />
+                  </div>
+                  <Input
+                    label={commissionType === 'PERCENTAGE' ? 'Commission (%)' : `Commission (${budgetCurrency})`}
+                    type="number"
+                    // No min/max attributes deliberately — an HTML5 range
+                    // constraint silently blocks native form submission with
+                    // no visible error (see CreateMilestoneModal's identical
+                    // Price field note); the JS validation above is the real
+                    // guard and always shows a clear message.
+                    step="0.01"
+                    value={commissionValue}
+                    onChange={(e) => setCommissionValue(e.target.value)}
+                    disabled={!commissionType}
+                    placeholder={commissionType ? '0.00' : '—'}
+                    className="h-12 rounded-xl"
+                  />
+                </div>
+                {errors.commission && <span className="text-xs text-red-500 font-semibold ml-1">{errors.commission}</span>}
               </div>
 
               <div className="flex flex-col gap-4">
