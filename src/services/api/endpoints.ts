@@ -147,6 +147,22 @@ export const API_ENDPOINTS = {
     RESOURCES: (id: string | number) => `${v1}/project/${id}/resources`,
     CLIENTS_LOOKUP: `${v1}/project/clients-lookup`,
   },
+  // Phase 4 Employee Performance Evidence & Review Foundation.
+  PERFORMANCE_REVIEW: {
+    LIST:     `${v1}/performance-reviews`,
+    CREATE:   `${v1}/performance-reviews`,
+    DETAIL:   (id: string) => `${v1}/performance-reviews/${id}`,
+    EVIDENCE: (id: string) => `${v1}/performance-reviews/${id}/evidence`,
+    UPDATE:   (id: string) => `${v1}/performance-reviews/${id}`,
+    DELETE:   (id: string) => `${v1}/performance-reviews/${id}`,
+    ADD_MANAGER_EVIDENCE: (id: string) => `${v1}/performance-reviews/${id}/evidence`,
+    DELETE_MANAGER_EVIDENCE: (id: string, evidenceId: string) => `${v1}/performance-reviews/${id}/evidence/${evidenceId}`,
+  },
+  REVIEW_PERIOD: {
+    LIST:   `${v1}/review-periods`,
+    CREATE: `${v1}/review-periods`,
+    UPDATE: (id: string) => `${v1}/review-periods/${id}`,
+  },
   TRACKING_LINKS: {
     LIST:   (projectId: string) => `${v1}/project/${projectId}/tracking-links`,
     CREATE: (projectId: string) => `${v1}/project/${projectId}/tracking-links`,

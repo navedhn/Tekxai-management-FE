@@ -50,6 +50,14 @@ export const QUERY_KEYS = {
   MILESTONE: {
     LIST: (projectId: string) => ['project', projectId, 'milestones'],
   },
+  PERFORMANCE_REVIEW: {
+    LIST: (filters?: Record<string, any>) => ['performance-review', 'list', filters],
+    DETAIL: (id: string) => ['performance-review', 'detail', id],
+    EVIDENCE: (id: string) => ['performance-review', 'evidence', id],
+  },
+  REVIEW_PERIOD: {
+    LIST: ['review-period', 'list'],
+  },
   DEVOPS_ACCESS: {
     DETAIL: (projectId: string) => ['project', projectId, 'devops-access'],
   },

@@ -54,6 +54,8 @@ const AdminApprovals         = lazy(() => import('@/pages/admin/approvals'));
 const AdminCRM               = lazy(() => import('@/pages/admin/crm'));
 const AdminContracts         = lazy(() => import('@/pages/admin/contracts'));
 const AdminHrDocuments       = lazy(() => import('@/pages/admin/hr-documents'));
+const PerformanceReviews       = lazy(() => import('@/pages/admin/performance-reviews'));
+const PerformanceReviewDetail  = lazy(() => import('@/pages/admin/performance-reviews/detail'));
 const AdminHrDocumentDetail  = lazy(() => import('@/pages/admin/hr-documents/detail'));
 const AdminHrDocumentTemplates = lazy(() => import('@/pages/admin/hr-document-templates'));
 const AdminOnboarding        = lazy(() => import('@/pages/admin/onboarding'));
@@ -217,6 +219,10 @@ const routes: RouteObject[] = [
           { element: <ProtectedRoute permission="hr.employees.view" />, children: [{ path: '/admin/employee-directory', element: <EmployeeDirectory /> }] },
           { element: <ProtectedRoute permission={['erp.users.create', 'hr.employees.edit']} />, children: [{ path: '/admin/add-employee/:employeeId?', element: <AddEmployee /> }] },
           { element: <ProtectedRoute permission="hr.reports.view" />, children: [{ path: '/admin/hr-reports', element: <HRReports /> }] },
+          { element: <ProtectedRoute permission="hr.performance_reviews.view" />, children: [
+            { path: '/admin/performance-reviews', element: <PerformanceReviews /> },
+            { path: '/admin/performance-reviews/:id', element: <PerformanceReviewDetail /> },
+          ] },
           { element: <ProtectedRoute permission="erp.overtime.view" />, children: [{ path: '/admin/overtime', element: <OvertimePage /> }] },
           { element: <ProtectedRoute permission="hr.increments.view" />, children: [{ path: '/admin/increments', element: <IncrementsPage /> }] },
           { path: '/admin/hr', element: <Navigate to="/admin" replace /> },
