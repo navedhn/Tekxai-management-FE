@@ -314,6 +314,40 @@ const ProjectManagement: React.FC = () => {
       }
     },
     {
+      // Milestone Financial Foundation — every value here comes straight
+      // from the API's `financial` object (compute_financial_summary in
+      // projects.repository.js). Never recalculated in the frontend.
+      header: 'Financials',
+      key: 'financial',
+      render: (item) => {
+        const f = item.financial;
+        if (!f || (f.total === 0 && f.paid === 0)) {
+          return <span className="text-xs text-gray-400 italic">No milestones priced</span>;
+        }
+        const currency = f.currency || 'PKR';
+        return (
+          <div className="flex flex-col gap-0.5 min-w-[150px] text-[11px] font-bold">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-gray-400">Active</span>
+              <span className="text-primary-600 tabular-nums">{currency} {f.active.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-gray-400">Paid</span>
+              <span className="text-emerald-600 tabular-nums">{currency} {f.paid.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-gray-400">Remaining</span>
+              <span className={cn('tabular-nums', f.remaining > 0 ? 'text-amber-600' : 'text-gray-700')}>{currency} {f.remaining.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3 pt-0.5 border-t border-gray-50">
+              <span className="text-gray-400">Total</span>
+              <span className="text-gray-900 tabular-nums">{currency} {f.total.toLocaleString()}</span>
+            </div>
+          </div>
+        );
+      }
+    },
+    {
       header: 'Delivery',
       key: 'end_date',
       render: (item) => (

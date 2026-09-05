@@ -19,6 +19,8 @@ export interface MilestoneDependency {
   status: MilestoneStatus;
 }
 
+export type MilestonePaymentStatus = 'UNPAID' | 'PAID';
+
 export interface Milestone {
   id: string;
   project_id: string;
@@ -39,6 +41,12 @@ export interface Milestone {
   depends_on?: MilestoneDependency[];
   members?: { user: MilestoneMember }[];
   tasks: KanbanTask[];
+  // Milestone Financial Foundation — independent of `status`/`completed`
+  // above (see milestones.repository.js/schema comment). `price` always
+  // inherits the parent project's budget_currency; there is no per-milestone
+  // currency.
+  price: number;
+  payment_status: MilestonePaymentStatus;
   created_at: string;
   updated_at: string;
 }
@@ -55,6 +63,8 @@ export interface MilestoneUpsertPayload {
   remarks?: string | null;
   assigned_user_ids?: string[];
   depends_on_ids?: string[];
+  price?: number;
+  payment_status?: MilestonePaymentStatus;
 }
 
 async function fetchMilestones(projectId: string, includeArchived = false): Promise<Milestone[]> {
