@@ -483,6 +483,20 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                             )}>
                               {milestone.payment_status === 'PAID' ? 'Paid' : 'Unpaid'}
                             </span>
+                            {/* Phase 3 Project Delivery & Evidence Foundation —
+                                a third, distinct badge for delivery outcome
+                                (computed from deadline vs. actual completion),
+                                never merged with workflow Status or Payment. */}
+                            {milestone.delivery && (
+                              <span className={cn(
+                                'text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide shrink-0',
+                                milestone.delivery.status === 'ON_TIME' ? 'bg-emerald-50 text-emerald-700'
+                                  : milestone.delivery.status === 'MISSED' ? 'bg-red-50 text-red-600'
+                                  : 'bg-gray-100 text-gray-500'
+                              )}>
+                                {milestone.delivery.status.replace('_', ' ')}
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-4 shrink-0">
                             {milestone.price > 0 && (
@@ -563,6 +577,81 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                                   )}
                                 </div>
                               )}
+
+                              {/* Phase 3 Project Delivery & Evidence Foundation —
+                                  kept as its own block, distinct from workflow
+                                  status/payment/financial above. Only rendered
+                                  once there's something to show, so a plain
+                                  legacy milestone with no delivery evidence at
+                                  all stays exactly as it looked before. */}
+                              {milestone.delivery && (() => {
+                                const d = milestone.delivery;
+                                const resources = milestone.responsible_resources || [];
+                                const hasAnyEvidenceFields = d.original_deadline || d.missed_reason_category || d.issue_classification || d.qa_status || (d.rework_count != null) || d.evidence_count > 0 || resources.length > 0;
+                                if (!hasAnyEvidenceFields) return null;
+                                return (
+                                  <div className="px-3 pb-4">
+                                    <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wide mb-2">Delivery</p>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-gray-50/60 rounded-2xl p-3">
+                                      {resources.length > 0 && (
+                                        <div className="col-span-2 sm:col-span-4">
+                                          <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wide">Responsible Resource(s)</p>
+                                          <p className="font-semibold text-gray-700">{resources.map((r: any) => `${r.first_name || ''} ${r.last_name || ''}`.trim()).join(', ')}</p>
+                                        </div>
+                                      )}
+                                      {d.original_deadline && d.original_deadline !== d.deadline && (
+                                        <div>
+                                          <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wide">Original Deadline</p>
+                                          <p className="font-semibold text-gray-700">{new Date(d.original_deadline).toLocaleDateString()}</p>
+                                        </div>
+                                      )}
+                                      {d.missed_reason_category && (
+                                        <div>
+                                          <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wide">Missed Reason</p>
+                                          <p className="font-semibold text-gray-700">{d.missed_reason_category.replace(/_/g, ' ')}</p>
+                                        </div>
+                                      )}
+                                      {d.issue_classification && (
+                                        <div>
+                                          <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wide">Classification</p>
+                                          <p className="font-semibold text-gray-700">{d.issue_classification.replace(/_/g, ' ')}</p>
+                                        </div>
+                                      )}
+                                      {d.qa_status && (
+                                        <div>
+                                          <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wide">QA Status</p>
+                                          <p className={cn('font-semibold', d.qa_status === 'FAILED' ? 'text-red-600' : 'text-gray-700')}>{d.qa_status.replace(/_/g, ' ')}</p>
+                                        </div>
+                                      )}
+                                      {d.rework_count != null && (
+                                        <div>
+                                          <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wide">Rework Count</p>
+                                          <p className="font-semibold text-gray-700">{d.rework_count}</p>
+                                        </div>
+                                      )}
+                                      {d.evidence_count > 0 && (
+                                        <div>
+                                          <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wide">Evidence</p>
+                                          <p className="font-semibold text-gray-700">{d.evidence_count} document{d.evidence_count === 1 ? '' : 's'}</p>
+                                        </div>
+                                      )}
+                                      {d.missed_reason_detail && (
+                                        <div className="col-span-2 sm:col-span-4">
+                                          <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wide">Explanation</p>
+                                          <p className="font-medium text-gray-600">{d.missed_reason_detail}</p>
+                                        </div>
+                                      )}
+                                      {d.qa_notes && (
+                                        <div className="col-span-2 sm:col-span-4">
+                                          <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wide">QA / Evidence Notes</p>
+                                          <p className="font-medium text-gray-600">{d.qa_notes}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
                               {tasks.length === 0 && (
                                 <div className="px-3 py-4 text-sm text-gray-400 font-medium">No tasks in this milestone yet.</div>
                               )}

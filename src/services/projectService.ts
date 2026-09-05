@@ -101,6 +101,15 @@ export interface BudgetUpdatePayload {
   budget_spent?: number;
 }
 
+// Phase 3 Project Delivery & Evidence Foundation — re-exported here so
+// projectService consumers (which import Milestone/ActiveMilestone from
+// this file, not milestonesService) don't need a second import just for
+// these types.
+export type {
+  MissedReasonCategory, IssueClassification, QaStatus, DeliveryStatus, MilestoneDelivery,
+} from './milestonesService';
+import type { MilestoneDelivery as _MilestoneDelivery } from './milestonesService';
+
 export interface Milestone {
   id: string;
   title: string;
@@ -108,6 +117,9 @@ export interface Milestone {
   completed: boolean;
   price?: number;
   payment_status?: 'UNPAID' | 'PAID';
+  // Phase 3 — see MilestoneDelivery; always server-derived.
+  responsible_resources?: { id: string; first_name?: string | null; last_name?: string | null; avatar?: string | null }[];
+  delivery?: _MilestoneDelivery;
 }
 
 export interface ActiveMilestone {
@@ -119,6 +131,9 @@ export interface ActiveMilestone {
   // Milestone Financial Foundation
   price: number;
   payment_status: 'UNPAID' | 'PAID';
+  // Phase 3 Project Delivery & Evidence Foundation.
+  responsible_resources?: { id: string; first_name?: string | null; last_name?: string | null; avatar?: string | null }[];
+  delivery?: _MilestoneDelivery;
 }
 
 // Milestone Financial Foundation — always server-derived (see
@@ -190,6 +205,9 @@ export interface ProjectDetail {
   current_milestone?: Milestone | null;
   pending_milestones_count?: number;
   milestone_breakdown?: MilestoneBreakdown;
+  // Phase 3 — a facts-only rollup of each milestone's delivery.status
+  // (compute_delivery); never a performance score.
+  delivery_summary?: { on_time: number; missed: number; pending: number };
   // Milestone-derived financial summary — see ProjectFinancialSummary.
   // Distinct from budget/budget_currency/budget_spent below, which remain
   // independent internal cost-tracking fields untouched by this phase.
