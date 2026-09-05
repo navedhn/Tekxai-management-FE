@@ -9,10 +9,11 @@ import { useBulkSelection } from '@/hooks/useBulkSelection';
 import { summarizeBulkDelete } from '@/utils/bulkDeleteSummary';
 import ActionModal from '@/components/ui/ActionModal';
 import BulkDeleteBar from '@/components/ui/BulkDeleteBar';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { cn } from '@/utils/cn';
 
-function Modal({ designation, onClose }: { designation?: any; onClose: () => void }) {
+export function Modal({ designation, onClose }: { designation?: any; onClose: () => void }) {
   const [form, setForm] = useState({
     name: designation?.name || '',
     department_id: designation?.department_id || '',
@@ -50,11 +51,18 @@ function Modal({ designation, onClose }: { designation?: any; onClose: () => voi
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-500 block mb-1.5">Department (optional)</label>
-            <select className="w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 text-gray-700"
-              value={form.department_id} onChange={e => setForm(p => ({ ...p, department_id: e.target.value }))}>
-              <option value="">Not department-specific</option>
-              {(departments || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
+            <SearchableSelect
+              className="h-10"
+              placeholder="Not department-specific"
+              searchPlaceholder="Search departments…"
+              clearable={false}
+              options={[
+                { label: 'Not department-specific', value: '' },
+                ...((departments || []).map((d: any) => ({ label: d.name, value: d.id }))),
+              ]}
+              value={form.department_id}
+              onChange={(v) => setForm(p => ({ ...p, department_id: (v ?? '') as string }))}
+            />
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-500 block mb-1.5">Sort Order</label>
