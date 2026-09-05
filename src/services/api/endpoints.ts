@@ -145,6 +145,7 @@ export const API_ENDPOINTS = {
     EXTENSION: (id: string | number) => `${v1}/project/${id}/extension`,
     EXTENSION_REVIEW: (id: string | number, requestId: string) => `${v1}/project/${id}/extension/${requestId}`,
     RESOURCES: (id: string | number) => `${v1}/project/${id}/resources`,
+    CLIENTS_LOOKUP: `${v1}/project/clients-lookup`,
   },
   TRACKING_LINKS: {
     LIST:   (projectId: string) => `${v1}/project/${projectId}/tracking-links`,

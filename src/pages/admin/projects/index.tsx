@@ -175,8 +175,34 @@ const ProjectManagement: React.FC = () => {
       header: 'Client',
       key: 'client_name',
       render: (item) => item.client_name
-        ? <span className="text-sm font-bold text-gray-700">{item.client_name}</span>
+        ? (
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-bold text-gray-700">{item.client_name}</span>
+            {/* Phase 2 Commercial Project Foundation — a filled dot marks a
+                real client_accounts relation vs. legacy free text, so it's
+                clear at a glance which projects are formally linked. */}
+            {item.client_id && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="Linked to a real client record" />}
+          </div>
+        )
         : <span className="text-xs text-gray-400 italic">—</span>
+    },
+    {
+      // Phase 2 Commercial Project Foundation — Bidder + Source/Platform
+      // combined into one compact column (rather than two more columns) to
+      // avoid overcrowding an already-wide table; both are secondary
+      // commercial metadata, not primary tracking columns like Status/Health.
+      header: 'Bidder / Source',
+      key: 'bidder',
+      render: (item) => {
+        const bidderName = item.bidder ? `${item.bidder.first_name || ''} ${item.bidder.last_name || ''}`.trim() : null;
+        if (!bidderName && !item.source) return <span className="text-xs text-gray-400 italic">—</span>;
+        return (
+          <div className="flex flex-col gap-0.5">
+            {bidderName && <span className="text-xs font-bold text-gray-700">{bidderName}</span>}
+            {item.source && <span className="text-[10px] font-semibold text-gray-400">{item.source}</span>}
+          </div>
+        );
+      }
     },
     {
       header: 'Priority',

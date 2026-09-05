@@ -300,6 +300,44 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                   {/* Overview tab */}
                   {activeTab === 'overview' && (
                     <div className="flex flex-col gap-10 w-full">
+                      {/* Phase 2 Commercial Project Foundation — kept deliberately
+                          separate from the Financial tab's milestone-derived
+                          Total/Paid/Remaining/Active: Client/Bidder/Source/
+                          Commission are commercial context, not financial
+                          totals, and must never be confused with budget or
+                          milestone pricing. */}
+                      <div className="flex flex-col gap-4">
+                        <div className="flex items-center gap-2 text-gray-900 font-black">
+                          <Users size={18} strokeWidth={3} className="text-primary-500" />
+                          <span>Commercial</span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                          <div className="rounded-2xl border border-gray-100 bg-white p-4">
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Client</p>
+                            <p className="text-sm font-bold text-gray-900">{project.client?.name || project.client_name || <span className="text-gray-400 italic font-medium">Not set</span>}</p>
+                            {project.client_id && <p className="text-[10px] text-emerald-600 font-semibold mt-0.5">Linked record</p>}
+                          </div>
+                          <div className="rounded-2xl border border-gray-100 bg-white p-4">
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Bidder</p>
+                            <p className="text-sm font-bold text-gray-900">
+                              {project.bidder ? `${project.bidder.first_name || ''} ${project.bidder.last_name || ''}`.trim() : <span className="text-gray-400 italic font-medium">Not set</span>}
+                            </p>
+                          </div>
+                          <div className="rounded-2xl border border-gray-100 bg-white p-4">
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Source / Platform</p>
+                            <p className="text-sm font-bold text-gray-900">{project.source || <span className="text-gray-400 italic font-medium">Not set</span>}</p>
+                          </div>
+                          <div className="rounded-2xl border border-gray-100 bg-white p-4">
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Commission</p>
+                            <p className="text-sm font-bold text-gray-900">
+                              {project.commission_type && project.commission_value != null
+                                ? (project.commission_type === 'PERCENTAGE' ? `${project.commission_value}%` : `${project.budget_currency || 'PKR'} ${project.commission_value.toLocaleString()}`)
+                                : <span className="text-gray-400 italic font-medium">None</span>}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
                       <div className="flex flex-col gap-4">
                         <div className="flex items-center gap-2 text-gray-900 font-black">
                           <MessageSquare size={18} strokeWidth={3} className="text-primary-500" />
