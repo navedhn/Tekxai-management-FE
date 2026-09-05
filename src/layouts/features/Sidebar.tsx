@@ -46,6 +46,7 @@ const ERP_OPS_ROUTE_PERMISSIONS: Record<string, string> = {
   '/admin/org-chart': 'erp.departments.view',
   '/admin/job-descriptions': 'hr.job_descriptions.view',
   '/admin/hr-reports': 'hr.reports.view',
+  '/admin/performance-reviews': 'hr.performance_reviews.view',
   '/admin/job-requisitions': 'hr.job_requisitions.view',
   '/admin/onboarding': 'hr.onboarding.view',
   '/admin/offboarding': 'hr.offboarding.view',
@@ -183,6 +184,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Workforce', tier: 'erpOps', to: '/admin/org-chart', label: 'Org Chart', icon: <Network size={18} strokeWidth={SW} /> },
       { module: 'Workforce', tier: 'erpOps', to: '/admin/job-descriptions', label: 'Job Descriptions', icon: <Briefcase size={18} strokeWidth={SW} /> },
       { module: 'Workforce', tier: 'erpOps', to: '/admin/hr-reports', label: 'HR Reports', icon: <BarChart3 size={18} strokeWidth={SW} /> },
+      { module: 'Workforce', tier: 'erpOps', to: '/admin/performance-reviews', label: 'Performance Reviews', icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
 
       { module: 'Recruitment', tier: 'erpOps', to: '/admin/job-requisitions', label: 'Job Requisitions', icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
       { module: 'Recruitment', tier: 'erpOps', to: '/admin/onboarding', label: 'Hiring & Onboarding', icon: <UserPlus size={18} strokeWidth={SW} /> },

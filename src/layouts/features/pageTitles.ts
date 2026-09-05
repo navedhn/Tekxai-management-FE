@@ -16,6 +16,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/admin/org-chart': 'Org Chart',
   '/admin/job-descriptions': 'Job Descriptions',
   '/admin/hr-reports': 'HR Reports',
+  '/admin/performance-reviews': 'Performance Reviews',
 
   '/admin/onboarding': 'Hiring & Onboarding',
 
