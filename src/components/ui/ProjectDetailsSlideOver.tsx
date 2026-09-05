@@ -14,6 +14,7 @@ import ClientCommunicationPanel from './ClientCommunicationPanel';
 import ProjectDocumentsPanel from './ProjectDocumentsPanel';
 import CommunicationTimeline from './CommunicationTimeline';
 import BudgetPanel from './BudgetPanel';
+import MilestoneFinancialSummary from './MilestoneFinancialSummary';
 import ExtensionRequestsPanel from './ExtensionRequestsPanel';
 import ProjectKanbanPanel from './ProjectKanbanPanel';
 import DependenciesPanel from './DependenciesPanel';
@@ -276,6 +277,7 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                     projectId={projectId}
                     milestone={editingMilestone}
                     projectMembers={project?.all_members || project?.members || []}
+                    currency={project?.budget_currency || 'PKR'}
                   />
                   <AddTaskModal
                     isOpen={showAddTask}
@@ -435,8 +437,21 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                             <span className={cn('text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide shrink-0', STATUS_STYLE[milestone.status] || STATUS_STYLE.NOT_STARTED)}>
                               {milestone.status.replace(/_/g, ' ')}
                             </span>
+                            {/* Payment state — intentionally a separate badge from workflow
+                                Status above: a milestone can be Completed and still Unpaid. */}
+                            <span className={cn(
+                              'text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide shrink-0',
+                              milestone.payment_status === 'PAID' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-600'
+                            )}>
+                              {milestone.payment_status === 'PAID' ? 'Paid' : 'Unpaid'}
+                            </span>
                           </div>
                           <div className="flex items-center gap-4 shrink-0">
+                            {milestone.price > 0 && (
+                              <span className="text-[12px] font-black text-gray-700 whitespace-nowrap">
+                                {(project?.budget_currency || 'PKR')} {milestone.price.toLocaleString()}
+                              </span>
+                            )}
                             {members.length > 0 && (
                               <div className="flex items-center -space-x-2">
                                 {members.slice(0, 3).map((u) => (
@@ -699,13 +714,19 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
 
                   {/* Financial tab */}
                   {activeTab === 'financial' && projectId && (
-                    <BudgetPanel
-                      projectId={projectId}
-                      budget={project.budget}
-                      budgetCurrency={project.budget_currency}
-                      budgetSpent={project.budget_spent}
-                      canEdit={canEditProject}
-                    />
+                    <div className="flex flex-col gap-6 w-full">
+                      <MilestoneFinancialSummary
+                        financial={project.financial}
+                        activeMilestone={project.active_milestone}
+                      />
+                      <BudgetPanel
+                        projectId={projectId}
+                        budget={project.budget}
+                        budgetCurrency={project.budget_currency}
+                        budgetSpent={project.budget_spent}
+                        canEdit={canEditProject}
+                      />
+                    </div>
                   )}
 
                   {/* Settings tab — real project fields, no mock data */}

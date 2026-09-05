@@ -21,6 +21,13 @@ const STATUS_OPTIONS: { label: string; value: MilestoneStatus }[] = [
   { label: 'Blocked', value: 'BLOCKED' },
 ];
 
+// Payment state is a financial fact, independent of workflow status above —
+// a milestone can be COMPLETED and still UNPAID, or vice versa.
+const PAYMENT_STATUS_OPTIONS: { label: string; value: 'UNPAID' | 'PAID' }[] = [
+  { label: 'Unpaid', value: 'UNPAID' },
+  { label: 'Paid', value: 'PAID' },
+];
+
 interface SimpleMember {
   id: string;
   first_name?: string | null;
@@ -35,13 +42,15 @@ interface CreateMilestoneModalProps {
   projectId: string | number | null;
   milestone?: Milestone | null;
   projectMembers?: SimpleMember[];
+  /** Project's budget_currency — milestone price always inherits it; no per-milestone currency in this phase. */
+  currency?: string;
 }
 
 function memberName(m: SimpleMember) {
   return `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email || m.id;
 }
 
-const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onClose, projectId, milestone, projectMembers = [] }) => {
+const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onClose, projectId, milestone, projectMembers = [], currency = 'PKR' }) => {
   const isEdit = !!milestone;
   const toast = useToastContext();
   const createMutation = useCreateMilestone(projectId ? String(projectId) : null);
@@ -51,6 +60,7 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
   const [formData, setFormData] = useState({
     title: '', due_date: '', description: '', sequence: '', status: 'NOT_STARTED' as MilestoneStatus,
     estimated_start: '', estimated_end: '', progress_percent: '0', remarks: '',
+    price: '0', payment_status: 'UNPAID' as 'UNPAID' | 'PAID',
   });
   const [assignedIds, setAssignedIds] = useState<string[]>([]);
   const [dependsOnIds, setDependsOnIds] = useState<string[]>([]);
@@ -68,11 +78,13 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
         estimated_end: milestone.estimated_end ? milestone.estimated_end.slice(0, 10) : '',
         progress_percent: String(milestone.progress_percent ?? 0),
         remarks: milestone.remarks || '',
+        price: milestone.price != null ? String(milestone.price) : '0',
+        payment_status: milestone.payment_status || 'UNPAID',
       });
       setAssignedIds((milestone.members || []).map((m) => m.user.id));
       setDependsOnIds(milestone.depends_on_ids || []);
     } else {
-      setFormData({ title: '', due_date: '', description: '', sequence: '', status: 'NOT_STARTED', estimated_start: '', estimated_end: '', progress_percent: '0', remarks: '' });
+      setFormData({ title: '', due_date: '', description: '', sequence: '', status: 'NOT_STARTED', estimated_start: '', estimated_end: '', progress_percent: '0', remarks: '', price: '0', payment_status: 'UNPAID' });
       setAssignedIds([]);
       setDependsOnIds([]);
     }
@@ -103,6 +115,8 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
     if (formData.estimated_start && formData.estimated_end && formData.estimated_end < formData.estimated_start) {
       newErrors.estimated_end = 'Estimated end cannot be before estimated start';
     }
+    const price = formData.price === '' ? 0 : +formData.price;
+    if (Number.isNaN(price) || price < 0) newErrors.price = 'Price cannot be negative';
 
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
@@ -119,6 +133,8 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
       remarks: formData.remarks || null,
       assigned_user_ids: assignedIds,
       depends_on_ids: dependsOnIds,
+      price,
+      payment_status: formData.payment_status,
     };
 
     const mutation = isEdit
@@ -178,7 +194,16 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
             label="Status"
             options={STATUS_OPTIONS}
             value={formData.status}
-            onChange={(v) => setFormData((f) => ({ ...f, status: v as MilestoneStatus }))}
+            onChange={(v) => setFormData((f) => ({
+              ...f,
+              status: v as MilestoneStatus,
+              // Business invariant (enforced server-side too, see
+              // milestones.service.js): a PAID milestone must be COMPLETED.
+              // Moving status away from COMPLETED while marked PAID would be
+              // rejected by the backend — reset it here so the form never
+              // lands in a state the server would refuse.
+              payment_status: v !== 'COMPLETED' && f.payment_status === 'PAID' ? 'UNPAID' : f.payment_status,
+            }))}
           />
         </div>
 
@@ -186,6 +211,43 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
           <DatePicker label="Estimated Start" placeholder="Select date" value={formData.estimated_start} onChange={(d) => setFormData((f) => ({ ...f, estimated_start: d }))} />
           <DatePicker label="Estimated End" placeholder="Select date" value={formData.estimated_end} onChange={(d) => setFormData((f) => ({ ...f, estimated_end: d }))} error={errors.estimated_end} />
           <DatePicker label="Due Date" placeholder="Select date" value={formData.due_date} onChange={(d) => setFormData((f) => ({ ...f, due_date: d }))} />
+        </div>
+
+        {/* Financial state — deliberately separate from workflow Status
+            above: a milestone can be Completed and still Unpaid. */}
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            label={`Price (${currency})`}
+            name="price"
+            type="number"
+            // No `min` attribute here deliberately: an HTML5 min constraint
+            // silently blocks native form submission (no error shown) before
+            // our own validation below ever runs. The negative check just
+            // beneath (and the backend's own validator) is the real guard.
+            step="0.01"
+            value={formData.price}
+            onChange={handleInputChange}
+            error={errors.price}
+            placeholder="0.00"
+            className="h-12 rounded-xl"
+          />
+          <div className="flex flex-col gap-1">
+            <SearchableSelect
+              label="Payment Status"
+              options={PAYMENT_STATUS_OPTIONS.map((o) => ({
+                ...o,
+                // A milestone can only be marked PAID once it's COMPLETED
+                // (server-enforced invariant — disabled here too so the
+                // form can't be submitted into a state it would reject).
+                disabled: o.value === 'PAID' && formData.status !== 'COMPLETED',
+              }))}
+              value={formData.payment_status}
+              onChange={(v) => setFormData((f) => ({ ...f, payment_status: v as 'UNPAID' | 'PAID' }))}
+            />
+            {formData.status !== 'COMPLETED' && (
+              <span className="text-[11px] text-gray-400 font-medium ml-1">Mark Status as Completed to allow Paid</span>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-col gap-1.5">

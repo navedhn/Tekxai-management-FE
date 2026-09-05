@@ -82,6 +82,8 @@ export interface Milestone {
   title: string;
   due_date: string | null;
   completed: boolean;
+  price?: number;
+  payment_status?: 'UNPAID' | 'PAID';
 }
 
 export interface ActiveMilestone {
@@ -90,6 +92,20 @@ export interface ActiveMilestone {
   due_date: string | null;
   progress_percent: number;
   owner: string | null;
+  // Milestone Financial Foundation
+  price: number;
+  payment_status: 'UNPAID' | 'PAID';
+}
+
+// Milestone Financial Foundation — always server-derived (see
+// compute_financial_summary in projects.repository.js). Never independently
+// editable, never recalculated client-side.
+export interface ProjectFinancialSummary {
+  total: number;
+  paid: number;
+  remaining: number;
+  active: number;
+  currency: string;
 }
 
 export interface ProgressSharedRecency {
@@ -150,6 +166,10 @@ export interface ProjectDetail {
   current_milestone?: Milestone | null;
   pending_milestones_count?: number;
   milestone_breakdown?: MilestoneBreakdown;
+  // Milestone-derived financial summary — see ProjectFinancialSummary.
+  // Distinct from budget/budget_currency/budget_spent below, which remain
+  // independent internal cost-tracking fields untouched by this phase.
+  financial?: ProjectFinancialSummary;
   access_completion_score?: AccessCompletionScore;
   frontend_developers?: string[];
   backend_developers?: string[];
