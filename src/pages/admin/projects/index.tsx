@@ -326,12 +326,15 @@ const ProjectManagement: React.FC = () => {
       render: (item) => {
         const m = item.current_milestone;
         if (!m) return <span className="text-xs text-gray-400 italic">No milestone</span>;
-        const isOverdue = m.due_date && new Date(m.due_date) < new Date();
+        // Phase 3 — reads the server-computed delivery.status (compute_delivery)
+        // rather than recomputing overdue client-side, so this always agrees
+        // with the Milestone Details delivery badge for the same milestone.
+        const isMissed = m.delivery ? m.delivery.status === 'MISSED' : (m.due_date && new Date(m.due_date) < new Date());
         return (
           <div className="flex flex-col gap-0.5 min-w-[140px]">
             <span className="text-xs font-bold text-gray-800 leading-tight">{m.title}</span>
             {m.due_date && (
-              <span className={`text-[10px] font-medium ${isOverdue ? 'text-red-500' : 'text-gray-400'}`}>
+              <span className={`text-[10px] font-medium ${isMissed ? 'text-red-500' : 'text-gray-400'}`}>
                 Due {new Date(m.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
               </span>
             )}

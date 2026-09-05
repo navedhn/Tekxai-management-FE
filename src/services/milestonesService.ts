@@ -49,6 +49,45 @@ export interface Milestone {
   payment_status: MilestonePaymentStatus;
   created_at: string;
   updated_at: string;
+  // Phase 3 Project Delivery & Evidence Foundation.
+  original_due_date?: string | null;
+  missed_reason_category?: MissedReasonCategory | null;
+  missed_reason_detail?: string | null;
+  issue_classification?: IssueClassification | null;
+  qa_status?: QaStatus | null;
+  qa_notes?: string | null;
+  rework_count?: number | null;
+  delivery?: MilestoneDelivery;
+}
+
+// Phase 3 Project Delivery & Evidence Foundation — deliberately separate
+// controlled vocabularies: "what happened" (missed_reason_category) is
+// never conflated with "whose/what fault" (issue_classification). Neither
+// is ever auto-derived from lateness — both are management-entered facts.
+export type MissedReasonCategory =
+  | 'CLIENT_DEPENDENCY' | 'ACCESS_INFRASTRUCTURE' | 'SCOPE_CHANGE' | 'BLOCKER'
+  | 'RESOURCE_CAPACITY' | 'TECHNICAL_ISSUE' | 'QUALITY_REWORK' | 'OTHER';
+export type IssueClassification =
+  | 'PERFORMANCE' | 'CAPACITY' | 'EXTERNAL_DEPENDENCY' | 'SCOPE_CHANGE'
+  | 'TECHNICAL_INFRASTRUCTURE' | 'QUALITY_REWORK' | 'OTHER';
+export type QaStatus = 'NOT_REQUIRED' | 'PASSED' | 'FAILED';
+export type DeliveryStatus = 'ON_TIME' | 'MISSED' | 'PENDING';
+
+// Always server-derived (see compute_delivery in milestones.repository.js)
+// — never computed or fabricated client-side.
+export interface MilestoneDelivery {
+  expected: string;
+  deadline: string | null;
+  original_deadline: string | null;
+  actual: string | null;
+  status: DeliveryStatus;
+  missed_reason_category: MissedReasonCategory | null;
+  missed_reason_detail: string | null;
+  issue_classification: IssueClassification | null;
+  qa_status: QaStatus | null;
+  qa_notes: string | null;
+  rework_count: number | null;
+  evidence_count: number;
 }
 
 export interface MilestoneUpsertPayload {
@@ -65,6 +104,12 @@ export interface MilestoneUpsertPayload {
   depends_on_ids?: string[];
   price?: number;
   payment_status?: MilestonePaymentStatus;
+  missed_reason_category?: MissedReasonCategory | null;
+  missed_reason_detail?: string | null;
+  issue_classification?: IssueClassification | null;
+  qa_status?: QaStatus | null;
+  qa_notes?: string | null;
+  rework_count?: number | null;
 }
 
 async function fetchMilestones(projectId: string, includeArchived = false): Promise<Milestone[]> {

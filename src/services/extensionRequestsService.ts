@@ -15,6 +15,11 @@ export interface ExtensionRequestUser {
 export interface ExtensionRequest {
   id: string;
   project_id: string;
+  // Phase 3 Project Delivery & Evidence Foundation — present when this
+  // extension request applies to one specific milestone's due_date rather
+  // than the project's own end_date. null preserves the original
+  // project-level meaning exactly.
+  milestone_id?: string | null;
   requested_by: string;
   current_deadline: string | null;
   proposed_deadline: string;

@@ -11,6 +11,7 @@ import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import {
   Milestone, MilestoneStatus, MilestoneUpsertPayload,
+  MissedReasonCategory, IssueClassification, QaStatus,
   useCreateMilestone, useMilestones, useUpdateMilestone,
 } from '@/services/milestonesService';
 
@@ -26,6 +27,34 @@ const STATUS_OPTIONS: { label: string; value: MilestoneStatus }[] = [
 const PAYMENT_STATUS_OPTIONS: { label: string; value: 'UNPAID' | 'PAID' }[] = [
   { label: 'Unpaid', value: 'UNPAID' },
   { label: 'Paid', value: 'PAID' },
+];
+
+// Phase 3 Project Delivery & Evidence Foundation — "what happened" (missed
+// reason) is a deliberately separate vocabulary from "whose/what fault"
+// (issue classification) below; neither is ever inferred from lateness.
+const MISSED_REASON_OPTIONS: { label: string; value: MissedReasonCategory }[] = [
+  { label: 'Client Dependency', value: 'CLIENT_DEPENDENCY' },
+  { label: 'Access / Infrastructure', value: 'ACCESS_INFRASTRUCTURE' },
+  { label: 'Scope Change', value: 'SCOPE_CHANGE' },
+  { label: 'Blocker', value: 'BLOCKER' },
+  { label: 'Resource Capacity', value: 'RESOURCE_CAPACITY' },
+  { label: 'Technical Issue', value: 'TECHNICAL_ISSUE' },
+  { label: 'Quality / Rework', value: 'QUALITY_REWORK' },
+  { label: 'Other', value: 'OTHER' },
+];
+const ISSUE_CLASSIFICATION_OPTIONS: { label: string; value: IssueClassification }[] = [
+  { label: 'Performance Issue', value: 'PERFORMANCE' },
+  { label: 'Capacity Issue', value: 'CAPACITY' },
+  { label: 'External Dependency', value: 'EXTERNAL_DEPENDENCY' },
+  { label: 'Scope/Requirement Change', value: 'SCOPE_CHANGE' },
+  { label: 'Technical/Infrastructure Issue', value: 'TECHNICAL_INFRASTRUCTURE' },
+  { label: 'Quality/Rework Issue', value: 'QUALITY_REWORK' },
+  { label: 'Other', value: 'OTHER' },
+];
+const QA_STATUS_OPTIONS: { label: string; value: QaStatus }[] = [
+  { label: 'Not Required', value: 'NOT_REQUIRED' },
+  { label: 'Passed', value: 'PASSED' },
+  { label: 'Failed', value: 'FAILED' },
 ];
 
 interface SimpleMember {
@@ -61,6 +90,14 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
     title: '', due_date: '', description: '', sequence: '', status: 'NOT_STARTED' as MilestoneStatus,
     estimated_start: '', estimated_end: '', progress_percent: '0', remarks: '',
     price: '0', payment_status: 'UNPAID' as 'UNPAID' | 'PAID',
+    // Phase 3 Project Delivery & Evidence Foundation — '' means "not set",
+    // distinct from any real enum value; never defaulted to something else.
+    missed_reason_category: '' as MissedReasonCategory | '',
+    missed_reason_detail: '',
+    issue_classification: '' as IssueClassification | '',
+    qa_status: '' as QaStatus | '',
+    qa_notes: '',
+    rework_count: '',
   });
   const [assignedIds, setAssignedIds] = useState<string[]>([]);
   const [dependsOnIds, setDependsOnIds] = useState<string[]>([]);
@@ -80,11 +117,20 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
         remarks: milestone.remarks || '',
         price: milestone.price != null ? String(milestone.price) : '0',
         payment_status: milestone.payment_status || 'UNPAID',
+        missed_reason_category: milestone.missed_reason_category || '',
+        missed_reason_detail: milestone.missed_reason_detail || '',
+        issue_classification: milestone.issue_classification || '',
+        qa_status: milestone.qa_status || '',
+        qa_notes: milestone.qa_notes || '',
+        rework_count: milestone.rework_count != null ? String(milestone.rework_count) : '',
       });
       setAssignedIds((milestone.members || []).map((m) => m.user.id));
       setDependsOnIds(milestone.depends_on_ids || []);
     } else {
-      setFormData({ title: '', due_date: '', description: '', sequence: '', status: 'NOT_STARTED', estimated_start: '', estimated_end: '', progress_percent: '0', remarks: '', price: '0', payment_status: 'UNPAID' });
+      setFormData({
+        title: '', due_date: '', description: '', sequence: '', status: 'NOT_STARTED', estimated_start: '', estimated_end: '', progress_percent: '0', remarks: '', price: '0', payment_status: 'UNPAID',
+        missed_reason_category: '', missed_reason_detail: '', issue_classification: '', qa_status: '', qa_notes: '', rework_count: '',
+      });
       setAssignedIds([]);
       setDependsOnIds([]);
     }
@@ -117,6 +163,13 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
     }
     const price = formData.price === '' ? 0 : +formData.price;
     if (Number.isNaN(price) || price < 0) newErrors.price = 'Price cannot be negative';
+    // Mirrors the backend's own paired validation exactly.
+    if (formData.missed_reason_category === 'OTHER' && !formData.missed_reason_detail.trim()) {
+      newErrors.missed_reason_detail = 'Please explain when selecting "Other"';
+    }
+    if (formData.rework_count !== '' && (!Number.isInteger(+formData.rework_count) || +formData.rework_count < 0)) {
+      newErrors.rework_count = 'Rework count must be a non-negative whole number';
+    }
 
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
@@ -135,6 +188,13 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
       depends_on_ids: dependsOnIds,
       price,
       payment_status: formData.payment_status,
+      // Phase 3 Project Delivery & Evidence Foundation.
+      missed_reason_category: formData.missed_reason_category || null,
+      missed_reason_detail: formData.missed_reason_detail || null,
+      issue_classification: formData.issue_classification || null,
+      qa_status: formData.qa_status || null,
+      qa_notes: formData.qa_notes || null,
+      rework_count: formData.rework_count === '' ? null : +formData.rework_count,
     };
 
     const mutation = isEdit
@@ -249,6 +309,94 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
             )}
           </div>
         </div>
+
+        {/* Phase 3 Project Delivery & Evidence Foundation — only shown once
+            editing a real milestone: there's nothing to explain about a
+            delivery that hasn't happened yet on brand-new one. Deliberately
+            two separate vocabularies: "what happened" (Missed Reason) is
+            never conflated with "whose/what fault" (Issue Classification) —
+            neither is auto-derived from lateness or from each other. */}
+        {isEdit && (
+          <div className="flex flex-col gap-4 p-4 rounded-2xl border border-gray-100 bg-gray-50/60">
+            <span className="text-xs font-black text-gray-500 uppercase tracking-widest">Delivery Evidence</span>
+
+            {milestone?.delivery && (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-gray-400 font-semibold">Delivery status:</span>
+                <span className={cn(
+                  'text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide',
+                  milestone.delivery.status === 'ON_TIME' ? 'bg-emerald-50 text-emerald-700'
+                    : milestone.delivery.status === 'MISSED' ? 'bg-red-50 text-red-600'
+                    : 'bg-gray-100 text-gray-500'
+                )}>
+                  {milestone.delivery.status.replace('_', ' ')}
+                </span>
+                <span className="text-[10px] text-gray-400 font-medium">(computed from deadline vs. actual completion — not editable)</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <SearchableSelect
+                label="Missed Reason"
+                options={MISSED_REASON_OPTIONS}
+                value={formData.missed_reason_category || null}
+                onChange={(v) => setFormData((f) => ({ ...f, missed_reason_category: (v as MissedReasonCategory) || '' }))}
+                placeholder="Not set"
+              />
+              <SearchableSelect
+                label="Performance / Capacity Classification"
+                options={ISSUE_CLASSIFICATION_OPTIONS}
+                value={formData.issue_classification || null}
+                onChange={(v) => setFormData((f) => ({ ...f, issue_classification: (v as IssueClassification) || '' }))}
+                placeholder="Not set"
+              />
+            </div>
+            {formData.missed_reason_category === 'OTHER' && (
+              <Textarea
+                label="Explain (required for Other)"
+                name="missed_reason_detail"
+                value={formData.missed_reason_detail}
+                onChange={handleInputChange}
+                error={errors.missed_reason_detail}
+                placeholder="What happened?"
+                className="min-h-[60px] rounded-xl"
+              />
+            )}
+            <p className="text-[11px] text-gray-400 -mt-1">A missed deadline does not by itself mean underperformance — this classification is management's own evidence-backed judgment.</p>
+
+            <div className="grid grid-cols-2 gap-4">
+              <SearchableSelect
+                label="QA Status"
+                options={QA_STATUS_OPTIONS}
+                value={formData.qa_status || null}
+                onChange={(v) => setFormData((f) => ({ ...f, qa_status: (v as QaStatus) || '' }))}
+                placeholder="Not assessed"
+              />
+              <Input
+                label="Rework Count"
+                name="rework_count"
+                type="number"
+                step="1"
+                value={formData.rework_count}
+                onChange={handleInputChange}
+                error={errors.rework_count}
+                placeholder="Not tracked"
+                className="h-12 rounded-xl"
+              />
+            </div>
+            <Textarea
+              label="QA / Evidence Notes (Optional)"
+              name="qa_notes"
+              value={formData.qa_notes}
+              onChange={handleInputChange}
+              placeholder="Evidence backing the QA outcome or missed reason..."
+              className="min-h-[60px] rounded-xl"
+            />
+            {milestone?.delivery && milestone.delivery.evidence_count > 0 && (
+              <p className="text-[11px] text-gray-500 font-semibold">{milestone.delivery.evidence_count} evidence document{milestone.delivery.evidence_count === 1 ? '' : 's'} attached — see the project's Files tab.</p>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
