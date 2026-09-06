@@ -775,7 +775,7 @@ function StepDocuments({ docFiles, setDocFiles, existingTypes = [] }: { docFiles
 }
 
 // ── Step 5: Review & Save ────────────────────────────────────────────────────
-function StepReview({ personal, employment, work }: any) {
+export function StepReview({ personal, employment, work, isEditMode }: any) {
   const STATUS_LABELS = EMPLOYMENT_STATUS_LABELS;
   const sections = [
     { label: 'Personal Information', data: {
@@ -785,7 +785,9 @@ function StepReview({ personal, employment, work }: any) {
       'Gender': personal.gender || '—', 'Blood Group': personal.blood_group || '—',
     }},
     { label: 'Employment Details', data: {
-      'Employee ID': 'Auto-generated on save',
+      'Employee ID': isEditMode
+        ? (employment.employee_id || '—')
+        : 'Auto-generated on save',
       'Join Date': employment.hire_date || '—',
       'Type': employment.employment_type || '—',
       'Status': STATUS_LABELS[employment.employment_status] || employment.employment_status || '—',
@@ -1297,7 +1299,7 @@ export default function AddEmployee() {
             {step === 2 && <StepEmployment data={employment} onChange={changeEmployment} businessUnits={businessUnits} departments={departments} teams={teams} users={users} designations={designations} grades={grades} errorField={errorField} errorMessage={errorMessage} registerRef={registerRef} employeeIdPreview={employeeIdPreview} employeeIdPreviewLoading={employeeIdPreviewLoading} isEditMode={isEditMode} />}
             {step === 3 && <StepWork data={work} onChange={changeWork} />}
             {step === 4 && <StepDocuments docFiles={docFiles} setDocFiles={setDocFiles} existingTypes={existingDocTypes} />}
-            {step === 5 && <StepReview personal={personal} employment={employment} work={work} />}
+            {step === 5 && <StepReview personal={personal} employment={employment} work={work} isEditMode={isEditMode} />}
 
             {/* Actions */}
             <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-100">
