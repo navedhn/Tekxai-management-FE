@@ -157,6 +157,8 @@ export const API_ENDPOINTS = {
     DELETE:   (id: string) => `${v1}/performance-reviews/${id}`,
     ADD_MANAGER_EVIDENCE: (id: string) => `${v1}/performance-reviews/${id}/evidence`,
     DELETE_MANAGER_EVIDENCE: (id: string, evidenceId: string) => `${v1}/performance-reviews/${id}/evidence/${evidenceId}`,
+    // Phase 5 Controlled Performance Decision & Increment Evidence Layer.
+    RECORD_DECISION: (id: string) => `${v1}/performance-reviews/${id}/decision`,
   },
   REVIEW_PERIOD: {
     LIST:   `${v1}/review-periods`,

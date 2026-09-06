@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, AlertTriangle, Clock, Users, FileText, Shield, MessageSquare } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, AlertTriangle, Clock, Users, FileText, Shield, MessageSquare, Gauge, Award } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -8,10 +8,46 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import Textarea from '@/components/ui/Textarea';
 import Loader from '@/components/ui/Loader';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { useMyPermissions } from '@/services/permissionsService';
 import {
   useReviewEvidence, useUpdateReview, useAddManagerEvidence, useDeleteManagerEvidence,
-  Classification, RecommendedAction,
+  useRecordManagementDecision, Classification, RecommendedAction, EvidenceStance, ManagementDecision,
 } from '@/services/performanceReviewsService';
+
+const STANCE_OPTIONS: { label: string; value: EvidenceStance }[] = [
+  { label: 'Neutral (context only)', value: 'NEUTRAL' },
+  { label: 'Supporting', value: 'SUPPORTING' },
+  { label: 'Counter-evidence', value: 'COUNTER' },
+];
+
+const MANAGEMENT_DECISION_OPTIONS: { label: string; value: ManagementDecision }[] = [
+  { label: 'No Decision Yet', value: 'NO_DECISION' },
+  { label: 'Increment Approved', value: 'INCREMENT_APPROVED' },
+  { label: 'Increment Deferred', value: 'INCREMENT_DEFERRED' },
+  { label: 'Increment Rejected', value: 'INCREMENT_REJECTED' },
+  { label: 'Escalate to HR', value: 'ESCALATE_TO_HR' },
+  { label: 'No Action Required', value: 'NO_ACTION_REQUIRED' },
+];
+
+const COMPLETENESS_STYLE: Record<string, string> = {
+  SUFFICIENT_EVIDENCE: 'bg-emerald-50 text-emerald-700',
+  PARTIAL_EVIDENCE: 'bg-amber-50 text-amber-600',
+  INSUFFICIENT_EVIDENCE: 'bg-red-50 text-red-600',
+};
+
+const SOURCE_STATE_STYLE: Record<string, string> = {
+  HAS_DATA: 'bg-emerald-50 text-emerald-700',
+  NO_DATA: 'bg-amber-50 text-amber-600',
+  NOT_APPLICABLE: 'bg-gray-100 text-gray-400',
+};
+
+const READINESS_STYLE: Record<string, string> = {
+  ELIGIBLE_FOR_MANAGEMENT_REVIEW: 'bg-emerald-50 text-emerald-700',
+  REVIEW_COMPLETED: 'bg-blue-50 text-blue-600',
+  HOLD_FOR_FURTHER_EVIDENCE: 'bg-amber-50 text-amber-600',
+  INSUFFICIENT_EVIDENCE: 'bg-red-50 text-red-600',
+  REVIEW_NOT_COMPLETED: 'bg-gray-100 text-gray-500',
+};
 
 const CLASSIFICATION_OPTIONS: { label: string; value: Classification }[] = [
   { label: 'Insufficient Evidence', value: 'INSUFFICIENT_EVIDENCE' },
@@ -64,11 +100,15 @@ const PerformanceReviewDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const toast = useToastContext();
+  const { data: myPerms } = useMyPermissions();
   const { data, isLoading, error } = useReviewEvidence(id);
   const updateReview = useUpdateReview(id || '');
   const addEvidence = useAddManagerEvidence(id || '');
   const deleteEvidence = useDeleteManagerEvidence(id || '');
+  const recordDecision = useRecordManagementDecision(id || '');
   const [evidenceNote, setEvidenceNote] = useState('');
+  const [evidenceStance, setEvidenceStance] = useState<EvidenceStance>('NEUTRAL');
+  const canDecide = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('hr.performance_reviews.decide');
 
   if (isLoading) return <div className="flex items-center justify-center p-20"><Loader size={32} /></div>;
   if (error || !data) {
@@ -84,7 +124,7 @@ const PerformanceReviewDetailPage: React.FC = () => {
     );
   }
 
-  const { review, role, project_evidence, attendance, utilization, warnings, manager_evidence } = data;
+  const { review, role, project_evidence, attendance, utilization, warnings, manager_evidence, evidence_completeness, decision_indicators, missed_attribution, increment_readiness } = data;
   const isCompleted = review.status === 'COMPLETED';
 
   const handleClassify = (classification: string | number | null) => {
@@ -105,9 +145,16 @@ const PerformanceReviewDetailPage: React.FC = () => {
   };
   const handleAddEvidence = () => {
     if (!evidenceNote.trim()) return;
-    addEvidence.mutate({ note: evidenceNote.trim() }, {
-      onSuccess: () => { setEvidenceNote(''); toast.success('Evidence added'); },
+    addEvidence.mutate({ note: evidenceNote.trim(), stance: evidenceStance }, {
+      onSuccess: () => { setEvidenceNote(''); setEvidenceStance('NEUTRAL'); toast.success('Evidence added'); },
       onError: (e: any) => toast.error(e?.message || 'Failed to add evidence'),
+    });
+  };
+  const handleRecordDecision = (decision: string | number | null) => {
+    if (!decision) return;
+    recordDecision.mutate(decision as ManagementDecision, {
+      onSuccess: () => toast.success('Management decision recorded'),
+      onError: (e: any) => toast.error(e?.message || 'Failed to record management decision'),
     });
   };
 
@@ -241,7 +288,12 @@ const PerformanceReviewDetailPage: React.FC = () => {
             <div key={e.id} className="p-3 rounded-xl bg-gray-50/60 flex items-start justify-between gap-2">
               <div>
                 <p className="text-sm text-gray-700">{e.note}</p>
-                <p className="text-[11px] text-gray-400 mt-1">{`${e.author.first_name || ''} ${e.author.last_name || ''}`.trim()} · {new Date(e.created_at).toLocaleString()}{e.project ? ` · ${e.project.title}` : ''}{e.milestone ? ` · ${e.milestone.title}` : ''}</p>
+                <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1.5 flex-wrap">
+                  {`${e.author.first_name || ''} ${e.author.last_name || ''}`.trim()} · {new Date(e.created_at).toLocaleString()}{e.project ? ` · ${e.project.title}` : ''}{e.milestone ? ` · ${e.milestone.title}` : ''}
+                  {e.stance !== 'NEUTRAL' && (
+                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase ${e.stance === 'SUPPORTING' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>{e.stance}</span>
+                  )}
+                </p>
               </div>
               {!isCompleted && (
                 <button onClick={() => deleteEvidence.mutate(e.id, { onError: (err: any) => toast.error(err?.message || 'Failed to remove') })} className="text-gray-300 hover:text-red-500 text-xs font-bold shrink-0">Remove</button>
@@ -250,9 +302,51 @@ const PerformanceReviewDetailPage: React.FC = () => {
           ))}
         </div>
         {!isCompleted && (
-          <div className="flex gap-2 pt-2 border-t border-gray-50">
-            <Textarea value={evidenceNote} onChange={(e) => setEvidenceNote(e.target.value)} placeholder="Add attributable evidence (what happened, when, on which project/milestone)…" className="flex-1 min-h-[60px] rounded-xl" />
-            <Button onClick={handleAddEvidence} disabled={addEvidence.isPending || !evidenceNote.trim()} className="h-auto self-end bg-primary-50 text-primary-600 rounded-xl px-4 text-xs font-bold disabled:opacity-40">Add</Button>
+          <div className="flex flex-col gap-2 pt-2 border-t border-gray-50">
+            <Textarea value={evidenceNote} onChange={(e) => setEvidenceNote(e.target.value)} placeholder="Add attributable evidence (what happened, when, on which project/milestone)…" className="min-h-[60px] rounded-xl" />
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <SearchableSelect options={STANCE_OPTIONS} value={evidenceStance} onChange={(v) => setEvidenceStance((v as EvidenceStance) || 'NEUTRAL')} clearable={false} />
+              </div>
+              <Button onClick={handleAddEvidence} disabled={addEvidence.isPending || !evidenceNote.trim()} className="h-11 bg-primary-50 text-primary-600 rounded-xl px-4 text-xs font-bold disabled:opacity-40">Add</Button>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard icon={<Gauge size={18} className="text-primary-500" />} title="Evidence Completeness" subtitle="Whether enough real evidence exists to support a classification — missing data is never treated as negative evidence.">
+        <div className="flex items-center gap-2">
+          <span className={`text-[11px] font-black px-3 py-1 rounded-full uppercase ${COMPLETENESS_STYLE[evidence_completeness.status]}`}>{evidence_completeness.status.replace(/_/g, ' ')}</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
+          {Object.entries(evidence_completeness.sources).map(([key, state]) => (
+            <div key={key} className="flex flex-col gap-1">
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{key.replace(/_/g, ' ')}</span>
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase w-fit ${SOURCE_STATE_STYLE[state]}`}>{state.replace(/_/g, ' ')}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="pt-3 border-t border-gray-50">
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Decision-Support Indicators (facts, not a verdict)</p>
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(decision_indicators).map(([key, present]) => (
+              <span key={key} className={`text-[10px] font-bold px-2 py-1 rounded-lg ${present ? 'bg-amber-50 text-amber-700' : 'bg-gray-50 text-gray-400'}`}>
+                {present ? '●' : '○'} {key.replace(/_present$/, '').replace(/_/g, ' ')}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {missed_attribution.total_classified > 0 && (
+          <div className="pt-3 border-t border-gray-50">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Missed Deliveries — By Attribution (never "N missed = N failures")</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Fact label="Performance-Related" value={missed_attribution.performance_related} />
+              <Fact label="Capacity-Related" value={missed_attribution.capacity_related} />
+              <Fact label="External" value={missed_attribution.external_related} />
+              <Fact label="Other" value={missed_attribution.other} />
+            </div>
           </div>
         )}
       </SectionCard>
@@ -274,6 +368,37 @@ const PerformanceReviewDetailPage: React.FC = () => {
           {review.status === 'DRAFT' && <Button onClick={() => handleStatusChange('IN_REVIEW')} disabled={updateReview.isPending} className="h-10 rounded-xl bg-blue-50 text-blue-600 text-xs font-bold px-4">Move to In Review</Button>}
           {review.status !== 'COMPLETED' && <Button onClick={() => handleStatusChange('COMPLETED')} disabled={updateReview.isPending} className="h-10 rounded-xl bg-emerald-500 text-white text-xs font-bold px-4">Complete Review</Button>}
           {isCompleted && <span className="text-xs text-gray-400 font-semibold">Completed by {`${review.completer?.first_name || ''} ${review.completer?.last_name || ''}`.trim()} on {review.completed_at ? new Date(review.completed_at).toLocaleDateString() : ''}</span>}
+        </div>
+      </SectionCard>
+
+      <SectionCard icon={<Award size={18} className="text-primary-500" />} title="Increment Readiness" subtitle="Decision support only — this never approves, rejects, or changes salary/payroll by itself.">
+        <div className="flex items-center gap-3">
+          <span className={`text-[11px] font-black px-3 py-1 rounded-full uppercase ${READINESS_STYLE[increment_readiness.state]}`}>{increment_readiness.state.replace(/_/g, ' ')}</span>
+        </div>
+        <p className="text-sm text-gray-600">{increment_readiness.reason}</p>
+
+        <div className="pt-3 border-t border-gray-50 flex flex-col gap-3">
+          <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Management Decision</label>
+          {canDecide ? (
+            <SearchableSelect
+              options={MANAGEMENT_DECISION_OPTIONS}
+              value={review.management_decision}
+              onChange={handleRecordDecision}
+              placeholder="No decision recorded"
+              disabled={review.status !== 'COMPLETED' || recordDecision.isPending}
+            />
+          ) : (
+            <p className="text-sm text-gray-400 italic">
+              {review.management_decision ? MANAGEMENT_DECISION_OPTIONS.find((o) => o.value === review.management_decision)?.label || review.management_decision : 'No decision recorded'}
+              <span className="block text-[11px] mt-0.5">You do not have permission to record a management decision.</span>
+            </p>
+          )}
+          {review.status !== 'COMPLETED' && canDecide && (
+            <p className="text-[11px] text-gray-400 italic">Complete the review above before recording a management decision.</p>
+          )}
+          {review.management_decision_at && (
+            <p className="text-[11px] text-gray-400">Decided by {`${review.decision_maker?.first_name || ''} ${review.decision_maker?.last_name || ''}`.trim()} on {new Date(review.management_decision_at).toLocaleDateString()}</p>
+          )}
         </div>
       </SectionCard>
     </div>

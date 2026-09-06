@@ -75,6 +75,7 @@ export interface ProjectDto {
   // left empty/null to represent "no commission" (not zero).
   commission_type?: 'PERCENTAGE' | 'FIXED' | null;
   commission_value?: number | null;
+  commission_status?: 'FULL_PROJECT_PAID' | 'MILESTONES_PAID' | 'PENDING' | null;
   dev_status?: string;
   status?: string;
   // progress/progress_mode intentionally absent — MANUAL mode is removed,
@@ -254,6 +255,7 @@ export interface ProjectDetail {
   source?: string | null;
   commission_type?: 'PERCENTAGE' | 'FIXED' | null;
   commission_value?: number | null;
+  commission_status?: 'FULL_PROJECT_PAID' | 'MILESTONES_PAID' | 'PENDING' | null;
   dev_status?: string | null;
   budget?: number | null;
   budget_currency?: string;

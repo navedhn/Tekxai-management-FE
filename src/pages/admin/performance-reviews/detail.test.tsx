@@ -17,6 +17,7 @@ const FULL_EVIDENCE: any = {
     review_period: { id: 'p1', name: 'Q1 2026', start_date: '2026-01-01', end_date: '2026-03-31', status: 'OPEN' },
     status: 'DRAFT', classification: null, recommended_action: null,
     completed_at: null, evidence_entries: [], created_at: '', updated_at: '',
+    management_decision: null, management_decision_at: null,
   },
   role: { designation: { id: 'd1', name: 'Backend Developer' }, resolved_source: 'HISTORY' },
   project_evidence: {
@@ -43,6 +44,21 @@ const FULL_EVIDENCE: any = {
   utilization: { available: false, reason: 'No logged work time for this review period', total_hours: 0, billable_hours: 0, utilization_pct: null },
   warnings: { restricted: false, records: [] },
   manager_evidence: [],
+  evidence_breakdown: {
+    objective: { assigned: 2, on_time: 1, missed: 1, pending: 0, successful: 1, failed: 0, qa_passed: 1, qa_failed: 0, rework_total: 0, evidence_count: 1 },
+    contextual: { missed_reason_breakdown: { CLIENT_DEPENDENCY: 1 }, issue_classification_breakdown: { EXTERNAL_DEPENDENCY: 1 } },
+  },
+  missed_attribution: { total_classified: 1, performance_related: 0, capacity_related: 0, external_related: 1, other: 0 },
+  evidence_completeness: {
+    status: 'PARTIAL_EVIDENCE',
+    sources: { project: 'HAS_DATA', delivery: 'HAS_DATA', qa: 'HAS_DATA', attendance: 'HAS_DATA', utilization: 'NO_DATA', warnings: 'NO_DATA', manager_evidence: 'NO_DATA' },
+  },
+  decision_indicators: {
+    delivery_concerns_present: true, quality_concerns_present: false, attendance_concerns_present: true,
+    capacity_concerns_present: false, external_dependency_concerns_present: true, performance_related_misses_present: false,
+    previous_warnings_present: false, manager_evidence_present: false,
+  },
+  increment_readiness: { state: 'REVIEW_NOT_COMPLETED', reason: 'Performance review has not been completed for the applicable review period.' },
 };
 
 vi.mock('@/services/performanceReviewsService', async () => {
@@ -53,8 +69,13 @@ vi.mock('@/services/performanceReviewsService', async () => {
     useUpdateReview: () => ({ mutate: vi.fn(), isPending: false }),
     useAddManagerEvidence: () => ({ mutate: vi.fn(), isPending: false }),
     useDeleteManagerEvidence: () => ({ mutate: vi.fn(), isPending: false }),
+    useRecordManagementDecision: () => ({ mutate: vi.fn(), isPending: false }),
   };
 });
+
+vi.mock('@/services/permissionsService', () => ({
+  useMyPermissions: () => ({ data: { is_super_admin: false, permissions: ['hr.performance_reviews.decide'] } }),
+}));
 
 function renderDetail() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
