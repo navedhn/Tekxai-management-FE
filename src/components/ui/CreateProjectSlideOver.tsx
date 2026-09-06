@@ -227,6 +227,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
   const [source, setSource] = useState('');
   const [commissionType, setCommissionType] = useState<'' | 'PERCENTAGE' | 'FIXED'>('');
   const [commissionValue, setCommissionValue] = useState('');
+  const [commissionStatus, setCommissionStatus] = useState<'' | 'FULL_PROJECT_PAID' | 'MILESTONES_PAID' | 'PENDING'>('');
   // Tracks whether the client selector was actually touched this session —
   // distinguishes "never touched a legacy free-text client_name" (omit
   // client_id entirely, leave client_name exactly as-is) from "explicitly
@@ -275,6 +276,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       setSource(project.source || '');
       setCommissionType(project.commission_type || '');
       setCommissionValue(project.commission_value != null ? String(project.commission_value) : '');
+      setCommissionStatus((project as any).commission_status || '');
       setTeamMembers((project.members || []).map((m) => ({
         id: m.id,
         name: `${m.first_name} ${m.last_name}`.trim(),
@@ -320,6 +322,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       setSource('');
       setCommissionType('');
       setCommissionValue('');
+      setCommissionStatus('');
       setProjectOwners([]);
       setTeamLeaders([]);
       setTeamMembers([]);
@@ -388,6 +391,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       source: source.trim() || null,
       commission_type: hasCommissionType ? (commissionType as 'PERCENTAGE' | 'FIXED') : null,
       commission_value: hasCommissionValue ? Number(commissionValue) : null,
+      commission_status: commissionStatus || null,
     };
 
     try {
@@ -638,6 +642,20 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
                   />
                 </div>
                 {errors.commission && <span className="text-xs text-red-500 font-semibold ml-1">{errors.commission}</span>}
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Commission Status</label>
+                  <SearchableSelect
+                    options={[
+                      { label: 'Full Project Commission Paid', value: 'FULL_PROJECT_PAID' },
+                      { label: 'Commission Paid for Completed Milestones', value: 'MILESTONES_PAID' },
+                      { label: 'Commission Pending', value: 'PENDING' },
+                    ]}
+                    value={commissionStatus || null}
+                    onChange={(v) => setCommissionStatus((v as typeof commissionStatus) || '')}
+                    placeholder="Not tracked"
+                  />
+                </div>
               </div>
 
               <div className="flex flex-col gap-4">

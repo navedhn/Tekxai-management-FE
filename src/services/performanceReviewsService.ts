@@ -29,9 +29,17 @@ export interface ReviewPeriod {
   _count?: { reviews: number };
 }
 
+// Phase 5 Controlled Performance Decision & Increment Evidence Layer.
+export type EvidenceStance = 'SUPPORTING' | 'COUNTER' | 'NEUTRAL';
+export type ManagementDecision = 'NO_DECISION' | 'INCREMENT_APPROVED' | 'INCREMENT_DEFERRED' | 'INCREMENT_REJECTED' | 'ESCALATE_TO_HR' | 'NO_ACTION_REQUIRED';
+export type EvidenceCompletenessStatus = 'SUFFICIENT_EVIDENCE' | 'PARTIAL_EVIDENCE' | 'INSUFFICIENT_EVIDENCE';
+export type SourceState = 'NOT_APPLICABLE' | 'NO_DATA' | 'HAS_DATA';
+export type IncrementReadinessState = 'REVIEW_NOT_COMPLETED' | 'INSUFFICIENT_EVIDENCE' | 'HOLD_FOR_FURTHER_EVIDENCE' | 'REVIEW_COMPLETED' | 'ELIGIBLE_FOR_MANAGEMENT_REVIEW';
+
 export interface ManagerEvidenceEntry {
   id: string;
   note: string;
+  stance: EvidenceStance;
   author: SimpleUser;
   project?: { id: string; title: string } | null;
   milestone?: { id: string; title: string } | null;
@@ -45,15 +53,65 @@ export interface PerformanceReview {
   user: SimpleUser;
   reviewer: SimpleUser;
   completer?: SimpleUser | null;
+  decision_maker?: SimpleUser | null;
   review_period?: ReviewPeriod | null;
   designation?: { id: string; name: string } | null;
   status: ReviewStatus;
   classification: Classification | null;
   recommended_action: RecommendedAction | null;
   completed_at: string | null;
+  // Phase 5 — the actual authorized outcome, separate from classification/recommended_action.
+  management_decision: ManagementDecision | null;
+  management_decision_at: string | null;
   evidence_entries: ManagerEvidenceEntry[];
   created_at: string;
   updated_at: string;
+}
+
+// Always server-derived (compute_evidence_completeness) — never computed client-side.
+export interface EvidenceCompleteness {
+  status: EvidenceCompletenessStatus;
+  sources: {
+    project: SourceState; delivery: SourceState; qa: SourceState;
+    attendance: SourceState; utilization: SourceState; warnings: SourceState; manager_evidence: SourceState;
+  };
+}
+
+// Factual presence indicators only — never a verdict.
+export interface DecisionIndicators {
+  delivery_concerns_present: boolean;
+  quality_concerns_present: boolean;
+  attendance_concerns_present: boolean;
+  capacity_concerns_present: boolean;
+  external_dependency_concerns_present: boolean;
+  performance_related_misses_present: boolean;
+  previous_warnings_present: boolean;
+  manager_evidence_present: boolean;
+}
+
+export interface MissedAttribution {
+  total_classified: number;
+  performance_related: number;
+  capacity_related: number;
+  external_related: number;
+  other: number;
+}
+
+export interface IncrementReadiness {
+  state: IncrementReadinessState;
+  reason: string;
+}
+
+export interface EvidenceBreakdown {
+  objective: {
+    assigned: number; on_time: number; missed: number; pending: number;
+    successful: number; failed: number; qa_passed: number; qa_failed: number;
+    rework_total: number; evidence_count: number;
+  };
+  contextual: {
+    missed_reason_breakdown: Record<string, number>;
+    issue_classification_breakdown: Record<string, number>;
+  };
 }
 
 // Always server-derived (get_review_evidence_svc) — never computed client-side.
@@ -137,10 +195,15 @@ export interface ReviewEvidence {
   review: PerformanceReview;
   role: { designation: { id: string; name: string } | null; resolved_source: string };
   project_evidence: ProjectEvidence;
+  evidence_breakdown: EvidenceBreakdown;
+  missed_attribution: MissedAttribution;
   attendance: AttendanceEvidence | null;
   utilization: UtilizationEvidence | null;
   warnings: { restricted: boolean; records: WarningRecord[] };
   manager_evidence: ManagerEvidenceEntry[];
+  evidence_completeness: EvidenceCompleteness;
+  decision_indicators: DecisionIndicators;
+  increment_readiness: IncrementReadiness;
 }
 
 // ── Review Periods ───────────────────────────────────────────────────────────
@@ -218,7 +281,7 @@ export const useUpdateReview = (id: string) => {
 export const useAddManagerEvidence = (id: string) => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { note: string; project_id?: string; milestone_id?: string }) =>
+    mutationFn: (data: { note: string; project_id?: string; milestone_id?: string; stance?: EvidenceStance }) =>
       apiRequest<unknown>(API_ENDPOINTS.PERFORMANCE_REVIEW.ADD_MANAGER_EVIDENCE(id), { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => invalidateReview(qc, id),
   });
@@ -229,6 +292,18 @@ export const useDeleteManagerEvidence = (id: string) => {
   return useMutation({
     mutationFn: (evidenceId: string) =>
       apiRequest<unknown>(API_ENDPOINTS.PERFORMANCE_REVIEW.DELETE_MANAGER_EVIDENCE(id, evidenceId), { method: 'DELETE' }),
+    onSuccess: () => invalidateReview(qc, id),
+  });
+};
+
+// Phase 5 — a separate mutation from useUpdateReview: recording a
+// management decision is a distinct, higher-stakes action gated by its own
+// backend permission (hr.performance_reviews.decide).
+export const useRecordManagementDecision = (id: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (management_decision: ManagementDecision) =>
+      apiRequest<unknown>(API_ENDPOINTS.PERFORMANCE_REVIEW.RECORD_DECISION(id), { method: 'POST', body: JSON.stringify({ management_decision }) }),
     onSuccess: () => invalidateReview(qc, id),
   });
 };
