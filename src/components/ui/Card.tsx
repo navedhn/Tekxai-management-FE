@@ -27,7 +27,7 @@ const Card: React.FC<CardProps> = ({
     animate={{ opacity: 1, y: 0 }}
     transition={{ delay }}
     className={cn(
-      'bg-(--color-surface) rounded-[12px] border border-(--color-border) p-6 shadow-sm',
+      'bg-(--color-surface) rounded-[12px] border border-(--color-border) p-6 shadow-sm text-(--color-text-primary)',
       chart && 'py-8',
       hoverable && 'transition-all duration-200 hover:shadow-md hover:-translate-y-0.5',
       className

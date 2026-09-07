@@ -3,12 +3,14 @@ import { useGetProjects, ProjectSummary } from '@/services/employeeService';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
-import Loader from '@/components/ui/Loader';
 import { Star, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { PageSkeleton } from '@/components/skeletons';
+import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 
 const EmployeeSaved: React.FC = () => {
     const { data: projects, isLoading } = useGetProjects();
+    const showPageSkeleton = useShowPageSkeleton(isLoading);
 
     const columns: Column<ProjectSummary>[] = [
         { header: 'Project Title', key: 'title' },
@@ -51,6 +53,8 @@ const EmployeeSaved: React.FC = () => {
             )
         }
     ];
+
+    if (showPageSkeleton) return <PageSkeleton variant="table" />;
 
     return (
         <div className="flex flex-col gap-8">

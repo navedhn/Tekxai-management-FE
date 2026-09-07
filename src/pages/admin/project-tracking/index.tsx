@@ -4,7 +4,8 @@ import { useGetPostSalesDashboard } from '@/services/crmService';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Input from '@/components/ui/Input';
-import Loader from '@/components/ui/Loader';
+import { PageSkeleton, TableSkeleton } from '@/components/skeletons';
+import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 import DashboardStatCard from '@/components/ui/DashboardStatCard';
 import { Search, FolderKanban, Clock, AlertTriangle, CalendarClock, ShieldAlert, Ban, Users, Milestone as MilestoneIcon, UserX, MessageSquareWarning, UserMinus, UserCheck, Layers, CalendarDays, CalendarX2, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -65,8 +66,8 @@ const ListPanel: React.FC<{ icon: React.ReactNode; title: string; items: { key: 
 );
 
 function OperationalKpis() {
-  const { data: d, isLoading } = useGetPostSalesDashboard();
-  if (isLoading || !d) return null;
+  const { data: d } = useGetPostSalesDashboard();
+  if (!d) return null;
 
   const { top_kpis, project_health, status_distribution, timeline, resource_overview } = d;
   const max_status = Math.max(1, ...Object.values(status_distribution));
@@ -220,6 +221,8 @@ function namesFor(members: ProjectDetail['members'], role: string): string {
 
 export default function ProjectTrackingDashboard() {
   const { data: projects, isLoading } = useGetProjects({ limit: 1000 });
+  const dashboardQuery = useGetPostSalesDashboard();
+  const showPageSkeleton = useShowPageSkeleton(isLoading, dashboardQuery);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const perPage = 10;
@@ -342,6 +345,8 @@ export default function ProjectTrackingDashboard() {
     },
   ];
 
+  if (showPageSkeleton) return <PageSkeleton variant="stats-table" />;
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -363,7 +368,7 @@ export default function ProjectTrackingDashboard() {
         </div>
 
         {isLoading ? (
-          <div className="flex justify-center py-16"><Loader /></div>
+          <TableSkeleton rows={8} columns={5} />
         ) : (
           <div className="overflow-x-auto">
             <Table

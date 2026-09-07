@@ -13,17 +13,17 @@ const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({ trackerState, seconds
     {trackerState === 'tracking' ? (
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col gap-0.5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">Time Tracker</h2>
-          <p className="text-xs text-gray-400 font-bold">Checked in via TekXAI Desktop App</p>
+          <h2 className="text-lg font-black text-(--color-text-primary) tracking-tight">Time Tracker</h2>
+          <p className="text-xs text-(--color-text-secondary) font-bold">Checked in via TekXAI Desktop App</p>
         </div>
         <div className="flex items-center gap-4 bg-[#F8F9FA] border border-gray-100 rounded-2xl px-6 py-2">
           <div className="flex flex-col">
-            <span className="text-2xl font-black text-gray-900 leading-none tracking-tight">
+            <span className="text-2xl font-black text-(--color-text-primary) leading-none tracking-tight">
               {formatTrackerTime(seconds)}
             </span>
-            <span className="text-[11px] text-gray-400 font-bold mt-0.5">Today&apos;s Time</span>
+            <span className="text-[11px] text-(--color-text-secondary) font-bold mt-0.5">Today&apos;s Time</span>
           </div>
-          <div className="h-8 w-8 ml-4 rounded-full bg-white flex items-center justify-center border border-gray-100 text-gray-400">
+          <div className="h-8 w-8 ml-4 rounded-full bg-white flex items-center justify-center border border-gray-100 text-(--color-text-secondary)">
             <Clock size={16} />
           </div>
         </div>
@@ -35,8 +35,8 @@ const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({ trackerState, seconds
             <MonitorSmartphone size={20} />
           </div>
           <div className="flex flex-col gap-0.5">
-            <h2 className="text-lg font-black text-gray-900 tracking-tight">Time Tracker</h2>
-            <p className="text-xs text-gray-500 font-bold">
+            <h2 className="text-lg font-black text-(--color-text-primary) tracking-tight">Time Tracker</h2>
+            <p className="text-xs text-(--color-text-secondary) font-bold">
               Attendance can only be started from the TekXAI Desktop App.
             </p>
           </div>
@@ -44,10 +44,10 @@ const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({ trackerState, seconds
         {seconds > 0 && (
           <div className="flex items-center gap-4 bg-[#F8F9FA] border border-gray-100 rounded-2xl px-6 py-2">
             <div className="flex flex-col">
-              <span className="text-2xl font-black text-gray-900 leading-none tracking-tight">
+              <span className="text-2xl font-black text-(--color-text-primary) leading-none tracking-tight">
                 {formatTrackerTime(seconds)}
               </span>
-              <span className="text-[11px] text-gray-400 font-bold mt-0.5">Today&apos;s Time</span>
+              <span className="text-[11px] text-(--color-text-secondary) font-bold mt-0.5">Today&apos;s Time</span>
             </div>
           </div>
         )}

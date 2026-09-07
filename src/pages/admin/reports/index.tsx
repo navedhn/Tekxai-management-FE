@@ -7,6 +7,8 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Download, BarChart3, Users, Clock, TrendingUp } from 'lucide-react';
 import { useAttendanceReport, useLeaveReport, usePerformanceReport, useProjectsReport, download_report } from '@/services/reportService';
 import { useFetchUsersQuery } from '@/services/userService';
+import { PageSkeleton } from '@/components/skeletons';
+import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 
 const TABS = ['Attendance', 'Leave', 'Performance', 'Projects'];
 
@@ -84,6 +86,15 @@ const ReportsPage: React.FC = () => {
     if (!p.from && dateRange.from) { p.from = dateRange.from; p.to = dateRange.to || new Date().toISOString().split('T')[0]; }
     download_report(type === 'attendance' ? 'attendance' : type === 'leave' ? 'leave' : type === 'performance' ? 'performance' : 'projects', { ...p, format: 'csv' });
   };
+
+  const activeLoading =
+    activeTab === 'Attendance' ? attLoading :
+    activeTab === 'Leave' ? leaveLoading :
+    activeTab === 'Performance' ? perfLoading :
+    projLoading;
+  const showPageSkeleton = useShowPageSkeleton(activeLoading);
+
+  if (showPageSkeleton) return <PageSkeleton variant="table" />;
 
   return (
     <div className="flex flex-col gap-8 pb-10">

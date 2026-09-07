@@ -7,7 +7,7 @@ import { useGetDepartmentsQuery } from '@/services/departmentService';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import StatusBadge from '@/components/ui/StatusBadge';
-import Button, { IconButton } from '@/components/ui/Button';
+import Button, { IconButton, PageActionButton } from '@/components/ui/Button';
 
 const v1 = 'api/v1';
 const BUILDER = `${v1}/report/builder`;
@@ -1347,14 +1347,14 @@ export default function AssetsPage() {
           <p className="text-sm text-gray-400 mt-0.5">Track and manage company assets</p>
         </div>
         {tab === 'assets' && (
-          <Button variant="primary" size="sm" leftIcon={Plus} onClick={() => setShowCreate(true)} className="!h-10">
+          <PageActionButton leftIcon={Plus} onClick={() => setShowCreate(true)}>
             Add Asset
-          </Button>
+          </PageActionButton>
         )}
         {tab === 'requests' && (
-          <Button variant="primary" size="sm" leftIcon={Plus} onClick={() => setShowCreateRequest(true)} className="!h-10">
+          <PageActionButton leftIcon={Plus} onClick={() => setShowCreateRequest(true)}>
             New Request
-          </Button>
+          </PageActionButton>
         )}
       </div>
 

@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, ArrowRight, Ticket } from 'lucide-react';
 import Card from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
+import { Button, pageOutlineButtonClass, PageActionButton } from '@/components/ui/Button';
 import { CreateTicketModal, TicketStatusBadge } from '@/components/tickets';
 import { useAuth } from '@/hooks/useAuth';
 import { formatTicketDate, getTicketStats, useGetTickets } from '@/services/ticketService';
@@ -29,30 +29,23 @@ const TicketsSummaryCard: React.FC = () => {
               <Ticket size={20} className="text-[#005CDA]" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-gray-900 tracking-tight">Support Tickets</h2>
-              <p className="text-xs text-gray-500 font-medium">
+              <h2 className="text-lg font-black text-(--color-text-primary) tracking-tight">Support Tickets</h2>
+              <p className="text-xs text-(--color-text-secondary) font-medium">
                 Raise tickets to TL, Office Boy, HR, or anyone
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button
-              animation="none"
-              rounded={false}
-              size="sm"
-              className="rounded-lg bg-[#005CDA] text-white border-0 hover:bg-[#0047AB] h-9"
-              onClick={() => setCreateOpen(true)}
-            >
-              <Plus size={14} />
+          <div className="flex flex-wrap gap-2">
+            <PageActionButton leftIcon={Plus} onClick={() => setCreateOpen(true)}>
               Create Ticket
-            </Button>
+            </PageActionButton>
             <Link to="/employee/tickets">
               <Button
                 variant="outline"
                 animation="none"
                 rounded={false}
                 size="sm"
-                className="rounded-lg h-9"
+                className={pageOutlineButtonClass}
               >
                 View All
                 <ArrowRight size={14} />
@@ -67,19 +60,17 @@ const TicketsSummaryCard: React.FC = () => {
             { label: 'In Progress', value: stats.inProgress, color: 'text-[#175CD3]' },
             { label: 'Resolved', value: stats.resolved, color: 'text-[#067647]' },
           ].map(item => (
-            <div key={item.label} className="rounded-lg bg-[#F8F8F8] px-3 py-2.5 text-center">
+            <div key={item.label} className="rounded-xl bg-[#F8F8F8] px-3 py-3 text-center border border-gray-100">
               <p className={`text-xl font-black tabular-nums ${item.color}`}>
                 {isLoading ? '—' : item.value}
               </p>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">{item.label}</p>
+              <p className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wide mt-0.5">{item.label}</p>
             </div>
           ))}
         </div>
 
-        {isLoading ? (
-          <p className="text-sm text-gray-400 text-center py-4">Loading tickets...</p>
-        ) : recent.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-4">
+        {recent.length === 0 ? (
+          <p className="text-sm text-(--color-text-secondary) text-center py-4">
             No tickets yet. Create one to get help from your team.
           </p>
         ) : (

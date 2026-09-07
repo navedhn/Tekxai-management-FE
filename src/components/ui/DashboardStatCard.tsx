@@ -4,7 +4,7 @@ import { cn } from '@/utils/cn';
 export const dashboardStatStyles = {
   iconBox: 'h-12 w-12 rounded-lg shrink-0 flex items-center justify-center',
   value: 'text-lg font-bold text-(--color-text-primary) leading-tight tabular-nums',
-  label: 'text-[13px] font-medium text-gray-700 tracking-tight',
+  label: 'text-[13px] font-medium text-(--color-text-secondary) tracking-tight',
   subtext: 'text-[11px] text-(--color-text-secondary)',
 } as const;
 

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useGetExecutiveDashboard } from '@/services/executiveAnalyticsService';
+import { PageSkeleton } from '@/components/skeletons';
 
 function fmtMoney(n?: number | null) {
   if (n == null) return '—';
@@ -201,13 +202,7 @@ export default function ExecutiveDashboard() {
   ].filter((r) => r.count > 0);
 
   if (isLoading) {
-    return (
-      <div className="p-6 max-w-7xl mx-auto space-y-6">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-24 bg-gray-50 rounded-2xl animate-pulse" />
-        ))}
-      </div>
-    );
+    return <PageSkeleton variant="dashboard-admin" />;
   }
 
   return (

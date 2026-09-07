@@ -20,7 +20,7 @@ import { useGetDepartmentsQuery } from '@/services/departmentService';
 import { cn } from '@/utils/cn';
 import { EMPLOYMENT_STATUS_LABELS } from '@/constants/employmentStatus';
 import StatusBadge from '@/components/ui/StatusBadge';
-import Button, { IconButton } from '@/components/ui/Button';
+import Button, { IconButton, PageActionButton } from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 
 const LIFECYCLE_STAGE_OPTIONS = [
@@ -443,9 +443,9 @@ export default function EmployeeDirectory() {
           <Button variant="outline" size="sm" animation="none" leftIcon={UserPlus} onClick={() => setQuickCreateOpen(true)} className="!h-10">
             Quick Create User
           </Button>
-          <Button variant="primary" size="sm" leftIcon={Plus} onClick={() => navigate('/admin/add-employee')} className="!h-10 shadow-md shadow-primary-100">
+          <PageActionButton leftIcon={Plus} onClick={() => navigate('/admin/add-employee')}>
             Add Employee
-          </Button>
+          </PageActionButton>
         </div>
       </div>
 

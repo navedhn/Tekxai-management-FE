@@ -1,5 +1,5 @@
 import React, { memo, useState, useRef, useEffect } from 'react';
-import { Menu, Bell, User, LogOut, HelpCircle, ChevronDown, ArrowLeftRight } from 'lucide-react';
+import { Menu, Bell, User, LogOut, HelpCircle, ChevronDown, ArrowLeftRight, Moon, Sun } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import NotificationDropdown from './NotificationDropdown';
 import { useNotifications } from '@/services/notificationService';
@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { getPageTitle } from './pageTitles';
 import { useMyPermissions } from '@/services/permissionsService';
+import { useColorMode } from '@/hooks/useColorMode';
 
 import ActionModal from '@/components/ui/ActionModal';
 import ChatMessagePopup from '@/components/chatPopup/ChatMessagePopup';
@@ -25,6 +26,7 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
     const unreadCount = notifData?.unread_count ?? 0;
     const notifBtnRef = useRef<HTMLButtonElement>(null);
     const profileRef = useRef<HTMLDivElement>(null);
+    const { isDark, toggleColorMode } = useColorMode();
 
     const { data: myPerms } = useMyPermissions();
     const canAccessCrm = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('crm.workspace.access');
@@ -63,22 +65,32 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
 
     return (
         <>
-        <div className={`fixed top-0 left-0 ${fullWidth ? '' : 'lg:left-sidebar'} gap-3 right-0 h-[5.5rem] bg-white backdrop-blur-md border-b border-gray-100 flex items-center justify-between px-6 md:px-5 z-[100] transition-all duration-300`}>
+        <div className={`fixed top-0 left-0 ${fullWidth ? '' : 'lg:left-sidebar'} gap-3 right-0 h-topbar bg-(--color-header-bg) backdrop-blur-md border-b border-(--color-border) flex items-center justify-between px-6 md:px-5 z-[100] transition-all duration-300`}>
 
             <div className="flex items-center gap-4 shrink-0">
                 {!fullWidth && (
-                    <button className="lg:hidden p-2 hover:bg-gray-100 rounded-xl transition-colors" onClick={onMenu}>
-                        <Menu size={20} className="text-gray-600" />
+                    <button className="lg:hidden p-2 hover:bg-(--color-state-hover) rounded-xl transition-colors" onClick={onMenu}>
+                        <Menu size={20} className="text-(--color-text-secondary)" />
                     </button>
                 )}
                 <div className="flex items-baseline gap-2 min-w-0">
-                    <h1 className="text-lg sm:text-xl md:text-2xl font-poppins font-semibold text-gray-900 tracking-tight truncate">
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-poppins font-semibold text-(--color-text-primary) tracking-tight truncate">
                         {title}
                     </h1>
                 </div>
             </div>
 
             <div className="flex items-center gap-3 md:gap-5 relative shrink-0 ml-auto">
+
+                <button
+                    type="button"
+                    onClick={toggleColorMode}
+                    title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                    aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                    className="p-2.5 bg-gray-50 text-gray-500 hover:text-primary-500 hover:bg-primary-50 rounded-2xl border border-gray-100 transition-all"
+                >
+                    {isDark ? <Sun size={20} /> : <Moon size={20} />}
+                </button>
 
                 <button
                     onClick={() => navigate(`${routePrefix}/tickets`)}
@@ -91,15 +103,14 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
                 <button
                     ref={notifBtnRef}
                     onClick={() => setIsNotifOpen(!isNotifOpen)}
-                    className="relative p-2.5 bg-gray-50 text-gray-500 group hover:text-primary-500 hover:bg-primary-50 rounded-2xl border border-gray-100 transition-all"
+                    aria-label="Notifications"
+                    aria-expanded={isNotifOpen}
+                    className="relative p-2.5 bg-gray-50 text-gray-500 hover:text-primary-500 hover:bg-primary-50 rounded-2xl border border-gray-100"
                 >
-                    <Bell
-                        size={20}
-                        className="transform rotate-[340deg] group-hover:rotate-0 transition-transform duration-500 ease-in-out"
-                    />
+                    <Bell size={20} />
 
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-black border-2 border-white group-hover:animate-bounce">
+                      <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-black border-2 border-white">
                         {unreadCount > 9 ? '9+' : unreadCount}
                       </span>
                     )}

@@ -23,7 +23,8 @@ import ReviewEditRequestModal from '@/components/modals/ReviewEditRequestModal';
 import { useDebounce } from '@/hooks/useDebounce';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { useToastContext } from '@/components/toast/ToastProvider';
-import { CardSkeleton } from '@/components/skeletons';
+import { CardSkeleton, PageSkeleton } from '@/components/skeletons';
+import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 
 const TimesheetManagement: React.FC = () => {
     const toast = useToastContext();
@@ -160,6 +161,9 @@ const TimesheetManagement: React.FC = () => {
 
     const isTabLoading = (activeTab === 'All Entries' && isTimesheetLoading) ||
                        ((activeTab === 'Edit Requests' || activeTab === 'Time Off Requests') && isRequestsLoading);
+    const showPageSkeleton = useShowPageSkeleton(isTabLoading);
+
+    if (showPageSkeleton) return <PageSkeleton variant="timesheet" />;
 
     return (
         <div className="flex flex-col gap-8">

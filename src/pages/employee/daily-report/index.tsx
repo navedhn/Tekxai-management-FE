@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, X, FileText, CheckCircle, XCircle, ClipboardList, Trash2 } from 'lucide-react';
+import { Plus, FileText, CheckCircle, XCircle, ClipboardList, Trash2 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 import { useAuthStore } from '@/stores/authStore';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { getSocket } from '@/lib/socket';
+import { PageActionButton } from '@/components/ui/Button';
+import Modal from '@/components/ui/Modal';
+import { PageSkeleton } from '@/components/skeletons';
+import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 
 const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400';
 
@@ -41,7 +45,7 @@ function useMyProjects() {
 function ProjectPicker({ item, onChange, myProjects }: { item: ProjectItem; onChange: (patch: Partial<ProjectItem>) => void; myProjects: any[] }) {
   const usingFreeform = !item.project_id;
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className={cn('grid gap-2', usingFreeform ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1')}>
       <select
         className={inputCls}
         value={item.project_id}
@@ -94,7 +98,7 @@ function TaskListEditor({ label, tasks, onChange }: { label: string; tasks: stri
   );
 }
 
-function AgendaModal({ onClose }: { onClose: () => void }) {
+function AgendaModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const qc = useQueryClient();
   const toast = useToastContext();
   const { data: myProjects = [] } = useMyProjects();
@@ -124,57 +128,79 @@ function AgendaModal({ onClose }: { onClose: () => void }) {
   const canSubmit = items.every((it) => (it.project_id || it.project_name_freeform.trim()) && it.tasks.some((t) => t.trim()));
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl p-6 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-black text-gray-900">Submit Today's Agenda</h2>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="md"
+      title={
+        <div className="min-w-0 pr-2">
+          <h3 className="text-lg font-black text-gray-900">Submit Today's Agenda</h3>
+          <p className="text-xs text-gray-400 font-medium mt-1">List what you plan to work on today, by project.</p>
         </div>
-        <p className="text-xs text-gray-400 mb-5">List what you plan to work on today, by project.</p>
-
-        <div className="space-y-5">
-          {items.map((item, idx) => (
-            <div key={idx} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-gray-500 uppercase tracking-wide">Project {idx + 1}</span>
-                {items.length > 1 && (
-                  <button onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-gray-400 hover:text-red-500">
-                    <Trash2 size={14} />
-                  </button>
-                )}
-              </div>
-              <ProjectPicker item={item} myProjects={myProjects} onChange={(patch) => setItems(items.map((it, i) => i === idx ? { ...it, ...patch } : it))} />
-              <TaskListEditor label="Tasks" tasks={item.tasks} onChange={(tasks) => setItems(items.map((it, i) => i === idx ? { ...it, tasks } : it))} />
-              <div>
-                <label className="text-xs font-semibold text-gray-500 block mb-1.5">Estimated Time (hours)</label>
-                <input type="number" min="0" max="24" step="0.5" className={inputCls}
-                  value={item.estimated_hours}
-                  onChange={(e) => setItems(items.map((it, i) => i === idx ? { ...it, estimated_hours: e.target.value } : it))}
-                  placeholder="8" />
-              </div>
-            </div>
-          ))}
-          <button type="button" onClick={() => setItems([...items, { ...emptyItem(), estimated_hours: '' }])}
-            className="w-full h-10 border border-dashed border-gray-300 rounded-xl text-xs font-semibold text-gray-500 hover:bg-gray-50 flex items-center justify-center gap-1.5">
-            <Plus size={14} />Add another project
+      }
+      bodyClassName="!p-4 sm:!p-6"
+      footer={
+        <div className="flex flex-col-reverse sm:flex-row gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50"
+          >
+            Cancel
           </button>
-        </div>
-
-        {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
-
-        <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={() => mutation.mutate()} disabled={!canSubmit || mutation.isPending}
-            className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40">
+          <button
+            type="button"
+            onClick={() => mutation.mutate()}
+            disabled={!canSubmit || mutation.isPending}
+            className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40"
+          >
             {mutation.isPending ? 'Submitting…' : 'Submit Agenda'}
           </button>
         </div>
+      }
+    >
+      <div className="space-y-5">
+        {items.map((item, idx) => (
+          <div key={idx} className="p-3 sm:p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-gray-500 uppercase tracking-wide">Project {idx + 1}</span>
+              {items.length > 1 && (
+                <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-gray-400 hover:text-red-500">
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
+            <ProjectPicker item={item} myProjects={myProjects} onChange={(patch) => setItems(items.map((it, i) => i === idx ? { ...it, ...patch } : it))} />
+            <TaskListEditor label="Tasks" tasks={item.tasks} onChange={(tasks) => setItems(items.map((it, i) => i === idx ? { ...it, tasks } : it))} />
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1.5">Estimated Time (hours)</label>
+              <input
+                type="number"
+                min="0"
+                max="24"
+                step="0.5"
+                className={inputCls}
+                value={item.estimated_hours}
+                onChange={(e) => setItems(items.map((it, i) => i === idx ? { ...it, estimated_hours: e.target.value } : it))}
+                placeholder="8"
+              />
+            </div>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => setItems([...items, { ...emptyItem(), estimated_hours: '' }])}
+          className="w-full h-10 border border-dashed border-gray-300 rounded-xl text-xs font-semibold text-gray-500 hover:bg-gray-50 flex items-center justify-center gap-1.5"
+        >
+          <Plus size={14} />Add another project
+        </button>
+        {err && <p className="text-red-500 text-xs">{err}</p>}
       </div>
-    </div>
+    </Modal>
   );
 }
 
-function ReportModal({ onClose, agendaItems }: { onClose: () => void; agendaItems: any[] }) {
+function ReportModal({ isOpen, onClose, agendaItems }: { isOpen: boolean; onClose: () => void; agendaItems: any[] }) {
   const qc = useQueryClient();
   const toast = useToastContext();
   const user = useAuthStore(s => s.user);
@@ -225,85 +251,123 @@ function ReportModal({ onClose, agendaItems }: { onClose: () => void; agendaItem
   const canSubmit = items.every((it) => it.project_id || it.project_name_freeform.trim());
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl p-6 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-black text-gray-900">Submit Daily Report</h2>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="md"
+      title={
+        <div className="min-w-0 pr-2">
+          <h3 className="text-lg font-black text-gray-900">Submit Daily Report</h3>
+          <p className="text-xs text-gray-400 font-medium mt-1">Close out today's work — what got done, what's still pending.</p>
         </div>
-        <p className="text-xs text-gray-400 mb-5">Close out today's work — what got done, what's still pending.</p>
-
-        <div className="space-y-5">
-          {items.map((item, idx) => (
-            <div key={idx} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-gray-500 uppercase tracking-wide">Project {idx + 1}</span>
-                {items.length > 1 && (
-                  <button onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-gray-400 hover:text-red-500">
-                    <Trash2 size={14} />
-                  </button>
-                )}
-              </div>
-              <ProjectPicker item={item} myProjects={myProjects} onChange={(patch) => setItems(items.map((it, i) => i === idx ? { ...it, ...patch } : it))} />
-              <TaskListEditor label="Completed" tasks={item.completed_tasks} onChange={(completed_tasks) => setItems(items.map((it, i) => i === idx ? { ...it, completed_tasks } : it))} />
-              <TaskListEditor label="Pending" tasks={item.pending_tasks} onChange={(pending_tasks) => setItems(items.map((it, i) => i === idx ? { ...it, pending_tasks } : it))} />
-            </div>
-          ))}
-          <button type="button" onClick={() => setItems([...items, emptyItem()])}
-            className="w-full h-10 border border-dashed border-gray-300 rounded-xl text-xs font-semibold text-gray-500 hover:bg-gray-50 flex items-center justify-center gap-1.5">
-            <Plus size={14} />Add another project
+      }
+      bodyClassName="!p-4 sm:!p-6"
+      footer={
+        <div className="flex flex-col-reverse sm:flex-row gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50"
+          >
+            Cancel
           </button>
-
-          <div>
-            <label className="text-xs font-semibold text-gray-500 block mb-1.5">Estimated Time (hours)</label>
-            <input type="number" min="0" max="24" step="0.5" className={inputCls} value={hoursWorked} onChange={(e) => setHoursWorked(e.target.value)} placeholder="8" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-500 block mb-1.5">Additional Notes (optional)</label>
-            <textarea className="w-full h-20 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
-              value={additionalNotes} onChange={(e) => setAdditionalNotes(e.target.value)} placeholder="Anything else worth noting…" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-500 block mb-1.5">Blockers (optional)</label>
-            <textarea className="w-full h-20 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
-              value={blockers} onChange={(e) => setBlockers(e.target.value)} placeholder="Anything blocking your progress…" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-500 block mb-1.5">Tomorrow's Plan (optional)</label>
-            <textarea className="w-full h-20 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
-              value={tomorrowPlan} onChange={(e) => setTomorrowPlan(e.target.value)} placeholder="What you plan to work on next…" />
-          </div>
-
-          {showCodeDeployed && (
-            <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
-              <label className="text-xs font-semibold text-gray-600 block mb-2">Code Deployed to Live?</label>
-              <div className="flex gap-3">
-                <button type="button" onClick={() => setCodeDeployed(true)}
-                  className={cn('flex items-center gap-2 px-4 h-9 rounded-xl border text-sm font-semibold transition-colors',
-                    codeDeployed === true ? 'bg-green-50 border-green-400 text-green-700' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50')}>
-                  <CheckCircle size={15} />Yes
-                </button>
-                <button type="button" onClick={() => setCodeDeployed(false)}
-                  className={cn('flex items-center gap-2 px-4 h-9 rounded-xl border text-sm font-semibold transition-colors',
-                    codeDeployed === false ? 'bg-red-50 border-red-400 text-red-600' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50')}>
-                  <XCircle size={15} />No
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
-
-        <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={() => mutation.mutate()} disabled={!canSubmit || mutation.isPending}
-            className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40">
+          <button
+            type="button"
+            onClick={() => mutation.mutate()}
+            disabled={!canSubmit || mutation.isPending}
+            className="flex-1 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-40"
+          >
             {mutation.isPending ? 'Submitting…' : 'Submit Report'}
           </button>
         </div>
+      }
+    >
+      <div className="space-y-5">
+        {items.map((item, idx) => (
+          <div key={idx} className="p-3 sm:p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-gray-500 uppercase tracking-wide">Project {idx + 1}</span>
+              {items.length > 1 && (
+                <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-gray-400 hover:text-red-500">
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
+            <ProjectPicker item={item} myProjects={myProjects} onChange={(patch) => setItems(items.map((it, i) => i === idx ? { ...it, ...patch } : it))} />
+            <TaskListEditor label="Completed" tasks={item.completed_tasks} onChange={(completed_tasks) => setItems(items.map((it, i) => i === idx ? { ...it, completed_tasks } : it))} />
+            <TaskListEditor label="Pending" tasks={item.pending_tasks} onChange={(pending_tasks) => setItems(items.map((it, i) => i === idx ? { ...it, pending_tasks } : it))} />
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => setItems([...items, emptyItem()])}
+          className="w-full h-10 border border-dashed border-gray-300 rounded-xl text-xs font-semibold text-gray-500 hover:bg-gray-50 flex items-center justify-center gap-1.5"
+        >
+          <Plus size={14} />Add another project
+        </button>
+
+        <div>
+          <label className="text-xs font-semibold text-gray-500 block mb-1.5">Estimated Time (hours)</label>
+          <input type="number" min="0" max="24" step="0.5" className={inputCls} value={hoursWorked} onChange={(e) => setHoursWorked(e.target.value)} placeholder="8" />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-500 block mb-1.5">Additional Notes (optional)</label>
+          <textarea
+            className="w-full h-20 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
+            value={additionalNotes}
+            onChange={(e) => setAdditionalNotes(e.target.value)}
+            placeholder="Anything else worth noting…"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-500 block mb-1.5">Blockers (optional)</label>
+          <textarea
+            className="w-full h-20 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
+            value={blockers}
+            onChange={(e) => setBlockers(e.target.value)}
+            placeholder="Anything blocking your progress…"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-500 block mb-1.5">Tomorrow's Plan (optional)</label>
+          <textarea
+            className="w-full h-20 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
+            value={tomorrowPlan}
+            onChange={(e) => setTomorrowPlan(e.target.value)}
+            placeholder="What you plan to work on next…"
+          />
+        </div>
+
+        {showCodeDeployed && (
+          <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+            <label className="text-xs font-semibold text-gray-600 block mb-2">Code Deployed to Live?</label>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => setCodeDeployed(true)}
+                className={cn(
+                  'flex items-center gap-2 px-4 h-9 rounded-xl border text-sm font-semibold transition-colors',
+                  codeDeployed === true ? 'bg-green-50 border-green-400 text-green-700' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                )}
+              >
+                <CheckCircle size={15} />Yes
+              </button>
+              <button
+                type="button"
+                onClick={() => setCodeDeployed(false)}
+                className={cn(
+                  'flex items-center gap-2 px-4 h-9 rounded-xl border text-sm font-semibold transition-colors',
+                  codeDeployed === false ? 'bg-red-50 border-red-400 text-red-600' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                )}
+              >
+                <XCircle size={15} />No
+              </button>
+            </div>
+          </div>
+        )}
+        {err && <p className="text-red-500 text-xs">{err}</p>}
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -315,7 +379,7 @@ export default function DailyReportPage() {
 
   const qc = useQueryClient();
 
-  const { data: complianceStatus } = useQuery({
+  const { data: complianceStatus, isLoading: complianceLoading } = useQuery({
     queryKey: ['timesheet-compliance-status'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.TIMESHEET.COMPLIANCE_STATUS),
     select: (r: any) => r?.payload,
@@ -323,14 +387,14 @@ export default function DailyReportPage() {
     refetchOnWindowFocus: true,
   });
 
-  const { data: todaysAgenda } = useQuery({
+  const { data: todaysAgenda, isLoading: agendaLoading } = useQuery({
     queryKey: ['daily-agenda-today'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.DAILY_PLANNING.AGENDA_TODAY),
     select: (r: any) => r?.payload,
     refetchOnWindowFocus: true,
   });
 
-  const { data: todaysReport } = useQuery({
+  const { data: todaysReport, isLoading: todayReportLoading } = useQuery({
     queryKey: ['daily-report-today'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.DAILY_PLANNING.REPORT_TODAY),
     select: (r: any) => r?.payload,
@@ -342,6 +406,7 @@ export default function DailyReportPage() {
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PERFORMANCE.DAILY_REPORTS),
     select: (r: any) => r?.payload?.records || r?.payload || [],
   });
+  const showPageSkeleton = useShowPageSkeleton(complianceLoading, agendaLoading, todayReportLoading, isLoading);
 
   useEffect(() => {
     const socket = getSocket();
@@ -376,6 +441,8 @@ export default function DailyReportPage() {
   const agendaSubmitted = !!todaysAgenda || !!complianceStatus?.agenda_submitted;
   const reportSubmitted = !!todaysReport || !!complianceStatus?.report_submitted;
 
+  if (showPageSkeleton) return <PageSkeleton variant="table" />;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between">
@@ -383,19 +450,16 @@ export default function DailyReportPage() {
           <h1 className="text-2xl font-black text-gray-900">Daily Planning</h1>
           <p className="text-sm text-gray-400 mt-0.5">Start your day with an agenda, close it out with a report</p>
         </div>
-        <div className="flex gap-2">
-
+        <div className="flex flex-wrap gap-2 justify-end">
           {hasOpenSession && !agendaSubmitted && (
-            <button onClick={() => setShowAgendaModal(true)}
-              className="flex items-center gap-2 px-4 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition-colors">
-              <ClipboardList size={16} />Submit Today's Agenda
-            </button>
+            <PageActionButton leftIcon={ClipboardList} onClick={() => setShowAgendaModal(true)}>
+              Submit Today's Agenda
+            </PageActionButton>
           )}
           {agendaSubmitted && !reportSubmitted && (
-            <button onClick={() => setShowReportModal(true)}
-              className="flex items-center gap-2 px-4 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition-colors">
-              <Plus size={16} />Submit Daily Report
-            </button>
+            <PageActionButton leftIcon={Plus} onClick={() => setShowReportModal(true)}>
+              Submit Daily Report
+            </PageActionButton>
           )}
         </div>
       </div>
@@ -418,11 +482,7 @@ export default function DailyReportPage() {
       )}
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        {isLoading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />)}
-          </div>
-        ) : reports.length === 0 ? (
+        {reports.length === 0 ? (
           <div className="py-16 text-center">
             <FileText size={32} className="text-gray-200 mx-auto mb-3" />
             <p className="text-sm text-gray-400 font-semibold">No reports submitted yet</p>
@@ -484,8 +544,16 @@ export default function DailyReportPage() {
         )}
       </div>
 
-      {showAgendaModal && <AgendaModal onClose={() => setShowAgendaModal(false)} />}
-      {showReportModal && <ReportModal onClose={() => setShowReportModal(false)} agendaItems={todaysAgenda?.items || []} />}
+      {showAgendaModal && (
+        <AgendaModal isOpen={showAgendaModal} onClose={() => setShowAgendaModal(false)} />
+      )}
+      {showReportModal && (
+        <ReportModal
+          isOpen={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          agendaItems={todaysAgenda?.items || []}
+        />
+      )}
     </div>
   );
 }

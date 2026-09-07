@@ -5,12 +5,13 @@ import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
 import Button, { pageOutlineButtonClass } from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import Loader from '@/components/ui/Loader';
 import { Search, Filter, MoreVertical } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { getProjectStatusStyle, getProjectStatusLabel } from '@/utils/projectStatus';
 import ProjectDetailsSlideOver from '@/components/ui/ProjectDetailsSlideOver';
 import FilterDropdown, { FilterState } from '@/components/ui/FilterDropdown';
+import { PageSkeleton } from '@/components/skeletons';
+import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 
 const defaultFilters: FilterState = {
   search: '', sortByLatest: false, last24Hours: false,
@@ -20,6 +21,7 @@ const defaultFilters: FilterState = {
 
 const EmployeeProjects: React.FC = () => {
   const { data: projects, isLoading } = useGetEmployeeProjects();
+  const showPageSkeleton = useShowPageSkeleton(isLoading);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
@@ -168,6 +170,8 @@ const EmployeeProjects: React.FC = () => {
     }
   ];
 
+  if (showPageSkeleton) return <PageSkeleton variant="table" />;
+
   return (
     <div className="flex flex-col gap-8 pb-10">
       <ProjectDetailsSlideOver
@@ -226,7 +230,6 @@ const EmployeeProjects: React.FC = () => {
         <Table
           columns={columns}
           data={paginatedData}
-          isLoading={isLoading}
           className="bg-white rounded-3xl"
           pagination={{
             currentPage,

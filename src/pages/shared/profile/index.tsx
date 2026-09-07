@@ -8,7 +8,7 @@ import { useGetProjects } from '@/services/employeeService';
 import { useGetUserDetailQuery } from '@/services/userService';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import Loader from '@/components/ui/Loader';
+import { PageSkeleton } from '@/components/skeletons';
 import { useAuth } from '@/hooks/useAuth';
 
 const appreciationIcons = ['👍', '🎁', '🏆', '💰', '👑', '🍸', '🎂', '⑦', '🚩', '⭐', '🍺',
@@ -55,7 +55,7 @@ const ProfilePage: React.FC = () => {
     };
   }, [isSelf, user, remoteMember]);
 
-  if (isLoading && !isSelf) return <Loader fullPage size={48} />;
+  if (isLoading && !isSelf) return <PageSkeleton variant="detail" />;
   if (!member) return <div className="p-10 text-center font-bold text-gray-500">Member not found</div>;
 
   return (

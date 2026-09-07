@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
-import Button, { pageActionButtonClass } from '@/components/ui/Button';
+import Button, { PageActionButton } from '@/components/ui/Button';
 import Tabs from '@/components/ui/Tabs';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
@@ -12,7 +12,8 @@ import { cn } from '@/utils/cn';
 import RequestTimeOffModal from '@/components/ui/RequestTimeOffModal';
 import { useGetTimeOffRequests, useGetWeeklyTimesheet, useGetRangeTimesheet, useRequestEntryEditMutation, TimesheetEntry } from '@/services/timesheetService';
 import { useGetMyShiftQuery, useGetMyAttendanceSummary } from '@/services/attendanceService';
-import { CardSkeleton } from '@/components/skeletons';
+import { CardSkeleton, PageSkeleton, TableSkeleton } from '@/components/skeletons';
+import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 import { useToastContext } from '@/components/toast/ToastProvider';
 
 function toDateStr(d: Date) {
@@ -123,8 +124,13 @@ const EmployeeTimesheet: React.FC = () => {
     activeTab === 'My Requests'
   );
 
-  const { data: myShift } = useGetMyShiftQuery();
-  const { data: mySummary } = useGetMyAttendanceSummary();
+  const { data: myShift, isLoading: shiftLoading } = useGetMyShiftQuery();
+  const { data: mySummary, isLoading: summaryLoading } = useGetMyAttendanceSummary();
+  const showPageSkeleton = useShowPageSkeleton(
+    isTimesheetTab && isLoading,
+    shiftLoading,
+    summaryLoading,
+  );
 
   const monthWeeks = (() => {
     if (activeTab !== 'Monthly') return null;
@@ -180,6 +186,8 @@ const EmployeeTimesheet: React.FC = () => {
       ),
     },
   ];
+
+  if (showPageSkeleton) return <PageSkeleton variant="timesheet" />;
 
   return (
     <div className="flex flex-col gap-8 pb-10">
@@ -339,17 +347,22 @@ const EmployeeTimesheet: React.FC = () => {
         <div className="flex flex-col gap-8 bg-white p-6 rounded-xl">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black text-gray-900 tracking-tight">My Requests</h2>
-            <Button variant="primary" size="sm" rounded={false} leftIcon={Calendar}
-              onClick={() => setIsRequestModalOpen(true)} className={pageActionButtonClass}>
+            <PageActionButton leftIcon={Calendar} onClick={() => setIsRequestModalOpen(true)}>
               Request Time Off
-            </Button>
+            </PageActionButton>
           </div>
 
           <div className="flex flex-col gap-6">
-            <h3 className="text-lg font-black text-gray-900">Time Off Requests</h3>
             {isLoadingRequests ? (
-              Array.from({ length: 2 }).map((_, i) => <CardSkeleton key={i} />)
-            ) : timeOffRequests?.time_off_requests?.length ? timeOffRequests.time_off_requests.map((req: any) => (
+              <div className="flex flex-col gap-4">
+                <CardSkeleton />
+                <CardSkeleton />
+                <CardSkeleton />
+              </div>
+            ) : (
+              <>
+            <h3 className="text-lg font-black text-gray-900">Time Off Requests</h3>
+            {timeOffRequests?.time_off_requests?.length ? timeOffRequests.time_off_requests.map((req: any) => (
               <Card key={req.id} className="p-6 flex flex-col gap-4 bg-white border border-gray-100 shadow-sm">
                 <div className="flex items-start justify-between">
                   <div className="flex flex-col gap-1">
@@ -383,8 +396,7 @@ const EmployeeTimesheet: React.FC = () => {
 
             <div className="mt-4">
               <h3 className="text-lg font-black text-gray-900">Timesheet Edit Requests</h3>
-              {isLoadingRequests ? <CardSkeleton /> :
-                timeOffRequests?.timesheet_edit_requests?.length ? timeOffRequests.timesheet_edit_requests.map((req: any) => (
+              {timeOffRequests?.timesheet_edit_requests?.length ? timeOffRequests.timesheet_edit_requests.map((req: any) => (
                   <Card key={req.id} className="p-6 flex flex-col gap-4 mt-4 border border-gray-100 shadow-sm">
                     <h3 className="font-bold text-gray-900">{req.name || 'Edit Request'}</h3>
                     <p className="text-[14px] text-gray-400">{req.reason}</p>
@@ -395,6 +407,8 @@ const EmployeeTimesheet: React.FC = () => {
                   </Card>
                 )) : <p className="text-xs text-gray-400 italic mt-2">No edit requests found.</p>}
             </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -414,24 +428,51 @@ const MonthlyWeeks: React.FC<{ monthAnchor: Date; columns: Column<TimesheetEntry
     cur.setDate(cur.getDate() + 7);
   }
 
+  const weeksKey = weeks.map(toDateStr).join(',');
+  const [remaining, setRemaining] = useState(weeks.length);
+
+  useEffect(() => {
+    setRemaining(weeks.length);
+  }, [weeksKey, weeks.length]);
+
+  const onWeekReady = useCallback(() => {
+    setRemaining((count) => Math.max(0, count - 1));
+  }, []);
+
   return (
-    <div className="flex flex-col divide-y divide-gray-100">
-      {weeks.map((ws) => (
-        <WeekBlock key={toDateStr(ws)} weekStart={ws} columns={columns} />
-      ))}
-    </div>
+    <>
+      {remaining > 0 && (
+        <div className="px-4 pb-4">
+          <TableSkeleton rows={7} columns={columns.length} />
+        </div>
+      )}
+      <div className={cn('flex flex-col divide-y divide-gray-100', remaining > 0 && 'hidden')}>
+        {weeks.map((ws) => (
+          <WeekBlock key={toDateStr(ws)} weekStart={ws} columns={columns} onReady={onWeekReady} />
+        ))}
+      </div>
+    </>
   );
 };
 
-const WeekBlock: React.FC<{ weekStart: Date; columns: Column<TimesheetEntry>[] }> = ({ weekStart, columns }) => {
+const WeekBlock: React.FC<{
+  weekStart: Date;
+  columns: Column<TimesheetEntry>[];
+  onReady: () => void;
+}> = ({ weekStart, columns, onReady }) => {
   const { data: timesheet, isLoading } = useGetWeeklyTimesheet({ date: toDateStr(weekStart) }, true);
+
+  useEffect(() => {
+    if (!isLoading) onReady();
+  }, [isLoading, onReady]);
+
   return (
     <div className="px-4 py-3">
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-black text-gray-700">{fmtWeekRange(weekStart)}</span>
         <span className="text-xs text-gray-400 font-semibold">{timesheet?.total_duration_label || '—'}</span>
       </div>
-      <Table columns={columns} data={timesheet?.rows || []} isLoading={isLoading}
+      <Table columns={columns} data={timesheet?.rows || []}
         className="border-none shadow-none text-sm" headerClassName="bg-[#F0F5FF]/50 rounded-lg" />
     </div>
   );

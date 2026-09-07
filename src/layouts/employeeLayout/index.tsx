@@ -7,7 +7,7 @@ import PageWrapper from '@/components/layout/PageWrapper';
 import { useLocation } from 'react-router-dom';
 import { useResponsive } from '@/hooks/useResponsive';
 import ChatFloatingButton from '@/components/ui/ChatFloatingButton';
-import { TableSkeleton } from '@/components/skeletons';
+import { RoutePageSkeleton } from '@/components/skeletons';
 
 const EmployeeLayout: React.FC = memo(() => {
   const [open, setOpen] = useState(false);
@@ -29,7 +29,7 @@ const EmployeeLayout: React.FC = memo(() => {
   }, [open, isMobile]);
 
   return (
-    <div className="min-h-screen bg-[#FDFDFF]">
+    <div className="min-h-screen bg-(--color-app-bg)">
       <AnimatePresence>
         {open && (
           <motion.div
@@ -44,11 +44,11 @@ const EmployeeLayout: React.FC = memo(() => {
 
       <Sidebar isOpen={open} onClose={close} />
       <AdminTopbar onMenu={toggle} routePrefix="/employee" />
-      <main className="pt-[5.5rem] lg:pl-sidebar min-h-screen transition-all duration-300  bg-[#F5F5FA]">
-        <div className="p-6 lg:px-4 py-8 max-w-[1800px] mx-auto bg-[#F5F5FA]">
+      <main className="pt-topbar lg:pl-sidebar min-h-screen transition-all duration-300 bg-(--color-app-bg)">
+        <div className="p-6 lg:px-4 py-8 max-w-[1800px] mx-auto bg-(--color-app-bg)">
           <AnimatePresence mode="wait">
             <PageWrapper key={location.pathname}>
-              <Suspense fallback={<TableSkeleton rows={8} columns={5} />}>
+              <Suspense fallback={<RoutePageSkeleton />}>
                 <Outlet />
               </Suspense>
             </PageWrapper>

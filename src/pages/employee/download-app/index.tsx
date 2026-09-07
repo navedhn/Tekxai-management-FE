@@ -93,7 +93,7 @@ export default function DownloadApp() {
   ];
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
+    <div className="flex flex-col gap-8 pb-10">
 
       <div className="flex items-center gap-4">
         <div className="w-14 h-14 rounded-2xl bg-[#005CDA] flex items-center justify-center text-white flex-shrink-0">

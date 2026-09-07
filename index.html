@@ -20,7 +20,19 @@
     (function () {
       try {
         var t = localStorage.getItem('tekxai-theme');
-        if (t && t !== 'clean-light') document.documentElement.setAttribute('data-theme', t);
+        if (t && t !== 'clean-light') {
+          document.documentElement.setAttribute('data-theme', t);
+        } else {
+          document.documentElement.removeAttribute('data-theme');
+        }
+        var mode = localStorage.getItem('tekxai-color-mode');
+        if (mode === 'dark') {
+          document.documentElement.setAttribute('data-mode', 'dark');
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.setAttribute('data-mode', 'light');
+          document.documentElement.classList.remove('dark');
+        }
       } catch (e) { /* localStorage unavailable — Clean Light default renders as before */ }
     })();
   </script>

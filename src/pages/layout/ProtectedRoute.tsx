@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/services/permissionsService';
+import { RoutePageSkeleton } from '@/components/skeletons';
 
 const ProtectedRoute: React.FC<{ permission?: string | string[]; superAdminOnly?: boolean }> = ({ permission, superAdminOnly }) => {
   const { isLoggedIn } = useAuth();
@@ -9,7 +10,7 @@ const ProtectedRoute: React.FC<{ permission?: string | string[]; superAdminOnly?
 
   if (!isLoggedIn) return <Navigate to="/login" replace />;
 
-  if (isLoading) return null;
+  if (isLoading) return <RoutePageSkeleton />;
 
   if (!permission && !superAdminOnly) return <Outlet />;
 

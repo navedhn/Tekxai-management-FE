@@ -4,7 +4,7 @@ import { Plus, ClipboardList } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
-import Button, { pageActionButtonClass } from '@/components/ui/Button';
+import Button, { PageActionButton } from '@/components/ui/Button';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import Modal from '@/components/ui/Modal';
 import DatePicker from '@/components/ui/DatePicker';
@@ -189,7 +189,7 @@ const PerformanceReviewsPage: React.FC = () => {
           <h1 className="text-2xl font-black text-gray-900 flex items-center gap-2"><ClipboardList size={22} className="text-primary-500" /> Performance Reviews</h1>
           <p className="text-sm text-gray-400 mt-0.5">Evidence-based employee delivery, attendance, and QA review — no automatic scoring.</p>
         </div>
-        <Button leftIcon={Plus} onClick={() => setShowNew(true)} className={pageActionButtonClass}>New Review</Button>
+        <PageActionButton leftIcon={Plus} onClick={() => setShowNew(true)}>New Review</PageActionButton>
       </div>
 
       <Card isLoading={isLoading} className="flex flex-col gap-6 shadow-2xl border-none">

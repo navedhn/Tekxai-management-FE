@@ -3,7 +3,8 @@ import { Download, FileBarChart } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
-import Loader from '@/components/ui/Loader';
+import { PageSkeleton, TableSkeleton } from '@/components/skeletons';
+import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 import { useProjectsReport, download_report } from '@/services/reportService';
 import { PROJECT_STATUS_OPTIONS } from '@/utils/projectStatus';
 
@@ -49,8 +50,11 @@ const AdminProjectReport: React.FC = () => {
   }, [status, clientName, overdueOnly]);
 
   const { data: rows = [], isLoading, isError } = useProjectsReport(params) as { data: ProjectReportRow[]; isLoading: boolean; isError: boolean };
+  const showPageSkeleton = useShowPageSkeleton(isLoading);
 
   const handleExport = () => download_report('projects', params);
+
+  if (showPageSkeleton) return <PageSkeleton variant="table" />;
 
   return (
     <div className="p-6 md:p-8 flex flex-col gap-6">
@@ -95,7 +99,7 @@ const AdminProjectReport: React.FC = () => {
 
       <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
         {isLoading ? (
-          <div className="flex justify-center py-16"><Loader size={32} /></div>
+          <div className="p-4"><TableSkeleton rows={8} columns={6} /></div>
         ) : isError ? (
           <div className="text-center py-16 text-sm text-red-500 font-semibold">Failed to load project report.</div>
         ) : rows.length === 0 ? (

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '@/components/ui/Card';
-import Button, { pageActionButtonClass } from '@/components/ui/Button';
+import Button, { PageActionButton } from '@/components/ui/Button';
 import FormInput from '@/components/form/FormInput';
 import Tabs from '@/components/ui/Tabs';
 import Table, { Column } from '@/components/ui/Table';
@@ -18,6 +18,7 @@ import ActionModal from '@/components/ui/ActionModal';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import ThemeSwitcher from '@/components/settings/ThemeSwitcher';
+import { getStoredTheme } from '@/lib/theme';
 
 const use2FAStatus = () =>
   useQuery({
@@ -300,7 +301,8 @@ const Setting: React.FC = () => {
         setNotifications(newValue);
         updatePreferences.mutate({
             show_notifications: newValue,
-            language: (settingsData as any)?.payload?.language || 'en'
+            language: (settingsData as any)?.payload?.language || 'en',
+            theme: getStoredTheme(),
         }, {
             onSuccess: () => toast.success('Preferences updated'),
             onError: (err: any) => {
@@ -574,16 +576,9 @@ const Setting: React.FC = () => {
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-1.5 text-xs text-gray-400 font-bold uppercase tracking-wider">
-                                    <Button
-                                        variant="primary"
-                                        size="sm"
-                                        rounded={false}
-                                        leftIcon={Plus}
-                                        onClick={() => setIsInviteModalOpen(true)}
-                                        className={pageActionButtonClass}
-                                    >
+                                    <PageActionButton leftIcon={Plus} onClick={() => setIsInviteModalOpen(true)}>
                                         Invite Team Member
-                                    </Button>
+                                    </PageActionButton>
                                 </div>
                             </div>
 

@@ -11,7 +11,8 @@ import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Button } from '@/components/ui/Button';
-import Loader from '@/components/ui/Loader';
+import { PageSkeleton } from '@/components/skeletons';
+import Skeleton from '@/components/skeletons/skeleton';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/services/permissionsService';
@@ -58,8 +59,11 @@ const EmptyState: React.FC<{ icon?: React.ReactNode; label: string }> = ({ icon,
 );
 
 const SectionLoader: React.FC = () => (
-  <div className="py-10 flex items-center justify-center">
-    <Loader size={28} />
+  <div className="py-6 flex flex-col gap-3" role="status" aria-busy="true">
+    <Skeleton variant="text" width="40%" height={14} />
+    <Skeleton variant="rectangular" height={48} className="rounded-xl" />
+    <Skeleton variant="rectangular" height={48} className="rounded-xl" />
+    <Skeleton variant="rectangular" height={48} className="rounded-xl" />
   </div>
 );
 
@@ -1139,7 +1143,7 @@ const EmployeeProfilePage: React.FC = () => {
     staleTime: 300000,
   });
 
-  if (isLoading) return <Loader fullPage size={48} />;
+  if (isLoading) return <PageSkeleton variant="detail" />;
   if (!record) return <div className="p-10 text-center text-gray-500 font-bold">Employee not found</div>;
 
   const { user, profile, contracts, onboarding_tasks, leave_balances, asset_assignments } = record;

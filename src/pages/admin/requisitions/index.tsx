@@ -6,7 +6,7 @@ import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import Modal from '@/components/ui/Modal';
-import { Button } from '@/components/ui/Button';
+import { Button, PageActionButton } from '@/components/ui/Button';
 import Textarea from '@/components/ui/Textarea';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
@@ -212,9 +212,9 @@ const RequisitionsPage: React.FC = () => {
           <h1 className="text-2xl font-black text-gray-900">Requisitions</h1>
           <p className="text-sm text-gray-500 font-medium mt-0.5">Manage internal procurement requests</p>
         </div>
-        <Button variant="primary" animation="none" rounded={false} className="rounded-xl" onClick={() => setCreateOpen(true)}>
-          <Plus size={15} className="mr-1.5" />New Requisition
-        </Button>
+        <PageActionButton leftIcon={Plus} onClick={() => setCreateOpen(true)}>
+          New Requisition
+        </PageActionButton>
       </div>
 
       <div className="flex flex-wrap gap-3">

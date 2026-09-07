@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
-import Button, { pageActionButtonClass } from '@/components/ui/Button';
+import { PageActionButton } from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Search, Plus, Edit2, Trash2, Users, UserPlus } from 'lucide-react';
@@ -194,16 +194,9 @@ const TeamManagement: React.FC = () => {
                         </div>
                     </div>
 
-                    <Button
-                        variant="primary"
-                        size="sm"
-                        rounded={false}
-                        leftIcon={Plus}
-                        onClick={handleAddTeam}
-                        className={pageActionButtonClass}
-                    >
+                    <PageActionButton leftIcon={Plus} onClick={handleAddTeam}>
                         Add New Team
-                    </Button>
+                    </PageActionButton>
                 </div>
 
                 <div className="overflow-hidden">

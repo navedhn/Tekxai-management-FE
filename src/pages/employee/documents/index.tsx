@@ -10,6 +10,8 @@ import { useGetPolicies, useGetMyAcks, useAcknowledgePolicy } from '@/services/p
 import { useGetMyJD } from '@/services/jdService';
 import { useGetDocuments, type DocumentStatus } from '@/services/hrDocumentsService';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { PageSkeleton } from '@/components/skeletons';
+import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 
 const HR_DOC_STATUS_STYLE: Record<DocumentStatus, string> = {
   DRAFT: 'bg-gray-100 text-gray-600',
@@ -28,12 +30,15 @@ const EmployeeDocuments: React.FC = () => {
   const toast = useToastContext();
   const { data: contracts = [], isLoading: cLoading } = useGetContracts();
   const { data: policies = [], isLoading: pLoading } = useGetPolicies();
-  const { data: acks = [] } = useGetMyAcks();
-  const { data: jd } = useGetMyJD();
+  const { data: acks = [], isLoading: acksLoading } = useGetMyAcks();
+  const { data: jd, isLoading: jdLoading } = useGetMyJD();
   const { data: hrDocsData, isLoading: hrDocsLoading } = useGetDocuments();
   const hrDocs = hrDocsData?.records || [];
+  const showPageSkeleton = useShowPageSkeleton(cLoading, pLoading, acksLoading, jdLoading, hrDocsLoading);
 
   const acknowledged_ids = new Set((acks as any[]).map((a: any) => a.policy_id));
+
+  if (showPageSkeleton) return <PageSkeleton variant="documents" />;
 
   const AckButton: React.FC<{ policyId: string }> = ({ policyId }) => {
     const ack = useAcknowledgePolicy(policyId);
@@ -61,8 +66,7 @@ const EmployeeDocuments: React.FC = () => {
           <div className="h-10 w-10 rounded-xl bg-primary-50 flex items-center justify-center text-primary-600"><PenLine size={18} /></div>
           <h2 className="text-lg font-black text-gray-900">HR Documents</h2>
         </div>
-        {hrDocsLoading ? <p className="text-sm text-gray-400">Loading...</p> :
-         hrDocs.length === 0 ? <p className="text-sm text-gray-400 italic">No documents yet.</p> :
+        {hrDocs.length === 0 ? <p className="text-sm text-gray-400 italic">No documents yet.</p> :
          hrDocs.map((d) => (
           <div key={d.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0 gap-4">
             <div className="min-w-0">
@@ -103,8 +107,7 @@ const EmployeeDocuments: React.FC = () => {
           <div className="h-10 w-10 rounded-xl bg-green-50 flex items-center justify-center text-green-600"><FileText size={18} /></div>
           <h2 className="text-lg font-black text-gray-900">Contracts</h2>
         </div>
-        {cLoading ? <p className="text-sm text-gray-400">Loading...</p> :
-         contracts.length === 0 ? <p className="text-sm text-gray-400 italic">No contracts found.</p> :
+        {contracts.length === 0 ? <p className="text-sm text-gray-400 italic">No contracts found.</p> :
          contracts.map((c: any) => (
           <div key={c.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
             <div>
@@ -126,8 +129,7 @@ const EmployeeDocuments: React.FC = () => {
           <div className="h-10 w-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600"><ShieldCheck size={18} /></div>
           <h2 className="text-lg font-black text-gray-900">Company Policies</h2>
         </div>
-        {pLoading ? <p className="text-sm text-gray-400">Loading...</p> :
-         (policies as any[]).length === 0 ? <p className="text-sm text-gray-400 italic">No policies published yet.</p> :
+        {(policies as any[]).length === 0 ? <p className="text-sm text-gray-400 italic">No policies published yet.</p> :
          (policies as any[]).map((p: any) => (
           <div key={p.id} className="flex items-start justify-between py-3 border-b border-gray-100 last:border-0 gap-4">
             <div className="flex-1">

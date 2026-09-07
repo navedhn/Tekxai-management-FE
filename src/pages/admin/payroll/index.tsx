@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
-import Button, { IconButton, pageActionButtonClass } from '@/components/ui/Button';
+import Button, { IconButton, PageActionButton } from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { apiRequest } from '@/lib/queryClient';
@@ -406,9 +406,9 @@ const PayrollPage: React.FC = () => {
           <p className="text-sm text-gray-500 font-medium mt-1">Manage payroll runs, review entries, and download payslips.</p>
         </div>
         {!selectedRun && (
-          <Button variant="primary" leftIcon={Plus} className={pageActionButtonClass} onClick={() => setShowNewModal(true)}>
+          <PageActionButton leftIcon={Plus} onClick={() => setShowNewModal(true)}>
             New Run
-          </Button>
+          </PageActionButton>
         )}
       </div>
 

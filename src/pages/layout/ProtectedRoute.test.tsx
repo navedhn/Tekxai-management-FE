@@ -122,4 +122,27 @@ describe('ProtectedRoute', () => {
     );
     expect(screen.getByText('Access Denied Page')).toBeInTheDocument();
   });
+
+  it('shows a page skeleton while live permissions are loading', () => {
+    useAuthStore.setState({ isLoggedIn: true, role: 'EMPLOYEE', user: { id: '10' } as never });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, queryFn: () => new Promise(() => {}) } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/employee']}>
+          <Routes>
+            <Route path="/login" element={<div>Login Page</div>} />
+            <Route path="/403" element={<div>Access Denied Page</div>} />
+            <Route element={<ProtectedRoute permission="erp.employee_workspace.access" />}>
+              <Route path="/employee" element={<ProtectedContent />} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
+    expect(screen.queryByText('Access Denied Page')).not.toBeInTheDocument();
+  });
 });

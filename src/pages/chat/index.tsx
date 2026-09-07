@@ -2926,7 +2926,7 @@ export default function ChatPage() {
 
   if (activeServerId === ZOOM_SECTION_ID) {
     return (
-      <div className="flex h-[calc(100vh-5.5rem)] bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="flex h-[calc(100vh-var(--spacing-topbar))] bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <ServerRail
           servers={servers}
           activeServerId={activeServerId}
@@ -2942,7 +2942,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-5.5rem)] bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="flex h-[calc(100vh-var(--spacing-topbar))] bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
 
       <ServerRail
         servers={servers}
