@@ -15,8 +15,6 @@ import {
 } from '@/services/dependenciesService';
 import { cn } from '@/utils/cn';
 
-// GitHub/Server/Domain/SMTP/OpenAI/Stripe/AWS live in the DevOps Access tab
-// instead — see the comment on DependencyType in dependenciesService.ts.
 const DEPENDENCY_TYPE_OPTIONS: { label: string; value: DependencyType }[] = [
   { label: 'Anthropic', value: 'ANTHROPIC' },
   { label: 'Gemini', value: 'GEMINI' },

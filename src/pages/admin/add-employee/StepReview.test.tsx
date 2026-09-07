@@ -2,14 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { StepReview } from './index';
 
-// Regression test for production bug: the "Review & Save" step of the
-// Edit Employee wizard always showed "Employee ID: Auto-generated on save"
-// even when editing an EXISTING employee who already has a real employee
-// ID (e.g. "SS-29") — a presentation-only bug (the save payload never sent
-// employee_id in edit mode and the backend update path cannot create or
-// re-identify a user), but still a real, visible foot-gun for admins that
-// could look like the system was about to mint a new ID.
-
 const personal = {
   first_name: 'Jibran', last_name: 'Pervaiz', email: 'alex@constructestimates.com',
   phone: '', cnic: '', dob: '', gender: '', blood_group: '',

@@ -64,7 +64,6 @@ export default function EmailLogsPage() {
         </button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         {[
           { label: 'Total Sent', value: logs.filter(l => l.status === 'SENT').length, color: 'text-green-600' },
@@ -81,7 +80,6 @@ export default function EmailLogsPage() {
         ))}
       </div>
 
-      {/* Filters */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-48">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -112,7 +110,6 @@ export default function EmailLogsPage() {
         </select>
       </div>
 
-      {/* Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-black text-gray-700">

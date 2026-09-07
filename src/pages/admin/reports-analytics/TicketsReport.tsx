@@ -21,9 +21,6 @@ const TYPES: TicketRow['type'][] = ['IT Support', 'HR', 'Facilities', 'Finance',
 const PRIORITIES: TicketRow['priority'][] = ['Critical', 'High', 'Medium', 'Low'];
 const STATUSES: TicketRow['status'][] = ['Open', 'In Progress', 'Resolved', 'Closed'];
 
-// "Open"/"Resolved"/"Closed" aren't in StatusBadge's canonical map (only
-// "inprogress" is) — overridden here rather than adding ticket-specific
-// entries to the shared map.
 const STATUS_TONE: Partial<Record<TicketRow['status'], BadgeTone>> = {
   Open: 'info',
   Resolved: 'success',

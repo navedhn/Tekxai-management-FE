@@ -16,10 +16,7 @@ export const logoutSession = (): void => {
   disconnectSocket();
   clearAuthTokens();
   useAuthStore.getState().userLogout();
-  // Dynamic import avoids a circular dependency (queryClient.ts imports from this
-  // file for its 401-refresh flow). Without this, stale cached data (e.g. another
-  // user's DM/channel list) could survive a soft logout->login navigation in the
-  // same tab, since the QueryClient is an in-memory singleton.
+
   import('@/lib/queryClient').then(({ queryClient }) => queryClient.clear());
 };
 
@@ -48,7 +45,6 @@ export const refreshAccessToken = async (): Promise<string | null> => {
   return accessToken;
 };
 
-/** Deduplicates concurrent refresh attempts across API calls */
 export const getRefreshedAccessToken = (): Promise<string | null> => {
   if (!refreshInFlight) {
     refreshInFlight = refreshAccessToken().finally(() => {

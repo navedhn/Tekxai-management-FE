@@ -15,8 +15,6 @@ const CATEGORIES: AssetRow['category'][] = ['Laptop', 'Monitor', 'Mobile', 'Acce
 
 const ALL_ROWS = generateAssetRows(55);
 
-// StatusBadge's canonical map already covers assigned/available/maintenance;
-// "Disposed" reuses the retired/neutral tone since it isn't in the shared map.
 function statusTone(status: AssetRow['status']) {
   return status === 'Disposed' ? 'neutral' : undefined;
 }

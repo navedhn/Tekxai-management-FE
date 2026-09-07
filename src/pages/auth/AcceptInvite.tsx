@@ -5,7 +5,6 @@ import { Button } from '@/components';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useAuth } from '@/hooks/useAuth';
 
-/* ─── UI Helpers ─── */
 const ErrorState: React.FC<{ title: string; subtitle: string; icon?: React.ReactNode }> = ({ title, subtitle, icon }) => (
     <div className="flex flex-col items-center justify-center text-center gap-6 py-12 px-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="w-20 h-20 rounded-2xl bg-red-50 flex items-center justify-center text-red-500 shadow-sm border border-red-100">
@@ -35,8 +34,7 @@ const AcceptInvite: React.FC = () => {
     const navigate = useNavigate();
     const toast = useToastContext();
     const { isLoggedIn } = useAuth();
-    
-    // Step 2: Preview the token
+
     const { data, isLoading, isError } = usePreviewInviteTokenQuery(token || '');
     const redeemMutation = useRedeemInviteMutation();
 
@@ -47,7 +45,6 @@ const AcceptInvite: React.FC = () => {
     const userExists = invite?.user_exists;
     const requiresLoginOnly = invite?.requires_login_only;
 
-    // Handle invalid token states
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px] gap-6 px-10">
@@ -78,14 +75,13 @@ const AcceptInvite: React.FC = () => {
         return <ErrorState title={title} subtitle={subtitle} />;
     }
 
-    // Logic for Case A: Existing user
     if (!isLoggedIn && userExists) {
         return (
             <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <div className="flex flex-col gap-3">
                     <h1 className="text-4xl font-black text-gray-900 tracking-tight">Welcome Back</h1>
                     <p className="text-gray-500 font-medium leading-relaxed">
-                        This invitation is tied to an existing account (<strong className="text-primary-600">{email}</strong>). 
+                        This invitation is tied to an existing account (<strong className="text-primary-600">{email}</strong>).
                         Please log in first to accept the invitation.
                     </p>
                 </div>
@@ -102,10 +98,10 @@ const AcceptInvite: React.FC = () => {
                     </div>
                 </div>
 
-                <Button 
-                    variant="primary" 
-                    size="lg" 
-                    fullWidth 
+                <Button
+                    variant="primary"
+                    size="lg"
+                    fullWidth
                     className="h-14 rounded-xl shadow-xl shadow-primary-100 font-bold text-lg"
                     onClick={() => navigate('/login', { state: { fromInvite: token, email } })}
                 >
@@ -115,13 +111,12 @@ const AcceptInvite: React.FC = () => {
         );
     }
 
-    // Handle redemption for already logged in users
     if (isLoggedIn && isValid) {
         const handleRedeemAction = async () => {
             try {
                 await redeemMutation.mutateAsync({ token });
                 toast.success('Invitation accepted successfully!');
-                navigate('/'); // Or to dashboard
+                navigate('/');
             } catch (error: any) {
                 toast.error(error?.data?.message || 'Failed to accept invitation.');
             }
@@ -146,10 +141,10 @@ const AcceptInvite: React.FC = () => {
                    </div>
                 </div>
 
-                <Button 
-                    variant="primary" 
-                    size="lg" 
-                    fullWidth 
+                <Button
+                    variant="primary"
+                    size="lg"
+                    fullWidth
                     className="h-14 rounded-xl shadow-xl shadow-primary-100 font-bold text-lg"
                     loading={redeemMutation.isPending}
                     onClick={handleRedeemAction}
@@ -160,11 +155,6 @@ const AcceptInvite: React.FC = () => {
         );
     }
 
-    // No account exists for this invite's email. Invites can never create a
-    // user — the only valid account-creation paths are Recruitment -> Hire
-    // Candidate and Add Employee — so this state means HR sent an invite
-    // before adding the person as an employee. Direct them to HR rather
-    // than offering a signup form that would only fail server-side.
     return (
         <ErrorState
             title="No Employee Record Found"

@@ -4,24 +4,16 @@ const path = require('path');
 const Store = require('electron-store');
 const axios = require('axios');
 
-// Required on Windows for Notification.show() to actually display a toast —
-// without it, notifications silently no-op for unpacked/non-Store apps.
 if (process.platform === 'win32') {
   app.setAppUserModelId('com.tekxai.agent');
 }
 
-// Without this lock, launching the app while it's already running (e.g. from
-// the Start Menu shortcut) spawns a whole second Electron process instead of
-// focusing the existing window — each with its own screenshot/tracking
-// timers running concurrently. Second launches now just focus the original.
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
   app.quit();
 } else {
   app.on('second-instance', () => {
-    // mainWindow can be destroyed (not just hidden) in edge cases the 'close'
-    // handler doesn't catch (e.g. Windows session-ending events) — recreate
-    // rather than crash on a destroyed BrowserWindow reference.
+
     if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.show();
@@ -35,12 +27,9 @@ if (!gotSingleInstanceLock) {
 const store = new Store();
 const API_BASE = 'https://api.tekxai.services/api/v1';
 const DASHBOARD_URL = 'https://tekxai.services/employee';
-const DEFAULT_SCREENSHOT_INTERVAL_MS = 10 * 60 * 1000; // fallback if settings can't be fetched
+const DEFAULT_SCREENSHOT_INTERVAL_MS = 10 * 60 * 1000;
 let screenshotIntervalMs = DEFAULT_SCREENSHOT_INTERVAL_MS;
 
-// Super admin controls this via system settings; refresh it before every
-// clock-in so a change takes effect on the next session without requiring
-// an app restart. Public endpoint — no auth needed.
 async function refreshScreenshotInterval() {
   try {
     const res = await axios.get(`${API_BASE}/settings/system/public`);
@@ -53,10 +42,6 @@ let mainWindow = null;
 let tray = null;
 let screenshotTimer = null;
 let sessionId = null;
-
-// ── API client — access tokens are short-lived (15m); this transparently
-// refreshes via the stored refresh_token on 401 and retries once, so the
-// clock-in-once-a-day background timers keep working for a whole shift. ───────
 
 const apiClient = axios.create({ baseURL: API_BASE });
 
@@ -95,7 +80,7 @@ apiClient.interceptors.response.use(
         original.headers.Authorization = `Bearer ${newToken}`;
         return apiClient(original);
       } catch (_) {
-        // Refresh token is invalid/expired too — force the user to sign in again.
+
         store.delete('auth_token');
         store.delete('refresh_token');
         store.delete('user');
@@ -110,24 +95,18 @@ apiClient.interceptors.response.use(
   }
 );
 
-// ── Activity tracking state ───────────────────────────────────────────────────
-let activityTimer = null;   // 60s productivity flush
-let appTrackTimer = null;   // 30s app+URL tracking
-let activityPollTimer = null; // 5s idle poll
+let activityTimer = null;
+let appTrackTimer = null;
+let activityPollTimer = null;
 
 let mouseEvents = 0;
 let keyboardEvents = 0;
 let lastIdleTime = 0;
-const ACTIVITY_IDLE_THRESHOLD = 5; // seconds idle to count as inactive
+const ACTIVITY_IDLE_THRESHOLD = 5;
 
-// ── App ready ─────────────────────────────────────────────────────────────────
-
-// ── Auto updater ──────────────────────────────────────────────────────────────
-// Disabled by default. Set AUTO_UPDATES_ENABLED=true in electron-store or env
-// to enable once update server (latest.yml / latest-mac.yml) is deployed.
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = false;
-autoUpdater.logger = null; // silence logs until enabled
+autoUpdater.logger = null;
 
 const AUTO_UPDATES_ENABLED = store.get('auto_updates_enabled', false);
 
@@ -152,10 +131,6 @@ app.whenReady().then(() => {
   resumeSessionIfNeeded();
 });
 
-// sessionId lives in memory only, so it's lost on every app restart (crash,
-// update, reboot). If the user was still clocked in when that happened,
-// re-establish a monitoring session now instead of silently going dark for
-// the rest of the day.
 async function resumeSessionIfNeeded() {
   if (!store.get('clocked_in') || !store.get('auth_token')) return;
   try {
@@ -177,7 +152,7 @@ async function resumeSessionIfNeeded() {
 }
 
 app.on('window-all-closed', () => {
-  // Keep running in tray on all platforms
+
 });
 
 app.on('before-quit', async () => {
@@ -188,8 +163,6 @@ app.on('before-quit', async () => {
     } catch (_) {}
   }
 });
-
-// ── Window ────────────────────────────────────────────────────────────────────
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -214,11 +187,6 @@ function createWindow() {
   });
 }
 
-// Same "destroyed but not null" edge case the second-instance handler above
-// already guards against (Windows session-ending events etc.) — every tray
-// entry point that touches mainWindow needs this, not just app relaunch.
-// Bare `mainWindow?.show()` only guards null/undefined, not a destroyed
-// BrowserWindow, which throws "Object has been destroyed" on any method call.
 function showMainWindow() {
   if (mainWindow && !mainWindow.isDestroyed()) {
     if (mainWindow.isMinimized()) mainWindow.restore();
@@ -228,8 +196,6 @@ function showMainWindow() {
     createWindow();
   }
 }
-
-// ── Tray ──────────────────────────────────────────────────────────────────────
 
 function createTray() {
   const iconPath = path.join(__dirname, '../assets/tray-icon.png');
@@ -259,10 +225,7 @@ function updateTrayMenu() {
       {
         label: clocked ? 'Clock Out' : 'Clock In',
         click: () => {
-          // Toggling clock in/out needs a live renderer to send the IPC
-          // message to — if mainWindow was destroyed, bring up a fresh one
-          // instead of sending into the void (or crashing on the destroyed
-          // reference, per the isDestroyed() note on showMainWindow above).
+
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('tray-toggle-clock');
           } else {
@@ -277,8 +240,6 @@ function updateTrayMenu() {
   tray.setContextMenu(menu);
 }
 
-// ── IPC handlers ──────────────────────────────────────────────────────────────
-
 ipcMain.handle('get-store', (_, key) => store.get(key));
 ipcMain.handle('set-store', (_, key, value) => store.set(key, value));
 ipcMain.handle('del-store', (_, key) => store.delete(key));
@@ -288,10 +249,7 @@ ipcMain.handle('login', async (_, { email, password }) => {
   try {
     res = await axios.post(`${API_BASE}/auth/login`, { email, password });
   } catch (err) {
-    // Electron's IPC layer only preserves Error.message across the process
-    // boundary, not the full axios error shape — so the backend's actual
-    // message (e.g. "Invalid credentials") must be extracted here, not left
-    // for the renderer to read from err.response, which won't survive.
+
     throw new Error(err?.response?.data?.message || 'Unable to sign in. Please check your connection and try again.');
   }
   if (!res.data?.success || (!res.data?.payload && !res.data?.data)) {
@@ -325,7 +283,7 @@ ipcMain.handle('get-today', async () => {
 });
 
 ipcMain.handle('clock-in', async () => {
-  // Start monitoring session
+
   try {
     const sessRes = await apiClient.post('/monitoring/session/start', {
       agent_version: app.getVersion(),
@@ -338,7 +296,7 @@ ipcMain.handle('clock-in', async () => {
   try {
     res = await apiClient.post('/timesheet/clock-in', { note: '' });
   } catch (err) {
-    // Same IPC-boundary message loss as login — see the login handler above.
+
     throw new Error(err?.response?.data?.message || 'Unable to clock in. Please try again.');
   }
 
@@ -360,7 +318,6 @@ ipcMain.handle('clock-out', async () => {
     throw new Error(err?.response?.data?.message || 'Unable to clock out. Please try again.');
   }
 
-  // End monitoring session
   if (sessionId) {
     try {
       await apiClient.post(`/monitoring/session/${sessionId}/end`);
@@ -377,12 +334,10 @@ ipcMain.handle('open-dashboard', () => {
   shell.openExternal(DASHBOARD_URL);
 });
 
-// ── Screenshot capture ────────────────────────────────────────────────────────
-
 async function startScreenshots() {
   stopScreenshots();
   await refreshScreenshotInterval();
-  takeScreenshot(); // immediate first capture
+  takeScreenshot();
   screenshotTimer = setInterval(() => takeScreenshot(), screenshotIntervalMs);
 }
 
@@ -399,7 +354,6 @@ async function takeScreenshot() {
     const img = await screenshot({ format: 'png' });
     const key = `screenshots/${store.get('user')?.id || 'unknown'}/${Date.now()}.png`;
 
-    // Get presigned upload URL from backend
     const fileName = `${Date.now()}.png`;
     let fileKey = key;
     let fileUrl = null;
@@ -415,13 +369,12 @@ async function takeScreenshot() {
       fileKey = presignRes.data?.payload?.file_key || key;
 
       if (uploadUrl && !uploadUrl.includes('localhost')) {
-        // Presigned S3 URL — not an API call, no bearer auth needed/wanted here.
+
         await axios.put(uploadUrl, img, { headers: { 'Content-Type': 'image/png' } });
         fileUrl = uploadUrl.split('?')[0];
       }
     } catch (_) {}
 
-    // Record in backend (with or without S3 URL)
     await apiClient.post('/monitoring/screenshot', {
       session_id: sessionId,
       file_key: fileKey,
@@ -429,26 +382,10 @@ async function takeScreenshot() {
       captured_at: new Date().toISOString(),
     });
 
-    // Employees must never be shown that a screenshot was taken. The two
-    // blocks below were added for testing only — commented out (not deleted)
-    // so they're easy to re-enable for local debugging if needed.
-    // mainWindow?.webContents.send('screenshot-taken');
-    //
-    // // System notification — visible even when app is minimised to tray
-    // const { Notification } = require('electron');
-    // if (Notification.isSupported()) {
-    //   new Notification({
-    //     title: 'TekXAI Agent',
-    //     body: 'Screenshot captured ✓',
-    //     silent: true,
-    //   }).show();
-    // }
   } catch (err) {
     console.error('[screenshot]', err.message);
   }
 }
-
-// ── Activity tracking ─────────────────────────────────────────────────────────
 
 function startActivityTracking() {
   stopActivityTracking();
@@ -456,28 +393,25 @@ function startActivityTracking() {
   keyboardEvents = 0;
   lastIdleTime = 0;
 
-  // Poll idle time every 5 seconds to infer mouse/keyboard activity
   activityPollTimer = setInterval(() => {
     try {
-      const idleNow = powerMonitor.getSystemIdleTime(); // seconds
+      const idleNow = powerMonitor.getSystemIdleTime();
       if (idleNow < ACTIVITY_IDLE_THRESHOLD && lastIdleTime >= ACTIVITY_IDLE_THRESHOLD) {
-        // User just became active after being idle — count as mouse/keyboard event
+
         mouseEvents += 1;
         keyboardEvents += 1;
       } else if (idleNow < lastIdleTime) {
-        // Idle counter reset means activity happened
+
         mouseEvents += 1;
       }
       lastIdleTime = idleNow;
     } catch (_) {}
   }, 5000);
 
-  // Every 60 seconds, flush productivity stats
   activityTimer = setInterval(async () => {
     await flushProductivity();
   }, 60 * 1000);
 
-  // Every 30 seconds, track active app + URL
   appTrackTimer = setInterval(async () => {
     await trackAppAndUrl();
   }, 30 * 1000);
@@ -531,7 +465,7 @@ function getActiveAppName() {
 function getActiveBrowserUrl() {
   const { execSync } = require('child_process');
   if (process.platform === 'darwin') {
-    // Try Chrome
+
     try {
       const url = execSync(
         `osascript -e 'tell application "Google Chrome" to get URL of active tab of front window'`,
@@ -539,7 +473,7 @@ function getActiveBrowserUrl() {
       ).toString().trim();
       if (url && url.startsWith('http')) return url;
     } catch (_) {}
-    // Try Safari
+
     try {
       const url = execSync(
         `osascript -e 'tell application "Safari" to get URL of current tab of front window'`,
@@ -547,7 +481,7 @@ function getActiveBrowserUrl() {
       ).toString().trim();
       if (url && url.startsWith('http')) return url;
     } catch (_) {}
-    // Try Firefox (via UI automation — best effort)
+
     try {
       const url = execSync(
         `osascript -e 'tell application "Firefox" to get URL of active tab of front window'`,
@@ -557,7 +491,7 @@ function getActiveBrowserUrl() {
     } catch (_) {}
   } else if (process.platform === 'win32') {
     try {
-      // Best-effort PowerShell UI Automation to read Chrome address bar
+
       const url = execSync(
         `powershell -command "Add-Type -AssemblyName UIAutomationClient; $root=[Windows.Automation.AutomationElement]::RootElement; $chrome=$root.FindFirst([Windows.Automation.TreeScope]::Children,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,'Google Chrome')); if($chrome){$bar=$chrome.FindFirst([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Edit)); if($bar){$val=[Windows.Automation.ValuePattern]$bar.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern); $val.Current.Value}}"`,
         { timeout: 5000 }

@@ -2,9 +2,6 @@ import React, { useState } from 'react';
 import { Search } from 'lucide-react';
 import { EMOJI_CATEGORIES, ALL_EMOJIS } from './emojiData';
 
-// Shared by the composer's emoji button and each message's "add reaction"
-// button — same searchable picker either way, only what onSelect does
-// differs (insert into the draft vs. call the reaction mutation).
 export default function EmojiPicker({
   onSelect,
   onClose,
@@ -20,7 +17,7 @@ export default function EmojiPicker({
 
   return (
     <>
-      {/* Invisible full-screen catcher so clicking anywhere outside closes the picker */}
+
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <div
         className={`absolute bottom-full mb-2 ${align === 'right' ? 'right-0' : 'left-0'} z-50 w-72 bg-white rounded-2xl border border-gray-200 shadow-xl flex flex-col overflow-hidden`}

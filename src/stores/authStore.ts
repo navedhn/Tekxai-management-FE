@@ -39,7 +39,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      // Only persist user data, not token (token is in memory)
+
       partialize: (state) => ({
         isLoggedIn: state.isLoggedIn,
         user: state.user,

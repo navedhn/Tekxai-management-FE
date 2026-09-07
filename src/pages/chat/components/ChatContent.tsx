@@ -196,7 +196,7 @@ const ChatContent: React.FC<ChatContentProps> = ({
 
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-white h-full relative">
-      {/* Header */}
+
       <div className="h-14 px-3 sm:px-4 flex items-center justify-between border-b border-[#E3E5E8] flex-shrink-0 bg-white z-10">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <button
@@ -265,7 +265,6 @@ const ChatContent: React.FC<ChatContentProps> = ({
         </div>
       </div>
 
-      {/* Inline search */}
       <AnimatePresence>
         {showSearch && (
           <motion.div
@@ -291,7 +290,6 @@ const ChatContent: React.FC<ChatContentProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto px-3 sm:px-4 no-scrollbar">
         {isVoice ? (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-4">
@@ -308,7 +306,7 @@ const ChatContent: React.FC<ChatContentProps> = ({
           </div>
         ) : (
           <>
-            {/* Welcome banner */}
+
             <div className="pt-4 pb-2 mb-2">
               {isDm ? (
                 <div className="flex items-end gap-3">
@@ -353,7 +351,7 @@ const ChatContent: React.FC<ChatContentProps> = ({
                     onMouseEnter={() => setHoveredMsgId(msg.id)}
                     onMouseLeave={() => setHoveredMsgId(null)}
                   >
-                    {/* Hover toolbar */}
+
                     <AnimatePresence>
                       {hoveredMsgId === msg.id && (
                         <motion.div
@@ -412,7 +410,6 @@ const ChatContent: React.FC<ChatContentProps> = ({
           </>
         )}
 
-        {/* Typing indicator */}
         {typingUsers.length > 0 && (
           <div className="flex items-center gap-2 px-4 py-2 text-xs text-gray-500">
             <div className="flex gap-0.5">
@@ -430,10 +427,9 @@ const ChatContent: React.FC<ChatContentProps> = ({
         <div ref={messagesEndRef} className="h-2" />
       </div>
 
-      {/* Input area */}
       {!isVoice && (
         <div className="px-3 sm:px-4 pb-4 pt-1 flex-shrink-0">
-          {/* Reply bar */}
+
           <AnimatePresence>
             {replyingTo && (
               <motion.div
@@ -454,7 +450,6 @@ const ChatContent: React.FC<ChatContentProps> = ({
             )}
           </AnimatePresence>
 
-          {/* Pending attachments */}
           <AnimatePresence>
             {pendingAttachments.length > 0 && (
               <motion.div
@@ -485,7 +480,6 @@ const ChatContent: React.FC<ChatContentProps> = ({
             )}
           </AnimatePresence>
 
-          {/* Discord-style input */}
           <div className={`relative flex items-center gap-1 bg-[#F2F3F5] rounded-lg px-3 py-2 border border-transparent focus-within:border-gray-300 transition-colors ${replyingTo ? 'rounded-t-none' : ''}`}>
             <input
               ref={fileInputRef}

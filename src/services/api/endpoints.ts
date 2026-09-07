@@ -1,8 +1,3 @@
-/**
- * API Endpoints Configuration
- * Aligned with backend routes in src/routes/index.js
- */
-
 const v1 = 'api/v1';
 
 export const API_ENDPOINTS = {
@@ -93,37 +88,26 @@ export const API_ENDPOINTS = {
     UPDATE:      (id: string | number) => `${v1}/user/${id}`,
     DELETE:       (id: string | number) => `${v1}/user/${id}`,
     BULK_DELETE:  `${v1}/user/bulk-delete`,
-    // Dedicated RBAC endpoint — the only one allowed to change a user's role.
-    // Deliberately separate from UPDATE (generic profile PUT), which now
-    // strips role_id unconditionally on the backend.
+
     ROLE_CHANGE: (id: string | number) => `${v1}/user/${id}/role`,
     EMPLOYEE_ID_PREVIEW: (departmentId: string | number) => `${v1}/user/employee-id/preview?department_id=${departmentId}`,
-    // Dedicated correction endpoint — the only one allowed to change an
-    // already-assigned Employee ID. Deliberately separate from UPDATE
-    // (generic profile PUT), which strips employee_id unconditionally.
+
     EMPLOYEE_ID_CHANGE: (id: string | number) => `${v1}/user/${id}/employee-id`,
-    // Direct-to-private-S3 avatar upload (multipart) — replaces the old
-    // "POST /storage/upload then PATCH avatar=file_url" two-step flow for
-    // an employee who already has an employee_id (self-service Settings,
-    // or HR editing an existing employee). Requires an existing employee_id
-    // server-side — the Add Employee wizard has no avatar-upload step today.
+
     AVATAR_UPLOAD: (id: string | number) => `${v1}/user/${id}/avatar`,
-    // E2E DM encryption — see fe-work/src/lib/e2eCrypto.ts. Opaque public-key
-    // storage only, no server-side crypto.
+
     MY_PUBLIC_KEY:   `${v1}/user/me/public-key`,
     PUBLIC_KEY:      (id: string | number) => `${v1}/user/${id}/public-key`,
   },
   EMPLOYEE_LIFECYCLE: {
-    // Deliberately-unsafe bulk override — bypasses safety checks by design.
-    // Reserved for the explicit "Bulk Override" admin flow. The normal
-    // single-employee UI must use the gated transition endpoints below.
+
     SET_STAGE: `${v1}/employee-lifecycle/set-stage`,
-    // Gated single-employee transitions — instant, safety-checked.
+
     MOVE_TO_PROBATION:     (userId: string | number) => `${v1}/employee-lifecycle/${userId}/move-to-probation`,
     ENTER_NOTICE_PERIOD:   (userId: string | number) => `${v1}/employee-lifecycle/${userId}/enter-notice-period`,
     MOVE_TO_EXIT_CLEARANCE:(userId: string | number) => `${v1}/employee-lifecycle/${userId}/move-to-exit-clearance`,
     ARCHIVE:               (userId: string | number) => `${v1}/employee-lifecycle/${userId}/archive`,
-    // Gated single-employee transitions — create a pending approval request.
+
     REQUEST_CONFIRM_EMPLOYEE:    (userId: string | number) => `${v1}/employee-lifecycle/${userId}/request-confirm-employee`,
     REQUEST_EXTEND_PROBATION:    (userId: string | number) => `${v1}/employee-lifecycle/${userId}/request-extend-probation`,
     REQUEST_TERMINATE_PROBATION: (userId: string | number) => `${v1}/employee-lifecycle/${userId}/request-terminate-probation`,
@@ -147,7 +131,7 @@ export const API_ENDPOINTS = {
     RESOURCES: (id: string | number) => `${v1}/project/${id}/resources`,
     CLIENTS_LOOKUP: `${v1}/project/clients-lookup`,
   },
-  // Phase 4 Employee Performance Evidence & Review Foundation.
+
   PERFORMANCE_REVIEW: {
     LIST:     `${v1}/performance-reviews`,
     CREATE:   `${v1}/performance-reviews`,
@@ -157,7 +141,7 @@ export const API_ENDPOINTS = {
     DELETE:   (id: string) => `${v1}/performance-reviews/${id}`,
     ADD_MANAGER_EVIDENCE: (id: string) => `${v1}/performance-reviews/${id}/evidence`,
     DELETE_MANAGER_EVIDENCE: (id: string, evidenceId: string) => `${v1}/performance-reviews/${id}/evidence/${evidenceId}`,
-    // Phase 5 Controlled Performance Decision & Increment Evidence Layer.
+
     RECORD_DECISION: (id: string) => `${v1}/performance-reviews/${id}/decision`,
   },
   REVIEW_PERIOD: {
@@ -323,7 +307,7 @@ export const API_ENDPOINTS = {
     APPROVE_BONUS: (id: string | number) => `${v1}/performance/bonus/${id}/approve`,
     PAY_BONUS:     (id: string | number) => `${v1}/performance/bonus/${id}/pay`,
   },
-  // Tasks are nested under projects: /project/:projectId/tasks
+
   TASK: {
     LIST:   (projectId: string) => `${v1}/project/${projectId}/tasks`,
     CREATE: (projectId: string) => `${v1}/project/${projectId}/tasks`,
@@ -344,13 +328,10 @@ export const API_ENDPOINTS = {
     CREATE: (projectId: string, taskId: string) => `${v1}/project/${projectId}/tasks/${taskId}/attachments`,
     DELETE: (projectId: string, taskId: string, attachmentId: string) => `${v1}/project/${projectId}/tasks/${taskId}/attachments/${attachmentId}`,
   },
-  // FIX: these were previously `${v1}/tasks/${taskId}/...` (no projectId) —
-  // tasks.routes.js is only ever mounted at /project/:projectId/tasks
-  // (see be-work/src/routes/index.js), so the flat path 404'd for every
-  // sub-task/time-log call. Corrected to match the actual mount point.
+
   SUB_TASKS: (projectId: string, taskId: string) => `${v1}/project/${projectId}/tasks/${taskId}/sub-tasks`,
   TIME_LOGS:  (projectId: string, taskId: string) => `${v1}/project/${projectId}/tasks/${taskId}/time-logs`,
-  // Milestones are nested under projects: /project/:projectId/milestones
+
   MILESTONE: {
     LIST:      (projectId: string) => `${v1}/project/${projectId}/milestones`,
     CREATE:    (projectId: string) => `${v1}/project/${projectId}/milestones`,
@@ -361,7 +342,7 @@ export const API_ENDPOINTS = {
     UNARCHIVE: (projectId: string, milestoneId: string) => `${v1}/project/${projectId}/milestones/${milestoneId}/unarchive`,
     REORDER:   (projectId: string) => `${v1}/project/${projectId}/milestones/reorder`,
   },
-  // DevOps/client handoff access tracking, nested under projects: /project/:projectId/devops-access
+
   DEVOPS_ACCESS: {
     GET:    (projectId: string) => `${v1}/project/${projectId}/devops-access`,
     UPDATE: (projectId: string) => `${v1}/project/${projectId}/devops-access`,
@@ -400,10 +381,7 @@ export const API_ENDPOINTS = {
     TYPES:   `${v1}/employee-doc/types`,
     LIST:    (userId: string) => `${v1}/employee-doc/${userId}`,
     CREATE:  (userId: string) => `${v1}/employee-doc/${userId}`,
-    // Direct-to-private-S3 file upload (multipart) — for an actual uploaded
-    // file. CREATE above stays the JSON path for a pasted external link
-    // (Google Drive/OneDrive — StepDocuments supports both), which never
-    // touches S3 at all.
+
     UPLOAD:  (userId: string) => `${v1}/employee-doc/${userId}/upload`,
     UPDATE:  (userId: string, docId: string) => `${v1}/employee-doc/${userId}/${docId}`,
     DELETE:  (userId: string, docId: string) => `${v1}/employee-doc/${userId}/${docId}`,
@@ -684,7 +662,6 @@ export const API_ENDPOINTS = {
     DOCX:             (id: string) => `${v1}/hr-documents/${id}/docx`,
   },
 
-  // Public candidate e-signature signing link — no auth token attached.
   HR_DOCUMENTS_PUBLIC: {
     DETAIL: (token: string) => `${v1}/public/hr-documents/${token}`,
     SIGN:   (token: string) => `${v1}/public/hr-documents/${token}/sign`,
@@ -724,7 +701,6 @@ export const API_ENDPOINTS = {
   },
 } as const;
 
-// Legacy alias — kept for any future imports, content mirrors API_ENDPOINTS
 export const NEW_ENDPOINTS = API_ENDPOINTS;
 
 export const DOWNLOADS_ENDPOINTS = {

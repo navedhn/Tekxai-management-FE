@@ -75,4 +75,3 @@ const Alert: React.FC<Props> = ({
 };
 
 export default Alert;
-

@@ -19,8 +19,6 @@ import { Play, Square, Clock, AlertCircle } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import type { KanbanTask, TaskStatus } from '@/services/tasksService';
 
-// --- Types ---
-
 interface KanbanBoardProps {
   tasks: KanbanTask[];
   onUpdateTask: (taskId: string, updates: Partial<KanbanTask>) => void;
@@ -53,8 +51,6 @@ function formatSeconds(seconds: number): string {
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
-
-// --- Timer hook ---
 
 function useTaskTimer(taskId: string, onLogTime: (taskId: string, seconds: number) => void) {
   const storageKey = `task_timer_${taskId}`;
@@ -90,8 +86,6 @@ function useTaskTimer(taskId: string, onLogTime: (taskId: string, seconds: numbe
   return { isRunning: !!startTime, elapsed, toggle };
 }
 
-// --- Task Card ---
-
 interface TaskCardProps {
   task: KanbanTask;
   onLogTime: (taskId: string, seconds: number) => void;
@@ -112,7 +106,7 @@ function TaskCard({ task, onLogTime, onSelect, isDragging }: TaskCardProps) {
         isRunning && 'ring-2 ring-blue-400'
       )}
     >
-      {/* Priority */}
+
       <div className="flex items-center justify-between mb-2">
         <span className={cn('text-[10px] font-black px-2 py-0.5 rounded-full border', PRIORITY_STYLES[task.priority] || PRIORITY_STYLES.MEDIUM)}>
           {task.priority}
@@ -138,12 +132,10 @@ function TaskCard({ task, onLogTime, onSelect, isDragging }: TaskCardProps) {
         </button>
       </div>
 
-      {/* Title */}
       <p className="text-sm font-bold text-gray-800 mb-3 line-clamp-2">{task.title}</p>
 
-      {/* Footer */}
       <div className="flex items-center justify-between">
-        {/* Assignee */}
+
         {task.assignee ? (
           <div className="flex items-center gap-1.5">
             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-[9px] font-black text-white overflow-hidden">
@@ -161,7 +153,6 @@ function TaskCard({ task, onLogTime, onSelect, isDragging }: TaskCardProps) {
           <span className="text-[11px] text-gray-300 italic">Unassigned</span>
         )}
 
-        {/* Due Date */}
         {task.due_date && (
           <div className={cn('flex items-center gap-1 text-[11px] font-medium', isOverdue ? 'text-red-500' : 'text-gray-400')}>
             {isOverdue && <AlertCircle size={10} />}
@@ -173,8 +164,6 @@ function TaskCard({ task, onLogTime, onSelect, isDragging }: TaskCardProps) {
   );
 }
 
-// --- Sortable Card ---
-
 function SortableTaskCard({ task, onLogTime, onSelect }: { task: KanbanTask; onLogTime: (taskId: string, seconds: number) => void; onSelect: (task: KanbanTask) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
@@ -185,8 +174,6 @@ function SortableTaskCard({ task, onLogTime, onSelect }: { task: KanbanTask; onL
     </div>
   );
 }
-
-// --- Column ---
 
 function KanbanColumn({
   column,
@@ -221,8 +208,6 @@ function KanbanColumn({
   );
 }
 
-// --- Board ---
-
 const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks, onUpdateTask, onLogTime, onSelectTask }) => {
   const [activeTask, setActiveTask] = useState<KanbanTask | null>(null);
 
@@ -248,14 +233,13 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks, onUpdateTask, onLogTim
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    // Determine which column the card was dropped over
     const overTask = tasks.find(t => t.id === over.id);
     let newStatus: TaskStatus | undefined;
 
     if (overTask) {
       newStatus = overTask.status;
     } else {
-      // Dropped on a column id
+
       newStatus = over.id as TaskStatus;
     }
 

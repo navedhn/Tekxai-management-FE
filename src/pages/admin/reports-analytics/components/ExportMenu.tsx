@@ -9,10 +9,6 @@ export interface ExportColumn {
   label: string;
 }
 
-// Exports whatever rows are currently visible (post search/filter) — same
-// XLSX.utils.json_to_sheet pattern used by Attendance's No Check-in export
-// (pages/admin/attendance). CSV is a client-side Blob download, no backend
-// call needed for either.
 export function ExportMenu<T extends Record<string, unknown>>({
   rows,
   columns,

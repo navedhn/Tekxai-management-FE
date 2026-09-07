@@ -5,10 +5,6 @@ import { MemoryRouter } from 'react-router-dom';
 import ProjectManagement from './index';
 import { ToastProvider } from '@/components/toast/ToastProvider';
 
-// Phase 2 Commercial Project Foundation — Projects list surfaces
-// Client (with a "linked" indicator) and a combined Bidder/Source column,
-// reading only backend-provided fields.
-
 vi.mock('@/services/permissionsService', () => ({
   useMyPermissions: () => ({ data: { is_super_admin: true, permissions: ['erp.projects.delete'] } }),
 }));

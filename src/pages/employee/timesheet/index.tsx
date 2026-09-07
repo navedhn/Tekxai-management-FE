@@ -15,13 +15,8 @@ import { useGetMyShiftQuery, useGetMyAttendanceSummary } from '@/services/attend
 import { CardSkeleton } from '@/components/skeletons';
 import { useToastContext } from '@/components/toast/ToastProvider';
 
-// ── Date helpers ─────────────────────────────────────────────────────────────
-
 function toDateStr(d: Date) {
-  // Not `.toISOString().split('T')[0]` — that converts to UTC first, which
-  // silently shifts the date back a day for any positive-UTC-offset
-  // timezone (e.g. Asia/Karachi, UTC+5) whenever `d` is local midnight, as
-  // every date here is (see startOfWeek/startOfMonth below).
+
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -29,8 +24,8 @@ function toDateStr(d: Date) {
 }
 
 function startOfWeek(d: Date) {
-  const day = d.getDay(); // 0=Sun
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Mon
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   return new Date(d.getFullYear(), d.getMonth(), diff);
 }
 
@@ -46,10 +41,6 @@ function fmtMonthYear(d: Date) {
   return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
-// The time-off-request card relied on `req.date_range_label`, a field the
-// backend never actually returns (only start_date/end_date), so it always
-// rendered blank instead of a date range. Format it here from the real
-// fields instead of trusting a label the API doesn't send.
 function fmtRequestDateRange(startIso?: string, endIso?: string) {
   if (!startIso || !endIso) return null;
   const start = new Date(startIso);
@@ -63,8 +54,6 @@ function fmtWeekRange(start: Date) {
   return `${fmtLabel(start)} – ${fmtLabel(end)}`;
 }
 
-// ── Status badge styles ───────────────────────────────────────────────────────
-
 const STATUS_STYLES: Record<string, string> = {
   'In Progress': 'bg-[#EFF8FF] text-[#175CD3] border-[#B2DDFF]',
   'On Break':    'bg-[#FFFAEB] text-[#B54708] border-[#FEDF89]',
@@ -73,18 +62,12 @@ const STATUS_STYLES: Record<string, string> = {
   'Completed':   'bg-[#EFF8FF] text-[#005CDA] border-[#D1E9FF]',
 };
 
-// ── Main component ────────────────────────────────────────────────────────────
-
 const VIEW_TABS = ['Weekly', 'Monthly', 'Custom', 'My Requests'];
 
 const EmployeeTimesheet: React.FC = () => {
   const [activeTab, setActiveTab] = useState('Weekly');
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
 
-  // Row-level "⋮" action — was a completely unwired button (no onClick at
-  // all) that opened nothing when clicked. The only entry-level action
-  // available today is requesting a correction on an already-clocked entry,
-  // so it opens that directly rather than a menu with a single item.
   const toast = useToastContext();
   const [editEntry, setEditEntry] = useState<TimesheetEntry | null>(null);
   const [editCheckIn, setEditCheckIn] = useState('');
@@ -111,20 +94,14 @@ const EmployeeTimesheet: React.FC = () => {
     );
   };
 
-  // Week navigation
   const [weekAnchor, setWeekAnchor] = useState(() => startOfWeek(new Date()));
 
-  // Month navigation
   const [monthAnchor, setMonthAnchor] = useState(() => startOfMonth(new Date()));
 
-  // Custom date range
   const [customFrom, setCustomFrom] = useState(toDateStr(startOfWeek(new Date())));
   const [customTo, setCustomTo]     = useState(toDateStr(new Date()));
   const [customApplied, setCustomApplied] = useState({ from: customFrom, to: customTo });
 
-  // Derive the `date` query param the backend needs (week start date) —
-  // Custom is handled separately below since it needs both ends of the
-  // range, not a single week-start date.
   const queryDate = (() => {
     if (activeTab === 'Weekly')  return toDateStr(weekAnchor);
     if (activeTab === 'Monthly') return toDateStr(monthAnchor);
@@ -149,7 +126,6 @@ const EmployeeTimesheet: React.FC = () => {
   const { data: myShift } = useGetMyShiftQuery();
   const { data: mySummary } = useGetMyAttendanceSummary();
 
-  // For monthly: accumulate multiple weeks
   const monthWeeks = (() => {
     if (activeTab !== 'Monthly') return null;
     const weeks: Date[] = [];
@@ -234,7 +210,6 @@ const EmployeeTimesheet: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex flex-col gap-1">
           <h1 className="text-3xl font-black text-gray-900 tracking-tight">Timesheet</h1>
@@ -242,7 +217,6 @@ const EmployeeTimesheet: React.FC = () => {
         </div>
       </div>
 
-      {/* My Shift + This Month's Summary */}
       <Card className="flex flex-wrap items-center gap-8 shadow-xl border-none bg-white">
         <div className="flex flex-col gap-1">
           <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">My Shift</span>
@@ -267,7 +241,6 @@ const EmployeeTimesheet: React.FC = () => {
 
       <Tabs options={VIEW_TABS} value={activeTab} onChange={setActiveTab} />
 
-      {/* ── Weekly View ── */}
       {activeTab === 'Weekly' && (
         <Card className="flex flex-col gap-4 shadow-xl border-none p-0 overflow-hidden bg-white">
           <div className="flex items-center justify-between px-4 pt-4">
@@ -303,7 +276,6 @@ const EmployeeTimesheet: React.FC = () => {
         </Card>
       )}
 
-      {/* ── Monthly View ── */}
       {activeTab === 'Monthly' && (
         <Card className="flex flex-col gap-4 shadow-xl border-none p-0 overflow-hidden bg-white">
           <div className="flex items-center justify-between px-4 pt-4">
@@ -329,12 +301,11 @@ const EmployeeTimesheet: React.FC = () => {
               </button>
             </div>
           </div>
-          {/* Render one week-block per week in the month */}
+
           <MonthlyWeeks monthAnchor={monthAnchor} columns={columns} />
         </Card>
       )}
 
-      {/* ── Custom Date Range ── */}
       {activeTab === 'Custom' && (
         <Card className="flex flex-col gap-4 shadow-xl border-none p-0 overflow-hidden bg-white">
           <div className="flex flex-wrap items-end gap-3 px-4 pt-4">
@@ -364,7 +335,6 @@ const EmployeeTimesheet: React.FC = () => {
         </Card>
       )}
 
-      {/* ── My Requests ── */}
       {activeTab === 'My Requests' && (
         <div className="flex flex-col gap-8 bg-white p-6 rounded-xl">
           <div className="flex items-center justify-between">
@@ -432,10 +402,8 @@ const EmployeeTimesheet: React.FC = () => {
   );
 };
 
-// ── Monthly sub-component: renders each week of the month ─────────────────────
-
 const MonthlyWeeks: React.FC<{ monthAnchor: Date; columns: Column<TimesheetEntry>[] }> = ({ monthAnchor, columns }) => {
-  // Collect unique week-start dates that fall within the month
+
   const weeks: Date[] = [];
   const cur = new Date(monthAnchor.getFullYear(), monthAnchor.getMonth(), 1);
   const seen = new Set<string>();

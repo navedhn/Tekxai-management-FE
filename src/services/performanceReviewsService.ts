@@ -1,4 +1,3 @@
-// Phase 4 Employee Performance Evidence & Review Foundation.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { unwrapApiData, unwrapApiList } from '@/utils/apiResponse';
@@ -29,7 +28,6 @@ export interface ReviewPeriod {
   _count?: { reviews: number };
 }
 
-// Phase 5 Controlled Performance Decision & Increment Evidence Layer.
 export type EvidenceStance = 'SUPPORTING' | 'COUNTER' | 'NEUTRAL';
 export type ManagementDecision = 'NO_DECISION' | 'INCREMENT_APPROVED' | 'INCREMENT_DEFERRED' | 'INCREMENT_REJECTED' | 'ESCALATE_TO_HR' | 'NO_ACTION_REQUIRED';
 export type EvidenceCompletenessStatus = 'SUFFICIENT_EVIDENCE' | 'PARTIAL_EVIDENCE' | 'INSUFFICIENT_EVIDENCE';
@@ -60,7 +58,7 @@ export interface PerformanceReview {
   classification: Classification | null;
   recommended_action: RecommendedAction | null;
   completed_at: string | null;
-  // Phase 5 — the actual authorized outcome, separate from classification/recommended_action.
+
   management_decision: ManagementDecision | null;
   management_decision_at: string | null;
   evidence_entries: ManagerEvidenceEntry[];
@@ -68,7 +66,6 @@ export interface PerformanceReview {
   updated_at: string;
 }
 
-// Always server-derived (compute_evidence_completeness) — never computed client-side.
 export interface EvidenceCompleteness {
   status: EvidenceCompletenessStatus;
   sources: {
@@ -77,7 +74,6 @@ export interface EvidenceCompleteness {
   };
 }
 
-// Factual presence indicators only — never a verdict.
 export interface DecisionIndicators {
   delivery_concerns_present: boolean;
   quality_concerns_present: boolean;
@@ -114,7 +110,6 @@ export interface EvidenceBreakdown {
   };
 }
 
-// Always server-derived (get_review_evidence_svc) — never computed client-side.
 export interface DeliveryFact {
   expected: string;
   deadline: string | null;
@@ -206,7 +201,6 @@ export interface ReviewEvidence {
   increment_readiness: IncrementReadiness;
 }
 
-// ── Review Periods ───────────────────────────────────────────────────────────
 async function fetchReviewPeriods(): Promise<ReviewPeriod[]> {
   const res = await apiRequest<unknown>(API_ENDPOINTS.REVIEW_PERIOD.LIST);
   return unwrapApiList<ReviewPeriod>(res);
@@ -223,7 +217,6 @@ export const useCreateReviewPeriod = () => {
   });
 };
 
-// ── Reviews ───────────────────────────────────────────────────────────────
 export interface ReviewFilters {
   user_id?: string;
   reviewer_id?: string;
@@ -296,9 +289,6 @@ export const useDeleteManagerEvidence = (id: string) => {
   });
 };
 
-// Phase 5 — a separate mutation from useUpdateReview: recording a
-// management decision is a distinct, higher-stakes action gated by its own
-// backend permission (hr.performance_reviews.decide).
 export const useRecordManagementDecision = (id: string) => {
   const qc = useQueryClient();
   return useMutation({

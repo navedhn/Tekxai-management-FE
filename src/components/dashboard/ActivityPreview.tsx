@@ -8,7 +8,6 @@ interface ActivityPreviewProps {
   className?: string;
 }
 
-/** Mini dashboard UI previews used until real project screenshots are available */
 const ActivityPreview: React.FC<ActivityPreviewProps> = ({ variant, className }) => {
   return (
     <div

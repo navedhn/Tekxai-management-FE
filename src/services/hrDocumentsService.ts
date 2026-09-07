@@ -2,8 +2,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, BASE_URL } from '@/lib/queryClient';
 import { API_ENDPOINTS } from './api/endpoints';
 
-// ── Types ─────────────────────────────────────────────────────────────────
-
 export interface DocumentCategory {
   id: string;
   code: string;
@@ -103,8 +101,6 @@ export interface HrDocument {
 
 export interface PlaceholderDef { token: string; group: string; label: string; }
 
-// ── Placeholder registry ─────────────────────────────────────────────────
-
 export const useGetPlaceholderRegistry = () =>
   useQuery({
     queryKey: ['hr-documents', 'placeholders'],
@@ -114,8 +110,6 @@ export const useGetPlaceholderRegistry = () =>
     },
     staleTime: 300000,
   });
-
-// ── Categories ────────────────────────────────────────────────────────────
 
 export const useGetDocumentCategories = (includeInactive = false) =>
   useQuery({
@@ -145,8 +139,6 @@ export const useUpdateDocumentCategory = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['hr-document-categories'] }),
   });
 };
-
-// ── Document Types ────────────────────────────────────────────────────────
 
 export const useGetDocumentTypes = (categoryId?: string, includeInactive = false) =>
   useQuery({
@@ -179,8 +171,6 @@ export const useUpdateDocumentType = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['hr-document-types'] }),
   });
 };
-
-// ── Templates ─────────────────────────────────────────────────────────────
 
 export const useGetTemplates = (categoryId?: string, typeId?: string, includeInactive = false) =>
   useQuery({
@@ -257,16 +247,12 @@ export const useDeleteTemplate = () => {
   });
 };
 
-// ── Preview render (no persistence) ──────────────────────────────────────
-
 export const usePreviewRender = () =>
   useMutation({
     mutationFn: (data: { content: string; user_id: string }) =>
       apiRequest<any>(API_ENDPOINTS.HR_DOCUMENTS.PREVIEW_RENDER, { method: 'POST', body: JSON.stringify(data) })
         .then((r) => r?.payload as { rendered: string; unresolved: string[] }),
   });
-
-// ── Documents ─────────────────────────────────────────────────────────────
 
 export const useGetDocuments = (filters: Record<string, any> = {}) =>
   useQuery({
@@ -329,7 +315,7 @@ function make_status_mutation(endpoint: (id: string) => string) {
 }
 
 export const useSendDocument = make_status_mutation(API_ENDPOINTS.HR_DOCUMENTS.SEND);
-// Candidate-addressed documents only — regenerates & re-sends the signing link.
+
 export const useResendDocument = make_status_mutation(API_ENDPOINTS.HR_DOCUMENTS.RESEND);
 export const useApproveDraftDocument = make_status_mutation(API_ENDPOINTS.HR_DOCUMENTS.APPROVE_DRAFT);
 export const useViewDocument = make_status_mutation(API_ENDPOINTS.HR_DOCUMENTS.VIEW);
@@ -337,9 +323,6 @@ export const useRejectDocument = make_status_mutation(API_ENDPOINTS.HR_DOCUMENTS
 export const useCancelDocument = make_status_mutation(API_ENDPOINTS.HR_DOCUMENTS.CANCEL);
 export const useArchiveDocument = make_status_mutation(API_ENDPOINTS.HR_DOCUMENTS.ARCHIVE);
 
-// Lazily generates (server-side, cached after first call) and returns a
-// presigned/download URL for the document's PDF — call `.mutateAsync()` on
-// click rather than a `useQuery`, since the first call may render the PDF.
 export const useGetDocumentPdf = () =>
   useMutation({
     mutationFn: (id: string) =>
@@ -347,9 +330,6 @@ export const useGetDocumentPdf = () =>
         .then((r) => r?.payload as { url: string; file_key: string }),
   });
 
-// DOCX isn't a JSON endpoint (it streams the file directly), so this can't
-// go through apiRequest/useMutation like everything else here — same
-// authenticated-blob-download pattern already used in reportService.ts.
 export function download_document_docx(id: string, filename?: string) {
   const token = localStorage.getItem('tekxai_access_token');
   const endpoint = API_ENDPOINTS.HR_DOCUMENTS.DOCX(id);

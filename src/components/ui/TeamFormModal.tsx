@@ -83,7 +83,6 @@ const TeamFormModal: React.FC<Props> = ({ isOpen, onClose, team }) => {
     staleTime: 300000,
   });
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (dropRef.current && !dropRef.current.contains(e.target as Node)) {
@@ -125,10 +124,7 @@ const TeamFormModal: React.FC<Props> = ({ isOpen, onClose, team }) => {
     const newErrors: Record<string, string> = {};
     if (!formData.name.trim()) newErrors.name = 'Team name is required';
     if (!formData.type) newErrors.type = 'Team type is required';
-    // Business Unit -> Division -> Department -> Team -> Employee hierarchy:
-    // a Team must have a valid Department (server also enforces this — see
-    // teams.service.js's create_new_team/update_existing_team — this is
-    // just the fast client-side check, never the only line of defense).
+
     if (!formData.department_id) newErrors.department_id = 'Department is required';
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
@@ -164,7 +160,6 @@ const TeamFormModal: React.FC<Props> = ({ isOpen, onClose, team }) => {
           className="h-12 rounded-xl"
         />
 
-        {/* Custom team type selector */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Team Type *</label>
           <div className="relative" ref={dropRef}>
@@ -198,7 +193,6 @@ const TeamFormModal: React.FC<Props> = ({ isOpen, onClose, team }) => {
                   ))}
                 </div>
 
-                {/* Add custom type */}
                 <div className="border-t border-gray-100 p-2">
                   {addingCustom ? (
                     <div className="flex gap-2">

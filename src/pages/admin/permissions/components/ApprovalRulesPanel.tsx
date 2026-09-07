@@ -68,10 +68,6 @@ function CreateRuleModal({ roles, onClose }: { roles: string[]; onClose: () => v
   );
 }
 
-// Configurable approval thresholds — orthogonal to the binary "approve"
-// permission already handled by the matrix. A role can be granted
-// erp.expenses.approve and STILL be capped at a dollar limit via a rule
-// here; this panel is where that limit is set, not code.
 const ApprovalRulesPanel: React.FC<{ roles: string[] }> = ({ roles }) => {
   const toast = useToastContext();
   const { data: rules = [], isLoading } = useApprovalRules();

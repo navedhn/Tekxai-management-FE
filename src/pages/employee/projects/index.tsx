@@ -168,7 +168,6 @@ const EmployeeProjects: React.FC = () => {
     }
   ];
 
-
   return (
     <div className="flex flex-col gap-8 pb-10">
       <ProjectDetailsSlideOver

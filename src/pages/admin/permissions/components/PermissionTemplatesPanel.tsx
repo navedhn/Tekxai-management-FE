@@ -81,10 +81,6 @@ function ApplyTemplateModal({ template, roles, onClose }: { template: Permission
   );
 }
 
-// Permission Templates — reusable permission sets admins build once and
-// copy from when creating/reconfiguring a role. Snapshot semantics: editing
-// a template later never retroactively changes a role that already
-// applied it (matches "Copy another role," which works the same way).
 const PermissionTemplatesPanel: React.FC<{ roles: string[] }> = ({ roles }) => {
   const toast = useToastContext();
   const { data: templates = [], isLoading } = useTemplates();

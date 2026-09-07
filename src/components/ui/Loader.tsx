@@ -19,7 +19,7 @@ const Loader: React.FC<LoaderProps> = ({
   const content = (
     <div className={cn('flex flex-col items-center justify-center gap-6', containerClassName)}>
       <div className="relative flex items-center justify-center">
-        {/* Animated Rings */}
+
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
@@ -33,7 +33,6 @@ const Loader: React.FC<LoaderProps> = ({
           style={{ width: size + 40, height: size + 40 }}
         />
 
-        {/* Logo Container */}
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: [0.8, 1.1, 1], opacity: 1 }}
@@ -43,7 +42,6 @@ const Loader: React.FC<LoaderProps> = ({
           <img src={texailogo} alt="logo" className="w-16 h-16 object-contain" />
         </motion.div>
       </div>
-
 
     </div>
   );
@@ -61,4 +59,3 @@ const Loader: React.FC<LoaderProps> = ({
 };
 
 export default Loader;
-

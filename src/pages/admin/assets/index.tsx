@@ -12,21 +12,12 @@ import Button, { IconButton } from '@/components/ui/Button';
 const v1 = 'api/v1';
 const BUILDER = `${v1}/report/builder`;
 
-// Sprint 1 Milestone 3 (Asset Reports) — Aggregate breakdowns not already
-// covered by the existing /asset/reports/inventory endpoint (which only
-// groups by category/status). Reuses the generic report_builder aggregate
-// engine (Sprint 1 Milestone 1/2) rather than adding bespoke groupBy queries
-// to the assets module.
 const ASSET_DIMENSIONS = [
   { key: 'brand', label: 'By Brand', group_by: 'brand' },
   { key: 'department', label: 'By Department', group_by: 'department_id' },
   { key: 'office', label: 'By Office', group_by: 'location_id' },
 ];
 
-// Detail reports (Assigned / Available / Retired / Under Repair) — same
-// generic run_report entity ('assets') already registered for the builder
-// page, just filtered by status. "Under Repair" maps to the existing
-// status='MAINTENANCE' value (there is no separate UNDER_REPAIR status).
 const ASSET_DETAIL_REPORTS = [
   { key: 'ASSIGNED', label: 'Assigned Assets', icon: UserCheck2 },
   { key: 'AVAILABLE', label: 'Available Assets', icon: CheckCircle },
@@ -34,11 +25,6 @@ const ASSET_DETAIL_REPORTS = [
   { key: 'MAINTENANCE', label: 'Under Repair', icon: Wrench },
 ];
 
-// Asset physical condition (NEW/GOOD/FAIR/POOR) is a different vocabulary
-// from status/state badges — "NEW" here means "brand new item," not the
-// unrelated "NEW" pipeline stage used elsewhere, so it's intentionally kept
-// out of the shared StatusBadge STATUS_TONE map to avoid cross-domain
-// collisions. Left as local color logic.
 const CONDITION_STYLE: Record<string, string> = {
   NEW:  'bg-green-100 text-green-700',
   GOOD: 'bg-blue-100 text-blue-700',
@@ -48,8 +34,6 @@ const CONDITION_STYLE: Record<string, string> = {
 
 const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400';
 const labelCls = 'text-xs font-semibold text-gray-500 block mb-1.5';
-
-// ─── Add Asset Modal ──────────────────────────────────────────────────────────
 
 function CreateAssetModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
@@ -126,10 +110,6 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
 
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
-  // When creating a new ("Other") category, categoryMeta is null (no existing
-  // row to read from) — fall back to the checkboxes being set for the new
-  // category so the device/assignment sections below actually show up instead
-  // of silently omitting them until the asset is edited afterward.
   const effectiveMeta = isOther ? { is_device: newCategoryIsDevice, is_assignable: newCategoryIsAssignable } : categoryMeta;
 
   const handleCategoryChange = (val: string) => {
@@ -151,7 +131,6 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
 
     let final_category_id = categoryId;
 
-    // If "Other", create category first
     if (isOther) {
       if (!newCategoryName.trim()) { setErr('Category name is required'); return; }
       try {
@@ -184,7 +163,6 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
       location_id: locationId,
     };
 
-    // Device fields
     if (effectiveMeta?.is_device) {
       if (form.processor) payload.processor = form.processor;
       if (form.ram) payload.ram = form.ram;
@@ -193,7 +171,6 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
       if (form.generation) payload.generation = form.generation;
     }
 
-    // Assignment
     if (effectiveMeta?.is_assignable && userId) {
       payload.user_id = userId;
       if (form.assigned_at) payload.assigned_at = form.assigned_at;
@@ -213,7 +190,7 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="space-y-4">
-          {/* Category */}
+
           <div>
             <label className={labelCls}>Category <span className="text-red-500">*</span></label>
             <select className={inputCls} value={isOther ? '__OTHER__' : categoryId} onChange={e => handleCategoryChange(e.target.value)}>
@@ -225,7 +202,6 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
             </select>
           </div>
 
-          {/* New category name if Other */}
           {isOther && (
             <div className="flex flex-col gap-2">
               <label className={labelCls}>New Category Name <span className="text-red-500">*</span></label>
@@ -241,13 +217,11 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          {/* Asset Name */}
           <div>
             <label className={labelCls}>Asset Name <span className="text-red-500">*</span></label>
             <input className={inputCls} value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. MacBook Pro 14-inch" />
           </div>
 
-          {/* Location — required since assets are tracked across multiple offices */}
           <div>
             <label className={labelCls}>Location <span className="text-red-500">*</span></label>
             <select className={inputCls} value={locationId} onChange={e => setLocationId(e.target.value)}>
@@ -304,7 +278,6 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
               value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Any additional notes…" />
           </div>
 
-          {/* Device-specific fields — show when is_device=true or undefined (old categories) */}
           {effectiveMeta && effectiveMeta.is_device !== false && (
             <>
               <div className="border-t border-gray-100 pt-4">
@@ -340,7 +313,6 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
             </>
           )}
 
-          {/* Assignment section — show unless category explicitly marks is_assignable=false */}
           {effectiveMeta && effectiveMeta.is_assignable !== false && (
             <div className="border-t border-gray-100 pt-4">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Assignment (optional)</p>
@@ -378,12 +350,6 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ─── Assign Modal ─────────────────────────────────────────────────────────────
-
-// Free-form "comma separated accessories" input, shared by Assign/Return/
-// Receive — stored as a JSON array (asset_custody_events.accessories_issued
-// / accessories_returned), no new UI component needed for something this
-// small.
 function parse_accessories(text: string): string[] | undefined {
   const items = text.split(',').map(s => s.trim()).filter(Boolean);
   return items.length ? items : undefined;
@@ -432,9 +398,7 @@ function AssignModal({ asset, onClose }: { asset: any; onClose: () => void }) {
         condition_at_handover: condition,
         accessories_issued: parse_accessories(accessories),
         notes: remarks || undefined,
-        // Acknowledgement here is the recipient confirming receipt at
-        // handover time — recorded against the employee being assigned to,
-        // per the approved "documentation, not approval friction" model.
+
         acknowledged_by: acknowledged ? userId : undefined,
         acknowledged_at: acknowledged ? new Date().toISOString() : undefined,
       }),
@@ -500,8 +464,6 @@ function AssignModal({ asset, onClose }: { asset: any; onClose: () => void }) {
     </div>
   );
 }
-
-// ─── Return Modal ─────────────────────────────────────────────────────────────
 
 function ReturnModal({ asset, onClose }: { asset: any; onClose: () => void }) {
   const qc = useQueryClient();
@@ -602,8 +564,6 @@ function ReturnModal({ asset, onClose }: { asset: any; onClose: () => void }) {
   );
 }
 
-// ─── Receive (no prior recorded assignment) Modal ─────────────────────────────
-
 function ReceiveModal({ asset, onClose }: { asset: any; onClose: () => void }) {
   const qc = useQueryClient();
   const { success: showSuccessToast } = useToastContext();
@@ -702,8 +662,6 @@ function ReceiveModal({ asset, onClose }: { asset: any; onClose: () => void }) {
     </div>
   );
 }
-
-// ─── Replace Modal ─────────────────────────────────────────────────────────────
 
 function ReplaceModal({ asset, onClose }: { asset: any; onClose: () => void }) {
   const qc = useQueryClient();
@@ -804,11 +762,6 @@ function ReplaceModal({ asset, onClose }: { asset: any; onClose: () => void }) {
   );
 }
 
-// ─── Custody History Modal ─────────────────────────────────────────────────────
-// Read-only — visible to anyone with erp.assets.view (HR included), no
-// asset-management mutation permission required. Same GET the backend
-// gates on ASSETS_VIEW, not ASSETS_MANAGE.
-
 function CustodyHistoryModal({ asset, onClose }: { asset: any; onClose: () => void }) {
   const { data: events, isLoading } = useQuery({
     queryKey: ['asset-custody-events', asset.id],
@@ -860,8 +813,6 @@ function CustodyHistoryModal({ asset, onClose }: { asset: any; onClose: () => vo
     </div>
   );
 }
-
-// ─── Dispose Modal ────────────────────────────────────────────────────────────
 
 function DisposeModal({ asset, onClose }: { asset: any; onClose: () => void }) {
   const qc = useQueryClient();
@@ -919,8 +870,6 @@ function DisposeModal({ asset, onClose }: { asset: any; onClose: () => void }) {
     </div>
   );
 }
-
-// ─── Create Asset Request Modal ───────────────────────────────────────────────
 
 function CreateRequestModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
@@ -1003,8 +952,6 @@ function CreateRequestModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ─── Approve Request Modal ─────────────────────────────────────────────────────
-
 function ApproveRequestModal({ request, onClose }: { request: any; onClose: () => void }) {
   const qc = useQueryClient();
   const { success: showSuccessToast } = useToastContext();
@@ -1066,8 +1013,6 @@ function ApproveRequestModal({ request, onClose }: { request: any; onClose: () =
   );
 }
 
-// ─── Reject Request Modal ───────────────────────────────────────────────────────
-
 function RejectRequestModal({ request, onClose }: { request: any; onClose: () => void }) {
   const qc = useQueryClient();
   const { success: showSuccessToast } = useToastContext();
@@ -1112,9 +1057,6 @@ function RejectRequestModal({ request, onClose }: { request: any; onClose: () =>
   );
 }
 
-// Assets by Brand / Department / Office — the only groupings the existing
-// inventory report doesn't already provide (it covers category + status).
-// Backed entirely by the generic report_builder aggregate engine.
 function AssetAggregateBreakdown() {
   const [dimKey, setDimKey] = useState(ASSET_DIMENSIONS[0].key);
   const dimension = ASSET_DIMENSIONS.find((d) => d.key === dimKey)!;
@@ -1186,9 +1128,6 @@ function AssetAggregateBreakdown() {
   );
 }
 
-// Detail reports — Assigned / Available / Retired / Under Repair — filtered
-// listings against the same 'assets' entity via run_report, consistent with
-// "everything uses the same generic reporting engine."
 function AssetDetailReports() {
   const [activeStatus, setActiveStatus] = useState<string | null>(null);
 
@@ -1256,10 +1195,6 @@ function AssetDetailReports() {
   );
 }
 
-// KPI cards — Total/Assigned/Available/Under Repair via the generic KPI
-// engine (COUNT), Expiring Warranty/Categories/Asset Value reused directly
-// from data already fetched for the tiles below (inventory/depreciation
-// reports + categories list) rather than re-derived.
 function AssetKpiRow({ warrantyCount, categoriesCount }: { warrantyCount: number; categoriesCount: number }) {
   const kpi = (metric: string, filters?: Record<string, any>) => ({ entity: 'assets', metric, filters });
 
@@ -1291,8 +1226,6 @@ function AssetKpiRow({ warrantyCount, categoriesCount }: { warrantyCount: number
     </div>
   );
 }
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AssetsPage() {
   const [tab, setTab] = useState<'assets' | 'requests' | 'disposals' | 'history' | 'reports'>('assets');
@@ -1358,9 +1291,6 @@ export default function AssetsPage() {
     enabled: tab === 'disposals',
   });
 
-  // Handover/Return/Replacement documentation history — HR's primary
-  // "review records" view, cross-asset, not gated behind opening each
-  // asset one at a time.
   const { data: historyData, isLoading: historyLoading } = useQuery({
     queryKey: ['asset-custody-history', historyEventTypeFilter],
     queryFn: () => {
@@ -1410,7 +1340,7 @@ export default function AssetsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-gray-900">Assets</h1>
@@ -1428,7 +1358,6 @@ export default function AssetsPage() {
         )}
       </div>
 
-      {/* Tabs */}
       <div className="flex items-center gap-1 border-b border-gray-100">
         {[
           { key: 'assets',    label: 'Assets',    icon: Package },
@@ -1452,7 +1381,7 @@ export default function AssetsPage() {
 
       {tab === 'assets' && (
         <>
-          {/* Stats */}
+
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               { icon: Package,     color: 'bg-blue-500',   label: 'Total Assets',  value: total },
@@ -1472,9 +1401,8 @@ export default function AssetsPage() {
             ))}
           </div>
 
-          {/* Table */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            {/* Filters */}
+
             <div className="flex flex-wrap gap-3 mb-4">
               <div className="flex items-center gap-2 text-gray-400">
                 <Filter size={15} />
@@ -1820,10 +1748,9 @@ export default function AssetsPage() {
 
       {tab === 'reports' && (
         <>
-          {/* Sprint 1 Milestone 3 — KPI cards (generic report_builder KPI engine) */}
+
           <AssetKpiRow warrantyCount={warrantyAlerts.length} categoriesCount={(categories as any[] || []).length} />
 
-          {/* Inventory summary tiles */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               { icon: Package,      color: 'bg-blue-500',   label: 'Total Value (Original)', value: depreciationData ? `PKR ${depreciationData.total_purchase_cost?.toLocaleString?.() ?? depreciationData.total_purchase_cost}` : '—' },
@@ -1843,7 +1770,6 @@ export default function AssetsPage() {
             ))}
           </div>
 
-          {/* Counts by status / category */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Assets by Status</p>
@@ -1877,7 +1803,6 @@ export default function AssetsPage() {
             </div>
           </div>
 
-          {/* Warranty expiry alerts */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
             <div className="flex items-center gap-2 mb-3">
               <AlertTriangle size={15} className="text-amber-500" />
@@ -1924,7 +1849,6 @@ export default function AssetsPage() {
             </div>
           </div>
 
-          {/* Depreciation table */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
             <div className="flex items-center gap-2 mb-3">
               <TrendingDown size={15} className="text-gray-400" />
@@ -1974,7 +1898,6 @@ export default function AssetsPage() {
             </div>
           </div>
 
-          {/* Sprint 1 Milestone 3 — Assets by Brand/Department/Office + Detail Reports */}
           <AssetAggregateBreakdown />
           <AssetDetailReports />
         </>

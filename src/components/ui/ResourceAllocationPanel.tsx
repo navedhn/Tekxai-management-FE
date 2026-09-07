@@ -7,11 +7,6 @@ interface ResourceAllocationPanelProps {
   projectId: string;
 }
 
-// Phase 3 (Resources & Capacity) — per-member allocation on this project plus
-// their total workload summed across all their other active project
-// memberships. Reuses project_members.allocation_percent (Phase 3 schema
-// addition); membership/role assignment itself is unchanged, this only adds
-// the workload/over-allocation view on top of it.
 const ResourceAllocationPanel: React.FC<ResourceAllocationPanelProps> = ({ projectId }) => {
   const { data: resources = [], isLoading } = useProjectResources(projectId);
 

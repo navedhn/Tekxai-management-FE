@@ -18,14 +18,10 @@ interface InviteMemberModalProps {
   invite?: any;
 }
 
-// Department/Team/Designation dropdowns are fed live from the same shared
-// services Add Employee uses (departmentService/designationService), not a
-// hardcoded snapshot — a hardcoded list here meant new departments never
-// appeared in the invite form regardless of any cache invalidation elsewhere.
 const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, invite }) => {
   const [email, setEmail] = useState('');
-  const [department, setDepartment] = useState(''); // department_id
-  const [designation, setDesignation] = useState(''); // designation_id
+  const [department, setDepartment] = useState('');
+  const [designation, setDesignation] = useState('');
   const [team, setTeam] = useState('');
   const [invitedUserId, setInvitedUserId] = useState<string | null>(null);
   const [isUserListOpen, setIsUserListOpen] = useState(false);
@@ -43,7 +39,6 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
   const isEdit = !!invite;
   const isPending = isCreating || isUpdating;
 
-  // Sync state with invite prop
   React.useEffect(() => {
     if (invite && isOpen) {
       setEmail(invite.email || '');
@@ -51,7 +46,7 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
       setTeam(invite.team_id || invite.team?.id || '');
       setDesignation(invite.designation_id || '');
     } else if (!isOpen) {
-      // Clear state when modal closes
+
       setEmail('');
       setDepartment('');
       setTeam('');
@@ -60,7 +55,6 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
     }
   }, [invite, isOpen]);
 
-  // Map teams from API to Select options
   const teamsOptions = Array.isArray((teamsData as any)?.payload?.records)
     ? (teamsData as any).payload.records.map((t: any) => ({ value: t.id, label: t.name }))
     : Array.isArray(teamsData)
@@ -93,7 +87,7 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
   };
 
   const handleSendInvite = () => {
-    // Inline validation
+
     const newErrors: Record<string, string> = {};
     if (!email.trim()) newErrors.email = 'Email address is required';
     if (!department) newErrors.department = 'Department is required';
@@ -106,7 +100,6 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
       return;
     }
 
-    // Option 2: Update without user reference
     if (isEdit) {
       const payload = {
         email: email,
@@ -126,7 +119,7 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
         }
       });
     } else {
-      // Option 1: Create with invited_user_id if available
+
       const payload: any = {
         email: email,
         designation_id: designation,
@@ -164,7 +157,7 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
             <Button
               variant="primary"
               size="sm"
-              className="rounded-lg h-9 text-[12px] font-bold border-gray-200 
+              className="rounded-lg h-9 text-[12px] font-bold border-gray-200
                hover:bg-gray-50 flex items-center gap-2"
               onClick={() => setIsUserListOpen(true)}
             >
@@ -173,7 +166,6 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
             </Button>
           </div>
 
-          {/* Email Row */}
           <div className="flex flex-col gap-1.5">
 
             <Input
@@ -186,9 +178,8 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
             />
           </div>
 
-          {/* Dropdowns Section */}
           <div className="grid grid-cols-1 gap-5">
-            {/* Department */}
+
             <SearchableSelect
               label="DEPARTMENT *"
               options={departmentOptions}
@@ -201,7 +192,6 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
               clearable={false}
             />
 
-            {/* Team */}
             <SearchableSelect
               label="TEAM *"
               options={teamsOptions}
@@ -215,7 +205,6 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
               clearable={false}
             />
 
-            {/* Designation — loaded from the real Designations API, not a hardcoded list */}
             <SearchableSelect
               label="DESIGNATION *"
               options={designationOptions}
@@ -229,7 +218,6 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
             />
           </div>
 
-          {/* Actions */}
           <div className="flex flex-col gap-3 mt-4">
             <Button
               variant="primary"
@@ -262,4 +250,3 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose, 
 };
 
 export default InviteMemberModal;
-

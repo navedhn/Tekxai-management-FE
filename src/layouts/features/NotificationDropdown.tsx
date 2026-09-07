@@ -60,7 +60,7 @@ const NotificationDropdown: React.FC<Props> = ({ isOpen, onClose, triggerRef }) 
         'max-sm:fixed max-sm:top-[5.5rem] max-sm:rounded-none max-sm:border-x-0 max-sm:max-h-[calc(100vh-5.5rem)]'
       )}
     >
-      {/* Header */}
+
       <div className="flex items-center justify-between px-4 pt-4 pb-2">
         <div className="flex items-center gap-2">
           <span className="text-[15px] font-black text-gray-900">Notifications</span>

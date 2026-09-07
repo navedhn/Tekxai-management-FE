@@ -11,10 +11,6 @@ import BulkDeleteBar from '@/components/ui/BulkDeleteBar';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { cn } from '@/utils/cn';
 
-// Self-contained chip multi-select for the "Bulk Assign Departments" flow —
-// same interaction pattern as the milestone modal's ChipMultiSelect
-// (dropdown-to-add, chip-to-remove), kept local since this picker's
-// options (departments) and copy are specific to this page.
 function DepartmentMultiSelect({ options, selected, onChange }: { options: { id: string; name: string }[]; selected: string[]; onChange: (ids: string[]) => void }) {
   const [open, setOpen] = useState(false);
   const available = options.filter(o => !selected.includes(o.id));
@@ -56,8 +52,6 @@ function DepartmentMultiSelect({ options, selected, onChange }: { options: { id:
   );
 }
 
-// Step 1 of "Bulk Assign Departments" — multi-select the departments to
-// link. Step 2 (confirmation) reuses the existing ActionModal.
 function BulkAssignDepartmentsModal({ count, departments, onClose, onContinue }: {
   count: number; departments: { id: string; name: string }[]; onClose: () => void; onContinue: (departmentIds: string[]) => void;
 }) {

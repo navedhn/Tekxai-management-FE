@@ -14,9 +14,6 @@ import { useToastContext } from '@/components/toast/ToastProvider';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 
-// Minimal shape this modal needs from an Employee Directory row to prefill
-// Quick Edit — deliberately just the fields the Quick Create form itself
-// captures, nothing from the full HR profile.
 export interface QuickEditUser {
   id: string;
   first_name: string | null;
@@ -24,15 +21,10 @@ export interface QuickEditUser {
   email: string;
   employee_id?: string | null;
   designation_id?: string | null;
-  // Business Unit Reporting Email Configuration — the employee's own direct
-  // business_unit_id (real FK to business_units), independent of
-  // department.business_unit's derived value below (kept for the fallback
-  // in toFormState — an employee's department implies a BU even before
-  // they have their own explicit assignment).
+
   business_unit_id?: string | null;
   department?: { id: string; business_unit?: { id: string } | null } | null;
-  // Single-team-per-user shape — same as employees.routes.js's directory
-  // list response and users.repository.js's normalize_user (see be-work).
+
   team?: { id: string; name: string } | null;
   role_id?: string | null;
   hire_date?: string | null;
@@ -41,7 +33,7 @@ export interface QuickEditUser {
 interface QuickCreateUserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  /** Present -> the modal edits this user (Quick Edit) instead of creating a new one. */
+
   editUser?: QuickEditUser | null;
 }
 
@@ -55,10 +47,7 @@ function toFormState(u: QuickEditUser) {
     password: '',
     employee_id: u.employee_id || '',
     designation_id: u.designation_id || '',
-    // Business Unit Reporting Email Configuration — real FK, prefers the
-    // employee's own direct assignment; falls back to the department's BU
-    // (the pre-existing derived value) only if the employee has none of
-    // their own yet, so an already-linked employee's dropdown isn't blank.
+
     business_unit_id: u.business_unit_id || u.department?.business_unit?.id || '',
     department_id: u.department?.id || '',
     team_id: u.team?.id || '',
@@ -67,21 +56,6 @@ function toFormState(u: QuickEditUser) {
   };
 }
 
-// Lightweight login-account creation — HR/Admin fills in only what's needed
-// to grant access; everything else (education, emergency contacts, salary,
-// etc.) is deferred to Employee Directory -> Employee Profile later. The
-// backend already creates a stub employee_profiles row and assigns the
-// employee_id server-side on every user creation (see users.service.js
-// create_new_user) — this form is a thin wrapper around the existing
-// POST /user endpoint, nothing new on the backend.
-//
-// Quick Edit (editUser set) reuses the exact same field set against the
-// existing PUT /user/:id (base fields + designation/department) and
-// PUT /user/:id/role (role) endpoints — no new backend surface for editing
-// either. This is deliberately NOT the full Add Employee wizard: employees
-// created via Quick Create are edited here, in the same lightweight shape
-// they were created in; the full wizard (Detailed Edit) is for employees
-// created there.
 const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onClose, editUser = null }) => {
   const toast = useToastContext();
   const createUser = useCreateUserMutation();
@@ -96,16 +70,10 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
   const isEditMode = !!editUser;
 
   const [formData, setFormData] = useState(EMPTY_FORM);
-  // Business Unit -> Division -> Department -> Team -> Employee hierarchy:
-  // Team is scoped to whichever Department is currently selected, via the
-  // one shared data-loading pattern also used by the full Add/Edit Employee
-  // form (UserFormModal) — see useDepartmentScopedTeams in adminService.ts.
+
   const { teamsData, teamRecords, teamOptions } = useDepartmentScopedTeams(formData.department_id);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  // Set after a successful create — switches the modal to a confirmation
-  // view showing the server-assigned Employee ID, with a "Create Another"
-  // option that resets the form without closing the modal. Not used in
-  // edit mode — editing just closes on success.
+
   const [created, setCreated] = useState<{ employeeId: string | null; name: string } | null>(null);
   const [fetchingEmployeeId, setFetchingEmployeeId] = useState(false);
 
@@ -119,8 +87,7 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
   const designationOptions = designations.map((d) => ({ value: d.id, label: d.name }));
   const roleOptions = roles.map((r) => ({ value: r.id, label: r.name.replace(/_/g, ' ') }));
   const businessUnitOptions = businessUnits.map((bu: any) => ({ value: bu.id, label: bu.name }));
-  // Same filter as the full Add Employee wizard's StepEmployment — Department
-  // is scoped to the selected Business Unit via departments.business_unit_id.
+
   const departmentOptions = departments
     .filter((d: any) => !formData.business_unit_id || (d.business_unit_id || d.business_unit?.id) === formData.business_unit_id)
     .map((d: any) => ({ value: d.id, label: d.name }));
@@ -134,26 +101,14 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
     setFormData((prev) => ({ ...prev, [name]: String(val) }));
   };
 
-  // Department -> Team is a hard hierarchy (Business Unit -> Division ->
-  // Department -> Team -> Employee) — switching Department immediately
-  // clears the selected Team so a stale cross-department pick can never be
-  // submitted (e.g. Marketing Department -> Engineering Team).
   const handleDepartmentChange = (val: string | number) => {
     setFormData((prev) => ({ ...prev, department_id: String(val ?? ''), team_id: '' }));
   };
 
-  // Business Unit -> Department: switching Business Unit clears Department
-  // (and therefore Team) so a stale cross-unit department can't linger —
-  // same rule the Add Employee wizard's StepEmployment applies.
   const handleBusinessUnitChange = (val: string | number) => {
     setFormData((prev) => ({ ...prev, business_unit_id: String(val ?? ''), department_id: '', team_id: '' }));
   };
 
-  // Safety net for the case above: once the Team list for the (possibly
-  // new) Department finishes loading, drop the current team_id if it isn't
-  // actually in that list — covers Quick Edit's initial prefill (Department
-  // and Team are both set at once from toFormState, so the explicit-clear
-  // handler above never runs) plus any other path that sets both together.
   useEffect(() => {
     if (!formData.team_id || !teamsData) return;
     if (!teamRecords.some((t) => t.id === formData.team_id)) {
@@ -182,14 +137,9 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
         email: formData.email.trim(),
         designation_id: formData.designation_id,
         department_id: formData.department_id || null,
-        // Employee's own direct Business Unit assignment (real FK) — see
-        // toFormState's comment for why it may start out derived from the
-        // department instead of an explicit prior choice.
+
         business_unit_id: formData.business_unit_id || null,
-        // Always sent (never omitted) in edit mode — team_id === undefined
-        // means "leave team membership alone" server-side (see
-        // update_existing_user in be-work), but Quick Edit's Team field is a
-        // full editor: '' must mean "clear membership", not "don't touch it".
+
         team_id: formData.team_id || null,
         hire_date: formData.hire_date || undefined,
       };
@@ -198,10 +148,6 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
       const roleChanged = formData.role_id && formData.role_id !== editUser.role_id;
       const employeeIdChanged = formData.employee_id.trim() && formData.employee_id.trim() !== (editUser.employee_id || '');
 
-      // Employee ID and role both have their own dedicated write paths on
-      // the backend (see EMPLOYEE_ID_CHANGE/ROLE_CHANGE's own comments) —
-      // neither can go through the generic profile PUT below, so each fires
-      // as its own follow-up call only when actually changed.
       updateUser.mutate({ id: editUser.id, data }, {
         onSuccess: async () => {
           try {
@@ -225,9 +171,7 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
       password: formData.password,
       designation_id: formData.designation_id,
       role_id: formData.role_id,
-      // Quick Create is for adding someone already actively working, not a
-      // formal new-hire onboarding — skips straight to ACTIVE_EMPLOYMENT
-      // instead of the ONBOARDING stage the full Add Employee flow uses.
+
       quick_create: true,
     };
     if (formData.department_id) payload.department_id = formData.department_id;
@@ -241,10 +185,6 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
         const name = `${payload.first_name} ${payload.last_name}`.trim();
         toast.success('User created successfully');
 
-        // POST /user doesn't return employee_id (users.repository.js's
-        // USER_SELECT excludes it), but GET /employee/:id — the same
-        // endpoint the Employee Directory already uses — does. Reusing it
-        // here avoids any backend change just to surface the assigned ID.
         setFetchingEmployeeId(true);
         try {
           const detail = await apiRequest<any>(API_ENDPOINTS.EMPLOYEE.DETAIL(newUser.id));

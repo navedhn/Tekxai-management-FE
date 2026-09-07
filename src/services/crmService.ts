@@ -21,10 +21,6 @@ export function useGetCRMDashboard() {
   });
 }
 
-// ── Post-Sales CRM Dashboard ────────────────────────────────────────────────
-// Client-delivery / project-health dashboard for the ERP's CRM workspace.
-// Distinct from useGetCRMDashboard above, which is the sales-pipeline (leads)
-// dashboard, kept intact for the future standalone Sales CRM app.
 export interface ProjectSummary {
   id: string;
   title: string;
@@ -32,7 +28,7 @@ export interface ProjectSummary {
   status: string;
   end_date: string | null;
   days_remaining: number | null;
-  health_status: 'HEALTHY' | 'AT_RISK' | 'WARNING' | 'CRITICAL'; // 4-tier Green/Yellow/Orange/Red
+  health_status: 'HEALTHY' | 'AT_RISK' | 'WARNING' | 'CRITICAL';
 }
 
 export interface MilestoneSummary {

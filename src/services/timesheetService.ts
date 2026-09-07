@@ -3,8 +3,6 @@ import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from './api/endpoints';
 import { QUERY_KEYS } from './api/tanstackKeys';
 
-// --- Types ---
-
 export interface Policy {
   id: string;
   name: string;
@@ -23,7 +21,7 @@ export interface TimesheetEntry {
   status: string | null;
   status_label: string | null;
   no_entry_text: string;
-  // added for admin side employee names
+
   employee?: string;
 }
 
@@ -66,7 +64,6 @@ export interface TimeOffRequest {
   avatar?: string;
   status?: string;
 
-  // New accurate fields:
   policy_name?: string;
   status_label?: string;
   date_range_label?: string;
@@ -85,13 +82,11 @@ export interface MyRequestsData {
   };
 }
 
-// --- API Functions ---
-
 const getWeeklyTimesheetApi = async (params?: Record<string, any>) => {
-  const filteredParams = params 
+  const filteredParams = params
     ? Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined && v !== null && v !== ''))
     : {};
-  
+
   const queryString = new URLSearchParams(filteredParams).toString();
   const url = queryString ? `${API_ENDPOINTS.TIMESHEET.WEEKLY}?${queryString}` : API_ENDPOINTS.TIMESHEET.WEEKLY;
   const res = await apiRequest<any>(url);
@@ -193,8 +188,6 @@ const deleteTimeOffApi = async (id: string | number) => {
    return apiRequest(API_ENDPOINTS.TIMESHEET.DELETE_TIMEOFF(id), { method: 'DELETE' });
 };
 
-// --- Hooks ---
-
 export const useRequestEntryEditMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -226,16 +219,6 @@ export const useRejectEditRequestMutation = () => {
   });
 };
 
-// The global QueryClient default (queryClient.ts) sets refetchOnWindowFocus:
-// false and a 5-minute staleTime — right for most pages, but wrong for
-// today's row here specifically: a check-in from the Desktop App (a
-// separate window, not this React tree) has no way to invalidate this
-// query itself, so without overriding these two options, returning to an
-// already-open Timesheet tab within 5 minutes of clocking in via Desktop
-// silently shows the pre-check-in state until a hard reload. Backend data
-// is confirmed correct and immediate (verified directly against
-// GET /timesheet/today right after a clock-in) — this was purely a
-// client-side cache-staleness gap.
 export const useGetWeeklyTimesheet = (params?: Record<string, any>, enabled = true) => {
   return useQuery<WeeklyTimesheetData>({
     queryKey: [...QUERY_KEYS.TIMESHEET.WEEKLY, params],
@@ -246,11 +229,6 @@ export const useGetWeeklyTimesheet = (params?: Record<string, any>, enabled = tr
   });
 };
 
-// Custom-tab equivalent of useGetWeeklyTimesheet — the Custom tab was
-// wired to the weekly query with only a `from` date, so it silently
-// ignored `to` and always showed the current calendar week no matter
-// what range was picked. This actually respects both ends via the new
-// GET /timesheet/range endpoint.
 export const useGetRangeTimesheet = (params?: { from: string; to: string }, enabled = true) => {
   return useQuery<WeeklyTimesheetData>({
     queryKey: [...QUERY_KEYS.TIMESHEET.WEEKLY, 'range', params],
@@ -357,4 +335,3 @@ export const useCreateTimesheetEntryMutation = () => {
     },
   });
 };
-

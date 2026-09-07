@@ -9,8 +9,6 @@ import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 import ActionModal from '@/components/ui/ActionModal';
 
-// ── helpers ──────────────────────────────────────────────────────────────────
-
 const fmt = (n: number) =>
   (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -33,8 +31,6 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   OTHER:        { label: 'Other',        color: 'bg-gray-100 text-gray-500' },
 };
 
-// ── types ─────────────────────────────────────────────────────────────────────
-
 interface ManualAdj {
   earning_outside: string;
   loan_paid: string;
@@ -51,8 +47,6 @@ interface ParsedData {
   row_count: number;
   file_name: string;
 }
-
-// ── computeSummary ────────────────────────────────────────────────────────────
 
 function computeSummary(
   upworkTotals: Record<string, number> | null,
@@ -85,8 +79,6 @@ function computeSummary(
     salaries, expenses, gross_income, total_deductions, net_upwork, final_result,
   };
 }
-
-// ── exportReportCSV ───────────────────────────────────────────────────────────
 
 function exportReportCSV(report: any) {
   const adj = report.manual_adjustments || {} as ManualAdj;
@@ -122,8 +114,6 @@ function exportReportCSV(report: any) {
   a.click();
   URL.revokeObjectURL(url);
 }
-
-// ── SummaryTable ──────────────────────────────────────────────────────────────
 
 function SummaryTable({ s }: { s: ReturnType<typeof computeSummary> }) {
   const row = (label: string, value: number, bold = false, indent = false) => (
@@ -181,19 +171,15 @@ function SummaryTable({ s }: { s: ReturnType<typeof computeSummary> }) {
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
-
 type ActiveView = 'new' | 'history' | 'detail';
 
 export default function FinancialReportsPage() {
   const qc = useQueryClient();
 
-  // view state
   const [activeView, setActiveView] = useState<ActiveView>('new');
   const [selectedReport, setSelectedReport] = useState<any>(null);
   const [reportToDelete, setReportToDelete] = useState<any>(null);
 
-  // new report state
   const [reportName, setReportName] = useState('');
   const [periodFrom, setPeriodFrom] = useState('');
   const [periodTo,   setPeriodTo]   = useState('');
@@ -208,8 +194,6 @@ export default function FinancialReportsPage() {
   const [err, setErr] = useState('');
 
   const fileRef = useRef<HTMLInputElement>(null);
-
-  // ── queries ────────────────────────────────────────────────────────────────
 
   const internalQuery = useQuery({
     queryKey: ['reporting-internal', periodFrom, periodTo],
@@ -230,14 +214,8 @@ export default function FinancialReportsPage() {
     enabled: activeView === 'history',
   });
 
-  // ── mutations ──────────────────────────────────────────────────────────────
-
   const parseMutation = useMutation({
-    // Routed through apiRequest (instead of a raw fetch + manually-read token)
-    // so this gets the same 401-refresh-and-retry handling as every other
-    // authenticated call. Kept separate from the generic uploadFile() helper
-    // since this hits a distinct endpoint (REPORTING.PARSE) that returns
-    // parsed report data, not a { file_url } shape.
+
     mutationFn: (formData: FormData) =>
       apiRequest<any>(API_ENDPOINTS.REPORTING.PARSE, { method: 'POST', body: formData }),
     onSuccess: (data: any) => {
@@ -265,8 +243,6 @@ export default function FinancialReportsPage() {
       apiRequest<any>(API_ENDPOINTS.REPORTING.REPORT(id), { method: 'DELETE' }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['reporting-list'] }); setReportToDelete(null); },
   });
-
-  // ── handlers ───────────────────────────────────────────────────────────────
 
   const handleParse = () => {
     if (!file) return;
@@ -305,11 +281,9 @@ export default function FinancialReportsPage() {
     ? (showAllRows ? parsedData.rows : parsedData.rows.slice(0, 100))
     : [];
 
-  // ── render ─────────────────────────────────────────────────────────────────
-
   return (
     <div className="space-y-6">
-      {/* Header */}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-gray-900">Financial Reports</h1>
@@ -341,10 +315,9 @@ export default function FinancialReportsPage() {
         </div>
       </div>
 
-      {/* ── NEW REPORT VIEW ────────────────────────────────────────────────── */}
       {activeView === 'new' && (
         <div className="space-y-6">
-          {/* Section 1 — Setup */}
+
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
             <h2 className="text-sm font-black text-gray-800">Report Setup</h2>
 
@@ -369,7 +342,6 @@ export default function FinancialReportsPage() {
               </div>
             </div>
 
-            {/* File drop zone */}
             <div>
               <label className={labelCls}>Upload CSV / XLSX *</label>
               <div
@@ -418,7 +390,6 @@ export default function FinancialReportsPage() {
             </button>
           </div>
 
-          {/* Section 2 — Parsed Transactions */}
           {parsedData && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <div className="flex items-center justify-between mb-3">
@@ -479,7 +450,6 @@ export default function FinancialReportsPage() {
             </div>
           )}
 
-          {/* Section 3 — Upwork Summary Cards */}
           {parsedData && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <h2 className="text-sm font-black text-gray-800 mb-4">Upwork Totals</h2>
@@ -497,7 +467,6 @@ export default function FinancialReportsPage() {
             </div>
           )}
 
-          {/* Section 4 — Internal ERP Data */}
           {parsedData && periodFrom && periodTo && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <h2 className="text-sm font-black text-gray-800 mb-1">Internal ERP Data</h2>
@@ -523,7 +492,6 @@ export default function FinancialReportsPage() {
             </div>
           )}
 
-          {/* Section 5 — Manual Adjustments */}
           {parsedData && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <h2 className="text-sm font-black text-gray-800 mb-4">Manual Adjustments</h2>
@@ -566,7 +534,6 @@ export default function FinancialReportsPage() {
             </div>
           )}
 
-          {/* Section 6 — Final Summary + Save */}
           {summary && (
             <>
               <SummaryTable s={summary} />
@@ -584,7 +551,6 @@ export default function FinancialReportsPage() {
         </div>
       )}
 
-      {/* ── HISTORY VIEW ────────────────────────────────────────────────────── */}
       {activeView === 'history' && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <h2 className="text-sm font-black text-gray-800 mb-4">Saved Reports</h2>
@@ -658,7 +624,6 @@ export default function FinancialReportsPage() {
         </div>
       )}
 
-      {/* ── DETAIL VIEW ─────────────────────────────────────────────────────── */}
       {activeView === 'detail' && selectedReport && (() => {
         const r   = selectedReport;
         const adj = r.manual_adjustments || {};
@@ -688,7 +653,6 @@ export default function FinancialReportsPage() {
               </button>
             </div>
 
-            {/* Upwork totals read-only */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <h3 className="text-sm font-black text-gray-800 mb-4">Upwork Totals</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -704,7 +668,6 @@ export default function FinancialReportsPage() {
               </div>
             </div>
 
-            {/* ERP snapshots */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <h3 className="text-sm font-black text-gray-800 mb-3">ERP Snapshots at Save Time</h3>
               <div className="grid grid-cols-2 gap-4">
@@ -719,7 +682,6 @@ export default function FinancialReportsPage() {
               </div>
             </div>
 
-            {/* Manual adjustments read-only */}
             {Object.keys(adj).length > 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                 <h3 className="text-sm font-black text-gray-800 mb-3">Manual Adjustments</h3>

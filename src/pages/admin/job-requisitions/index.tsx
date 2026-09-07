@@ -36,10 +36,7 @@ const EMPTY_FORM = {
 
 const JobRequisitionsPage: React.FC = () => {
   const toast = useToastContext();
-  // RBAC finalization — was a hardcoded SUPER_ADMIN/ADMIN/HR role-name
-  // array; same fix as requisitions/index.tsx — drives the outer view
-  // choice from the same permission the nested PermissionGate below
-  // already gates the approve action on.
+
   const { data: myPerms } = useMyPermissions();
   const isAdmin = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('hr.job_requisitions.approve');
 
@@ -226,7 +223,6 @@ const JobRequisitionsPage: React.FC = () => {
         <Table columns={columns} data={records} loading={isLoading} emptyMessage="No job requisitions found" className="border-0 shadow-none" />
       </Card>
 
-      {/* Create Modal */}
       <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="New Job Requisition" size="lg">
         <div className="flex flex-col gap-4 p-2">
           <Input label="Title *" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="e.g. Senior Backend Developer" className="h-11 rounded-xl" />
@@ -251,7 +247,6 @@ const JobRequisitionsPage: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Approve/Reject Modal */}
       <Modal isOpen={!!decisionId} onClose={() => { setDecisionId(null); setDecisionComment(''); }} title={decisionAction === 'APPROVED' ? 'Approve Job Requisition' : 'Reject Job Requisition'} size="sm">
         <div className="flex flex-col gap-4 p-2">
           <Textarea

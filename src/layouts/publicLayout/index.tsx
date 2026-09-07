@@ -12,4 +12,3 @@ const PublicLayout: React.FC = memo(() => {
 });
 
 export default PublicLayout;
-

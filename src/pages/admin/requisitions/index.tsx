@@ -39,23 +39,10 @@ const PRIORITY_STYLES: Record<string, string> = {
 
 const RequisitionsPage: React.FC = () => {
   const toast = useToastContext();
-  // RBAC finalization — was a hardcoded SUPER_ADMIN/ADMIN/HR role-name
-  // array. isAdmin here decides which VIEW this page shows (bulk
-  // management with filters/approve buttons, vs a plain self-service
-  // submission list) — matches the same capability the nested
-  // PermissionGate below already gates the approve action on, so this is
-  // just that same permission driving the outer view choice too, instead
-  // of a separate role-name check that would go stale the moment a role
-  // is renamed or a custom role is granted the same real capability.
+
   const { data: myPerms } = useMyPermissions();
   const isAdmin = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.requisitions.approve');
 
-  // Non-admin (employee) view previously started with no status filter at
-  // all, so the very first fetch (GET /requisition?mine=true) returned every
-  // status including DRAFT — a requisition that hasn't been submitted yet —
-  // even though the "Submitted" pill below is the one visually implied as
-  // the default view. Defaulting to status: 'SUBMITTED' for non-admins
-  // makes the first fetch match what's shown as selected.
   const [filters, setFilters] = useState<any>({ mine: isAdmin ? '' : 'true', status: isAdmin ? '' : 'SUBMITTED' });
   const [createOpen, setCreateOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -230,7 +217,6 @@ const RequisitionsPage: React.FC = () => {
         </Button>
       </div>
 
-      {/* Summary pills */}
       <div className="flex flex-wrap gap-3">
         {['SUBMITTED', 'APPROVED', 'PROCUREMENT', 'FULFILLED'].map(s => {
           const count = records.filter(r => r.status === s).length;
@@ -243,7 +229,6 @@ const RequisitionsPage: React.FC = () => {
         })}
       </div>
 
-      {/* Filters */}
       <Card className="flex flex-wrap gap-3 !py-3">
         {isAdmin && (
           <div className="flex items-center gap-2">
@@ -268,7 +253,6 @@ const RequisitionsPage: React.FC = () => {
         <Table columns={columns} data={records} loading={isLoading} emptyMessage="No requisitions found" className="border-0 shadow-none" />
       </Card>
 
-      {/* Create Modal */}
       <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="New Requisition" size="lg">
         <div className="flex flex-col gap-4 p-2">
           <Input label="Title *" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="e.g. Dell Laptop for Developer" className="h-11 rounded-xl" />
@@ -300,7 +284,6 @@ const RequisitionsPage: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Approve/Reject Modal */}
       <Modal isOpen={!!approveId} onClose={() => { setApproveId(null); setApproveComment(''); }} title={approveAction === 'APPROVED' ? 'Approve Requisition' : 'Reject Requisition'} size="sm">
         <div className="flex flex-col gap-4 p-2">
           <Textarea label="Comment (optional)" value={approveComment} onChange={e => setApproveComment(e.target.value)} rows={3} placeholder="Add a comment..." />
@@ -316,7 +299,6 @@ const RequisitionsPage: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Status Update Modal */}
       <Modal isOpen={!!newStatusFor} onClose={() => setNewStatusFor(null)} title="Update Requisition Status" size="sm">
         <div className="flex flex-col gap-4 p-2">
           <SearchableSelect

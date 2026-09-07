@@ -4,7 +4,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions, resolveHomePath } from '@/services/permissionsService';
 import { Button } from '@/components';
 
-/* ─── Animated Canvas Background ─── */
 const ParticleCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -91,7 +90,6 @@ const ParticleCanvas: React.FC = () => {
   );
 };
 
-/* ─── Compass / Lost Icon ─── */
 const CompassIcon: React.FC = () => (
   <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
     <defs>
@@ -104,24 +102,23 @@ const CompassIcon: React.FC = () => (
         <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
       </filter>
     </defs>
-    {/* Globe circle */}
+
     <circle cx="40" cy="40" r="26" stroke="url(#compassGrad)" strokeWidth="2.5" fill="none" opacity="0.9" filter="url(#glow2)" />
     <circle cx="40" cy="40" r="26" fill="url(#compassGrad)" opacity="0.08" />
-    {/* Horizontal line */}
+
     <line x1="14" y1="40" x2="66" y2="40" stroke="url(#compassGrad)" strokeWidth="1.5" strokeDasharray="4 3" opacity="0.5" />
-    {/* Vertical line */}
+
     <line x1="40" y1="14" x2="40" y2="66" stroke="url(#compassGrad)" strokeWidth="1.5" strokeDasharray="4 3" opacity="0.5" />
-    {/* North pointer - pointing up */}
+
     <polygon points="40,18 44,36 40,32 36,36" fill="url(#compassGrad)" opacity="0.95" filter="url(#glow2)" />
-    {/* South pointer */}
+
     <polygon points="40,62 44,44 40,48 36,44" fill="rgba(255,255,255,0.3)" />
-    {/* Center dot */}
+
     <circle cx="40" cy="40" r="4" fill="url(#compassGrad)" filter="url(#glow2)" />
     <circle cx="40" cy="40" r="2" fill="#001F4A" />
   </svg>
 );
 
-/* ─── Main 404 Component ─── */
 const NotFound: React.FC = () => {
   const navigate = useNavigate();
   const { isLoggedIn } = useAuth();
@@ -142,7 +139,6 @@ const NotFound: React.FC = () => {
       className='px-6'>
       <ParticleCanvas />
 
-      {/* Ambient glow blobs */}
       <div style={{
         position: 'absolute', top: '-20%', right: '-10%',
         width: '60vw', height: '60vw', maxWidth: 700, maxHeight: 700,
@@ -158,13 +154,8 @@ const NotFound: React.FC = () => {
         animation: 'blobPulse404 11s ease-in-out infinite reverse',
       }} />
 
-      {/* ── Glass Card ── */}
       <div className='flex flex-col items-center'>
 
-        {/* Top brand pill */}
-
-
-        {/* Compass icon */}
         <div style={{
           margin: '0 auto 28px',
           width: 88, height: 88,
@@ -186,7 +177,6 @@ const NotFound: React.FC = () => {
           <CompassIcon />
         </div>
 
-        {/* 404 badge */}
         <div style={{
           fontSize: 72, fontWeight: 900, lineHeight: 1,
           background: 'linear-gradient(135deg, #93c5fd 0%, #ffffffff 50%,  #a2c6fcff 100%)',
@@ -200,7 +190,6 @@ const NotFound: React.FC = () => {
           404
         </div>
 
-        {/* Divider line */}
         <div style={{
           width: 48, height: 3,
           background: 'linear-gradient(90deg, #1f7bff, #60a5fa)',
@@ -209,7 +198,6 @@ const NotFound: React.FC = () => {
           animation: 'fadeUp404 0.6s 0.35s both',
         }} />
 
-        {/* Heading */}
         <h1 style={{
           fontSize: 26, fontWeight: 800,
           color: '#ffffff',
@@ -220,7 +208,6 @@ const NotFound: React.FC = () => {
           Page Not Found
         </h1>
 
-        {/* Description */}
         <p style={{
           fontSize: 15,
           color: 'rgba(180,210,255,0.75)',
@@ -233,9 +220,6 @@ const NotFound: React.FC = () => {
           Let's get you back on the right track.
         </p>
 
-
-
-        {/* Action buttons */}
         <div style={{
           display: 'flex', gap: 12, flexDirection: 'column',
           animation: 'fadeUp404 0.6s 0.55s both',
@@ -276,8 +260,6 @@ const NotFound: React.FC = () => {
             Go Back
           </button>
         </div>
-
-        {/* Footer brand */}
 
       </div>
 

@@ -350,9 +350,6 @@ function MembersModal({
               </div>
             )}
 
-            {/* Add a whole designation — bulk-adds every current holder AND
-                remembers the link so future hires/reassignments into that
-                designation auto-join this channel (channel_designation_links). */}
             <div className="flex items-center gap-2 mt-2">
               <select
                 value={selectedDesignationId}
@@ -870,13 +867,6 @@ function serverColor(id: string): string {
   return SERVER_COLORS[hash % SERVER_COLORS.length];
 }
 
-// Sentinel activeServerId value for the Zoom Team Chat section — not a real
-// server id, never sent to any API; ServerRail/ChatPage just branch on it
-// to swap the whole right-hand pane for <ZoomChatPanel /> instead of the
-// native channel/message pipeline (see ChatPage's render below). Kept
-// completely separate from real server ids/channels/messages so a Zoom
-// conversation can never be confused with, sent as, or deleted as a native
-// TekXAI chat message.
 const ZOOM_SECTION_ID = '__zoom__';
 
 function ServerRail({
@@ -1424,9 +1414,7 @@ function ChannelSection({
                     ? `${lastMsg.user_id === currentUserId ? 'You' : (lastMsg.user?.first_name || '')}: ${toPlainText(lastMsg.content) || (lastMsg as any).file_name || 'Attachment'}`
                     : 'No messages yet'}
                 </p>
-                {/* Mentions get their own distinct badge — "someone tagged me"
-                    reads very differently from "channel got busy", and the
-                    plain unread count couldn't tell them apart before. */}
+
                 {hasMention && (
                   <span title={`${mentionCount} mention${mentionCount === 1 ? '' : 's'}`} className="min-w-[18px] h-[18px] px-1 bg-amber-500 text-white text-[10px] font-black rounded-full shrink-0 flex items-center justify-center gap-0.5">
                     <AtSign size={9} strokeWidth={3} />{mentionCount > 99 ? '99+' : mentionCount}
@@ -1638,7 +1626,7 @@ function MessageBubble({
           </p>
         )}
         <div className="relative max-w-[85%]">
-          {/* Hover actions */}
+
           {hovered && (
             <div className="absolute -top-8 left-0 flex items-center gap-1 bg-white border border-gray-200 rounded-xl shadow-sm px-1.5 py-1 z-10">
               {QUICK_REACTION_EMOJIS.slice(0, 5).map((e) => (
@@ -1690,12 +1678,7 @@ function MessageBubble({
               {isOwn && (
                 <button onClick={() => onEdit(msg)} className="p-0.5 text-gray-400 hover:text-blue-500 rounded text-xs font-bold" title="Edit">✏️</button>
               )}
-              {/* Delete: message owner, or any global admin (mirrors the
-                  backend's already-existing owner-or-ADMIN/SUPER_ADMIN gate
-                  on DELETE /chat/channels/:id/messages/:msgId — this button
-                  was previously only ever shown to the owner, so an admin
-                  had no way to actually reach a capability the API already
-                  granted them). */}
+
               {(isOwn || isGlobalAdmin) && (
                 <button onClick={onDelete} className="p-0.5 text-gray-400 hover:text-red-500 rounded" title="Delete">
                   <X size={13} />
@@ -1708,7 +1691,7 @@ function MessageBubble({
             <PollCard poll={msg.poll} channelId={channelId} currentUserId={currentUserId} isGlobalAdmin={isGlobalAdmin} />
           ) : (
             <div className="text-sm text-gray-800 leading-relaxed">
-              {/* File attachment */}
+
               {msg.file_url && (
                 <div className="mb-1">
                   {isImage ? (
@@ -1757,9 +1740,6 @@ function MessageBubble({
           )}
         </div>
 
-        {/* Link preview — mutually exclusive with a real attachment
-            server-side (send_message never bothers unfurling alongside a
-            file), same "one or the other" rule reflected here. */}
         {msg.link_preview && !msg.file_url && (
           <a
             href={msg.link_preview.url}
@@ -1785,7 +1765,6 @@ function MessageBubble({
           </a>
         )}
 
-        {/* Reactions */}
         {Object.keys(reactionMap).length > 0 && (
           <div className="flex gap-1 mt-1 flex-wrap">
             {Object.entries(reactionMap).map(([emoji, { count, mine, names }]) => (
@@ -1802,7 +1781,6 @@ function MessageBubble({
           </div>
         )}
 
-        {/* Thread reply count */}
         {(msg._count?.replies ?? 0) > 0 && (
           <button
             onClick={onOpenThread}
@@ -1924,7 +1902,6 @@ function ThreadPanel({
         </button>
       </div>
 
-      {/* Parent message */}
       {thread?.parent && (
         <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
           <div className="flex items-start gap-2">
@@ -1941,7 +1918,6 @@ function ThreadPanel({
         </div>
       )}
 
-      {/* Replies */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         {(thread?.replies || []).map((r) => {
           const isOwn = r.user_id === currentUserId;
@@ -1964,7 +1940,6 @@ function ThreadPanel({
         <div ref={bottomRef} />
       </div>
 
-      {/* Reply composer */}
       <div className="px-4 py-3 border-t border-gray-100">
         <div className="flex gap-2 items-end">
           <textarea
@@ -2312,9 +2287,6 @@ export default function ChatPage() {
     };
     socket.on('conversation:update', handleConversationUpdate);
 
-    // Another user's profile (avatar/name/etc) changed — payload is
-    // deliberately not trusted as the new data, just a signal to refetch
-    // the real thing instead of waiting out these queries' staleTime.
     const handleProfileUpdated = () => {
       qc.invalidateQueries({ queryKey: ['chat-members'] });
       qc.invalidateQueries({ queryKey: ['chat-channels'] });
@@ -2546,10 +2518,6 @@ export default function ChatPage() {
     isNearBottomRef.current = distanceFromBottom < 120;
   };
 
-  // Keeps ?server=&channel= in sync with the selected context so a
-  // refresh (or a shared link) restores the same conversation instead of
-  // always landing back on the default DM. Preserves any other existing
-  // query params (e.g. Zoom's own ?zoom_chat= return params).
   useEffect(() => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
@@ -2559,9 +2527,6 @@ export default function ChatPage() {
     }, { replace: true });
   }, [activeServerId, selectedChannelId, setSearchParams]);
 
-  // A server id restored from the URL that this user can't actually
-  // access (removed, or never a member) must never be trusted blindly —
-  // fall back to Home once the real, authorized server list has loaded.
   useEffect(() => {
     if (!activeServerId || activeServerId === ZOOM_SECTION_ID) return;
     if (servers.length === 0) return;
@@ -2574,9 +2539,7 @@ export default function ChatPage() {
   useEffect(() => {
     if (activeServerId !== null) return;
     if (channels.length === 0) return;
-    // A channel id restored from the URL that isn't in this user's real,
-    // authorized channel list (deleted, or never accessible) falls back
-    // to the existing default rather than trusting the persisted id.
+
     if (selectedChannelId && !channels.some((ch) => ch.id === selectedChannelId)) {
       setSelectedChannelId(null);
       return;
@@ -2889,7 +2852,7 @@ export default function ChatPage() {
         };
         recognition.onerror = () => {};
         speechRecognitionRef.current = recognition;
-        try { recognition.start(); } catch { /* unsupported/blocked — audio-only, silently */ }
+        try { recognition.start(); } catch {  }
       }
     } catch (e: any) {
       setRecordingError(e?.name === 'NotAllowedError' ? 'Microphone access denied.' : 'Could not access microphone.');
@@ -2898,7 +2861,7 @@ export default function ChatPage() {
   };
 
   const stopSpeechRecognition = () => {
-    try { speechRecognitionRef.current?.stop(); } catch { /* noop */ }
+    try { speechRecognitionRef.current?.stop(); } catch {  }
     speechRecognitionRef.current = null;
   };
 
@@ -2991,7 +2954,6 @@ export default function ChatPage() {
         canCreate={canCreateServer}
       />
 
-      {/* ── Left Panel ── */}
       <div className="w-64 border-r border-gray-100 flex flex-col shrink-0">
         <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-end">
           <div className="flex items-center gap-1 shrink-0">
@@ -3051,7 +3013,6 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* ── Center Panel ── */}
       {selectedChannel ? (
         <>
         <div className="flex-1 flex flex-col min-w-0">
@@ -3060,7 +3021,7 @@ export default function ChatPage() {
               Reconnecting…
             </div>
           )}
-          {/* Header */}
+
           <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-3">
             {selectedChannel.type === 'DM' ? (
               <>
@@ -3130,7 +3091,6 @@ export default function ChatPage() {
               </>
             )}
 
-            {/* Action icons */}
             <div className="flex items-center gap-1 ml-auto shrink-0">
               {pinnedMessages.length > 0 && (
                 <button
@@ -3176,12 +3136,7 @@ export default function ChatPage() {
                   <Users size={16} />
                 </button>
               )}
-              {/* Global admins (matching the backend's is_global_admin bypass
-                  on update/archive/delete_channel) can always reach settings
-                  — including Delete — even for a channel they were never
-                  added to themselves. Previously gated on isMember alone, so
-                  an admin who wasn't a member of a given channel had no way
-                  to reach Delete Channel at all. */}
+
               {(isMember || isGlobalAdmin) && selectedChannel.type !== 'DM' && (
                 <button
                   onClick={() => setShowChannelSettings(true)}
@@ -3224,7 +3179,6 @@ export default function ChatPage() {
             </div>
           </div>
 
-          {/* Messages */}
           <div
             ref={messagesContainerRef}
             onScroll={handleMessagesScroll}
@@ -3292,7 +3246,6 @@ export default function ChatPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Typing indicator */}
           {typingUsers.length > 0 && (
             <div className="px-5 pb-1 flex items-center gap-1.5 text-xs text-gray-400 italic">
               <span className="flex gap-0.5">
@@ -3308,7 +3261,6 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* Composer */}
           {isMember && !canPostHere && (
             <div className="px-4 py-3 border-t border-gray-100">
               <div className="flex items-center gap-2 h-[42px] px-3 bg-amber-50 border border-amber-100 rounded-xl text-sm text-amber-700 font-semibold">
@@ -3319,7 +3271,7 @@ export default function ChatPage() {
           )}
           {isMember && canPostHere && (
             <div className="px-4 py-3 border-t border-gray-100">
-              {/* Attachment preview chip */}
+
               {attachmentFile && !isRecording && (
                 <div className="flex items-center gap-2 mb-2 px-3 py-1.5 bg-gray-50 rounded-xl border border-gray-200 text-sm">
                   {isUploadingAttachment ? <Loader2 size={13} className="text-gray-400 shrink-0 animate-spin" /> : <Paperclip size={13} className="text-gray-400 shrink-0" />}
@@ -3346,8 +3298,7 @@ export default function ChatPage() {
                   <span className="text-sm font-bold text-red-600 tabular-nums shrink-0 self-start">
                     {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, '0')}
                   </span>
-                  {/* Live transcript (Web Speech API) if the browser
-                      supports it, otherwise the plain fallback label. */}
+
                   <span className="text-xs text-red-400 flex-1 line-clamp-2">
                     {liveTranscript || 'Recording voice message…'}
                   </span>
@@ -3360,9 +3311,7 @@ export default function ChatPage() {
                 </div>
               ) : (
                 <div className="relative">
-                  {/* Formatting toolbar — wraps the current selection with
-                      markdown-lite syntax; messageContent.tsx renders it back
-                      out for every reader. */}
+
                   <div className="flex items-center gap-0.5 mb-1">
                     <button type="button" onClick={() => wrapSelection('**', '**', 'bold text')} title="Bold" className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md">
                       <Bold size={13} />
@@ -3422,10 +3371,7 @@ export default function ChatPage() {
                       )}
                     </div>
                     <div className="relative flex-1">
-                      {/* @-mention autocomplete dropdown — @here/@channel
-                          (broadcast to everyone) are offered above the
-                          per-person matches whenever they fit what's typed
-                          so far. */}
+
                       {mentionQuery !== null && (() => {
                         const q = mentionQuery.toLowerCase();
                         const broadcasts = (['here', 'channel'] as const).filter((w) => w.startsWith(q));
@@ -3460,10 +3406,7 @@ export default function ChatPage() {
                           </div>
                         );
                       })()}
-                      {/* Slash-command hint — shown while still typing the
-                          command word itself (before the first space), so
-                          it gets out of the way once you're typing the
-                          actual question/title/message. */}
+
                       {mentionQuery === null && draft.startsWith('/') && !draft.includes(' ') && (() => {
                         const matches = SLASH_COMMANDS.filter((c) => c.command.startsWith(draft.toLowerCase()));
                         if (matches.length === 0) return null;
@@ -3544,7 +3487,6 @@ export default function ChatPage() {
         </div>
       )}
 
-      {/* Image attachment lightbox */}
       {lightboxImage && (
         <div
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-6"
@@ -3588,7 +3530,6 @@ export default function ChatPage() {
         </div>
       )}
 
-      {/* ── Thread Panel ── */}
       {threadMsgId && selectedChannelId && (
         <ThreadPanel
           channelId={selectedChannelId}
@@ -3598,7 +3539,6 @@ export default function ChatPage() {
         />
       )}
 
-      {/* ── Modals ── */}
       {showNewChat && (
         <NewChannelModal
           onClose={() => setShowNewChat(false)}

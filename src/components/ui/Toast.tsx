@@ -93,7 +93,7 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({
         leftBorderColors[toast.type]
       )}
     >
-      {/* Header Row */}
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-[#005CDA]">
           <Send size={18} strokeWidth={2} />
@@ -107,7 +107,6 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({
         </button>
       </div>
 
-      {/* Body Row */}
       <div className="flex items-center gap-3">
         {icons[toast.type]}
         <p className="flex-1 text-[14.5px] font-medium text-gray-700 tracking-tight leading-snug">{toast.message}</p>

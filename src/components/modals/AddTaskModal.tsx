@@ -39,7 +39,6 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, projectId,
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validation
     const newErrors: Record<string, string> = {};
     if (!formData.title.trim()) newErrors.title = 'Task title is required';
     if (!formData.assignee) newErrors.assignee = 'Assignee is required';

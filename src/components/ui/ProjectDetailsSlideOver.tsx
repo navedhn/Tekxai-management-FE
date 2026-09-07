@@ -135,31 +135,12 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
             className="fixed inset-y-0 right-0 w-full md:w-[90%] xl:w-[80%] max-w-[1400px] h-full bg-white shadow-2xl z-[141] flex flex-col md:rounded-l-[3rem] overflow-hidden"
           >
-            {/* Header Controls */}
+
             <div className="flex items-center gap-3 p-6 border-b border-gray-100 bg-white sticky top-0 z-10 shrink-0">
               <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-700 bg-gray-50 active:scale-95">
                 <ArrowLeft className="rotate-180" size={20} strokeWidth={2.5} />
               </button>
-              {/* <button
-                onClick={() => {
-                  if (project) {
-                    onClose();
-                    navigate(`${routePrefix}/project-detail`, {
-                      state: {
-                        projectId: project.id,
-                        projectTitle: project.title,
-                        backPath: `${routePrefix}/projects`
-                      }
-                    });
-                  }
-                }}
-                disabled={isLoading || !project}
-                className="p-2 hover:bg-blue-50 hover:text-primary-500 rounded-full transition-colors text-gray-700 bg-gray-50 active:scale-95 disabled:opacity-50"
-                title="Open Full Page"
-              >
-                <Expand size={18} strokeWidth={2.5} />
-              </button> */}
-              {/* {isLoading && <Loader2 className="animate-spin text-primary-500 ml-2" size={20} />} */}
+
             </div>
 
             {isLoading ? (
@@ -168,14 +149,13 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
               </div>
             ) : project ? (
               <div className="flex flex-col lg:flex-row flex-1 overflow-y-auto no-scrollbar relative bg-[#FCFDFE]">
-                {/* Main Content Area */}
+
                 <div className="flex-1 flex flex-col p-8 gap-10 lg:border-r border-gray-100">
                   <div>
                     <Badge variant="info" className="mb-2 bg-blue-50 text-blue-600 border-none px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">Project Scope</Badge>
                     <h1 className="text-3xl font-black text-gray-900 tracking-tight">{project.title}</h1>
                   </div>
 
-                  {/* Metadata Row */}
                   <div className="flex flex-wrap items-center gap-x-12 gap-y-6">
                     <div className="flex flex-col gap-2">
                       <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Team</span>
@@ -243,7 +223,6 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                     </div>
                   </div>
 
-                  {/* Workspace tab bar */}
                   <div className="flex items-center gap-1 overflow-x-auto no-scrollbar border-b border-gray-100 -mb-2">
                     {WORKSPACE_TABS.map((tab) => (
                       <button
@@ -262,7 +241,6 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                     ))}
                   </div>
 
-                  {/* Modals placed at root level for visibility */}
                   {showRequestModel && projectId && (
                     <RequestExtensionModal
                       projectId={projectId}
@@ -297,15 +275,9 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                     icon="delete"
                   />
 
-                  {/* Overview tab */}
                   {activeTab === 'overview' && (
                     <div className="flex flex-col gap-10 w-full">
-                      {/* Phase 2 Commercial Project Foundation — kept deliberately
-                          separate from the Financial tab's milestone-derived
-                          Total/Paid/Remaining/Active: Client/Bidder/Source/
-                          Commission are commercial context, not financial
-                          totals, and must never be confused with budget or
-                          milestone pricing. */}
+
                       <div className="flex flex-col gap-4">
                         <div className="flex items-center gap-2 text-gray-900 font-black">
                           <Users size={18} strokeWidth={3} className="text-primary-500" />
@@ -374,7 +346,6 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                     </div>
                   )}
 
-                  {/* Milestones tab */}
                   {activeTab === 'milestones' && (
                   <div className="flex flex-col gap-6 w-full">
                     <div className="flex items-center justify-between">
@@ -475,18 +446,14 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                             <span className={cn('text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide shrink-0', STATUS_STYLE[milestone.status] || STATUS_STYLE.NOT_STARTED)}>
                               {milestone.status.replace(/_/g, ' ')}
                             </span>
-                            {/* Payment state — intentionally a separate badge from workflow
-                                Status above: a milestone can be Completed and still Unpaid. */}
+
                             <span className={cn(
                               'text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide shrink-0',
                               milestone.payment_status === 'PAID' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-600'
                             )}>
                               {milestone.payment_status === 'PAID' ? 'Paid' : 'Unpaid'}
                             </span>
-                            {/* Phase 3 Project Delivery & Evidence Foundation —
-                                a third, distinct badge for delivery outcome
-                                (computed from deadline vs. actual completion),
-                                never merged with workflow Status or Payment. */}
+
                             {milestone.delivery && (
                               <span className={cn(
                                 'text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide shrink-0',
@@ -578,12 +545,6 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                                 </div>
                               )}
 
-                              {/* Phase 3 Project Delivery & Evidence Foundation —
-                                  kept as its own block, distinct from workflow
-                                  status/payment/financial above. Only rendered
-                                  once there's something to show, so a plain
-                                  legacy milestone with no delivery evidence at
-                                  all stays exactly as it looked before. */}
                               {milestone.delivery && (() => {
                                 const d = milestone.delivery;
                                 const resources = milestone.responsible_resources || [];
@@ -736,13 +697,10 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                   </div>
                   )}
 
-                  {/* Tasks tab — salvaged Kanban board */}
                   {activeTab === 'tasks' && projectId && (
                     <ProjectKanbanPanel projectId={projectId} />
                   )}
 
-                  {/* Calendar tab — derived view over existing milestones/tasks/
-                      project end_date, no new backend endpoint or table */}
                   {activeTab === 'calendar' && projectId && (
                     <ProjectCalendarPanel
                       projectId={projectId}
@@ -752,22 +710,18 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                     />
                   )}
 
-                  {/* Files tab */}
                   {activeTab === 'files' && projectId && (
                     <ProjectDocumentsPanel projectId={projectId} canEdit={canEditProject} />
                   )}
 
-                  {/* Activity tab */}
                   {activeTab === 'activity' && projectId && (
                     <CommunicationTimeline projectId={projectId} />
                   )}
 
-                  {/* Client Communication tab */}
                   {activeTab === 'communication' && projectId && (
                     <ClientCommunicationPanel projectId={projectId} canEdit={canEditProject} />
                   )}
 
-                  {/* Infrastructure tab */}
                   {activeTab === 'infrastructure' && projectId && (
                     <DevopsAccessPanel
                       projectId={projectId}
@@ -779,12 +733,10 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                     />
                   )}
 
-                  {/* Dependencies tab */}
                   {activeTab === 'dependencies' && projectId && (
                     <DependenciesPanel projectId={projectId} canEdit={canEditProject} />
                   )}
 
-                  {/* Team tab — reuses project_members.role grouping */}
                   {activeTab === 'team' && (() => {
                     const ROLE_LABELS: Record<string, string> = {
                       FRONTEND: 'Frontend Developers',
@@ -839,7 +791,6 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                     );
                   })()}
 
-                  {/* Financial tab */}
                   {activeTab === 'financial' && projectId && (
                     <div className="flex flex-col gap-6 w-full">
                       <MilestoneFinancialSummary
@@ -856,7 +807,6 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                     </div>
                   )}
 
-                  {/* Settings tab — real project fields, no mock data */}
                   {activeTab === 'settings' && (
                     <div className="flex flex-col gap-4 w-full">
                       <h3 className="text-lg font-black text-gray-900 tracking-tight">Project Settings</h3>
@@ -878,7 +828,6 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                   )}
                 </div>
 
-                {/* Right Side Sidebar Widget */}
                 <div className="w-full lg:w-[320px] 2xl:w-[380px] bg-white p-8 flex flex-col gap-10 shrink-0">
                   <div className="flex flex-col rounded-[2rem] overflow-hidden bg-white border border-blue-50 shadow-sm">
                     <div className="bg-blue-50 px-6 py-5 font-black text-gray-900 tracking-tight text-[15px]">Project Health</div>

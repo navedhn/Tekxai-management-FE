@@ -153,7 +153,6 @@ const CRMPage: React.FC = () => {
         <Table columns={columns} data={clients} isLoading={isLoading} emptyMessage="No clients yet." />
       </Card>
 
-      {/* New client modal */}
       <Modal isOpen={showNewClient} onClose={() => setShowNewClient(false)} title="Add Client Account">
         <form onSubmit={handleCreate} className="flex flex-col gap-4 mt-4">
           {[
@@ -179,7 +178,6 @@ const CRMPage: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Grant project access modal */}
       <Modal isOpen={!!showGrant} onClose={() => setShowGrant(null)} title="Grant Project Access">
         <form onSubmit={handleGrant} className="flex flex-col gap-4 mt-4">
           <div className="flex flex-col gap-1.5">

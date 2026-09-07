@@ -7,43 +7,21 @@ export type ButtonSize = 'sm' | 'md' | 'lg' | 'xl';
 export type ButtonAnimation = 'sweep' | 'sweep-black' | 'none';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  /**
-   * Button variant style
-   * @default 'primary'
-   */
+
   variant?: ButtonVariant;
-  /**
-   * Button size
-   * @default 'md'
-   */
+
   size?: ButtonSize;
-  /**
-   * Animation type on hover
-   * @default 'sweep'
-   */
+
   animation?: ButtonAnimation;
-  /**
-   * Show loading state
-   * @default false
-   */
+
   loading?: boolean;
-  /**
-   * Icon to display on the left side
-   */
+
   leftIcon?: LucideIcon;
-  /**
-   * Icon to display on the right side
-   */
+
   rightIcon?: LucideIcon;
-  /**
-   * Full width button
-   * @default false
-   */
+
   fullWidth?: boolean;
-  /**
-   * Rounded style (full rounded corners)
-   * @default true
-   */
+
   rounded?: boolean;
 }
 
@@ -72,11 +50,9 @@ const animationClasses: Record<ButtonAnimation, string> = {
   none: ''
 };
 
-/** Compact primary action for page headers (Add, Create, Score, etc.) */
 export const pageActionButtonClass =
   'rounded-xl h-9 min-h-9 text-sm font-bold px-5 shadow-md shadow-primary-100 w-full sm:w-auto whitespace-nowrap shrink-0';
 
-/** Compact outline action for page headers (Filters, configuration, etc.) */
 export const pageOutlineButtonClass =
   'rounded-xl h-9 min-h-9 text-sm font-medium px-5 border-gray-200 w-full sm:w-auto whitespace-nowrap shrink-0';
 
@@ -98,9 +74,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref
   ) => {
-    // Get variant classes with animation support
+
     const getVariantClasses = () => {
-      // If animation is explicitly set, use it
+
       if (animation === 'sweep' && variant === 'primary') {
         return 'btn-sweep text-white';
       }
@@ -194,7 +170,6 @@ const iconButtonSizeClasses: Record<ButtonSize, { box: string; icon: number }> =
   xl: { box: 'h-12 w-12', icon: 22 },
 };
 
-/** Icon-only button — same variant palette, focus ring, and disabled state as Button. */
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
   ({ icon: Icon, variant = 'ghost', size = 'md', className, disabled, ...props }, ref) => {
     const { box, icon } = iconButtonSizeClasses[size];

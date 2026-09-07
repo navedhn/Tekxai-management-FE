@@ -16,8 +16,7 @@ const ProtectedRoute: React.FC<{ permission?: string | string[]; superAdminOnly?
   if (superAdminOnly && !myPerms?.is_super_admin) return <Navigate to="/403" replace />;
 
   if (permission) {
-    // Array = "any of" — for a route shared by two features whose intended
-    // authorization keys legitimately differ (e.g. create vs edit).
+
     const required = Array.isArray(permission) ? permission : [permission];
     const hasPermission = myPerms?.is_super_admin || required.some((p) => myPerms?.permissions?.includes(p));
     if (!hasPermission) return <Navigate to="/403" replace />;

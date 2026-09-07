@@ -3,11 +3,9 @@ import React from 'react';
 export interface BreakdownItem {
   label: string;
   count: number;
-  color: string; // solid bg class for the bar fill, e.g. 'bg-blue-500'
+  color: string;
 }
 
-// Mirrors the horizontal-bar breakdown pattern used in AttendanceReportsTab,
-// AssetAggregateBreakdown, and TicketReportsSection.
 export const BreakdownList: React.FC<{ items: BreakdownItem[]; unit?: string }> = ({ items, unit }) => {
   const max = Math.max(1, ...items.map((i) => i.count));
   if (items.length === 0) {

@@ -5,10 +5,6 @@ import CreateMilestoneModal from './CreateMilestoneModal';
 import { apiRequest } from '@/lib/queryClient';
 import { ToastProvider } from '@/components/toast/ToastProvider';
 
-// Milestone Financial Foundation — Price/Payment Status must be editable
-// alongside every existing milestone field, without disturbing the existing
-// payload shape/validation (title/status/sequence/dates/assignments/deps).
-
 vi.mock('@/lib/queryClient', async () => {
   const actual = await vi.importActual<any>('@/lib/queryClient');
   return { ...actual, apiRequest: vi.fn() };
@@ -77,7 +73,7 @@ describe('CreateMilestoneModal — Price & Payment Status', () => {
       expect(body.title).toBe('Phase 1');
       expect(body.price).toBe(2500);
       expect(body.payment_status).toBe('UNPAID');
-      // existing contract fields still present, unaffected
+
       expect(body).toHaveProperty('status', 'NOT_STARTED');
       expect(body).toHaveProperty('assigned_user_ids');
       expect(body).toHaveProperty('depends_on_ids');
@@ -94,12 +90,11 @@ describe('CreateMilestoneModal — Price & Payment Status', () => {
       } as any,
     });
     expect(screen.getByText('Paid')).toBeInTheDocument();
-    // Open Status dropdown and pick a non-Completed option.
+
     const statusTrigger = screen.getByText('Completed').closest('button')!;
     fireEvent.click(statusTrigger);
     fireEvent.click(screen.getByText('In Progress'));
-    // Business invariant (server-enforced too): PAID requires COMPLETED —
-    // the form must not let itself sit in a state the backend would reject.
+
     expect(screen.getByText('Unpaid')).toBeInTheDocument();
     expect(screen.queryByText('Paid')).not.toBeInTheDocument();
   });
@@ -109,9 +104,9 @@ describe('CreateMilestoneModal — Price & Payment Status', () => {
     const paymentTrigger = screen.getByText('Unpaid').closest('button')!;
     fireEvent.click(paymentTrigger);
     const paidOptions = screen.getAllByText('Paid');
-    const paidOptionEl = paidOptions[paidOptions.length - 1]; // the dropdown list item, not the trigger
+    const paidOptionEl = paidOptions[paidOptions.length - 1];
     fireEvent.click(paidOptionEl);
-    // Clicking the disabled Paid option must not select it — value stays Unpaid.
+
     expect(screen.getAllByText('Unpaid').length).toBeGreaterThan(0);
   });
 

@@ -16,7 +16,6 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 
 const DRAFT_KEY = 'add_employee_draft';
 
-// ── Step indicators ─────────────────────────────────────────────────────────
 const STEPS = [
   { id: 1, label: 'Personal Info',        icon: User },
   { id: 2, label: 'Employment Details',   icon: Briefcase },
@@ -25,7 +24,6 @@ const STEPS = [
   { id: 5, label: 'Review & Save',        icon: ClipboardList },
 ];
 
-// ── Shared field component ───────────────────────────────────────────────────
 function Field({ label, children, required }: { label: string; children: React.ReactNode; required?: boolean }) {
   return (
     <div>
@@ -41,10 +39,6 @@ const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm foc
 const selectCls = `${inputCls} text-gray-700`;
 const errorInputCls = 'border-red-400 focus:border-red-500 ring-1 ring-red-200';
 
-// Generic backend-validation-error routing: maps a field name (as returned
-// by the backend's field_error() contract, e.g. { field: 'email', code:
-// 'DUPLICATE_EMAIL' }) to the wizard step that owns it, so ANY validation
-// error — not just duplicate email — auto-navigates + highlights correctly.
 const FIELD_STEP_MAP: Record<string, number> = {
   first_name: 1, last_name: 1, email: 1,
   hire_date: 2, designation_id: 2, employment_status: 2, status: 2,
@@ -58,7 +52,6 @@ function FieldError({ show, message }: { show: boolean; message?: string | null 
   return <p className="text-xs text-red-500 mt-1">{message}</p>;
 }
 
-// ── CNIC formatter ────────────────────────────────────────────────────────────
 function formatCnic(raw: string): string {
   const digits = raw.replace(/\D/g, '').slice(0, 13);
   if (digits.length <= 5) return digits;
@@ -66,7 +59,6 @@ function formatCnic(raw: string): string {
   return `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12)}`;
 }
 
-// ── Phone country codes ───────────────────────────────────────────────────────
 const COUNTRY_CODES = [
   { code: '+92', flag: '🇵🇰', label: 'PK +92', format: (d: string) => d.length > 3 ? `${d.slice(0, 3)} ${d.slice(3, 10)}` : d },
   { code: '+1',  flag: '🇺🇸', label: 'US +1',  format: (d: string) => d.length > 6 ? `${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6,10)}` : d },
@@ -122,7 +114,6 @@ function PhoneInput({ value, onChange }: { value: string; onChange: (v: string) 
   );
 }
 
-// ── Pakistani cities ─────────────────────────────────────────────────────────
 const PK_CITIES = [
   'Karachi','Lahore','Islamabad','Rawalpindi','Faisalabad','Multan',
   'Hyderabad','Peshawar','Quetta','Sialkot','Gujranwala','Bahawalpur',
@@ -131,7 +122,6 @@ const PK_CITIES = [
   'Remote','Other',
 ];
 
-// ── Banks (Pakistan) ──────────────────────────────────────────────────────────
 const BANKS = [
   'Habib Bank Limited (HBL)', 'United Bank Limited (UBL)', 'MCB Bank Limited',
   'Allied Bank Limited', 'Bank Alfalah', 'Meezan Bank', 'Faysal Bank',
@@ -141,7 +131,6 @@ const BANKS = [
   'Al Baraka Bank Pakistan', 'MCB Islamic Bank', 'Silkbank', 'Summit Bank', 'Other',
 ];
 
-// ── Initial form state ───────────────────────────────────────────────────────
 const initPersonal = {
   first_name: '', last_name: '', email: '', phone: '',
   alternate_phone: '', father_name: '', cnic: '',
@@ -171,7 +160,6 @@ const initWork = {
   is_remote: false,
 };
 
-// ── Step 1: Personal Info ────────────────────────────────────────────────────
 function StepPersonal({ data, onChange, errorField, errorMessage, registerRef }: any) {
   return (
     <div className="space-y-6">
@@ -211,13 +199,7 @@ function StepPersonal({ data, onChange, errorField, errorMessage, registerRef }:
         <Field label="Phone Number">
           <PhoneInput value={data.phone} onChange={v => onChange('phone', v)} />
         </Field>
-        {/* No password field here — the full wizard's account is created
-            with a system-generated password (backend already supports a
-            missing password, see users.service.js's create_new_user) and
-            the new hire sets their own via Forgot Password on first login.
-            Password entry stays exclusive to Quick Create User, where an
-            admin is standing up an account for someone already working and
-            handing it to them directly. */}
+
         <Field label="Alternate Phone">
           <PhoneInput value={data.alternate_phone} onChange={v => onChange('alternate_phone', v)} />
         </Field>
@@ -292,7 +274,6 @@ function StepPersonal({ data, onChange, errorField, errorMessage, registerRef }:
   );
 }
 
-// ── Step 2: Employment Details ───────────────────────────────────────────────
 function StepEmployment({ data, onChange, businessUnits, departments, teams, users, designations, grades, errorField, errorMessage, registerRef, employeeIdPreview, employeeIdPreviewLoading, isEditMode }: any) {
   const employeeIdDisplay = isEditMode
     ? (data.employee_id || 'Assigned at creation')
@@ -379,9 +360,7 @@ function StepEmployment({ data, onChange, businessUnits, departments, teams, use
               value={data.business_unit_id || null}
               onChange={v => {
                 onChange('business_unit_id', (v as string) ?? '');
-                // Department must belong to the selected Business Unit —
-                // the Employee ID prefix is derived from both together, so
-                // a stale department from a different unit can't linger.
+
                 onChange('department_id', '');
               }}
               placeholder="Select business unit"
@@ -514,7 +493,6 @@ function StepEmployment({ data, onChange, businessUnits, departments, teams, use
   );
 }
 
-// ── Step 3: Work Information ─────────────────────────────────────────────────
 const DAYS_OF_WEEK = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
 function StepWork({ data, onChange }: any) {
@@ -601,10 +579,6 @@ function StepWork({ data, onChange }: any) {
   );
 }
 
-// ── Step 4: Documents ────────────────────────────────────────────────────────
-// CNIC Front/Back, Police Verification, and Employee Registration were
-// previously mandatory before the wizard could proceed — now optional per
-// request, so HR can complete onboarding without blocking on these docs.
 const REQUIRED_DOC_TYPES: string[] = [];
 
 const DOC_TYPE_OPTIONS = [
@@ -625,23 +599,10 @@ const DOC_TYPE_OPTIONS = [
   { value: 'OTHER',              label: 'Other' },
 ];
 
-// `file` (a pending, not-yet-uploaded File object) and `file_url` (a pasted
-// external link — Google Drive/OneDrive) are mutually exclusive per row. The
-// actual S3 upload for `file` is deferred until the employee/user row (and
-// its employee_id) exists — see the submit mutation below — never uploaded
-// eagerly on file selection, and never routed through the generic
-// /storage/upload endpoint for a real employee file.
 interface DocFile { title: string; document_type: string; file_url: string; notes: string; file?: File; }
 
 const EMPTY_DOC: DocFile = { title: '', document_type: 'OTHER', file_url: '', notes: '' };
 
-// Required upload validation: both CNIC sides must be present (a pending
-// file selected, an already-uploaded file, or a pasted link) before the
-// wizard can proceed past the Documents step. `existingTypes` (edit mode
-// only) lists document_types already on file from a prior session — a
-// required type already present there also satisfies the check, so
-// re-editing an employee who already uploaded their CNIC docs doesn't get
-// incorrectly blocked just because docFiles (new uploads only) is empty.
 export function missingRequiredDocs(docFiles: DocFile[], existingTypes: string[] = []): string[] {
   return REQUIRED_DOC_TYPES.filter(
     type => !docFiles.some(d => d.document_type === type && (d.file_url.trim() || d.file)) && !existingTypes.includes(type)
@@ -655,12 +616,6 @@ function StepDocuments({ docFiles, setDocFiles, existingTypes = [] }: { docFiles
   const updateRow = (idx: number, key: keyof DocFile, val: string) =>
     setDocFiles(prev => prev.map((d, i) => i === idx ? { ...d, [key]: val } : d));
 
-  // No network call here anymore — the employee/user row (and its
-  // employee_id) doesn't exist yet at this point in the wizard, and the S3
-  // key is Emp-{employeeId}/documents/{category}/..., so the actual upload
-  // is deferred to submit time, once employee_id is known (see the submit
-  // mutation below). Just holds the raw File in local state; a pasted link
-  // (file_url) is cleared since the two are mutually exclusive per row.
   const handleFileSelect = (idx: number, file: File) => {
     setDocFiles(prev => prev.map((d, i) => i === idx
       ? { ...d, file, file_url: '', title: d.title || file.name.replace(/\.[^.]+$/, '') }
@@ -718,9 +673,6 @@ function StepDocuments({ docFiles, setDocFiles, existingTypes = [] }: { docFiles
                 </div>
               </div>
 
-              {/* File upload — deferred: actually uploaded to S3 at submit
-                  time, once the employee record exists (see handleFileSelect
-                  above). */}
               <div>
                 <label className="text-xs font-bold text-gray-500 mb-1 block">Upload File</label>
                 <label className={`flex items-center gap-2 w-full h-9 px-3 border border-dashed rounded-xl text-sm cursor-pointer transition-colors ${doc.file ? 'border-green-300 bg-green-50 text-green-600' : 'border-gray-300 hover:border-primary-300 hover:bg-primary-50 text-gray-400 hover:text-primary-500'}`}>
@@ -734,7 +686,6 @@ function StepDocuments({ docFiles, setDocFiles, existingTypes = [] }: { docFiles
                 </label>
               </div>
 
-              {/* Or URL */}
               <div>
                 <label className="text-xs font-bold text-gray-500 mb-1 block">Or paste a link</label>
                 <input
@@ -774,7 +725,6 @@ function StepDocuments({ docFiles, setDocFiles, existingTypes = [] }: { docFiles
   );
 }
 
-// ── Step 5: Review & Save ────────────────────────────────────────────────────
 export function StepReview({ personal, employment, work, isEditMode }: any) {
   const STATUS_LABELS = EMPLOYMENT_STATUS_LABELS;
   const sections = [
@@ -824,28 +774,20 @@ export function StepReview({ personal, employment, work, isEditMode }: any) {
   );
 }
 
-// ── Main Wizard ──────────────────────────────────────────────────────────────
 export default function AddEmployee() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  // Legacy deep link: /admin/add-employee/:employeeId (the raw DB cuid,
-  // never meant to be user-visible). Kept only so old bookmarks/links still
-  // work — resolved below into the clean ?mode=edit&employee=<employeeId>
-  // URL the moment the record loads.
+
   const { employeeId: legacyDbId } = useParams<{ employeeId?: string }>();
   const [searchParams] = useSearchParams();
   const employeeIdParam = searchParams.get('employee');
   const isEditMode = searchParams.get('mode') === 'edit' ? !!employeeIdParam : !!legacyDbId;
-  // The full-record endpoint accepts either a DB id or a human-readable
-  // employee_id (e.g. TXI-0046) — whichever identifier the URL carries.
+
   const recordLookupId = isEditMode ? (employeeIdParam || legacyDbId) : undefined;
   const { data: record, isLoading: recordLoading, error: recordError } = useGetEmployeeFullRecord(recordLookupId);
-  // The resolved DB id, once the record has loaded — every mutation
-  // (save, invalidation) needs the real id, never the URL's employee_id.
+
   const [resolvedUserId, setResolvedUserId] = useState<string | undefined>(undefined);
-  // Guards against a background refetch (e.g. after invalidation elsewhere)
-  // clobbering fields the user is actively editing — population only ever
-  // runs once, the first time the record arrives.
+
   const populatedRef = useRef(false);
   const [step, setStep] = useState(1);
   const [personal, setPersonal]     = useState(initPersonal);
@@ -855,19 +797,11 @@ export default function AddEmployee() {
   const [draftBanner, setDraftBanner] = useState(false);
   const [errorField, setErrorField] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  // Employee creation itself succeeded, but one or more document uploads
-  // failed afterward (e.g. a real S3 error — upload_employee_file() never
-  // falls back to local disk, it throws). Never silently claim full success
-  // in that case, and never auto-navigate away — the admin needs to see
-  // exactly which document(s) still need to be retried, and the employee
-  // record itself is fully recoverable (it was created; only the attached
-  // file(s) are missing) via Employee Directory > Edit > Documents.
+
   const [docUploadWarning, setDocUploadWarning] = useState<string | null>(null);
   const fieldRefs = React.useRef<Record<string, HTMLElement | null>>({});
   const registerRef = (field: string, el: HTMLElement | null) => { fieldRefs.current[field] = el; };
 
-  // ── Draft auto-save / restore (create mode only — an edit session must
-  // never read or write the shared create-draft key) ─────────────────────────
   useEffect(() => {
     if (isEditMode) return;
     try {
@@ -882,29 +816,23 @@ export default function AddEmployee() {
           if (s) setStep(s);
         }
       }
-    } catch { /* ignore corrupt draft */ }
+    } catch {  }
   }, [isEditMode]);
 
-  // Save draft to localStorage on every meaningful change
   useEffect(() => {
     if (isEditMode) return;
     if (!personal.first_name && !personal.email) return;
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify({ personal, employment, work, step }));
-    } catch { /* storage full — ignore */ }
+    } catch {  }
   }, [isEditMode, personal, employment, work, step]);
 
-  // ── Edit mode: populate wizard state from the fetched full record ──────────
   useEffect(() => {
     if (!isEditMode || !record || populatedRef.current) return;
     populatedRef.current = true;
     const { user, profile } = record as any;
     setResolvedUserId(user?.id);
-    // Never expose the internal DB id in the URL. If we got here via the
-    // legacy /admin/add-employee/:employeeId deep link (or the record's own
-    // employee_id differs from what's already in the URL), replace it with
-    // the clean ?mode=edit&employee=<employeeId> form — silently, so back/
-    // forward and copy-paste always see the human-readable id.
+
     if (user?.employee_id && employeeIdParam !== user.employee_id) {
       navigate(`/admin/add-employee?mode=edit&employee=${user.employee_id}`, { replace: true });
     }
@@ -936,12 +864,7 @@ export default function AddEmployee() {
       probation_start: profile?.probation_start ? String(profile.probation_start).slice(0, 10) : '',
       probation_end: profile?.probation_end ? String(profile.probation_end).slice(0, 10) : '',
       work_email: profile?.work_email || '',
-      // Department dropdown is filtered by business_unit_id (see StepEmployment),
-      // so business_unit_id must be populated here too — not just department_id —
-      // or the filter matches nothing and the Department select renders empty
-      // even though a real department_id is already set. The full-record
-      // endpoint returns the department relation (not just department_id), which
-      // carries its own business_unit_id.
+
       business_unit_id: user?.department?.business_unit?.id || '',
       department_id: user?.department_id || '',
       team_id: user?.team_memberships?.[0]?.team?.id || '',
@@ -974,7 +897,7 @@ export default function AddEmployee() {
   }, [isEditMode, record]);
 
   const clearDraft = () => {
-    try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+    try { localStorage.removeItem(DRAFT_KEY); } catch {  }
     setDraftBanner(false);
   };
 
@@ -986,11 +909,6 @@ export default function AddEmployee() {
     setStep(1);
   };
 
-  // Reuse the canonical departments hook — other mounted components (e.g.
-  // QuickCreateUserModal) also query key ['departments'] via this same hook,
-  // and a locally duplicated queryFn with a different return shape here would
-  // silently corrupt this shared cache entry for every consumer (whichever
-  // queryFn resolves last "wins" the cached raw data for all observers).
   const { data: departments } = useGetDepartmentsQuery();
 
   const { data: businessUnits } = useGetBusinessUnitsQuery();
@@ -1013,13 +931,6 @@ export default function AddEmployee() {
     staleTime: 300000,
   });
 
-  // Employee ID is never generated client-side — it's derived server-side
-  // from Business Unit + Department the moment the employee is created
-  // (see users.service.js generate_employee_id) and is not editable. This
-  // preview query just shows the admin what it WILL be once both are
-  // selected; it doesn't reserve the sequence number (create time recomputes
-  // it), so it's safe to refetch as the selection changes. Skipped in edit
-  // mode — an existing employee's ID is already assigned and immutable.
   const { data: employeeIdPreview, isFetching: employeeIdPreviewLoading } = useQuery({
     queryKey: ['employee-id-preview', employment.department_id],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.USER.EMPLOYEE_ID_PREVIEW(employment.department_id)),
@@ -1034,8 +945,7 @@ export default function AddEmployee() {
 
       if (isEditMode) {
         userId = resolvedUserId!;
-        // Base user fields only — employee_id and business_unit are never
-        // re-sent on edit, they're immutable once assigned at creation.
+
         await apiRequest<any>(API_ENDPOINTS.USER.UPDATE(userId), {
           method: 'PUT',
           body: JSON.stringify({
@@ -1060,9 +970,7 @@ export default function AddEmployee() {
             last_name:     personal.last_name,
             email:         personal.email,
             phone:         personal.phone || undefined,
-            // No password sent — create_new_user (users.service.js) already
-            // falls back to a system-generated one when this is omitted;
-            // the new hire sets their own via Forgot Password.
+
             hire_date:     employment.hire_date || undefined,
             designation:   employment.designation || undefined,
             designation_id: employment.designation_id || undefined,
@@ -1126,13 +1034,6 @@ export default function AddEmployee() {
         }),
       });
 
-      // The employee/user row (and its employee_id) now exists — this is the
-      // earliest point a file can be uploaded under
-      // Emp-{employeeId}/documents/{category}/... A row with a pending
-      // `file` goes through the dedicated direct-to-S3 upload endpoint; a
-      // row with only a pasted external link (`file_url`, e.g. Google
-      // Drive/OneDrive — never touches S3) keeps using the existing JSON
-      // create endpoint exactly as before.
       const validDocs = docFiles.filter(d => d.title.trim());
       const failedDocTitles: string[] = [];
       if (validDocs.length > 0) {
@@ -1159,9 +1060,7 @@ export default function AddEmployee() {
         qc.invalidateQueries({ queryKey: ['hr-profile', resolvedUserId] });
       }
       if (failedDocTitles.length > 0) {
-        // Partial success — do not navigate away or clear the draft; the
-        // employee record exists and is fine, but these documents still
-        // need to be uploaded (retry from here or from Employee Directory).
+
         setDocUploadWarning(
           `Employee ${isEditMode ? 'updated' : 'created'} successfully, but ${failedDocTitles.length} document(s) failed to upload: ${failedDocTitles.join(', ')}. Please retry uploading ${failedDocTitles.length === 1 ? 'it' : 'them'}.`
         );
@@ -1171,13 +1070,7 @@ export default function AddEmployee() {
       navigate('/admin/employee-directory');
     },
     onError: (err: any) => {
-      // Generic backend-validation-error routing: the backend's field_error()
-      // contract returns { field, code, message } (err.data here, since
-      // apiRequest throws { status, data, message }). ANY field the backend
-      // names — not just email — auto-navigates to its owning step, highlights
-      // the input, focuses it, and shows a message. Entered data is never
-      // reset on error. Falls back to the plain message with no navigation
-      // for errors the backend didn't attach a field to.
+
       const field = err?.data?.field;
       const code = err?.data?.code;
       const backendMessage = err?.data?.message || err?.message;
@@ -1239,7 +1132,7 @@ export default function AddEmployee() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-gray-900">{isEditMode ? 'Edit Employee' : 'Add New Employee'}</h1>
@@ -1252,7 +1145,6 @@ export default function AddEmployee() {
         </button>
       </div>
 
-      {/* Draft restore banner (create mode only) */}
       {!isEditMode && draftBanner && (
         <div className="flex items-center justify-between gap-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
           <div className="flex items-center gap-2 text-amber-800">
@@ -1266,7 +1158,7 @@ export default function AddEmployee() {
       )}
 
       <div className="flex gap-6">
-        {/* Left: Step list */}
+
         <div className="w-64 flex-shrink-0">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-1">
             {STEPS.map(s => {
@@ -1292,7 +1184,6 @@ export default function AddEmployee() {
           </div>
         </div>
 
-        {/* Right: Step content */}
         <div className="flex-1 min-w-0">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
             {step === 1 && <StepPersonal data={personal} onChange={changePersonal} errorField={errorField} errorMessage={errorMessage} registerRef={registerRef} />}
@@ -1301,21 +1192,13 @@ export default function AddEmployee() {
             {step === 4 && <StepDocuments docFiles={docFiles} setDocFiles={setDocFiles} existingTypes={existingDocTypes} />}
             {step === 5 && <StepReview personal={personal} employment={employment} work={work} isEditMode={isEditMode} />}
 
-            {/* Actions */}
             <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-100">
               <button disabled={step === 1} onClick={() => setStep(s => s - 1)}
                 className="flex items-center gap-2 px-5 h-10 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors">
                 <ChevronLeft size={16} />Previous
               </button>
               <div className="flex items-center gap-3">
-                {/* DECISION (Milestone 1, gap #5): Save as Draft intentionally
-                    bypasses the required-CNIC-documents check (missingRequiredDocs)
-                    and is reachable from any step. A draft exists precisely to let
-                    HR save incomplete progress and finish later — required-document
-                    validation only applies to the final "Save Employee" submission,
-                    which can only be reached via Next once step 4 is satisfied.
-                    Not shown in edit mode — an existing employee is never a
-                    "draft", there's no meaningful profile_status: 'DRAFT' mid-edit. */}
+
                 {!isEditMode && (
                   <button
                     onClick={() => saveMutation.mutate(true)}

@@ -10,22 +10,6 @@ import {
 import { cn } from '@/utils/cn';
 import { useGetExecutiveDashboard } from '@/services/executiveAnalyticsService';
 
-// Sprint 3 — Executive Dashboard redesign. An executive dashboard answers
-// "what requires my attention today", not "here is every metric we track" —
-// so this page intentionally shows only: one summary, an action center,
-// <=8 company-health KPIs, a handful of trend widgets, a dedicated risks
-// list, root-cause panels, and AI recommendations. Anything more granular
-// (the old ~30-card Company Overview/Operations/Financial/Productivity/
-// Executive Insights wall) belongs in each module's own report screen, not
-// here — this pass removes those sections rather than trims them, per the
-// "raw data belongs in reports" instruction. UI-only: still reads from the
-// exact same /executive-analytics dashboard payload, no backend changes.
-// A few spec items (Revenue, Project Delivery Trend, Contracts Expiring,
-// Assets Due as a distinct "due" concept) have no backing field anywhere in
-// that payload — they're left out rather than faked; the closest existing
-// equivalents (Pending Asset Returns, Compliance Reminders, Payroll Not
-// Processed) are used instead where one exists.
-
 function fmtMoney(n?: number | null) {
   if (n == null) return '—';
   return `PKR ${Math.round(n).toLocaleString()}`;
@@ -64,9 +48,6 @@ function SectionHeader({ title }: { title: string }) {
   return <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">{title}</p>;
 }
 
-// Shared by "Top Applications by Usage Time" and the Root Cause factor
-// breakdowns below — both render the same {label, value} bar-list shape,
-// just with a different value formatter.
 function BarList({ items, formatValue }: { items: { label: string; value: number }[]; formatValue: (n: number) => string }) {
   const max = Math.max(...items.map((i) => Math.abs(i.value)), 1);
   return (
@@ -84,19 +65,8 @@ function BarList({ items, formatValue }: { items: { label: string; value: number
   );
 }
 
-// Sprint 2 Milestone 3 — Executive Action Center. Every item is
-// {key, label, count, priority, path} straight from the backend's
-// action_center bucket — already deterministically sorted by priority
-// there (see prioritize_alerts()-style sort_by_priority in
-// executive-analytics.service.js). This component only renders; no
-// re-sorting, re-filtering, or re-fetching happens here.
 type ActionItem = { key: string; label: string; count: number; priority: string; path: string };
 
-// Sprint 2 Milestone 4 — Executive Drill-down & Decision Support. Every
-// field below comes straight from the backend's root_cause/recommendations/
-// executive_summary — see build_root_cause() etc. in
-// executive-analytics.service.js. No client-side calculation; this only
-// renders what the API already computed.
 type RootCausePanel = { key: string; kpi: string; summary: string; factors: { label: string; value: number }[]; path: string };
 type Recommendation = { recommendation: string; reason: string; priority: string; path: string };
 type ExecutiveSummary = { critical_issues: number; high_priority_items: number; recommendations_count: number; highlights: string[] };
@@ -137,10 +107,6 @@ function ActionCenterColumn({
   );
 }
 
-// Sprint 2 Milestone 2 — Executive Insights. `trend` is {current, previous,
-// delta_pct} straight from the backend's trend_kpi() helper — two
-// report_builder KPI calls, no client-side recalculation. `invertGood` flips
-// the up/down color for metrics where a rise is bad news (e.g. attrition).
 function TrendCard({
   icon: Icon, color, label, trend, invertGood = false, format = 'num', onClick,
 }: {
@@ -202,14 +168,10 @@ export default function ExecutiveDashboard() {
   const pmHealth = data?.project_management_health as {
     projects_at_risk: number; delayed_projects: number; upcoming_deliveries: number;
     missing_milestones: number;
-    // 4-tier Green/Yellow/Orange/Red (was a 2-way healthy/at_risk split).
+
     milestone_health: { healthy: number; at_risk: number; warning: number; critical: number };
   } | undefined;
 
-  // Risks section — pulled from the same action-center items already
-  // rendered above, just re-surfaced as a dedicated "what could go wrong"
-  // list per the spec's Risks section, instead of only living inside the
-  // three action-center columns.
   const allActionItems: ActionItem[] = [
     ...(actionCenter?.requires_attention || []),
     ...(actionCenter?.requires_review || []),
@@ -255,10 +217,6 @@ export default function ExecutiveDashboard() {
         <p className="text-sm text-gray-500 mt-0.5">Company-wide operations, financial, and productivity overview.</p>
       </div>
 
-      {/* Executive Summary — Sprint 2 Milestone 4. A single roll-up of counts
-          already computed by the Action Center above plus a handful of
-          insight trends — no new calculation, just the headline numbers an
-          executive would otherwise have to skim every section to find. */}
       {execSummary && (
         <Card className="border-none shadow-sm p-5 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
           <div className="flex items-start gap-3 mb-3">
@@ -282,11 +240,6 @@ export default function ExecutiveDashboard() {
         </Card>
       )}
 
-      {/* Executive Action Center — Sprint 2 Milestone 3. Turns insights into
-          direct navigation: every card here reuses an already-computed count
-          (from operations/insights/alerts, or a handful of independent
-          lookups) and drills into the existing page that owns that workflow —
-          no new action pages, no new approval/assignment/escalation flow. */}
       {actionCenter && (
         <div>
           <SectionHeader title="Executive Action Center" />
@@ -298,11 +251,6 @@ export default function ExecutiveDashboard() {
         </div>
       )}
 
-      {/* Company Health — spec caps this at 8 KPI cards, so this replaces the
-          old Company Overview + Operations + Financial + Productivity wall
-          (~20 cards). One representative metric per domain; anything more
-          granular belongs on that module's own page (each card still drills
-          there). */}
       <div>
         <SectionHeader title="Company Health" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -317,12 +265,6 @@ export default function ExecutiveDashboard() {
         </div>
       </div>
 
-      {/* Project Health — one consolidated scorecard replacing the previous
-          five separate cards (Projects At Risk / Delayed / Upcoming
-          Deliveries / Missing Milestones / Milestone Health), per the
-          spec's explicit "remove duplicated KPI cards, create one Project
-          Health widget" instruction. Same pmHealth data, just one click
-          target instead of five. */}
       {pmHealth && (
         <button
           onClick={() => navigate('/admin/project-tracking')}
@@ -345,12 +287,6 @@ export default function ExecutiveDashboard() {
         </button>
       )}
 
-      {/* Trend Widgets — six period-over-period trends instead of the old
-          20-card Executive Insights wall; each still links to its module.
-          "Revenue Trend" and "Project Delivery Trend" from the spec have no
-          backing field anywhere in the dashboard payload (no revenue concept
-          exists yet, and delivery health has no historical snapshot to trend
-          against) — omitted rather than faked. */}
       <div>
         <SectionHeader title="Trend Widgets" />
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
@@ -363,11 +299,6 @@ export default function ExecutiveDashboard() {
         </div>
       </div>
 
-      {/* Risks — the spec's dedicated "what could go wrong" section, built
-          from the same action-center/alert data already fetched above (no
-          new backend calls). Contracts Expiring and a distinct "Assets Due"
-          concept aren't computed anywhere in this payload — Pending Asset
-          Returns is used as the closest existing equivalent. */}
       <div>
         <SectionHeader title="Risks" />
         <Card className="border-none shadow-sm p-5">
@@ -397,11 +328,6 @@ export default function ExecutiveDashboard() {
         </Card>
       </div>
 
-      {/* Root Cause Analysis — Sprint 2 Milestone 4. Every panel/factor here
-          is assembled from data Milestones 1-3 already computed (delivery
-          health, insight trends, expense breakdown) — see build_root_cause()
-          in executive-analytics.service.js. Clicking a panel drills into the
-          same existing module page its KPI already links to above. */}
       {rootCause && rootCause.length > 0 && (
         <div>
           <SectionHeader title="Root Cause Analysis" />
@@ -426,10 +352,6 @@ export default function ExecutiveDashboard() {
         </div>
       )}
 
-      {/* Recommendations — Sprint 2 Milestone 4. Deterministic rule-based
-          suggestions, one per already-flagged Action Center item — no AI,
-          no notification engine. See get_recommendations() in
-          executive-analytics.service.js. */}
       {recommendations && recommendations.length > 0 && (
         <div>
           <SectionHeader title="AI Recommendations" />

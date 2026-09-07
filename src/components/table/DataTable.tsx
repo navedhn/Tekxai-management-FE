@@ -98,4 +98,3 @@ const DataTable = <T extends Record<string, any> = any>({
 };
 
 export default DataTable;
-

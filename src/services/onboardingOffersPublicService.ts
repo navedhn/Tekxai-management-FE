@@ -1,8 +1,3 @@
-// Public, unauthenticated candidate offer review/accept/reject. Mirrors
-// hrDocumentsPublicService.ts exactly — no auth token is attached (see
-// src/lib/queryClient.ts), and every call resolves strictly off the
-// candidate's invite token (the same token send_offer() emails today at
-// `/offer/:id?token=:invite_token` — see onboarding.controller.js).
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from './api/endpoints';
@@ -18,7 +13,6 @@ export const acceptPublicOfferApi = async (token: string) => {
   });
 };
 
-// `reason` is optional — matches the backend's optional req.body.reason.
 export const rejectPublicOfferApi = async (token: string, payload: { reason?: string }) => {
   return apiRequest(API_ENDPOINTS.ONBOARDING_OFFERS_PUBLIC.REJECT(token), {
     method: 'POST',

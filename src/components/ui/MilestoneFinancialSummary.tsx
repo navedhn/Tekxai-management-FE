@@ -7,12 +7,6 @@ interface MilestoneFinancialSummaryProps {
   activeMilestone: ActiveMilestone | null | undefined;
 }
 
-// Milestone Financial Foundation — Total/Paid/Remaining/Active are ALWAYS
-// server-derived (see compute_financial_summary in projects.repository.js).
-// This panel only renders what the API already returned; it never computes
-// or edits these numbers itself. Deliberately separate from BudgetPanel
-// (projects.budget/budget_spent), which is independent internal cost
-// tracking, not milestone billing — the two must not be conflated.
 const MilestoneFinancialSummary: React.FC<MilestoneFinancialSummaryProps> = ({ financial, activeMilestone }) => {
   const currency = financial?.currency || 'PKR';
 

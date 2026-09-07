@@ -2,8 +2,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from './api/endpoints';
 
-// ── Upwork Bids ───────────────────────────────────────────────────────────────
-
 export const useGetUpworkBids = (params?: Record<string, any>) =>
   useQuery({
     queryKey: ['marketing', 'upwork', params],
@@ -38,8 +36,6 @@ export const useDeleteUpworkBid = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['marketing', 'upwork'] }),
   });
 };
-
-// ── LinkedIn Leads ────────────────────────────────────────────────────────────
 
 export const useGetLinkedinLeads = (params?: Record<string, any>) =>
   useQuery({
@@ -76,8 +72,6 @@ export const useDeleteLinkedinLead = () => {
   });
 };
 
-// ── Email Leads ───────────────────────────────────────────────────────────────
-
 export const useGetEmailLeads = (params?: Record<string, any>) =>
   useQuery({
     queryKey: ['marketing', 'email-leads', params],
@@ -113,8 +107,6 @@ export const useDeleteEmailLead = () => {
   });
 };
 
-// ── Won Deals (combined) ──────────────────────────────────────────────────────
-
 export const useGetWonDealsLeads = (params?: Record<string, any>) =>
   useQuery({
     queryKey: ['marketing', 'won-deals-leads', params],
@@ -125,8 +117,6 @@ export const useGetWonDealsLeads = (params?: Record<string, any>) =>
     },
     staleTime: 30000,
   });
-
-// ── Deposits ──────────────────────────────────────────────────────────────────
 
 export const useGetDeposits = (params?: Record<string, any>) =>
   useQuery({
@@ -163,8 +153,6 @@ export const useDeleteDeposit = () => {
   });
 };
 
-// ── Targets ───────────────────────────────────────────────────────────────────
-
 export const useGetTargets = (params?: Record<string, any>) =>
   useQuery({
     queryKey: ['marketing', 'targets', params],
@@ -184,8 +172,6 @@ export const useUpsertTarget = () => {
   });
 };
 
-// ── My Activity Report ────────────────────────────────────────────────────────
-
 export const useGetMyReport = (params?: Record<string, any>) =>
   useQuery({
     queryKey: ['marketing', 'my-report', params],
@@ -196,8 +182,6 @@ export const useGetMyReport = (params?: Record<string, any>) =>
     },
     staleTime: 30000,
   });
-
-// ── My Salaries ───────────────────────────────────────────────────────────────
 
 export const useGetMySalaries = () =>
   useQuery({

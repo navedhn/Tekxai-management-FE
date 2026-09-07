@@ -2,15 +2,9 @@ import React, { forwardRef } from 'react';
 import { cn } from '@/utils/cn';
 import SearchableSelect from './SearchableSelect';
 
-/**
- * Phase 7 (Inputs): simple phone number field — a fixed/selectable
- * country-code prefix plus a plain digits field. Intentionally does
- * not depend on a phone-validation library; this is structure/styling
- * parity with Input.tsx, not full E.164 validation.
- */
 export interface PhoneCountryOption {
-  code: string; // dial code, e.g. "+1"
-  label: string; // display label, e.g. "US +1"
+  code: string;
+  label: string;
 }
 
 export interface PhoneInputProps
@@ -18,12 +12,12 @@ export interface PhoneInputProps
   label?: string;
   error?: string;
   containerClassName?: string;
-  /** Available dial-code options. Defaults to a small common set. */
+
   countryOptions?: PhoneCountryOption[];
-  /** Currently selected dial code, e.g. "+1". */
+
   countryCode?: string;
   onCountryCodeChange?: (code: string) => void;
-  /** National number digits (without the dial code). */
+
   value?: string;
   onChange?: (value: string) => void;
 }

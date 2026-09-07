@@ -18,8 +18,6 @@ function label(v: string) {
 
 const selectCls = 'h-10 px-3 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-primary-400';
 
-// Module / Action / Scope filters — the three dimensions the redesign spec
-// asked for beyond Workspace (which has its own dedicated selector already).
 const PermissionFilters: React.FC<PermissionFiltersProps> = ({
   modules, actions, scopes, moduleFilter, actionFilter, scopeFilter, onModuleChange, onActionChange, onScopeChange,
 }) => (

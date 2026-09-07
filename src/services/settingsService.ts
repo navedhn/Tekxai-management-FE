@@ -20,7 +20,7 @@ export const useGetMySettingsQuery = (enabled: boolean = true) => {
 export const useUpdatePreferencesMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: SettingsPreferences) => 
+    mutationFn: (data: SettingsPreferences) =>
       apiRequest(API_ENDPOINTS.SETTINGS.PREFERENCES, { method: 'PATCH', body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SETTINGS.ME });
@@ -30,7 +30,7 @@ export const useUpdatePreferencesMutation = () => {
 
 export const useChangePasswordMutation = () => {
   return useMutation({
-    mutationFn: (data: any) => 
+    mutationFn: (data: any) =>
       apiRequest(API_ENDPOINTS.SETTINGS.PASSWORD, { method: 'PATCH', body: JSON.stringify(data) }),
   });
 };

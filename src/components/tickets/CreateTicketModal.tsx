@@ -33,9 +33,6 @@ const RECIPIENT_OPTIONS = TICKET_RECIPIENTS.map(r => ({
   value: r.id,
 }));
 
-// M5 — Ticket Creation Flow: Category → Type → Dynamic Form → Review → Submit.
-// Falls back to the original free-form ("legacy") ticket when no Service Desk
-// categories are configured, or when the user picks "General request".
 type WizardStep = 'pick' | 'form' | 'review' | 'legacy';
 
 const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
@@ -62,26 +59,20 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
   const { data: types = [] } = useTicketTypesQuery(categoryId || undefined);
   const activeTypes = useMemo(() => types.filter(t => t.is_active), [types]);
 
-  // Shared fields
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<TicketPriority>('medium');
 
-  // Service Desk fields
   const [customFields, setCustomFields] = useState<Record<string, unknown>>({});
   const [projectId, setProjectId] = useState('');
   const needsProject = selectedType?.project_association !== 'NONE' && !!selectedType;
   const { data: projects = [] } = useGetProjects();
 
-  // Legacy fields
   const [recipientId, setRecipientId] = useState('tl');
   const [customName, setCustomName] = useState('');
   const [category, setCategory] = useState<TicketCategory | ''>('');
   const [departmentId, setDepartmentId] = useState('');
 
-  // Surfaced inline in addition to toast.error() — clicking Review with
-  // required fields empty must never leave the user with zero feedback,
-  // so this doesn't depend on the toast rendering to be visible.
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -179,7 +170,6 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
 
   const categoryLabel = activeCategories.find(c => c.id === categoryId)?.label;
 
-  // ── Step: pick category + type ─────────────────────────────────────────────
   const renderPick = () => (
     <div className="space-y-4">
       <p className="text-sm text-gray-500 font-medium">What do you need help with?</p>
@@ -232,7 +222,6 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
     </div>
   );
 
-  // ── Step: dynamic form ─────────────────────────────────────────────────────
   const renderForm = () => (
     <div className="space-y-4">
       <button type="button" onClick={() => setStep('pick')} className="flex items-center gap-1 text-xs font-semibold text-gray-400 hover:text-gray-600">
@@ -266,7 +255,6 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
     </div>
   );
 
-  // ── Step: review ───────────────────────────────────────────────────────────
   const renderReview = () => {
     const fieldRows: { label: string; value: string }[] = [];
     for (const section of selectedType?.field_schema || []) {
@@ -306,7 +294,6 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
     );
   };
 
-  // ── Step: legacy free-form ticket (pre-Service-Desk behavior, unchanged) ──
   const renderLegacy = () => (
     <div className="space-y-4">
       {hasServiceDesk && (

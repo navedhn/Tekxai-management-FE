@@ -5,9 +5,6 @@ import CreateProjectSlideOver from './CreateProjectSlideOver';
 import { ToastProvider } from '@/components/toast/ToastProvider';
 import { apiRequest } from '@/lib/queryClient';
 
-// Phase 2 Commercial Project Foundation — Client/Bidder/Source/Commission
-// on the project create/edit form.
-
 vi.mock('@/lib/queryClient', async () => {
   const actual = await vi.importActual<any>('@/lib/queryClient');
   return { ...actual, apiRequest: vi.fn() };

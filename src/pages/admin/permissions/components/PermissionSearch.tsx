@@ -7,9 +7,6 @@ interface PermissionSearchProps {
   placeholder?: string;
 }
 
-// Debounced permission search — uses the app's existing useDebounce hook
-// (the old page hand-rolled its own setTimeout debounce instead of this;
-// fixed here since there's no reason for a second implementation).
 const PermissionSearch: React.FC<PermissionSearchProps> = ({ onSearch, placeholder = 'Search permissions…' }) => {
   const [value, setValue] = useState('');
   const debounced = useDebounce(value, 250);

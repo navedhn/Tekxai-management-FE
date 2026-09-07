@@ -18,9 +18,7 @@ interface MemberSidebarProps {
   isLoading?: boolean;
   isError?: boolean;
   title?: string;
-  // DM/1:1 conversations: no search box, no Online/Offline section
-  // headers — just the (at most 2) participants, per the product
-  // requirement that a DM shouldn't get a heavy Discord-style roster.
+
   compact?: boolean;
   onClose?: () => void;
   isMobile?: boolean;

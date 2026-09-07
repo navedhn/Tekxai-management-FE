@@ -5,8 +5,6 @@ import { QUERY_KEYS } from '@/services/api/tanstackKeys';
 import { getAccessToken } from '@/utils/tokenMemory';
 import { uploadEmployeeDocument } from '@/lib/upload';
 
-// ── HR Profile ─────────────────────────────────────────────────────────────────
-
 export const useGetEmployeeFullRecord = (userId?: string) =>
   useQuery({
     queryKey: ['employee-full', userId],
@@ -35,8 +33,6 @@ export const useUpsertHRProfile = (userId: string) => {
   });
 };
 
-// Updates users-table org-structure fields (designation_id, grade_id, supervisor_id) —
-// distinct from the employee_profiles fields above, per Document 4 ownership (People/users module).
 export const useUpdateUserOrg = (userId: string) => {
   const qc = useQueryClient();
   return useMutation({
@@ -44,23 +40,17 @@ export const useUpdateUserOrg = (userId: string) => {
       apiRequest<any>(API_ENDPOINTS.USER.UPDATE(userId), { method: 'PUT', body: JSON.stringify(data) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['employee-full', userId] });
-      // Designation/grade/supervisor changes here also affect the shared
-      // user list (Employee Directory) and the HR Dashboard's roster/stats —
-      // none of those are derived from ['employee-full', userId].
+
       qc.invalidateQueries({ queryKey: QUERY_KEYS.USER.LIST });
       qc.invalidateQueries({ queryKey: ['employee-list-hr-dash'] });
       qc.invalidateQueries({ queryKey: ['employee-stats-hr-dash'] });
       qc.invalidateQueries({ queryKey: ['employee-directory'] });
       qc.invalidateQueries({ queryKey: QUERY_KEYS.EMPLOYEE.DASHBOARD_STATS });
-      // Same orphaned-key gap as userService.ts's invalidateUserAndDependents —
-      // a designation/grade/supervisor change must also refresh manager/team
-      // pickers keyed on 'user-list-brief'.
+
       qc.invalidateQueries({ queryKey: ['user-list-brief'] });
     },
   });
 };
-
-// ── Employee Documents ─────────────────────────────────────────────────────────
 
 export const useGetEmployeeDocs = (userId?: string) =>
   useQuery({
@@ -78,8 +68,6 @@ export const useGetDocTypes = () =>
     select: (r: any) => (r?.payload || []) as { value: string; label: string }[],
   });
 
-// JSON create — kept only for a pasted external link (no S3 involvement at
-// all). Any actual uploaded File must go through useUploadEmployeeDoc below.
 export const useCreateEmployeeDoc = (userId: string) => {
   const qc = useQueryClient();
   return useMutation({
@@ -89,9 +77,6 @@ export const useCreateEmployeeDoc = (userId: string) => {
   });
 };
 
-// Direct-to-private-S3 upload + attach in one call — POST /employee-doc/:userId/upload.
-// The backend derives the S3 key from document_type; nothing storage-shaped
-// is sent from here.
 export const useUploadEmployeeDoc = (userId: string) => {
   const qc = useQueryClient();
   return useMutation({
@@ -110,12 +95,6 @@ export const useUpdateEmployeeDoc = (userId: string) => {
   });
 };
 
-// Replace an existing document's FILE (not just its metadata) — multipart PUT
-// to the same UPDATE endpoint; update_doc_ctrl/update_employee_doc on the
-// backend detect req.file and upload straight to
-// Emp-{employeeId}/documents/{category}/... instead of touching the JSON
-// file_key/file_url fields. A plain JSON edit (title/notes/verification)
-// keeps using useUpdateEmployeeDoc above, unaffected.
 export const useReplaceEmployeeDocFile = (userId: string) => {
   const qc = useQueryClient();
   return useMutation({
@@ -139,10 +118,6 @@ export const useDeleteEmployeeDoc = (userId: string) => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['employee-docs', userId] }),
   });
 };
-
-// ── Missing Employee Documents report ────────────────────────────────────────────
-// Bespoke report (cross-join/gap computation, not a generic /report/builder
-// entity+group_by pair) — mirrors the be-work bespoke hr-report module.
 
 export type MissingDocsFilters = {
   business_unit_id?: string; department_id?: string; team_id?: string; designation_id?: string;
@@ -170,12 +145,6 @@ export const useGetMissingDocumentsSummary = (filters?: MissingDocsFilters) =>
     select: (r: any) => r?.payload as { total_employees: number; employees_complete: number; employees_with_missing: number; total_missing_documents: number },
   });
 
-// Export triggers an authenticated blob download (report_builder.controller's
-// exports are POST; this bespoke report's export is a GET so it can be
-// driven by a query string like the list/summary endpoints — either way the
-// browser can't just window.open() it since the API requires a bearer
-// token, so fetch as a blob and save via an <a download> click, matching the
-// download-trigger pattern already used by Employee Directory's CSV export).
 export async function downloadMissingDocumentsExport(format: 'excel' | 'csv' | 'pdf', filters?: MissingDocsFilters) {
   const url = `${BASE_URL}${API_ENDPOINTS.HR_REPORT.MISSING_DOCUMENTS_EXPORT}${missing_docs_qs({ ...filters, format } as any)}`;
   const token = getAccessToken();
@@ -189,8 +158,6 @@ export async function downloadMissingDocumentsExport(format: 'excel' | 'csv' | '
   URL.revokeObjectURL(objectUrl);
 }
 
-// ── Reporting Structure ─────────────────────────────────────────────────────────
-
 export const useGetReportingStructure = (userId?: string, options?: { enabled?: boolean }) =>
   useQuery({
     queryKey: ['reporting-structure', userId],
@@ -198,8 +165,6 @@ export const useGetReportingStructure = (userId?: string, options?: { enabled?: 
     enabled: !!userId && options?.enabled !== false,
     select: (r: any) => r?.payload as { manager: any | null; direct_reports: any[] },
   });
-
-// ── Lifecycle Approvals ──────────────────────────────────────────────────────────
 
 export const useGetLifecycleApprovals = (params?: { status?: string; user_id?: string }, options?: { enabled?: boolean }) =>
   useQuery({
@@ -215,8 +180,6 @@ export const useGetLifecycleApprovals = (params?: { status?: string; user_id?: s
     select: (r: any) => r?.payload as { records: any[]; total: number },
   });
 
-// ── Activity Timeline ────────────────────────────────────────────────────────────
-
 export const useGetActivityLog = (params?: { user_id?: string; action?: string; from?: string; to?: string }, options?: { enabled?: boolean }) =>
   useQuery({
     queryKey: ['activity-log', params],
@@ -229,8 +192,6 @@ export const useGetActivityLog = (params?: { user_id?: string; action?: string; 
     enabled: options?.enabled !== false,
     select: (r: any) => (r?.payload?.records || r?.payload || []) as any[],
   });
-
-// ── Employee Notes ───────────────────────────────────────────────────────────────
 
 export const useGetEmployeeNotes = (userId?: string, options?: { enabled?: boolean }) =>
   useQuery({
@@ -267,8 +228,6 @@ export const useDeleteEmployeeNote = (userId: string) => {
   });
 };
 
-// ── Payroll (employee payslips) ───────────────────────────────────────────────────
-
 export const useGetEmployeePayslips = (userId?: string, options?: { enabled?: boolean }) =>
   useQuery({
     queryKey: ['employee-payslips', userId],
@@ -276,8 +235,6 @@ export const useGetEmployeePayslips = (userId?: string, options?: { enabled?: bo
     enabled: !!userId && options?.enabled !== false,
     select: (r: any) => (r?.payload || []) as any[],
   });
-
-// ── Requisitions ───────────────────────────────────────────────────────────────
 
 export const useGetRequisitionMeta = () =>
   useQuery({
@@ -392,8 +349,6 @@ export const useUpdateRequisitionCost = () => {
   });
 };
 
-// ── Leaves (time-off) ──────────────────────────────────────────────────────────
-
 export const useGetLeaves = (filters?: { status?: string; user_id?: string }) =>
   useQuery({
     queryKey: ['leaves', filters],
@@ -424,8 +379,6 @@ export const useRejectLeave = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['leaves'] }),
   });
 };
-
-// ── Ticket stats ───────────────────────────────────────────────────────────────
 
 export const useGetTicketStats = () =>
   useQuery({

@@ -1,16 +1,10 @@
 import React, { useCallback, useMemo, useRef } from 'react';
 import { cn } from '@/utils/cn';
 
-/**
- * Phase 7 (Inputs): fixed-length one-time-passcode input rendered as
- * individual single-digit boxes with auto-advance/auto-backspace
- * between them. Shares the shared border/radius/focus/error/disabled
- * tokens used across Input.tsx and Select.tsx.
- */
 export interface OTPInputProps {
-  /** Number of digit boxes. @default 6 */
+
   length?: number;
-  /** Current value as a string of digits (may be shorter than `length`). */
+
   value: string;
   onChange: (value: string) => void;
   label?: string;
@@ -18,7 +12,7 @@ export interface OTPInputProps {
   disabled?: boolean;
   containerClassName?: string;
   className?: string;
-  /** Mask entered digits, e.g. for OTP-as-password flows. @default false */
+
   masked?: boolean;
   autoFocus?: boolean;
 }
@@ -57,7 +51,7 @@ const OTPInput: React.FC<OTPInputProps> = ({
       setDigit(index, '');
       return;
     }
-    // Take the last typed character (handles overwrite of an existing digit).
+
     const char = raw[raw.length - 1];
     setDigit(index, char);
     if (index < length - 1) {

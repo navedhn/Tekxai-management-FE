@@ -6,8 +6,6 @@ import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useGetDepartmentsQuery, useGetDivisionsQuery } from '@/services/departmentService';
 import Loader from '@/components/ui/Loader';
 
-// ── Departmental structure: Department -> Division -> Team ──────────────────
-
 function TeamsForScope({ teams, departmentId, divisionId }: { teams: any[]; departmentId: string; divisionId?: string }) {
   const scoped = teams.filter((t: any) =>
     t.department_id === departmentId && (divisionId ? t.division_id === divisionId : !t.division_id)
@@ -61,8 +59,6 @@ function DepartmentCard({ dept, teams }: { dept: any; teams: any[] }) {
     </div>
   );
 }
-
-// ── Reporting structure: recursive supervisor -> subordinate tree ───────────
 
 function PersonNode({ person, byManager, depth }: { person: any; byManager: Map<string, any[]>; depth: number }) {
   const [open, setOpen] = useState(depth < 1);

@@ -20,7 +20,6 @@ import timesheetEmployeeWhite from './timesheet-emplooye-white.svg';
 import timesheetWhite from './timesheet-white.svg';
 import totalProjectIcon from './total-project-icon.svg';
 
-
 export {
     texailogo,
     checkInDashboard,
@@ -76,4 +75,3 @@ export {
     GripVertical,
     MoreVertical
 } from 'lucide-react';
-

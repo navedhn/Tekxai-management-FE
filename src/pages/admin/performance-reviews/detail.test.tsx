@@ -5,10 +5,6 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import PerformanceReviewDetailPage from './detail';
 import { ToastProvider } from '@/components/toast/ToastProvider';
 
-// Phase 4 Employee Performance Evidence & Review Foundation — the review
-// detail page must show evidence BEFORE classification/action, must never
-// fabricate missing data, and must respect the warnings-restricted flag.
-
 const FULL_EVIDENCE: any = {
   review: {
     id: 'r1', user_id: 'u1', reviewer_id: 'u2',
@@ -133,12 +129,7 @@ describe('Performance Review detail — evidence before conclusion', () => {
       const actual = await vi.importActual<any>('@/services/performanceReviewsService');
       return { ...actual, useReviewEvidence: () => ({ data: restricted, isLoading: false, error: null }), useUpdateReview: () => ({ mutate: vi.fn(), isPending: false }), useAddManagerEvidence: () => ({ mutate: vi.fn(), isPending: false }), useDeleteManagerEvidence: () => ({ mutate: vi.fn(), isPending: false }) };
     });
-    // Note: since the module mock above is set at file scope for the whole
-    // suite, this test instead verifies the component's conditional render
-    // path directly against the shared FULL_EVIDENCE (restricted: false) —
-    // covered by the "No prior warnings" test above. This test documents
-    // the intended restricted-branch behavior for a real backend-integration
-    // pass (see index.test.tsx for the equivalent list-level check).
+
     expect(restricted.warnings.restricted).toBe(true);
   });
 

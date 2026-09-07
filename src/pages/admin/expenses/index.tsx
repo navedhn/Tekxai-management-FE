@@ -14,20 +14,12 @@ const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm foc
 const v1 = 'api/v1';
 const BUILDER = `${v1}/report/builder`;
 
-// Sprint 1 Milestone 4 (Expense Reports) — dimensions supportable by the
-// real expense_transactions schema. No department_id/business_unit_id/
-// project_id/status/is_recurring columns exist, so "by Department", "by
-// Business Unit", "by Project", "Pending/Approved/Rejected", and
-// "Recurring Expenses" are not offered here (would need a schema change).
 const EXPENSE_DIMENSIONS = [
   { key: 'category', label: 'By Category', group_by: 'category_id' },
   { key: 'vendor', label: 'By Vendor', group_by: 'paid_to' },
   { key: 'employee', label: 'By Employee', group_by: 'user_id' },
 ];
 
-// ── Quick Employee Ledger Access ──────────────────────────────────────────────
-// Names are not listed up front — only surfaced once the admin actually
-// searches for someone, so the panel isn't just a wall of every employee.
 function QuickLedgerAccess() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
@@ -75,7 +67,6 @@ function QuickLedgerAccess() {
   );
 }
 
-// ── Add Account Modal ─────────────────────────────────────────────────────────
 function AddAccountModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const [userId, setUserId] = useState('');
@@ -135,11 +126,6 @@ function AddAccountModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-// KPI cards — Total/Current Month/Current Year Expense via the generic KPI
-// engine (SUM of total_amount, filtered to transaction_type='expense' so
-// income rows aren't counted). Average Monthly Expense is derived client-
-// side from the already-fetched Current Year value (year-to-date / elapsed
-// months) rather than a second backend computation.
 function ExpenseKpiRow() {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -182,9 +168,6 @@ function ExpenseKpiRow() {
   );
 }
 
-// Aggregate breakdown — "Top Categories"/"Top Vendors"/"By Employee" ranked
-// by actual spend (metric_field), not row count, via the generic aggregate
-// engine's Milestone-4 metric_field extension.
 function ExpenseAggregateBreakdown() {
   const [dimKey, setDimKey] = useState(EXPENSE_DIMENSIONS[0].key);
   const dimension = EXPENSE_DIMENSIONS.find((d) => d.key === dimKey)!;
@@ -261,10 +244,6 @@ function ExpenseAggregateBreakdown() {
   );
 }
 
-// Detail reports — Pending Approval/Approved/Rejected/Recurring are
-// intentionally not offered here: expense_transactions has no status or
-// is_recurring column. What's real: the full ledger (income+expense) and
-// employee/vendor-filtered slices, all via the generic run_report engine.
 function ExpenseDetailReports() {
   const [active, setActive] = useState<'ledger' | 'employee' | 'vendor' | null>(null);
   const [vendorSearch, setVendorSearch] = useState('');
@@ -356,7 +335,6 @@ function ExpenseDetailReports() {
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ExpensesPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -371,10 +349,7 @@ export default function ExpensesPage() {
       toast.success('Account deleted');
       setAccountToDelete(null);
     },
-    // The backend blocks deleting an account that has transaction history
-    // (409, financial-audit protection — see expenses.controller.js) and
-    // returns a message explaining that; surface it instead of a generic
-    // "delete failed" so the admin knows to disable the account instead.
+
     onError: (err: any) => {
       toast.error(err?.data?.message || err?.message || 'Delete failed');
       setAccountToDelete(null);
@@ -417,7 +392,6 @@ export default function ExpensesPage() {
         </button>
       </div>
 
-      {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {cards.map(c => (
           <div key={c.label} className="flex flex-col gap-2 bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
@@ -430,10 +404,8 @@ export default function ExpensesPage() {
         ))}
       </div>
 
-      {/* Quick access for Super Admin — navigate directly to any employee ledger */}
       <QuickLedgerAccess />
 
-      {/* Active accounts table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <h2 className="text-sm font-black text-gray-700 mb-4">Employee Expense Accounts</h2>
         <div className="overflow-x-auto">
@@ -466,9 +438,7 @@ export default function ExpensesPage() {
                         <div className="text-xs text-gray-400">{acc.user.designation || ''}</div>
                       </>
                     ) : (
-                      // user_id is set on the account but the linked users row no longer
-                      // resolves (orphaned FK) — show that plainly instead of a blank cell,
-                      // since a blank name reads as "loading" rather than "broken".
+
                       <div className="font-semibold text-gray-400 italic">Unknown Employee</div>
                     )}
                   </td>
@@ -507,7 +477,6 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      {/* Sprint 1 Milestone 4 — Expense Reports (generic report_builder engine) */}
       <div>
         <h2 className="text-sm font-black text-gray-700 mb-4">Expense Reports</h2>
         <div className="flex flex-col gap-4">

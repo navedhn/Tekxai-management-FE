@@ -16,9 +16,6 @@ import { summarizeBulkDelete } from '@/utils/bulkDeleteSummary';
 import { cn } from '@/utils/cn';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 
-// Step 1 of the "Bulk Change Business Unit" flow — pick the target unit.
-// Step 2 (confirmation) reuses the existing ActionModal, same as every
-// other destructive/impactful bulk action on this page.
 function SelectBusinessUnitModal({ count, onClose, onContinue }: { count: number; onClose: () => void; onContinue: (businessUnitId: string) => void }) {
   const [businessUnitId, setBusinessUnitId] = useState('');
   const { data: businessUnits } = useGetBusinessUnitsQuery();
@@ -50,8 +47,6 @@ function SelectBusinessUnitModal({ count, onClose, onContinue }: { count: number
   );
 }
 
-// Step 1 of the "Bulk Change Function" flow — same two-step shape as the
-// Business Unit bulk flow above (pick target, then confirm via ActionModal).
 function SelectBusinessFunctionModal({ count, onClose, onContinue }: { count: number; onClose: () => void; onContinue: (businessFunction: string) => void }) {
   const [businessFunction, setBusinessFunction] = useState('');
   return (

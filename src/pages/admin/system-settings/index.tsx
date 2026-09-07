@@ -95,7 +95,6 @@ export default function SystemSettings() {
         <p className="text-sm text-gray-400 mt-1">Global configuration for all users and agents.</p>
       </div>
 
-      {/* Screenshot Settings */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
         <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
           <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center">
@@ -141,7 +140,6 @@ export default function SystemSettings() {
         </div>
       </div>
 
-      {/* Idle Auto-Checkout Settings */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
         <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
           <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center">
@@ -191,7 +189,6 @@ export default function SystemSettings() {
         </div>
       </div>
 
-      {/* Daily Agenda / Report Settings */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
         <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
           <div className="w-9 h-9 rounded-xl bg-primary-50 flex items-center justify-center">
@@ -265,12 +262,8 @@ export default function SystemSettings() {
         </div>
       </div>
 
-      {/* Reporting Email — per-Business-Unit, independently loaded/saved from
-          the generic key-value form above (structured data: per-BU toggle +
-          an open-ended recipient list, not a single scalar setting). */}
       <ReportingEmailSettings />
 
-      {/* S3 credentials notice */}
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
         <strong>S3 Configuration</strong> — AWS credentials and bucket name are set via server environment variables
         (<code className="font-mono text-xs bg-amber-100 px-1 rounded">AWS_ACCESS_KEY_ID</code>,&nbsp;

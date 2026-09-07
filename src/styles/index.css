@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  /* Brand primary: #1F7BFF */
+
   --color-primary: #1f7bff;
   --color-primary-50: #eff6ff;
   --color-primary-100: #dbeafe;
@@ -21,11 +21,9 @@
   --color-dark-gray: #252525;
 
   --color-accent-mint: #dbf7f3;
-  /* #DBF7F3 */
-  --color-accent-sand: #f8e6d1;
-  /* #F8E6D1 */
 
-  /* Surfaces and layout tokens */
+  --color-accent-sand: #f8e6d1;
+
   --color-yellow: #ffae4c;
   --color-red: #ff0004;
   --color-green: #067647;
@@ -37,7 +35,6 @@
   --color-sidebar: #0f172a;
   --color-topbar: #ffffff;
 
-  /* Gradients */
   --gradient-brand: linear-gradient(180deg, #005CDA 0%, #001F4A 100%);
   --gradient-admin: linear-gradient(180deg, #005CDA 0%, #001F4A 100%);
   --gradient-primary: linear-gradient(180deg, #005CDA 0%, #001F4A 100%);
@@ -46,14 +43,6 @@
   --spacing-sidebar: 17.75rem;
   --spacing-topbar: 3.375rem;
 
-  /* ============================================================
-     Design System Tokens (Phase 2 foundation)
-     Canonical semantic palette shared across Tekxai ERP + TekPulse
-     CRM. New code should reference these instead of raw hex values
-     or Tailwind's default color scale. Existing tokens above are
-     left untouched to avoid breaking current usage; migration of
-     call sites to these tokens is Phase 13 (future work).
-     ============================================================ */
   --color-brand-primary: #1a66d6;
   --color-brand-primary-hover: #1552ad;
   --color-brand-primary-active: #113f85;
@@ -98,30 +87,15 @@
   --color-glass-bg: rgba(255, 255, 255, 0.72);
   --color-glass-border: rgba(226, 232, 240, 0.8);
 
-  /* ============================================================
-     Design System Animation Tokens (Phase 12 foundation)
-     One duration scale + one easing curve, matching what Sidebar.tsx/
-     Modal.tsx/btn-sweep already converged on independently. New
-     hover/focus/dropdown/modal/drawer/sidebar transitions should
-     reference these instead of picking an arbitrary duration.
-     ============================================================ */
-  --duration-fast: 150ms;   /* hover/focus states — buttons, icon buttons, nav items */
-  --duration-base: 200ms;   /* dropdowns, tooltips, badges */
-  --duration-slow: 350ms;   /* modals, drawers, sidebar collapse */
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-slow: 350ms;
   --ease-standard: cubic-bezier(0.23, 1, 0.32, 1);
 
-  /* Fonts */
   --font-body: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
   --font-heading: "Inter", sans-serif;
   --font-sans: var(--font-body);
 
-  /* ============================================================
-     Design System Typography Scale (Phase 4 foundation)
-     One named scale shared with tek-pulse-FE. Generates text-h1..
-     text-badge utilities (Tailwind v4 --text-* convention). Existing
-     text-xs/text-sm/text-[Npx] usage across the app is untouched —
-     migrating call sites to this scale is Phase 13 (future work).
-     ============================================================ */
   --text-h1: 1.75rem;
   --text-h1--line-height: 2.25rem;
   --text-h1--font-weight: 700;
@@ -185,17 +159,6 @@ body {
   transition: background-color var(--duration-slow) var(--ease-standard);
 }
 
-/* ============================================================
-   Multi-theme system (Appearance settings) — Clean Light is the
-   unstamped default (no [data-theme] attr = identical to the
-   values already above, so an existing session with no preference
-   saved yet renders exactly like production did before this).
-   Overrides ONLY brand/surface/sidebar/glass/text tokens — success/
-   warning/danger/info intentionally stay identical across every
-   theme (semantic meaning must survive a re-skin). Shared 1:1 with
-   tek-pulse-FE's theme block: same theme ids, same variable names,
-   same values, so a user gets one consistent system across CRM+ERP.
-   ============================================================ */
 :root[data-theme="emerald"] {
   --color-brand-primary: #10b981;
   --color-brand-primary-hover: #059669;
@@ -272,7 +235,6 @@ body {
   -webkit-backdrop-filter: blur(16px);
 }
 
-/* Global Typography */
 h1 {
   font-family: 'Inter', sans-serif;
   font-size: var(--text-h1);
@@ -323,7 +285,6 @@ span {
   font-family: 'Inter', sans-serif !important;
 }
 
-/* Phase 12: shared open-transition for dropdowns/popovers/menus */
 @keyframes dropdown-enter {
   from {
     opacity: 0;
@@ -359,7 +320,6 @@ span {
   animation: shimmer 2s infinite linear;
 }
 
-/* Button sweep animations */
 @keyframes sweep {
   from {
     transform: translateX(-100%);
@@ -425,7 +385,6 @@ span {
   scrollbar-width: none;
 }
 
-
 .custom-scrollbar::-webkit-scrollbar {
   height: 6px;
   width: 6px;
@@ -446,7 +405,6 @@ span {
   background: #1f7bff;
 }
 
-/* Global pointer cursor for all interactive elements */
 button,
 [role="button"],
 select,

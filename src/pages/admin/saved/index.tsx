@@ -131,9 +131,6 @@ const SavedProject: React.FC = () => {
         }
     ];
 
-
-    // if (isLoading) return <Loader fullPage size={48} />;
-
     return (
         <div className="flex flex-col gap-8">
             <ActionModal

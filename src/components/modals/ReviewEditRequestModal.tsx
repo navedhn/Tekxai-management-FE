@@ -49,7 +49,7 @@ const ReviewEditRequestModal: React.FC<ReviewEditRequestModalProps> = ({ isOpen,
         >
             <div className="flex flex-col gap-8">
                 <div className="flex flex-col gap-6">
-                    {/* User Info */}
+
                     <div className="flex items-center gap-4 bg-gray-50/50 p-4 rounded-3xl border border-gray-100">
                         <div className="h-14 w-14 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-black text-xl border-4 border-white shadow-sm uppercase">
                             {request.name.split(' ').map(n => n[0]).join('')}
@@ -63,7 +63,6 @@ const ReviewEditRequestModal: React.FC<ReviewEditRequestModalProps> = ({ isOpen,
                         </div>
                     </div>
 
-                    {/* Request Details */}
                     <div className="flex flex-col gap-4">
                         <div className="flex flex-col gap-2">
                             <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest ml-1">Reason for Adjustment</span>
@@ -107,4 +106,3 @@ const ReviewEditRequestModal: React.FC<ReviewEditRequestModalProps> = ({ isOpen,
 };
 
 export default ReviewEditRequestModal;
-

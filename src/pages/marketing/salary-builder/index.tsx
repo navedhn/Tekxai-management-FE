@@ -46,7 +46,6 @@ const SalaryBuilderPage: React.FC = () => {
   const { data: slip, isLoading: slipLoading } = useGetSalaryBuilder(memberId, period);
   const upsert = useUpsertSalaryBuilderMutation();
 
-  // Populate form when slip data loads
   useEffect(() => {
     if (slip) {
       setBasicSalary(String(slip.basic_salary_pkr || ''));
@@ -56,7 +55,7 @@ const SalaryBuilderPage: React.FC = () => {
       setAllowances(Array.isArray(slip.allowances) ? slip.allowances : []);
       setInitialized(true);
     } else if (!slipLoading) {
-      // No existing slip: reset to blank
+
       setBasicSalary('');
       setDeductions('');
       setDeductionReason('');
@@ -93,7 +92,7 @@ const SalaryBuilderPage: React.FC = () => {
   };
 
   const handlePublish = async () => {
-    // Upsert first, then publish
+
     upsert.mutate(buildPayload('draft'), {
       onSuccess: async () => {
         try {

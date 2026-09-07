@@ -5,10 +5,6 @@ import { MemoryRouter } from 'react-router-dom';
 import ProjectDetailsSlideOver from './ProjectDetailsSlideOver';
 import { ToastProvider } from '@/components/toast/ToastProvider';
 
-// Phase 2 Commercial Project Foundation — the Overview tab's Commercial
-// panel (Client/Bidder/Source/Commission), kept separate from the
-// Financial tab's milestone-derived Total/Paid/Remaining/Active.
-
 const LINKED_PROJECT: any = {
   id: 'p1', title: 'Linked Project', description: 'A real project', status: 'IN_PROGRESS',
   progress: 40, total_hours: 10, start_date: '2026-01-01', end_date: '2026-03-01',
@@ -85,16 +81,14 @@ describe('ProjectDetailsSlideOver — Commercial panel (Overview tab)', () => {
     renderPanel('p2');
     expect(screen.getByText('Commercial')).toBeInTheDocument();
     const notSet = screen.getAllByText('Not set');
-    expect(notSet.length).toBeGreaterThanOrEqual(3); // Client, Bidder, Source
-    expect(screen.getByText('None')).toBeInTheDocument(); // Commission
+    expect(notSet.length).toBeGreaterThanOrEqual(3);
+    expect(screen.getByText('None')).toBeInTheDocument();
     expect(screen.queryByText('Linked record')).not.toBeInTheDocument();
   });
 
   it('Commercial and Financial are visually distinct sections, not conflated', () => {
     renderPanel('p1');
-    // Overview tab (default) shows Commercial; Financial tab's own content
-    // (Milestone Financials / Budget panels) is not rendered until that tab
-    // is active — confirms the two are separate, not merged into one block.
+
     expect(screen.getByText('Commercial')).toBeInTheDocument();
     expect(screen.queryByText('Milestone Financials')).not.toBeInTheDocument();
   });

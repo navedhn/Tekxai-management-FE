@@ -35,10 +35,7 @@ const LIFECYCLE_STAGE_OPTIONS = [
 const EMP_STATUS_LABEL: Record<string, string> = EMPLOYMENT_STATUS_LABELS;
 
 function StatCard({ icon: Icon, color, iconColor, label, value, total }: any) {
-  // Backend stats aren't guaranteed to be filtered in lockstep (e.g. searching
-  // narrows total_employees but not the breakdown counts), which can make
-  // value > total under an active filter — skip the percentage rather than
-  // show a nonsensical number like "2700%" in that case.
+
   const pct = total && typeof value === 'number' && total > 0 && value <= total ? Math.round((value / total) * 100) : null;
   return (
     <div className="flex items-center gap-4 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
@@ -56,10 +53,6 @@ function StatCard({ icon: Icon, color, iconColor, label, value, total }: any) {
   );
 }
 
-// StatusBadge's shared tone palette has no "purple" tone (Pending) and no
-// dedicated blue for Notice Period, so those two use a bespoke inline badge
-// to match this page's spec exactly, instead of adding a one-off tone to the
-// shared component for a single page's color choice.
 function ColorBadge({ label, tone }: { label: string; tone: 'purple' | 'blue' }) {
   const cls = tone === 'purple'
     ? 'bg-purple-50 text-purple-700 border-purple-200'
@@ -106,8 +99,7 @@ export default function EmployeeDirectory() {
   const { data: designationsData = [] } = useGetDesignationsQuery();
   const { data: businessUnitsData = [] } = useGetBusinessUnitsQuery();
   const { data: gradesData = [] } = useGetGradesQuery();
-  // Same query key ('user-list-brief') used by Add Employee's Reporting
-  // Manager picker and others — shares the cache instead of a new fetch.
+
   const { data: managersData = [] } = useQuery({
     queryKey: ['user-list-brief'],
     queryFn: () => apiRequest<any>(`${API_ENDPOINTS.USER.LIST}?limit=200&status=ACTIVE`),
@@ -115,7 +107,6 @@ export default function EmployeeDirectory() {
     staleTime: 300000,
   });
 
-  // Selection state
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const toggleSort = (col: string) => {
@@ -125,15 +116,9 @@ export default function EmployeeDirectory() {
   };
 
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
-  // Quick Edit — set once the user picks "Quick Edit" from the edit-mode
-  // chooser below. Available for every employee regardless of created_via
-  // (QUICK or FULL) — Quick Edit and Detailed Edit are just two different
-  // views onto the same user, not something the record's origin locks you
-  // into.
+
   const [quickEditTarget, setQuickEditTarget] = useState<any>(null);
-  // Edit-mode chooser — set to the row whose (single) edit icon was just
-  // clicked; shows a small popup offering Quick Edit vs Detailed Edit for
-  // that row. This is the one and only edit entry point in the directory.
+
   const [editModeTarget, setEditModeTarget] = useState<any>(null);
   const [deleteTarget, setDeleteTarget]   = useState<any>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -149,12 +134,10 @@ export default function EmployeeDirectory() {
     setPage(1);
   }, [urlStatus, urlEmpStatus]);
 
-  // Clear selection when page/filters change
   useEffect(() => { setSelected(new Set()); }, [page, q, status, employmentStatus, employeeIdFilter, roleFilter, designationFilter, businessUnitFilter, supervisorFilter, gradeFilter]);
-  // Restart at page 1 whenever a filter changes so results aren't left mid-list.
+
   useEffect(() => { setPage(1); }, [employeeIdFilter, roleFilter, designationFilter, businessUnitFilter, supervisorFilter, gradeFilter, limit]);
 
-  // Close the Export dropdown on outside click.
   useEffect(() => {
     function onClick(e: MouseEvent) {
       if (exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false);
@@ -196,11 +179,6 @@ export default function EmployeeDirectory() {
   const total = data?.total || 0;
   const pages = data?.pages || 1;
 
-  // Client-side export only — there is no employee-directory export endpoint
-  // on the backend (confirmed: only attendance/no-checkins has one), and
-  // adding one would mean touching the backend, which this pass is scoped
-  // to avoid. Exports always reflect exactly the rows currently on screen
-  // (or the selected subset for "Export Selected").
   const exportRows = (rows: any[]) => rows.map((e: any) => ({
     name: `${e.first_name || ''} ${e.last_name || ''}`.trim() || '—',
     employee_id: e.employee_id || '—',
@@ -250,9 +228,6 @@ export default function EmployeeDirectory() {
     doc.save('employee-directory.pdf');
   };
 
-  // Reuse the canonical departments hook — a locally duplicated queryFn under
-  // the same ['departments'] key but with a different return shape corrupts
-  // this shared cache entry for every other consumer of that key.
   const { data: departments } = useGetDepartmentsQuery();
 
   const clearFilters = () => {
@@ -275,7 +250,6 @@ export default function EmployeeDirectory() {
     return '';
   };
 
-  // Selection helpers
   const pageIds = records.map(r => r.id);
   const allOnPageSelected = pageIds.length > 0 && pageIds.every(id => selected.has(id));
   const someSelected = selected.size > 0;
@@ -298,8 +272,7 @@ export default function EmployeeDirectory() {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    // deleteUser's own onSuccess already invalidates ['employee-directory']
-    // (invalidateUserAndDependents, userService.ts) — no manual refetch needed.
+
     deleteUser.mutate(deleteTarget.id, {
       onSuccess: () => {
         toast.success(`${deleteTarget.full_name || deleteTarget.email} removed`);
@@ -339,23 +312,17 @@ export default function EmployeeDirectory() {
   return (
     <div className="flex flex-col gap-6">
 
-      {/* Quick Create User — lightweight login-only creation, full profile filled in later */}
       <QuickCreateUserModal
         isOpen={quickCreateOpen}
         onClose={() => setQuickCreateOpen(false)}
       />
 
-      {/* Quick Edit — same lightweight form as Quick Create. Available for any
-          employee, regardless of how they were originally added. */}
       <QuickCreateUserModal
         isOpen={!!quickEditTarget}
         onClose={() => setQuickEditTarget(null)}
         editUser={quickEditTarget}
       />
 
-      {/* Edit-mode chooser — the directory's single edit entry point (one
-          pencil icon per row) opens this, offering Quick Edit vs Detailed
-          Edit. Every employee gets both options regardless of created_via. */}
       <Modal
         isOpen={!!editModeTarget}
         onClose={() => setEditModeTarget(null)}
@@ -383,9 +350,7 @@ export default function EmployeeDirectory() {
             onClick={() => {
               const emp = editModeTarget;
               setEditModeTarget(null);
-              // Prefer the human-readable employee_id in the URL — never expose
-              // the internal DB id. Falls back to the DB-id route (auto-redirects
-              // to the clean URL) for the rare employee with no employee_id yet.
+
               navigate(emp.employee_id ? `/admin/add-employee?mode=edit&employee=${emp.employee_id}` : `/admin/add-employee/${emp.id}`);
             }}
             className="flex flex-col items-center gap-2 rounded-xl border border-gray-200 p-4 text-center hover:border-primary-400 hover:bg-primary-50 transition-colors"
@@ -397,7 +362,6 @@ export default function EmployeeDirectory() {
         </div>
       </Modal>
 
-      {/* Single delete confirmation */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
@@ -423,7 +387,6 @@ export default function EmployeeDirectory() {
         </div>
       )}
 
-      {/* Bulk delete confirmation */}
       {bulkDeleteOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
@@ -449,7 +412,6 @@ export default function EmployeeDirectory() {
         </div>
       )}
 
-      {/* Header */}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-black text-gray-900">
@@ -487,7 +449,6 @@ export default function EmployeeDirectory() {
         </div>
       </div>
 
-      {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard icon={Users}       color="bg-blue-500"   label="Total Employees"    value={stats.total_employees} />
         <StatCard icon={CheckCircle} color="bg-green-500"  label="Active"             value={stats.active}   total={stats.total_employees} />
@@ -496,10 +457,9 @@ export default function EmployeeDirectory() {
         <StatCard icon={Users}       color="bg-purple-500" label="Pending"            value={stats.pending}  total={stats.total_employees} />
       </div>
 
-      {/* Filters + Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <div className="flex flex-col gap-2.5">
-          {/* Row 1 — Search / Status / Role / Business Unit / Department */}
+
           <div className="flex flex-wrap gap-2.5">
             <div className="relative flex-1 min-w-[220px]">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -552,7 +512,6 @@ export default function EmployeeDirectory() {
             />
           </div>
 
-          {/* Row 2 — Designation / Grade / Reporting Manager / Employee ID / Clear Filters */}
           <div className="flex flex-wrap items-center gap-2.5">
             <SearchableSelect
               options={designationsData.map((d) => ({ label: d.name, value: d.id }))}
@@ -592,7 +551,6 @@ export default function EmployeeDirectory() {
           </div>
         </div>
 
-        {/* Bulk action bar */}
         {someSelected && (
           <div className="mt-3 flex items-center gap-3 px-4 py-2.5 bg-primary-50 border border-primary-100 rounded-xl">
             <span className="text-sm font-semibold text-primary-700">
@@ -646,7 +604,6 @@ export default function EmployeeDirectory() {
           </div>
         )}
 
-        {/* Bulk lifecycle-stage confirmation */}
         {bulkLifecycleOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
@@ -681,7 +638,7 @@ export default function EmployeeDirectory() {
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10 bg-white">
               <tr className="border-b border-gray-100">
-                {/* Checkbox column */}
+
                 <th className="py-3 px-2 w-8 bg-white">
                   <input
                     type="checkbox"
@@ -777,8 +734,7 @@ export default function EmployeeDirectory() {
                     <td className="py-3 px-2 text-gray-600">{emp.department?.name || '—'}</td>
                     <td className="py-3 px-2 text-gray-600">{emp.business_unit?.name || '—'}</td>
                     <td className="py-3 px-2">
-                      {/* Real RBAC roles (users.roles -> roles relation), not
-                          derived from designation or hardcoded. */}
+
                       {emp.roles?.length ? (
                         <div className="flex flex-wrap items-center gap-1">
                           {emp.roles.map((r: { id: string; name: string }) => (
@@ -824,9 +780,7 @@ export default function EmployeeDirectory() {
                           size="sm"
                           aria-label="Edit Employee"
                           title="Edit Employee"
-                          // Single edit entry point — opens the Quick Edit /
-                          // Detailed Edit chooser modal. Both flows remain
-                          // available from here.
+
                           onClick={() => setEditModeTarget(emp)}
                           className="!h-auto !w-auto p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50"
                         />

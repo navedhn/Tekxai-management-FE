@@ -1,8 +1,5 @@
 import { useState, useMemo } from 'react';
 
-// Shared multi-select state for bulk-action tables (checkboxes + select-all).
-// Used by Departments and Divisions (and any future org-management table) so
-// the select/toggle-all/clear logic isn't reimplemented per page.
 export function useBulkSelection(pageIds: string[]) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
 

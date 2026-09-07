@@ -5,11 +5,6 @@ import CreateMilestoneModal from './CreateMilestoneModal';
 import { ToastProvider } from '@/components/toast/ToastProvider';
 import { apiRequest } from '@/lib/queryClient';
 
-// Phase 3 Project Delivery & Evidence Foundation — Delivery Evidence
-// fields on the milestone edit form (create-only forms don't show this
-// section, since there's nothing to explain about a delivery that hasn't
-// happened yet).
-
 vi.mock('@/lib/queryClient', async () => {
   const actual = await vi.importActual<any>('@/lib/queryClient');
   return { ...actual, apiRequest: vi.fn() };
@@ -76,17 +71,15 @@ describe('CreateMilestoneModal — Delivery Evidence (edit only)', () => {
 
   it('submitting with a missed reason, classification, QA status, and rework count sends them all', async () => {
     renderModal({ milestone: BASE_MILESTONE });
-    // Missed Reason -> Blocker
+
     fireEvent.click(screen.getAllByText('Not set')[0].closest('button')!);
     await waitFor(() => expect(screen.getByText('Blocker')).toBeInTheDocument());
     fireEvent.click(screen.getByText('Blocker'));
 
-    // Classification -> Capacity Issue
     fireEvent.click(screen.getAllByText('Not set')[0].closest('button')!);
     await waitFor(() => expect(screen.getByText('Capacity Issue')).toBeInTheDocument());
     fireEvent.click(screen.getByText('Capacity Issue'));
 
-    // QA Status -> Failed
     fireEvent.click(screen.getByText('Not assessed').closest('button')!);
     await waitFor(() => expect(screen.getByText('Failed')).toBeInTheDocument());
     fireEvent.click(screen.getByText('Failed'));
@@ -108,7 +101,7 @@ describe('CreateMilestoneModal — Delivery Evidence (edit only)', () => {
 
   it('a missed reason does not force a particular classification — both are independently selectable', async () => {
     renderModal({ milestone: { ...BASE_MILESTONE, missed_reason_category: 'CLIENT_DEPENDENCY' } });
-    // Missed reason shows "Client Dependency" but classification remains unset ("Not set")
+
     expect(screen.getByText('Client Dependency')).toBeInTheDocument();
     expect(screen.getByText('Not set')).toBeInTheDocument();
   });

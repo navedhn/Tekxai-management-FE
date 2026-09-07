@@ -4,8 +4,6 @@ import { API_ENDPOINTS } from './api/endpoints';
 import { QUERY_KEYS } from './api/tanstackKeys';
 import { uploadFile } from '@/lib/upload';
 
-// --- Types ---
-
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
@@ -67,10 +65,6 @@ export interface TaskAttachment {
   uploader?: { id: string; first_name: string; last_name: string };
 }
 
-// --- Query key helpers (kept as plain arrays to match this file's
-// pre-existing convention — kanban-tasks/sub-tasks/time-logs already use
-// literal arrays rather than the shared QUERY_KEYS registry) ---
-
 const kanbanTasksKey = (projectId: string | null | undefined) => ['kanban-tasks', projectId];
 const milestonesKey = (projectId: string | null | undefined) => QUERY_KEYS.MILESTONE.LIST(projectId || '');
 const subTasksKey = (taskId: string | null | undefined) => ['sub-tasks', taskId];
@@ -78,8 +72,6 @@ const timeLogsKey = (taskId: string | null | undefined) => ['time-logs', taskId]
 const taskCommentsKey = (taskId: string | null | undefined) => ['task-comments', taskId];
 const taskAttachmentsKey = (taskId: string | null | undefined) => ['task-attachments', taskId];
 const timelineKey = (projectId: string | null | undefined) => QUERY_KEYS.COMMUNICATION_TIMELINE.GET(projectId || '');
-
-// --- Hooks ---
 
 export function useKanbanTasks(projectId: string | null | undefined) {
   return useQuery<KanbanTask[]>({
@@ -148,13 +140,6 @@ export function useDeleteTask(projectId: string | null | undefined) {
   });
 }
 
-// --- Sub-tasks ---
-// FIX: previously called API_ENDPOINTS.SUB_TASKS(taskId) which built
-// `${v1}/tasks/${taskId}/sub-tasks` — a path that was never mounted
-// (tasks.routes.js only mounts at /project/:projectId/tasks, see
-// be-work/src/routes/index.js line ~105), so every sub-task call 404'd.
-// Now takes projectId + taskId to match the corrected endpoint builder.
-
 export function useSubTasks(projectId: string | null | undefined, taskId: string | null | undefined) {
   return useQuery<SubTask[]>({
     queryKey: subTasksKey(taskId),
@@ -199,21 +184,13 @@ export function useToggleSubTask(projectId: string | null | undefined, taskId: s
   });
 }
 
-// --- Time logs ---
-
 export function useTaskTimeLogs(projectId: string | null | undefined, taskId: string | null | undefined) {
   return useQuery<TimeLog[]>({
     queryKey: timeLogsKey(taskId),
     queryFn: async () => {
       if (!projectId || !taskId) return [];
       const res = await apiRequest<any>(API_ENDPOINTS.TIME_LOGS(projectId, taskId));
-      // FIX: this endpoint's payload shape is { logs: [...], total_seconds }
-      // (see be-work time_logs.controller.js), not a bare array/records list
-      // like every other list endpoint in this file — the generic
-      // `payload.records || payload` unwrap silently returned the whole
-      // object here, and TimeLogSection's timeLogs.reduce(...) then crashed
-      // the whole app with "timeLogs.reduce is not a function" the first
-      // time a task drawer was opened.
+
       return (res?.payload?.logs || res?.payload?.records || (Array.isArray(res?.payload) ? res.payload : null) || []) as TimeLog[];
     },
     enabled: !!projectId && !!taskId,
@@ -235,8 +212,6 @@ export function useLogTime(projectId: string | null | undefined, taskId: string 
     },
   });
 }
-
-// --- Task archive/restore ---
 
 export function useArchiveTask(projectId: string | null | undefined) {
   const qc = useQueryClient();
@@ -268,11 +243,6 @@ export function useUnarchiveTask(projectId: string | null | undefined) {
   });
 }
 
-// --- Task dependencies (depends_on_ids, modeled on milestones.depends_on_ids) ---
-// Note: the backend rejects self-dependency with a 400 (verified in
-// tasks controller) but there is no server-side circular-dependency
-// detection — the picker below only excludes the task itself client-side.
-
 export function useSetTaskDependencies(projectId: string | null | undefined) {
   const qc = useQueryClient();
   return useMutation({
@@ -289,8 +259,6 @@ export function useSetTaskDependencies(projectId: string | null | undefined) {
     },
   });
 }
-
-// --- Task comments (modeled on project_discussions) ---
 
 export function useTaskComments(projectId: string | null | undefined, taskId: string | null | undefined) {
   return useQuery<TaskComment[]>({
@@ -321,8 +289,6 @@ export function useCreateTaskComment(projectId: string | null | undefined, taskI
   });
 }
 
-// Only list+create exist on the task_comments controller (no update
-// endpoint) — so no edit hook here, matching what the backend supports.
 export function useDeleteTaskComment(projectId: string | null | undefined, taskId: string | null | undefined) {
   const qc = useQueryClient();
   return useMutation({
@@ -336,10 +302,6 @@ export function useDeleteTaskComment(projectId: string | null | undefined, taskI
     },
   });
 }
-
-// --- Task attachments (modeled on project_documents: client uploads the
-// file first via the shared uploadFile() helper, then posts the resulting
-// URL/key here — no direct file-handling on this endpoint) ---
 
 export function useTaskAttachments(projectId: string | null | undefined, taskId: string | null | undefined) {
   return useQuery<TaskAttachment[]>({
@@ -371,8 +333,6 @@ export function useUploadTaskAttachment(projectId: string | null | undefined, ta
   });
 }
 
-// Only list+create+delete exist on the task_attachments controller (no
-// "replace" endpoint) — so no replace hook here.
 export function useDeleteTaskAttachment(projectId: string | null | undefined, taskId: string | null | undefined) {
   const qc = useQueryClient();
   return useMutation({

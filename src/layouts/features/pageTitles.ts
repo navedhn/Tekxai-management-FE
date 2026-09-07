@@ -1,6 +1,3 @@
-// Topbar title per route — matches the sidebar item label. Kept as its own
-// lookup (not derived from Sidebar.tsx's internal data) so the two files
-// don't need to share an import just for this.
 const PAGE_TITLES: Record<string, string> = {
   '/admin': 'Dashboard',
   '/admin/executive-dashboard': 'Executive Dashboard',
@@ -68,9 +65,6 @@ const PAGE_TITLES: Record<string, string> = {
   '/admin/project-report': 'Project Report',
   '/admin/starred': 'Starred',
 
-  // Not nested under /admin or /employee — chat is one shared route for all
-  // roles (see router.tsx), so this key is looked up as-is (normalization
-  // above only rewrites paths that actually start with routePrefix).
   '/chat': 'Messages',
 };
 
@@ -78,26 +72,17 @@ function titleCase(segment: string): string {
   return segment.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-// PAGE_TITLES is keyed by /admin/... paths only. Employee/other layouts
-// reuse this same lookup with their own routePrefix (e.g. '/employee'),
-// but previously the raw employee pathname was looked up directly against
-// admin-only keys — never matched, so a detail route like
-// /employee/documents/:id fell all the way to the generic "last path
-// segment, title-cased" fallback, showing the raw document id as the page
-// title instead of "HR Documents". Normalizing the prefix back to /admin
-// before lookup lets every existing PAGE_TITLES entry (and its prefix-match
-// sub-routes) resolve correctly for any layout without duplicating them.
 export function getPageTitle(pathname: string, routePrefix: string = '/admin'): { title: string } {
   const normalized = routePrefix !== '/admin' && pathname.startsWith(routePrefix)
     ? '/admin' + pathname.slice(routePrefix.length)
     : pathname;
   if (PAGE_TITLES[normalized]) return { title: PAGE_TITLES[normalized] };
-  // Prefix match for detail/sub-routes (e.g. /admin/documents/:id)
+
   const prefixMatch = Object.keys(PAGE_TITLES)
     .filter((p) => p !== '/admin' && normalized.startsWith(p + '/'))
     .sort((a, b) => b.length - a.length)[0];
   if (prefixMatch) return { title: PAGE_TITLES[prefixMatch] };
-  // Generic fallback: last path segment, title-cased.
+
   const last = normalized.split('/').filter(Boolean).pop() || 'Dashboard';
   return { title: titleCase(last) };
 }

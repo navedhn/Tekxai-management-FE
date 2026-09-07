@@ -2,26 +2,16 @@ import React, { forwardRef } from 'react';
 import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
-/**
- * Phase 8 (Tables): a generic, reusable data-table foundation.
- * Covers sorting, pagination, a search/filter bar slot, sticky
- * header, hover/selected row states, an empty state, and a loading
- * skeleton — built on the Phase 2/4 design tokens (no hardcoded hex
- * where a token exists). This does not replace the many existing ad
- * hoc `<table>`/grid implementations across pages/admin/* — that
- * migration is deferred to Phase 13.
- */
-
 export interface DataTableColumn<T> {
-  /** Unique key identifying the column; used for sort state and as the default cell accessor. */
+
   key: string;
-  /** Column header label. */
+
   label: string;
-  /** Enables the click-to-sort chevron indicator for this column. */
+
   sortable?: boolean;
-  /** Custom cell renderer; falls back to `row[key]` when omitted. */
+
   render?: (row: T, index: number) => React.ReactNode;
-  /** Optional fixed width (CSS value). */
+
   width?: string;
   align?: 'left' | 'center' | 'right';
   headerClassName?: string;
@@ -33,7 +23,7 @@ export type SortDirection = 'asc' | 'desc';
 export interface DataTableProps<T> {
   columns: DataTableColumn<T>[];
   data: T[];
-  /** Unique row id accessor, used for selection/keys. Defaults to row index. */
+
   rowKey?: (row: T, index: number) => string | number;
   loading?: boolean;
   emptyMessage?: string;
@@ -46,12 +36,12 @@ export interface DataTableProps<T> {
   onPageChange?: (page: number) => void;
   selectedRowId?: string | number;
   onRowClick?: (row: T, index: number) => void;
-  /** Optional search/filter bar rendered above the table. */
+
   searchSlot?: React.ReactNode;
-  /** Keeps the header pinned to the top of the scroll container. @default true */
+
   stickyHeader?: boolean;
   className?: string;
-  /** Number of skeleton rows shown while `loading` is true. @default 8 */
+
   skeletonRows?: number;
 }
 

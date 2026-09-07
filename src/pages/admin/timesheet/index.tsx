@@ -39,14 +39,12 @@ const TimesheetManagement: React.FC = () => {
     const [selectedRequest, setSelectedRequest] = useState<EditRequest | null>(null);
     const [editForm, setEditForm] = useState({ checkIn: '20/03/2023', checkOut: '20/03/2024', reason: '' });
 
-    // Queries
     const { data: timesheet, isLoading: isTimesheetLoading } = useGetWeeklyTimesheet({ search: debouncedSearch, status: statusFilter === 'ALL' ? undefined : statusFilter }, activeTab === 'All Entries');
     const { data: requestData, isLoading: isRequestsLoading } = useGetTimesheetRequests(activeTab === 'Edit Requests' || activeTab === 'Time Off Requests');
 
     const editRequests = requestData?.timesheet_edit_requests || [];
     const timeOffRequests = requestData?.time_off_requests || [];
 
-    // Mutations
     const updateMutation = useUpdateTimesheetMutation();
     const approveMutation = useApproveTimeOffMutation();
     const rejectMutation = useRejectTimeOffMutation();
@@ -160,7 +158,7 @@ const TimesheetManagement: React.FC = () => {
         }
     ];
 
-    const isTabLoading = (activeTab === 'All Entries' && isTimesheetLoading) || 
+    const isTabLoading = (activeTab === 'All Entries' && isTimesheetLoading) ||
                        ((activeTab === 'Edit Requests' || activeTab === 'Time Off Requests') && isRequestsLoading);
 
     return (
@@ -370,7 +368,6 @@ const TimesheetManagement: React.FC = () => {
                 loading={deleteMutation.isPending}
             />
 
-            {/* Edit Time Entry Modal */}
             <Modal
                 isOpen={isEditModalOpen}
                 onClose={() => setIsEditModalOpen(false)}
@@ -436,4 +433,3 @@ const TimesheetManagement: React.FC = () => {
 };
 
 export default TimesheetManagement;
-

@@ -194,7 +194,6 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ ticket, onClose, 
           <p className="text-sm text-gray-700 leading-relaxed">{t.description}</p>
         </div>
 
-        {/* Custom fields from the ticket type's dynamic form */}
         {customFieldRows.length > 0 && (
           <div>
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Request details</p>
@@ -230,7 +229,6 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ ticket, onClose, 
           <ReassignControl ticket={t} isSuperAdmin={isSuperAdmin} />
         )}
 
-        {/* Approval history */}
         {approvals.length > 0 && (
           <div>
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">Approvals</p>
@@ -263,7 +261,6 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ ticket, onClose, 
           </div>
         )}
 
-        {/* Activity timeline — served straight from activity_logs */}
         {timeline.length > 0 && (
           <div className="border-t border-gray-100 pt-4">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-1">
@@ -285,7 +282,6 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ ticket, onClose, 
           </div>
         )}
 
-        {/* Replies thread */}
         {replies.length > 0 && (
           <div className="border-t border-gray-100 pt-4">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-3">Conversation</p>
@@ -295,7 +291,6 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ ticket, onClose, 
           </div>
         )}
 
-        {/* Reply input — always visible */}
         {t.status !== 'resolved' && (
           <div className="border-t border-gray-100 pt-4">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">

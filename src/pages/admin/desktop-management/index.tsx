@@ -12,10 +12,6 @@ type RolloutPercentage = 10 | 25 | 50 | 100;
 type TargetType = 'business_unit' | 'department' | 'team' | 'user';
 type CrashStatus = 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED' | 'IGNORED';
 
-// Enterprise Deployment Rings — a "Pilot Group"/"IT Team"/"Management"/
-// "Developers" ring is just a target row against one of these four
-// underlying org-structure fields, not a separate concept — see be-work's
-// desktop.controller.js release_matches_targets.
 interface DesktopReleaseTarget {
   id: string;
   target_type: TargetType;
@@ -57,8 +53,7 @@ interface DesktopInstallation {
   last_successful_update_at: string | null;
   force_update_requested_at: string | null;
   is_outdated: boolean;
-  // Desktop Diagnostics — reported alongside telemetry, see be-work's
-  // prisma schema desktop_installations comment for why GB floats.
+
   arch: string | null;
   disk_free_gb: number | null;
   disk_total_gb: number | null;
@@ -135,9 +130,6 @@ function CrashStatusBadge({ status }: { status: CrashStatus }) {
   return <span className={cn('px-2 py-0.5 rounded-md text-[10px] font-bold', map[status])}>{status[0] + status.slice(1).toLowerCase()}</span>;
 }
 
-// ── Manage deployment-ring targets modal ────────────────────────────────────
-// No targets = release reaches everyone in its channel, exactly as before
-// Enterprise Deployment Rings existed — this modal is purely additive.
 function ManageTargetsModal({ release, onClose }: { release: DesktopRelease; onClose: () => void }) {
   const toast = useToastContext();
   const qc = useQueryClient();
@@ -217,10 +209,6 @@ function ManageTargetsModal({ release, onClose }: { release: DesktopRelease; onC
   );
 }
 
-// Rich release notes — the same hand-rolled markdown-lite subset (headers,
-// bullets, **bold**) desktop-app's renderer.js implements, so the admin
-// preview and what employees actually see never drift into two different
-// interpretations of the same text.
 function ReleaseNotesInline({ text }: { text: string }) {
   const parts = text.split(/(\*\*.+?\*\*)/g);
   return (
@@ -264,7 +252,6 @@ function ReleaseNotes({ raw }: { raw: string | null | undefined }) {
   return <div className="space-y-2">{blocks}</div>;
 }
 
-// ── Publish Release form modal ──────────────────────────────────────────────
 function PublishReleaseModal({ onClose, onPublished }: { onClose: () => void; onPublished: () => void }) {
   const toast = useToastContext();
   const [version, setVersion] = useState('');
@@ -381,7 +368,6 @@ function PublishReleaseModal({ onClose, onPublished }: { onClose: () => void; on
   );
 }
 
-// ── Disable Release modal (requires a reason) ───────────────────────────────
 function DisableReleaseModal({ release, onClose, onDone }: { release: DesktopRelease; onClose: () => void; onDone: () => void }) {
   const toast = useToastContext();
   const [reason, setReason] = useState('');
@@ -415,15 +401,12 @@ function DisableReleaseModal({ release, onClose, onDone }: { release: DesktopRel
   );
 }
 
-// ── Main page ────────────────────────────────────────────────────────────────
 export default function DesktopManagementPage() {
   const toast = useToastContext();
   const qc = useQueryClient();
   const [showPublish, setShowPublish] = useState(false);
   const [disableTarget, setDisableTarget] = useState<DesktopRelease | null>(null);
-  // Id only, not the release object itself — the modal adds/removes targets
-  // one at a time and needs to reflect each change live as ['desktop-releases']
-  // refetches, not a stale snapshot taken at the moment it was opened.
+
   const [manageTargetsForId, setManageTargetsForId] = useState<string | null>(null);
 
   const { data: releases = [], isLoading: releasesLoading } = useQuery<DesktopRelease[]>({
@@ -433,9 +416,7 @@ export default function DesktopManagementPage() {
       return r?.payload?.records || [];
     },
   });
-  // "Latest" for the summary cards means the stable channel's current
-  // active release specifically — releases[0] alone isn't reliable once
-  // other channels/rolled-back/disabled rows exist in the same list.
+
   const latest = releases.find((r) => r.channel === 'stable' && r.status === 'ACTIVE');
 
   const { data: installData, isLoading: installLoading } = useQuery<{ records: DesktopInstallation[]; latest_version: string | null }>({
@@ -444,8 +425,7 @@ export default function DesktopManagementPage() {
       const r = await apiRequest<any>(API_ENDPOINTS.DESKTOP.INSTALLATIONS);
       return r?.payload || { records: [], latest_version: null };
     },
-    // Employees' desktop apps only ping telemetry every 30 minutes — no
-    // point polling this faster than that.
+
     refetchInterval: 5 * 60 * 1000,
   });
   const installations = installData?.records || [];
@@ -529,7 +509,6 @@ export default function DesktopManagementPage() {
         </button>
       </div>
 
-      {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
           <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">Latest Version</p>
@@ -558,7 +537,6 @@ export default function DesktopManagementPage() {
         </div>
       )}
 
-      {/* Release notes */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <h2 className="text-sm font-black text-gray-700 mb-3">What's New — {latest?.version || 'No release published yet'}</h2>
         {latest?.release_notes ? (
@@ -568,7 +546,6 @@ export default function DesktopManagementPage() {
         )}
       </div>
 
-      {/* Update Analytics */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <h2 className="text-sm font-black text-gray-700 mb-4 flex items-center gap-2"><TrendingUp size={16} className="text-primary-600" /> Update Analytics <span className="text-gray-400 font-normal text-xs">(last {analytics?.since_days ?? 30} days)</span></h2>
         <div className="grid grid-cols-3 gap-4 mb-5">
@@ -605,7 +582,6 @@ export default function DesktopManagementPage() {
         </div>
       </div>
 
-      {/* Outdated Employees */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <h2 className="text-sm font-black text-gray-700 mb-4">Outdated Employees</h2>
         <div className="overflow-x-auto">
@@ -654,7 +630,6 @@ export default function DesktopManagementPage() {
         </div>
       </div>
 
-      {/* Desktop Diagnostics — every reporting install, not just outdated ones */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <h2 className="text-sm font-black text-gray-700 mb-4">Desktop Diagnostics</h2>
         <div className="overflow-x-auto">
@@ -693,7 +668,6 @@ export default function DesktopManagementPage() {
         </div>
       </div>
 
-      {/* Crash Reports — self-hosted scaffold, see docs/CRASH_REPORTING.md */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <h2 className="text-sm font-black text-gray-700 mb-4 flex items-center gap-2"><Bug size={16} className="text-red-600" /> Crash Reports</h2>
         <div className="overflow-x-auto">
@@ -740,7 +714,6 @@ export default function DesktopManagementPage() {
         </div>
       </div>
 
-      {/* Release history */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <h2 className="text-sm font-black text-gray-700 mb-4">Release History</h2>
         <div className="overflow-x-auto">

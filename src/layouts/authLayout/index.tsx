@@ -9,8 +9,7 @@ const AuthLayout: React.FC = () => {
 
     return (
         <div className="min-h-screen w-full flex flex-col md:flex-row bg-white overflow-hidden">
-            {/* ... lines 10-87 ... */}
-            {/* Left Side: Branding & Marketing omitted for brevity in replace_file_content target */}
+
             <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-b from-[#005CDA] to-[#001F4A] flex-col justify-between p-8 xl:p-12 text-white">
                 <div className="absolute top-0 left-0 w-full h-full z-0">
                     <div className="absolute top-[-10%] left-[-10%] w-[70%] h-[70%] bg-gradient-to-b from-[#005CDA] to-[#001F4A] rounded-full blur-[120px] opacity-40 animate-pulse" />
@@ -25,10 +24,10 @@ const AuthLayout: React.FC = () => {
                 <div className="relative z-10">
                     <Link to="/" className="inline-block p-1">
                         <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20">
-                            <img 
-                                src={texailogo} 
-                                alt="TekXAI Logo" 
-                                className="h-8 w-auto brightness-0 invert" 
+                            <img
+                                src={texailogo}
+                                alt="TekXAI Logo"
+                                className="h-8 w-auto brightness-0 invert"
                                 loading="eager"
                                 decoding="async"
                             />
@@ -79,7 +78,6 @@ const AuthLayout: React.FC = () => {
                 </div>
             </div>
 
-            {/* Right Side: Form Content */}
             <div className="w-full lg:w-1/2 flex flex-col items-center justify-center px-4 py-8 sm:px-8 sm:py-10 lg:px-12 lg:py-16 bg-white relative min-h-screen">
                 <div className="lg:hidden w-full flex justify-center mb-6 sm:mb-8 pt-4">
                     <img

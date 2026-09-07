@@ -5,7 +5,7 @@ import { cn } from '@/utils/cn';
 export interface StatusOption {
   label: string;
   value: string;
-  colorClassName: string; // e.g. 'bg-[#ECFDF3] text-[#027A48] border-[#ABEFC6]'
+  colorClassName: string;
 }
 
 interface StatusDropdownProps {

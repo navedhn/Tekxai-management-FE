@@ -6,9 +6,6 @@ import { QUERY_KEYS } from '@/services/api/tanstackKeys';
 
 const BASE = 'api/v1/permission';
 
-// Data scope this specific grant applies at — see be-work's role_permissions/
-// user_permissions.scope column. 'ALL' is the default everywhere and means
-// "no restriction", matching pre-scope behavior exactly.
 export type PermissionScope = 'ALL' | 'BUSINESS_UNIT' | 'DEPARTMENT' | 'REGION' | 'BRANCH' | 'TEAM' | 'ASSIGNED' | 'OWN';
 
 export interface PermissionDef {
@@ -19,14 +16,9 @@ export interface PermissionDef {
   action: string;
   granted?: boolean;
   scope?: PermissionScope;
-  // 'inherited' (role tab): true when this role holds the permission only
-  // via an ancestor role, not a direct grant of its own.
+
   inherited?: boolean;
-  // 'role_direct'/'role_inherited' (user tab) distinguish a grant coming
-  // from a role the user actually holds vs. one of that role's ancestors —
-  // both replace the older single 'role' value; kept as separate union
-  // members (not a breaking rename) since 'role' was never actually
-  // returned by get_user_effective_permissions to begin with.
+
   source?: 'role' | 'role_direct' | 'role_inherited' | 'override_grant' | 'override_deny' | 'default_deny';
 }
 
@@ -34,11 +26,7 @@ export interface PermissionsMatrix {
   roles: string[];
   definitions: PermissionDef[];
   by_role: Record<string, Record<string, boolean>>;
-  // Scope actually saved for each grant — see be-work's get_all_permissions.
-  // Only meaningful once a role is granted the permission (grants stay
-  // 'ALL' until narrowed here); which permissions actually enforce a
-  // narrower scope varies module-to-module (see scope-resolution.service.js
-  // callers) — this surfaces what's saved, not a guarantee it's enforced.
+
   by_role_scope?: Record<string, Record<string, PermissionScope>>;
 }
 
@@ -73,20 +61,11 @@ export interface UserPermissionsData {
   effective: PermissionDef[];
 }
 
-// ── My permissions (logged-in user) ──────────────────────────────────────────
-
 export const fetchMyPermissions = async (): Promise<MyPermissions> => {
   const res = await apiRequest<any>(API_ENDPOINTS.PERMISSION.MY);
   return res?.payload || { roles: [], permissions: [], is_super_admin: false };
 };
 
-// Workspace entry is capability-driven, not role-driven — the SUPER_ADMIN
-// bypass and the workspace.access permissions below are the ONLY inputs.
-// Do NOT reintroduce role-name checks (role === 'ADMIN', realRoles.includes(...),
-// etc.) here; see fe-work's PRODUCTION ROLE CONFIGURATION task notes.
-// Returns null when the user holds neither workspace-entry permission — the
-// caller must show an explicit "no workspace access" state, never silently
-// fall back to a role-name-derived guess or to /login while authenticated.
 export function resolveHomePath(perms: MyPermissions | undefined | null): string | null {
   if (!perms) return null;
   if (perms.is_super_admin) return '/admin';
@@ -101,17 +80,12 @@ export function useMyPermissions() {
     queryKey: ['permissions', 'me'],
     queryFn: fetchMyPermissions,
     enabled: isLoggedIn,
-    // Kept short deliberately: this is the live source of truth ProtectedRoute
-    // and PermissionGate use to detect a server-side role/permission change —
-    // a long staleTime here directly extends how long a demoted/promoted user
-    // keeps acting on stale access.
+
     staleTime: 60 * 1000,
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
   });
 }
-
-// ── Full matrix (Admin permissions page) ────────────────────────────────────
 
 const fetchMatrix = async (): Promise<PermissionsMatrix> => {
   const res = await apiRequest<any>(API_ENDPOINTS.PERMISSION.MATRIX);
@@ -126,8 +100,6 @@ export function usePermissionsMatrix() {
   });
 }
 
-// ── Single role ───────────────────────────────────────────────────────────────
-
 const fetchRolePermissions = async (roleName: string) => {
   const res = await apiRequest<any>(API_ENDPOINTS.PERMISSION.ROLE(roleName));
   return res?.payload as { role_name: string; permissions: PermissionDef[] };
@@ -141,8 +113,6 @@ export function useRolePermissions(roleName: string) {
     staleTime: 60_000,
   });
 }
-
-// ── Save role permissions ─────────────────────────────────────────────────────
 
 export interface GrantEntry { permission: string; granted: boolean; scope?: PermissionScope }
 
@@ -164,8 +134,6 @@ export function useSaveRolePermissions() {
     },
   });
 }
-
-// ── User override management ─────────────────────────────────────────────────
 
 export function useUserPermissions(userId?: string) {
   return useQuery<UserPermissionsData>({
@@ -218,8 +186,6 @@ export function useClearUserPermissions() {
   });
 }
 
-// ── Enterprise RBAC: permission audit log ────────────────────────────────────
-
 export interface PermissionAuditLogEntry {
   id: string;
   actor_id: string;
@@ -262,8 +228,6 @@ export function usePermissionAuditLog(filters: AuditLogFilters = {}) {
     staleTime: 30_000,
   });
 }
-
-// ── Enterprise RBAC: configurable approval rules ─────────────────────────────
 
 export type ApprovalRuleKey = 'EXPENSE_APPROVAL' | 'PURCHASE_APPROVAL' | 'DISCOUNT_APPROVAL' | 'LEAVE_APPROVAL' | 'SALARY_APPROVAL' | 'OVERTIME_APPROVAL';
 
@@ -321,8 +285,6 @@ export function useDeleteApprovalRule() {
   });
 }
 
-// ── Dynamic RBAC: Roles (create/delete without touching seed data) ──────────
-
 export interface RoleEntity {
   id: string;
   name: string;
@@ -349,12 +311,7 @@ export function useCreateRole() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['permissions', 'roles'] });
       qc.invalidateQueries({ queryKey: ['permissions', 'matrix'] });
-      // A newly created role must be immediately assignable from Quick
-      // Create User / employee edit — those read a separate cache
-      // (useGetRolesQuery, GET /users/roles) that this mutation never
-      // touched, so a role created here could sit invisible in that
-      // dropdown for up to its 5-minute staleTime. Same root cause as
-      // useDeleteRole below.
+
       qc.invalidateQueries({ queryKey: QUERY_KEYS.ROLE.LIST });
     },
   });
@@ -371,8 +328,6 @@ export function useDeleteRole() {
     },
   });
 }
-
-// ── Dynamic RBAC: Permission Templates ───────────────────────────────────────
 
 export interface PermissionTemplateItem { id: string; template_id: string; permission: string; granted: boolean; scope: PermissionScope }
 export interface PermissionTemplate {
@@ -423,8 +378,6 @@ export function useApplyTemplate() {
     },
   });
 }
-
-// ── Dynamic RBAC: Permissions Library (catalog) ──────────────────────────────
 
 export interface CatalogEntry {
   id: string;

@@ -8,10 +8,6 @@ const del  = (url: string) => apiRequest<any>(url, { method: 'DELETE' });
 import { Play, Download, Save, Trash2, BarChart3, FileSpreadsheet, FileText, Printer, ChevronLeft, ChevronRight } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 
-// Base path fix: this page previously called `/reports/builder/*` (plural,
-// no version prefix) while the backend only mounts these routes at
-// `/api/v1/report/builder/*` (singular) — every request 404'd. Matches the
-// `${v1}/report/...` pattern already used by reportService.ts.
 const v1 = 'api/v1';
 const BUILDER = `${v1}/report/builder`;
 
@@ -26,8 +22,6 @@ function exportCSV(columns: string[], data: any[], filename: string) {
   URL.revokeObjectURL(url);
 }
 
-// POST-body binary export (Excel/PDF) — apiRequest always parses JSON, so
-// this mirrors its auth-header handling but reads the response as a blob.
 async function downloadReportFile(path: string, body: any, filename: string) {
   const token = getAccessToken();
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -84,8 +78,6 @@ export default function ReportBuilderPage() {
   const toggleColumn = (col: string) =>
     setColumns(prev => prev.includes(col) ? prev.filter(c => c !== col) : [...prev, col]);
 
-  // Shared by the initial run, page navigation, and Save Report (config must
-  // match exactly what's on screen) — the query shape sent to run/export.
   const buildQuery = (targetPage = page) => ({
     entity, columns: columns.length ? columns : undefined, filters,
     search: search || undefined, sort_by: sortBy || undefined, sort_dir: sortDir,
@@ -121,7 +113,7 @@ export default function ReportBuilderPage() {
     if (!entity) return;
     setExporting(format);
     try {
-      const { page: _p, ...exportBody } = buildQuery(); // exports pull the full filtered set, not just the current page
+      const { page: _p, ...exportBody } = buildQuery();
       await downloadReportFile(`${BUILDER}/export/${format}`, exportBody, `${entity}-report.${format === 'excel' ? 'xlsx' : 'pdf'}`);
     } finally {
       setExporting(null);
@@ -138,7 +130,7 @@ export default function ReportBuilderPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Config */}
+
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-5 print:hidden">
           <div>
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">Data Source</label>
@@ -221,7 +213,6 @@ export default function ReportBuilderPage() {
           </button>
         </div>
 
-        {/* Right: Results */}
         <div className="lg:col-span-2 space-y-4 print:col-span-3">
           {results ? (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5" id="report-print-area">
@@ -310,7 +301,6 @@ export default function ReportBuilderPage() {
             </div>
           )}
 
-          {/* Saved Reports */}
           {saved.length > 0 && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 print:hidden">
               <h3 className="font-black text-gray-900 mb-4">Saved Reports</h3>

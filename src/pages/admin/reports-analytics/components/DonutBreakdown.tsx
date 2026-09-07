@@ -8,8 +8,6 @@ export interface DonutSlice {
   value: number;
 }
 
-// Mirrors the "Open Tickets by Category" donut on pages/admin/dashboard —
-// center total overlay + side legend with matching dot colors.
 export const DonutBreakdown: React.FC<{ data: DonutSlice[]; total: number; totalLabel?: string }> = ({
   data,
   total,

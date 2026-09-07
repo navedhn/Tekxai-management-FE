@@ -1,11 +1,6 @@
 import React from 'react';
 import { cn } from '@/utils/cn';
 
-// No on/off switch primitive existed anywhere in this app before this —
-// every prior "toggle" was either a native checkbox or a Yes/No pill button
-// (see the Access Control page's old ToggleYesNo). Built once, here, so any
-// future feature needing a real switch reuses this instead of re-inventing
-// a fourth toggle idiom.
 export interface SwitchProps {
   checked: boolean;
   onChange: (checked: boolean) => void;

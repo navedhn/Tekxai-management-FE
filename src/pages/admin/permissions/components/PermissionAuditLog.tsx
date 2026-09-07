@@ -13,10 +13,6 @@ function GrantChange({ entry }: { entry: PermissionAuditLogEntry }) {
   return <span className={cn('text-xs font-semibold', color)}>{from} → {to}</span>;
 }
 
-// Every permission change (role grants, user overrides) is now logged —
-// this is the first UI surface for that data; before this redesign nothing
-// in this codebase recorded who changed a permission, when, or what the
-// prior value was.
 const PermissionAuditLog: React.FC = () => {
   const [page, setPage] = useState(1);
   const [targetType, setTargetType] = useState<'' | 'ROLE' | 'USER'>('');

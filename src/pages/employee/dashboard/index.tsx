@@ -33,7 +33,6 @@ const EmployeeDashboard: React.FC = () => {
     const [selectedProject, setSelectedProject] = useState<string | null>(null);
     const itemsPerPage = 8;
 
-    // 🔍 Filter projects
     const filteredProjects = useMemo(() => {
         if (!projects) return [];
         return projects.filter(project =>
@@ -42,7 +41,6 @@ const EmployeeDashboard: React.FC = () => {
         );
     }, [projects, searchTerm]);
 
-    // 📄 Paginate projects
     const paginatedProjects = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
         return filteredProjects.slice(startIndex, startIndex + itemsPerPage);
@@ -154,7 +152,6 @@ const EmployeeDashboard: React.FC = () => {
                 routePrefix="/employee"
             />
 
-            {/* Top Stats Section */}
             <div className="flex flex-col lg:flex-row gap-6 items-start p-3 rounded-[8px] bg-white">
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 p-3 flex-1 w-full bg-[#F8F8F8] lg:w-auto">
                     {statsLoading ? (
@@ -188,9 +185,6 @@ const EmployeeDashboard: React.FC = () => {
                     )}
                 </div>
 
-
-
-                {/* Hours/Days Toggle */}
                 <Tabs
                     options={['Hours', 'Days']}
                     value={viewMode === 'hours' ? 'Hours' : 'Days'}
@@ -208,9 +202,8 @@ const EmployeeDashboard: React.FC = () => {
 
             <TicketsSummaryCard />
 
-            {/* Middle Section: Activity & Timesheet */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Recent Activity */}
+
                 <Card className="lg:col-span-5 flex flex-col gap-6 bg-white border-none shadow-sm">
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg font-extrabold text-gray-900 tracking-tight">Recent Activity</h2>
@@ -225,7 +218,6 @@ const EmployeeDashboard: React.FC = () => {
                     </div>
                 </Card>
 
-                {/* Recent Timesheet */}
                 <Card className="lg:col-span-7 flex flex-col gap-6 bg-white border-none shadow-sm">
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg font-extrabold text-gray-900 tracking-tight">Recent Timesheet</h2>
@@ -241,7 +233,6 @@ const EmployeeDashboard: React.FC = () => {
                 </Card>
             </div>
 
-            {/* Bottom Section: Projects Summary */}
             <Card className="flex flex-col gap-6 bg-white border-none shadow-sm">
                 <div className="flex flex-col    gap-4">
                     <div className="flex items-center gap-3">

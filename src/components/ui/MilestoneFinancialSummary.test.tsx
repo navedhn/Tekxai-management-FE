@@ -2,9 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import MilestoneFinancialSummary from './MilestoneFinancialSummary';
 
-// Milestone Financial Foundation — this panel only renders the server's
-// `financial` object; it never computes Total/Paid/Remaining/Active itself.
-
 describe('MilestoneFinancialSummary', () => {
   it('shows a loading state when financial has not arrived yet', () => {
     render(<MilestoneFinancialSummary financial={undefined} activeMilestone={null} />);
@@ -42,7 +39,7 @@ describe('MilestoneFinancialSummary', () => {
         activeMilestone={null}
       />
     );
-    expect(screen.getAllByText('PKR 600').length).toBeGreaterThan(0); // Remaining and Active both equal 600 here
+    expect(screen.getAllByText('PKR 600').length).toBeGreaterThan(0);
     expect(screen.getByText('PKR 1,000')).toBeInTheDocument();
   });
 });

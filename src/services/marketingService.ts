@@ -176,7 +176,6 @@ export const PERIOD_OPTIONS = [
   { label: 'Apr 2026', value: 'April 2026' },
 ];
 
-// ── Salary Builder API hooks ──────────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 

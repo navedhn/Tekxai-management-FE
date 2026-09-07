@@ -56,7 +56,7 @@ describe('SearchableSelect', () => {
   it('an empty-string value can be a real, selectable option (not treated as "no selection")', () => {
     const options = [{ label: 'Not department-specific', value: '' }, ...OPTIONS];
     render(<SearchableSelect options={options} value="" onChange={() => {}} clearable={false} />);
-    // The empty-string option's label is shown as selected, not the placeholder.
+
     expect(screen.getByText('Not department-specific')).toBeInTheDocument();
   });
 

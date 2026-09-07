@@ -24,19 +24,18 @@ export interface StarredList {
 }
 
 export const getStarredQueriesApi = async (params?: Record<string, any>): Promise<any> => {
-    const filteredParams = params 
+    const filteredParams = params
         ? Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined && v !== null && v !== ''))
         : {};
-    
+
     const queryString = new URLSearchParams(filteredParams).toString();
     const url = queryString ? `${API_ENDPOINTS.STARRED.QUERIES}?${queryString}` : API_ENDPOINTS.STARRED.QUERIES;
-    
+
     const res = await apiRequest<any>(url);
     const data = res?.payload || res;
-    
-    // If the backend returns a direct array when paginated/tabbed, support it
-    if (Array.isArray(data)) return data; 
-    
+
+    if (Array.isArray(data)) return data;
+
     return {
         comments: data?.comments || [],
         projects: data?.projects || [],
@@ -56,7 +55,6 @@ export const unstarItemApi = async ({ item_type, id }: { item_type: string; id: 
     });
 };
 
-// Hooks
 export const useGetStarredQueries = (params?: Record<string, any>) => {
     return useQuery<any>({
         queryKey: [...QUERY_KEYS.STARRED.QUERIES, params],

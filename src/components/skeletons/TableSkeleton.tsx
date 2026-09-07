@@ -7,7 +7,7 @@ interface TableSkeletonProps {
 }
 
 const TableSkeleton: React.FC<TableSkeletonProps> = ({ rows = 6, columns = 5 }) => {
-  // Deterministic widths to avoid hydration mismatches
+
   const getWidth = (rowIndex: number, colIndex: number) => {
     const base = colIndex === 0 ? 60 : 40;
     const variancy = (rowIndex * 7 + colIndex * 13) % 30;
@@ -35,10 +35,10 @@ const TableSkeleton: React.FC<TableSkeletonProps> = ({ rows = 6, columns = 5 }) 
                     {colIndex === 0 && (
                       <Skeleton variant="circular" width={32} height={32} className="shrink-0" />
                     )}
-                    <Skeleton 
-                      variant="text" 
-                      width={getWidth(rowIndex, colIndex)} 
-                      height={14} 
+                    <Skeleton
+                      variant="text"
+                      width={getWidth(rowIndex, colIndex)}
+                      height={14}
                     />
                   </div>
                 </td>

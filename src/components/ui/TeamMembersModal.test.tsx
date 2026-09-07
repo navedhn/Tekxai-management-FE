@@ -5,16 +5,6 @@ import TeamMembersModal from './TeamMembersModal';
 import { apiRequest } from '@/lib/queryClient';
 import { ToastProvider } from '@/components/toast/ToastProvider';
 
-// Regression test — production issue: two active employees can share an
-// identical full name (e.g. two real "Abu Bakar Aslam" records, SS-39 and
-// SS-10). The "Add Member" picker rendered only the name as the option
-// label, so an admin had no way to tell which underlying record they were
-// about to add. This proves (a) the label now carries a stable identifier
-// (the employee ID) so the two are visually distinguishable, and (b) the
-// value actually submitted on "Add" is the correct, real, unique user id —
-// selecting the second same-named option must submit *that* user's id, not
-// the first one's.
-
 vi.mock('@/lib/queryClient', async () => {
   const actual = await vi.importActual<any>('@/lib/queryClient');
   return { ...actual, apiRequest: vi.fn() };
@@ -53,15 +43,12 @@ describe('TeamMembersModal — duplicate-name employee disambiguation', () => {
   it('shows the employee ID alongside the name for two same-named employees, and submits the correct user id', async () => {
     renderModal();
 
-    // Open the "Add Member" searchable select.
     const trigger = await screen.findByText('Select employee');
     fireEvent.click(trigger);
 
-    // Both duplicate-name entries must be distinguishable by employee ID.
     expect(await screen.findByText('SS-39 — Abu Bakar Aslam')).toBeInTheDocument();
     expect(await screen.findByText('SS-10 — Abu Bakar Aslam')).toBeInTheDocument();
 
-    // Pick the SECOND one (SS-10) specifically.
     fireEvent.click(screen.getByText('SS-10 — Abu Bakar Aslam'));
 
     mockedApiRequest.mockResolvedValueOnce({ payload: { id: 'member-1' } });
@@ -73,8 +60,7 @@ describe('TeamMembersModal — duplicate-name employee disambiguation', () => {
     });
 
     const [, options] = mockedApiRequest.mock.calls.find((c) => c[1]?.method === 'POST')!;
-    // Must submit user-ss10's real id — not user-ss39's — proving the
-    // ambiguous label never leaks into what's actually sent to the API.
+
     expect(JSON.parse((options as any).body)).toEqual({ user_id: 'user-ss10' });
   });
 });

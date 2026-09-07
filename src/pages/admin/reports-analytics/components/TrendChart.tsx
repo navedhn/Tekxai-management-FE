@@ -4,11 +4,9 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 export interface TrendSeries {
   key: string;
   label: string;
-  color: string; // hex, e.g. '#2563EB'
+  color: string;
 }
 
-// Mirrors the Attendance Overview line chart on pages/admin/dashboard —
-// same grid/axis/tooltip styling, generalized to N series.
 export const TrendChart: React.FC<{
   data: Record<string, string | number>[];
   xKey: string;

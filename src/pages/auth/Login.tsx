@@ -16,18 +16,11 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const toast = useToastContext();
 
-  // 2FA state
   const [requires2FA, setRequires2FA] = useState(false);
   const [pendingUserId, setPendingUserId] = useState('');
   const [tfaCode, setTfaCode] = useState('');
   const [tfaLoading, setTfaLoading] = useState(false);
 
-  // Landing page is derived from the caller's actual Access Control
-  // permissions (erp.workspace.access / erp.employee_workspace.access),
-  // never from role name — resolveHomePath is the single source of truth
-  // for this decision, also used by PublicRoute's post-login redirect and
-  // 403.tsx. Permissions aren't part of the login response, so they're
-  // fetched once here immediately after tokens are set.
   const redirectUser = async () => {
     const perms = await fetchMyPermissions().catch(() => null);
     const home = resolveHomePath(perms);
@@ -42,7 +35,6 @@ const Login: React.FC = () => {
     try {
       const res = await loginMutation.mutateAsync(values);
 
-      // Check if backend requires 2FA
       if ((res as any)?.requires_2fa) {
         setPendingUserId((res as any)?.user_id || '');
         setRequires2FA(true);
@@ -86,7 +78,6 @@ const Login: React.FC = () => {
     }
   };
 
-  // ── 2FA Step ──────────────────────────────────────────────────────────────
   if (requires2FA) {
     return (
       <div className="flex flex-col gap-6 sm:gap-8">
@@ -118,7 +109,6 @@ const Login: React.FC = () => {
     );
   }
 
-  // ── Normal Login ──────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col gap-6 sm:gap-8 lg:gap-10">
       <div className="flex flex-col gap-2 sm:gap-3">

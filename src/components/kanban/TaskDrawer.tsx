@@ -472,7 +472,7 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({ task, allTasks = [], projectId,
     <AnimatePresence>
       {task && (
         <>
-          {/* Backdrop */}
+
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -481,7 +481,6 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({ task, allTasks = [], projectId,
             className="fixed inset-0 bg-black/20 z-40"
           />
 
-          {/* Drawer */}
           <motion.div
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
@@ -489,7 +488,7 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({ task, allTasks = [], projectId,
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
             className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl z-50 flex flex-col overflow-hidden"
           >
-            {/* Header */}
+
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <span className="text-xs font-black text-gray-400 uppercase tracking-wider">Task Detail</span>
               <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors">
@@ -497,9 +496,8 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({ task, allTasks = [], projectId,
               </button>
             </div>
 
-            {/* Body */}
             <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5 flex flex-col gap-6">
-              {/* Title */}
+
               {editingTitle ? (
                 <input
                   autoFocus
@@ -518,9 +516,8 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({ task, allTasks = [], projectId,
                 </h2>
               )}
 
-              {/* Fields */}
               <div className="grid grid-cols-2 gap-4">
-                {/* Status */}
+
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[11px] font-black text-gray-500 uppercase tracking-wider">Status</label>
                   <SearchableSelect
@@ -532,7 +529,6 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({ task, allTasks = [], projectId,
                   />
                 </div>
 
-                {/* Priority */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[11px] font-black text-gray-500 uppercase tracking-wider">Priority</label>
                   <SearchableSelect
@@ -544,7 +540,6 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({ task, allTasks = [], projectId,
                   />
                 </div>
 
-                {/* Assignee */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[11px] font-black text-gray-500 uppercase tracking-wider">Assignee</label>
                   <div className="text-sm border border-gray-100 rounded-lg px-3 py-2 bg-gray-50 font-medium text-gray-600">
@@ -552,7 +547,6 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({ task, allTasks = [], projectId,
                   </div>
                 </div>
 
-                {/* Due Date */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[11px] font-black text-gray-500 uppercase tracking-wider">Due Date</label>
                   <input
@@ -564,7 +558,6 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({ task, allTasks = [], projectId,
                 </div>
               </div>
 
-              {/* Description */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-black text-gray-500 uppercase tracking-wider">Description</label>
                 <textarea
@@ -581,34 +574,24 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({ task, allTasks = [], projectId,
                 />
               </div>
 
-              {/* Divider */}
               <div className="border-t border-gray-100" />
 
-              {/* Sub-tasks */}
               {projectId && <SubTasksSection projectId={projectId} taskId={task.id} />}
 
-              {/* Divider */}
               <div className="border-t border-gray-100" />
 
-              {/* Time log */}
               {projectId && <TimeLogSection projectId={projectId} taskId={task.id} />}
 
-              {/* Divider */}
               <div className="border-t border-gray-100" />
 
-              {/* Dependencies */}
               {projectId && <DependenciesSection projectId={projectId} task={task} allTasks={allTasks} />}
 
-              {/* Divider */}
               <div className="border-t border-gray-100" />
 
-              {/* Attachments */}
               {projectId && <AttachmentsSection projectId={projectId} taskId={task.id} />}
 
-              {/* Divider */}
               <div className="border-t border-gray-100" />
 
-              {/* Comments */}
               {projectId && <CommentsSection projectId={projectId} taskId={task.id} />}
             </div>
           </motion.div>

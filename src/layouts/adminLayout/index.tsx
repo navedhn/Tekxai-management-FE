@@ -16,7 +16,6 @@ const AdminLayout: React.FC = memo(() => {
   const location = useLocation();
   const { isMobile } = useResponsive();
 
-  // Handle body scroll lock on mobile
   React.useEffect(() => {
     if (isMobile) {
       document.body.style.overflow = open ? 'hidden' : 'unset';
@@ -61,4 +60,3 @@ const AdminLayout: React.FC = memo(() => {
 });
 
 export default AdminLayout;
-

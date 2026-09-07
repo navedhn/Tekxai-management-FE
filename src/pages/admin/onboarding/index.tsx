@@ -183,7 +183,6 @@ const OnboardingPage: React.FC = () => {
   );
 };
 
-// ── Schedule Interview ────────────────────────────────────────────────────────
 function ScheduleInterviewModal({ candidateId, candidateName, onClose }: { candidateId: string; candidateName: string; onClose: () => void }) {
   const toast = useToastContext();
   const createInterview = useCreateInterview();
@@ -252,7 +251,6 @@ function ScheduleInterviewModal({ candidateId, candidateName, onClose }: { candi
   );
 }
 
-// ── Onboarding Tasks Checklist ────────────────────────────────────────────────
 function OnboardingTasksModal({ userId, userName, onClose }: { userId: string; userName: string; onClose: () => void }) {
   const toast = useToastContext();
   const { data: tasks = [], isLoading } = useGetOnboardingTasks(userId);

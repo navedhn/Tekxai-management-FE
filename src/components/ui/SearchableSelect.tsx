@@ -2,16 +2,6 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { cn } from '@/utils/cn';
 import { Search, ChevronDown, ChevronUp, Check, X, Loader2 } from 'lucide-react';
 
-// Design System Phase 6: one reusable searchable dropdown for every
-// "pick one from a list" field in the app (Employee/Department/
-// Designation/Grade/Country/City/Business Unit/Client/Lead/Project/
-// Role/Permission/Status/Category/Vendor/Asset/…). Supports local
-// filtering out of the box; pass `onSearch` to delegate filtering to
-// a remote endpoint instead (loading state included either way).
-// Existing dropdown call sites (Select.tsx, FilterDropdown.tsx, the
-// ~85 ad hoc <select>/custom-dropdown instances found in Phase 1) are
-// migrated separately — this is the foundation component.
-
 export interface SearchableSelectOption {
   label: string;
   value: string | number;
@@ -35,7 +25,7 @@ export interface SearchableSelectProps {
   clearable?: boolean;
   className?: string;
   containerClassName?: string;
-  /** Above this many options, only the visible window is rendered. */
+
   virtualizeThreshold?: number;
 }
 
@@ -71,7 +61,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
   const selected = useMemo(() => options.find((o) => String(o.value) === String(value)) ?? null, [options, value]);
 
   const filtered = useMemo(() => {
-    if (onSearch) return options; // caller already filtered remotely
+    if (onSearch) return options;
     if (!term.trim()) return options;
     const q = term.trim().toLowerCase();
     return options.filter((o) => o.label.toLowerCase().includes(q));

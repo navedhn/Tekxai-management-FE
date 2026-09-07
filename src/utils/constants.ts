@@ -6,4 +6,3 @@ export const ROUTES = {
   admin: '/admin',
   unauth: '/unauth'
 } as const;
-

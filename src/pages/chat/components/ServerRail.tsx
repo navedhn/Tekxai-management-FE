@@ -22,12 +22,11 @@ const ServerIcon: React.FC<{
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Active / hover pill */}
+
       <span className={`absolute left-0 w-1 rounded-r-full bg-gray-900 transition-all duration-200 ${
         active ? 'h-10' : hovered ? 'h-5 opacity-100' : 'h-2 opacity-0'
       }`} />
 
-      {/* Tooltip */}
       <div className={`absolute left-[calc(100%+12px)] z-50 pointer-events-none transition-all duration-150 ${
         hovered ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-1'
       }`}>

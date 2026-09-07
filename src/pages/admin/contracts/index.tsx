@@ -60,8 +60,6 @@ const ContractsPage: React.FC = () => {
   const createTemplate = useCreateTemplate();
   const renewContract = useRenewContract();
 
-  // Only EMPLOYMENT + LEGAL categories are relevant to contracts (Employment
-  // Contract lives under EMPLOYMENT, NDA + Consultancy Agreement under LEGAL).
   const contractCategoryIds = useMemo(
     () => categories.filter((c) => ['EMPLOYMENT', 'LEGAL'].includes(c.code)).map((c) => c.id),
     [categories]
@@ -266,7 +264,6 @@ const ContractsPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* New Contract */}
       <Modal isOpen={showContract} onClose={() => setShowContract(false)} title="New Contract">
         <form onSubmit={handleCreateContract} className="flex flex-col gap-4 mt-4 max-h-[65vh] overflow-y-auto pr-1">
           <div className="flex flex-col gap-1.5">
@@ -327,7 +324,6 @@ const ContractsPage: React.FC = () => {
         </form>
       </Modal>
 
-      {/* New Template */}
       <Modal isOpen={showTemplate} onClose={() => setShowTemplate(false)} title="Contract Template">
         <form onSubmit={handleCreateTemplate} className="flex flex-col gap-4 mt-4">
           <div className="flex flex-col gap-1.5">

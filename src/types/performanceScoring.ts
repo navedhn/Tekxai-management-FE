@@ -1,6 +1,3 @@
-// These field names match the real backend columns exactly
-// (employee_performance_scores in schema.prisma) — do not rename without
-// also updating the backend.
 export type ScoringCategoryKey =
   | 'timely_delivery'
   | 'quality_score'

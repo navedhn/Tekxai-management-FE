@@ -15,10 +15,6 @@ import {
   useEnterNoticePeriodMutation, useRequestTerminateProbationMutation, useMoveToExitClearanceMutation,
 } from '@/services/userService';
 
-// Employees currently in a given lifecycle stage — reused for Exit
-// Clearance (checklist list), Notice Period (move-to-exit-clearance
-// prompt), and the Initiate Offboarding picker's candidate pool
-// (Active Employment + Probation).
 function useEmployeesByStage(stage: string) {
   return useQuery({
     queryKey: ['employees', 'lifecycle-stage', stage],
@@ -108,8 +104,6 @@ const OffboardingPage: React.FC = () => {
   );
 };
 
-// Employee already in Notice Period — one click forward to Exit Clearance
-// (gated endpoint, safety-checked server-side: checklist/assets/approvals).
 function NoticePeriodRow({ employee: e }: { employee: any }) {
   const toast = useToastContext();
   const moveToExitClearance = useMoveToExitClearanceMutation();
@@ -141,11 +135,6 @@ function NoticePeriodRow({ employee: e }: { employee: any }) {
   );
 }
 
-// Entry point for starting offboarding on an employee who isn't in the exit
-// pipeline yet: Active Employment employees can be moved into Notice
-// Period immediately (gated endpoint); Probation employees can only have
-// termination *requested* (creates a pending approval, not an instant
-// change — see request-terminate-probation).
 function InitiateOffboardingModal({ onClose }: { onClose: () => void }) {
   const toast = useToastContext();
   const { data: activeEmployees = [], isLoading: activeLoading } = useEmployeesByStage('ACTIVE_EMPLOYMENT');

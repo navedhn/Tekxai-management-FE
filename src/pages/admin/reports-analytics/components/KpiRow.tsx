@@ -4,7 +4,7 @@ import { cn } from '@/utils/cn';
 
 export interface KpiCardDef {
   icon: LucideIcon;
-  color: string; // solid bg class, e.g. 'bg-blue-500'
+  color: string;
   label: string;
   value: React.ReactNode;
   subtext?: string;
@@ -16,9 +16,6 @@ const LG_COLS: Record<number, string> = {
   6: 'lg:grid-cols-6',
 };
 
-// Mirrors the KPI tile pattern used in AttendanceReportsTab
-// (pages/admin/attendance) and the Assets/Tickets report sections —
-// bg-white rounded-2xl border p-5 shadow-sm, solid icon chip, big number.
 export const KpiRow: React.FC<{ cards: KpiCardDef[]; columns?: 4 | 5 | 6 }> = ({ cards, columns = 5 }) => (
   <div className={cn('grid grid-cols-2 gap-4', LG_COLS[columns])}>
     {cards.map((c) => (

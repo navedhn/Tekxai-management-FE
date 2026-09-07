@@ -22,10 +22,6 @@ interface SearchFilterBarProps {
   sort?: SortConfig;
 }
 
-// Shared search + filter-dropdowns + optional sort-toggle bar. Extracted from
-// the identical inline markup duplicated across DependenciesPanel and
-// ClientCommunicationPanel (and 19+ other pages) — same visual output,
-// just one implementation instead of N.
 const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
   search, onSearchChange, searchPlaceholder = 'Search…', filters = [], sort,
 }) => {

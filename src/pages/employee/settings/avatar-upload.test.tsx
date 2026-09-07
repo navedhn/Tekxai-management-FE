@@ -7,11 +7,6 @@ import { useAuthStore } from '@/stores/authStore';
 import { ToastProvider } from '@/components/toast/ToastProvider';
 import EmployeeSetting from './index';
 
-// Regression tests for the Settings avatar-upload migration: it must go
-// through the dedicated POST /user/:id/avatar endpoint (private S3,
-// Emp-{employeeId}/profile/profile-picture.ext), never the old two-step
-// "generic /storage/upload then PATCH avatar=file_url" flow.
-
 const apiRequestMock = vi.fn((endpoint: string) => {
   if (endpoint === API_ENDPOINTS.SETTINGS.ME) {
     return Promise.resolve({ success: true, payload: { show_notifications: true, language: 'en' } });
@@ -63,7 +58,7 @@ describe('Settings — avatar upload', () => {
     await waitFor(() => {
       expect(apiRequestMock.mock.calls.some(([endpoint]) => endpoint === API_ENDPOINTS.USER.AVATAR_UPLOAD('emp-1'))).toBe(true);
     });
-    // Never the old generic route for this file.
+
     expect(apiRequestMock.mock.calls.some(([endpoint]) => endpoint === API_ENDPOINTS.STORAGE.UPLOAD)).toBe(false);
   });
 

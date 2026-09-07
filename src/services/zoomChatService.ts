@@ -14,10 +14,7 @@ export interface ZoomConversation {
   name: string;
   email?: string;
   presence_status?: string;
-  // Zoom's own raw channel type (1 = private, 2 = public) — only present
-  // when type === 'channel'. Used to split "Group Chats" (private) from
-  // "Channels" (public) in the sidebar using real data, since Zoom's API
-  // has no separate group-chat listing endpoint.
+
   channel_type?: number;
 }
 
@@ -53,11 +50,6 @@ function unwrap<T>(r: any): T {
   return r?.payload as T;
 }
 
-// A raw thrown value from apiRequest looks like { status, data, message }
-// (see queryClient.ts) — ZOOM_REAUTH_REQUIRED/ZOOM_NOT_CONNECTED are the
-// two backend error "codes" (plain message strings, not a `code` field —
-// matches this codebase's existing app_error() convention) the UI needs to
-// distinguish from a generic failure.
 export function isZoomReauthError(err: any): boolean {
   return String(err?.message || err?.data?.message || '').includes('ZOOM_REAUTH_REQUIRED');
 }
@@ -76,7 +68,7 @@ export const useStartZoomConnect = () =>
     mutationFn: async () => {
       const r = await apiRequest<any>(API_ENDPOINTS.ZOOM_CHAT.AUTHORIZE_URL);
       const { url } = unwrap<{ url: string }>(r);
-      window.location.href = url; // full-page navigation to Zoom's own consent screen
+      window.location.href = url;
     },
   });
 
@@ -96,10 +88,6 @@ export const useZoomConversations = (enabled: boolean) =>
     retry: false,
   });
 
-// Plain async function, not a react-query mutation hook — the composer
-// manages its own local pending/error state (matching how
-// ZoomChatPanel.tsx already fetches messages via direct apiRequest calls
-// rather than a hook, so append-after-send stays simple and predictable).
 export async function sendZoomMessage(target: { to_channel?: string; to_contact?: string }, message: string): Promise<ZoomSendResult> {
   const r = await apiRequest<any>(API_ENDPOINTS.ZOOM_CHAT.MESSAGES, {
     method: 'POST',

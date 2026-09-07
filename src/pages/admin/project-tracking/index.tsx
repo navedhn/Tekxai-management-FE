@@ -64,11 +64,6 @@ const ListPanel: React.FC<{ icon: React.ReactNode; title: string; items: { key: 
   </div>
 );
 
-// Operational KPI cards moved here from the CRM Post-Sales Dashboard (CRM/ERP
-// split) — reuses the same useGetPostSalesDashboard hook/endpoint verbatim,
-// no duplicated calculations. Only the project/team-operational sections are
-// included; client-relationship cards (Active Clients, Client Success) stay
-// on the CRM side since they're not operational tracking data.
 function OperationalKpis() {
   const { data: d, isLoading } = useGetPostSalesDashboard();
   if (isLoading || !d) return null;
@@ -192,14 +187,6 @@ function OperationalKpis() {
     </div>
   );
 }
-
-// Project Tracking Dashboard — a read-only view over the operational tracking
-// sheet's columns. Every field here is reused verbatim from the existing
-// GET /project response (normalize_project in projects.repository.js) — no
-// new endpoint, no new table, no recomputation. The only backend change this
-// page required was surfacing the already-joined devops_access row (Point of
-// Communication / Progress Shared / access statuses) that was previously
-// computed into access_completion_score but never returned.
 
 const ACCESS_BADGE: Record<string, string> = {
   GRANTED: 'bg-green-50 text-green-700',

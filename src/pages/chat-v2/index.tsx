@@ -56,7 +56,7 @@ const ChatApp: React.FC = () => {
 
   return (
     <div className="flex h-[calc(100vh-80px)] bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
-      {/* Sidebar */}
+
       <div className="w-60 flex-shrink-0 bg-gray-900 flex flex-col">
         <div className="px-4 py-4 border-b border-gray-700">
           <h2 className="font-black text-white text-sm">Tekxai Workspace</h2>
@@ -83,9 +83,8 @@ const ChatApp: React.FC = () => {
         </div>
       </div>
 
-      {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
+
         <div className="flex items-center gap-3 px-6 py-3.5 border-b border-gray-100">
           <Hash size={18} className="text-gray-400" />
           <h2 className="font-black text-gray-900">{activeChannelData?.name || 'Select a channel'}</h2>
@@ -94,7 +93,6 @@ const ChatApp: React.FC = () => {
           )}
         </div>
 
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-4">
           {mLoading ? (
             <div className="text-center py-10 text-gray-400">Loading messages...</div>
@@ -136,7 +134,6 @@ const ChatApp: React.FC = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Message input */}
         {activeChannel && (
           <form onSubmit={handleSend} className="px-6 py-4 border-t border-gray-100">
             <div className="flex items-center gap-3 bg-gray-50 rounded-2xl px-4 py-2.5">
@@ -155,7 +152,6 @@ const ChatApp: React.FC = () => {
         )}
       </div>
 
-      {/* New Channel Modal */}
       <Modal isOpen={showNewChannel} onClose={() => setShowNewChannel(false)} title="Create Channel">
         <form onSubmit={handleCreateChannel} className="flex flex-col gap-4 mt-4">
           <div className="flex flex-col gap-1.5">

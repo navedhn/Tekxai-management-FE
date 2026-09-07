@@ -4,12 +4,6 @@ import { useToastContext } from '@/components/toast/ToastProvider';
 import { usePermissionsCatalog, useUpdateCatalogEntry, CatalogEntry } from '@/services/permissionsService';
 import PermissionSearch from './PermissionSearch';
 
-// Permissions Library — every permission the code actually enforces, kept
-// in sync automatically (server-side, on every start — see
-// sync_permission_catalog) so this never drifts from reality. Admins own
-// category / deprecated / system here; permission/label/workspace/module/
-// action are code-derived and shown read-only (see permission-keys.js for
-// why a permission's existence can't be admin-authored from thin air).
 const PermissionsLibraryPanel: React.FC = () => {
   const toast = useToastContext();
   const [workspace, setWorkspace] = useState('');

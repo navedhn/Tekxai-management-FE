@@ -1,7 +1,6 @@
 import React from 'react';
 import { cn } from '@/utils/cn';
 
-/** Shared dashboard stat card sizing — use across admin & employee dashboards */
 export const dashboardStatStyles = {
   iconBox: 'h-12 w-12 rounded-lg shrink-0 flex items-center justify-center',
   value: 'text-lg font-bold text-(--color-text-primary) leading-tight tabular-nums',

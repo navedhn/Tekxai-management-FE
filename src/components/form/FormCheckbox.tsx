@@ -46,4 +46,3 @@ const FormCheckbox: React.FC<Props> = ({
 };
 
 export default FormCheckbox;
-

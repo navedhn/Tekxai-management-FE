@@ -9,10 +9,6 @@ import { getRefreshedAccessToken, logoutSession } from '@/lib/authSession';
 
 const REFRESH_BEFORE_EXPIRY_MS = 60_000;
 
-/**
- * Proactively refreshes the access token before it expires.
- * Access tokens are short-lived (~15 min); refresh tokens last longer (~7 days).
- */
 export const useTokenRefresh = () => {
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

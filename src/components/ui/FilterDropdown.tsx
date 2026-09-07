@@ -14,7 +14,7 @@ export interface FilterState {
   lastYear: boolean;
   starredOnly: boolean;
   hasDescription: boolean;
-  // Project Management advanced filters
+
   clientName?: string;
   ownerName?: string;
   status?: string;
@@ -100,7 +100,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
           transition={{ duration: 0.18, ease: 'easeOut' }}
           className="absolute top-[calc(100%+8px)] right-0 w-[340px] bg-white rounded-2xl shadow-[0_16px_48px_rgba(0,0,0,0.14)] border border-gray-100 z-50 overflow-hidden"
         >
-          {/* Header */}
+
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
             <span className="font-black text-gray-900 text-base">Filter</span>
             <button
@@ -111,7 +111,6 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
             </button>
           </div>
 
-          {/* Search inside filter */}
           <div className="px-5 py-4 border-b border-gray-100">
             <div className="relative">
               <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -124,15 +123,13 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
             </div>
           </div>
 
-          {/* Filter Body */}
           <div className="px-5 py-3 max-h-[380px] overflow-y-auto no-scrollbar">
-            {/* Sort By */}
+
             <div className="mb-4">
               <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-1">Sort By</p>
               <CheckRow checked={filters.sortByLatest} onChange={(v) => set('sortByLatest', v)} label="Latest update" />
             </div>
 
-            {/* Filter By Latest Update */}
             <div className="mb-4">
               <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-1">Filter By Latest Update</p>
               <CheckRow checked={filters.last24Hours} onChange={(v) => set('last24Hours', v)} label="Last 24 hours" />
@@ -141,19 +138,16 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
               <CheckRow checked={filters.lastYear} onChange={(v) => set('lastYear', v)} label="Last Year" />
             </div>
 
-            {/* Starred Projects */}
             <div className="mb-4">
               <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-1">Starred Projects</p>
               <CheckRow checked={filters.starredOnly} onChange={(v) => set('starredOnly', v)} label="Only includes result from starred projects" />
             </div>
 
-            {/* Project Description */}
             <div className="mb-4">
               <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-1">Project Description</p>
               <CheckRow checked={filters.hasDescription} onChange={(v) => set('hasDescription', v)} label="Only show projects with description" />
             </div>
 
-            {/* Advanced: Project Management filters */}
             <div className="mb-4">
               <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-1">Client</p>
               <input
@@ -202,7 +196,6 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
             </div>
           </div>
 
-          {/* Footer Actions */}
           <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between gap-3">
             <button
               onClick={() => onChange({ ...DEFAULT_FILTER_STATE })}

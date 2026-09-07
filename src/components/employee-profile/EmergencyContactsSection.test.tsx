@@ -5,16 +5,6 @@ import EmergencyContactsSection from './EmergencyContactsSection';
 import { apiRequest } from '@/lib/queryClient';
 import { ToastProvider } from '@/components/toast/ToastProvider';
 
-// Investigation for a reported production issue: clicking "Add" on the
-// Emergency Contact form appeared to be a no-op (no network request, no
-// error, no saved contact). This test exercises the real component
-// end-to-end — button click -> handleAdd -> mutation -> apiRequest — with
-// only the network layer mocked, to determine whether the wiring itself is
-// broken. If this test passes, the code path is correct and the reported
-// no-op was not caused by a defect in this component (see written report
-// for what to check instead: click-target/overlay issues, or a stale
-// build being served).
-
 vi.mock('@/lib/queryClient', async () => {
   const actual = await vi.importActual<any>('@/lib/queryClient');
   return { ...actual, apiRequest: vi.fn() };
@@ -35,7 +25,7 @@ function renderSection(userId = 'user-1') {
 
 beforeEach(() => {
   mockedApiRequest.mockReset();
-  // Initial GET (list) call made on mount.
+
   mockedApiRequest.mockResolvedValue({ payload: { contacts: [] } });
 });
 
@@ -67,10 +57,9 @@ describe('EmergencyContactsSection — Add Emergency Contact', () => {
   it('does NOT call the API and shows a validation error when a required field is blank', async () => {
     renderSection('user-1');
     fireEvent.click(await screen.findByText('Add Contact'));
-    // Leave all fields blank and click Add straight away.
+
     fireEvent.click(screen.getByText('Add'));
 
-    // Only the initial GET should have fired — no POST.
     await waitFor(() => {
       expect(mockedApiRequest.mock.calls.some((c) => c[1]?.method === 'POST')).toBe(false);
     });

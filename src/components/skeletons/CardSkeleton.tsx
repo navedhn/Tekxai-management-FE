@@ -18,7 +18,7 @@ const CardSkeleton: React.FC<CardSkeletonProps> = ({ className }) => {
         </div>
         <Skeleton variant="rectangular" width={24} height={24} className="rounded-lg" />
       </div>
-      
+
       <div className="space-y-3 mt-2">
         <Skeleton variant="text" width="100%" height={14} />
         <Skeleton variant="text" width="90%" height={14} />

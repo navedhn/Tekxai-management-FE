@@ -9,12 +9,9 @@ interface PermissionSwitchProps {
   checked: boolean;
   onChange: (v: boolean) => void;
   disabled?: boolean;
-  inherited?: boolean; // granted only via a parent role — shown dimmed, still togglable to make it a direct grant
+  inherited?: boolean;
   title?: string;
-  // Scope controls are optional — omit both to keep a plain boolean switch
-  // (e.g. inside a context that never surfaces scope, like the read-only
-  // Library tab). When present, the dropdown only renders once `checked` is
-  // true: an ungranted permission has no scope to narrow.
+
   scope?: PermissionScope;
   onScopeChange?: (scope: PermissionScope) => void;
 }

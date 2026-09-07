@@ -44,7 +44,7 @@ function getTodayRange() {
 
 function getThisWeekRange() {
   const now = new Date();
-  const day = now.getDay(); // 0=Sun..6=Sat
+  const day = now.getDay();
   const monday = new Date(now);
   monday.setDate(now.getDate() + (day === 0 ? -6 : 1 - day));
   const sunday = new Date(monday);
@@ -52,9 +52,6 @@ function getThisWeekRange() {
   return { start_date: toDateInputStr(monday), end_date: toDateInputStr(sunday) };
 }
 
-// Page-level KPI card — used above the tab bar so the numbers stay visible
-// regardless of which tab is open, matching how enterprise HR/ERP dashboards
-// (Rippling, Deel, BambooHR) keep the day's headline stats pinned at the top.
 function SummaryCard({ icon: Icon, label, value, subtitle, iconBg, iconColor }: {
   icon: any; label: string; value: React.ReactNode; subtitle: string; iconBg: string; iconColor: string;
 }) {
@@ -72,9 +69,6 @@ function SummaryCard({ icon: Icon, label, value, subtitle, iconBg, iconColor }: 
   );
 }
 
-// Sprint 1 Milestone 5 — Attendance Reports, entirely via the generic
-// report_builder engine against the already-persisted attendance_violations/
-// timesheet_entries/employee_shifts tables (no new attendance-specific logic).
 function AttendanceReportsTab({ users }: { users: any[] }) {
   const [dimKey, setDimKey] = useState<'type' | 'employee'>('type');
 
@@ -197,7 +191,7 @@ const AttendancePage: React.FC = () => {
 
   const { data: violationsData, isLoading: vLoading } = useGetViolationsQuery(violationFilters);
   const { data: lateData, isLoading: lateLoading } = useGetViolationsQuery({ violation_type: 'LATE', ...lateDateRange });
-  // the tab happens to have selected.
+
   const { data: lateTodayData } = useGetViolationsQuery({ violation_type: 'LATE', ...getTodayRange() });
   const { data: shifts = [], isLoading: sLoading } = useGetShiftsQuery();
   const { data: employeeDirectory } = useGetEmployeeDirectory({ limit: 100 });
@@ -668,7 +662,6 @@ const AttendancePage: React.FC = () => {
 
       {activeTab === 'Reports' && <AttendanceReportsTab users={users} />}
 
-      {/* New/Edit Shift Modal */}
       <Modal isOpen={showShiftModal} onClose={() => { setShowShiftModal(false); setEditingShift(null); }} title={editingShift ? 'Edit Shift' : 'New Shift'}>
         <form onSubmit={handleSaveShift} className="flex flex-col gap-4 mt-4">
           {[
@@ -703,7 +696,6 @@ const AttendancePage: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Assign Shift Modal */}
       <Modal isOpen={showAssignModal} onClose={closeAssignModal} title="Assign Shift">
         <form onSubmit={handleAssign} className="flex flex-col gap-4 mt-4">
           <div className="flex gap-1.5 bg-gray-50 p-1 rounded-xl w-fit">

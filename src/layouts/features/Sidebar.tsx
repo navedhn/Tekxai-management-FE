@@ -279,7 +279,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       isOpen !== undefined && !isOpen ? '-translate-x-full lg:translate-x-0' : '',
       'transition-transform duration-300'
     )}>
-      {/* Header */}
+
       <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
         <div className="flex items-center gap-3">
           <img src={tekxaiLogo} alt="Tekxai" className="h-8 brightness-0 invert" />
@@ -296,7 +296,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
         )}
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-0.5">
         {employeeLinks
           ? employeeLinks.map((link) => <NavItem key={link.to + link.label} link={link} />)

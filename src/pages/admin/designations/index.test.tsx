@@ -4,13 +4,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Modal } from './index';
 import { apiRequest } from '@/lib/queryClient';
 
-// Regression test for the Designations "Add/Edit Designation" -> Department
-// dropdown: previously a plain native <select> with no search (production
-// bug report). Now backed by the shared SearchableSelect component — this
-// exercises the real Modal component end to end, not the dropdown in
-// isolation, so it also proves the existing payload/validation contract is
-// unchanged.
-
 vi.mock('@/lib/queryClient', async () => {
   const actual = await vi.importActual<any>('@/lib/queryClient');
   return { ...actual, apiRequest: vi.fn() };
@@ -41,11 +34,6 @@ beforeEach(() => {
   mockedApiRequest.mockResolvedValue({ payload: DEPARTMENTS });
 });
 
-// The Department field's SearchableSelect trigger is the second <button> in
-// the DOM — the modal header's own close (X) button is the first — before
-// Cancel/Save. Clicking by the trigger's own current label is ambiguous once
-// open (the same label reappears as a list item, or as the freshly-selected
-// trigger), so every test opens it this way instead.
 const openDeptDropdown = () => fireEvent.click(screen.getAllByRole('button')[1]);
 
 describe('Designations Modal — Department dropdown', () => {
@@ -73,7 +61,7 @@ describe('Designations Modal — Department dropdown', () => {
     openDeptDropdown();
     await waitFor(() => expect(screen.getByText('Engineering')).toBeInTheDocument());
     fireEvent.click(screen.getByText('Engineering'));
-    // Closed dropdown now shows the selected department as the trigger label.
+
     expect(screen.getByText('Engineering')).toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Search departments…')).not.toBeInTheDocument();
   });

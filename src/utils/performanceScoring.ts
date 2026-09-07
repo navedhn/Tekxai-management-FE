@@ -2,8 +2,6 @@ import type { PerformanceScores, ScoringCriterion, BonusTier } from '@/types/per
 
 export type { ScoringCriterion, BonusTier };
 
-// Fixed to match the real backend columns (employee_performance_scores) —
-// these aren't admin-editable since the columns themselves are fixed.
 export const SCORING_CRITERIA: ScoringCriterion[] = [
   {
     key: 'quality_score',
@@ -80,9 +78,6 @@ export const getScoreGrade = (totalScore: number, maxTotal = 100): { label: stri
   return { label: 'Critical', color: 'text-red-700 bg-red-50 border-red-200' };
 };
 
-/** Look up the matching tier for a score, e.g. for a "suggested bonus" preview
- * while entering scores. Actual bonus records are calculated/approved/paid
- * server-side via the separate /performance/bonus endpoints. */
 export const findBonusTier = (totalScore: number, tiers: BonusTier[]): BonusTier | null =>
   tiers.find((t) => totalScore >= t.min_score && totalScore <= t.max_score) || null;
 

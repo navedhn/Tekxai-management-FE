@@ -14,10 +14,6 @@ import { useFetchUsersQuery } from '@/services/userService';
 const v1 = 'api/v1';
 const BUILDER = `${v1}/report/builder`;
 
-// Sprint 1 Milestone 5 — Payroll Reports, entirely via the generic
-// report_builder engine against payroll_runs/payroll_entries/
-// monthly_bonus_records (all already computed by the existing payroll
-// calculation service — nothing re-derived here).
 function PayrollReportsSection() {
   const { data: users = [] } = useFetchUsersQuery({});
   const [dimKey, setDimKey] = useState<'employee' | 'bonus'>('employee');
@@ -104,7 +100,6 @@ function PayrollReportsSection() {
   );
 }
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 type RunStatus = 'DRAFT' | 'PROCESSING' | 'COMPLETED' | 'PAID';
 
 interface PayrollRun {
@@ -145,7 +140,6 @@ interface PayrollEntry {
   run?: { period_month: number; period_year: number };
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 const STATUS_COLORS: Record<RunStatus, string> = {
   DRAFT:      'bg-gray-100 text-gray-600',
   PROCESSING: 'bg-amber-100 text-amber-700',
@@ -193,7 +187,6 @@ function printPayslip(entry: PayrollEntry) {
   w?.print();
 }
 
-// ─── Summary Card ─────────────────────────────────────────────────────────────
 const SummaryCard: React.FC<{ icon: React.ReactNode; label: string; value: string; color: string }> = ({ icon, label, value, color }) => (
   <Card className="border-none shadow-sm p-5 flex items-center gap-4">
     <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center shrink-0', color)}>
@@ -206,7 +199,6 @@ const SummaryCard: React.FC<{ icon: React.ReactNode; label: string; value: strin
   </Card>
 );
 
-// ─── New Run Modal ─────────────────────────────────────────────────────────────
 const NewRunModal: React.FC<{ open: boolean; onClose: () => void; onCreate: (m: number, y: number) => void; loading: boolean }> = ({ open, onClose, onCreate, loading }) => {
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -245,25 +237,20 @@ const NewRunModal: React.FC<{ open: boolean; onClose: () => void; onCreate: (m: 
   );
 };
 
-// ─── Main Component ────────────────────────────────────────────────────────────
 const PayrollPage: React.FC = () => {
   const toast = useToastContext();
   const qc    = useQueryClient();
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [showNewModal, setShowNewModal]  = useState(false);
 
-  // Fetch payroll runs
   const { data: runsData, isLoading: runsLoading } = useQuery({
     queryKey: ['payroll-runs'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PAYROLL.LIST).then((r) => r?.payload || []),
   });
   const runs: PayrollRun[] = Array.isArray(runsData) ? runsData : (runsData?.records || []);
-  // Derived from the live runs query (not a locally-captured snapshot) so
-  // the Run Detail header always reflects the current status — invalidating
-  // ['payroll-runs'] after Calculate now refreshes this too, not just the table.
+
   const selectedRun: PayrollRun | null = selectedRunId ? runs.find((r) => r.id === selectedRunId) || null : null;
 
-  // Fetch run entries when a run is selected
   const { data: entriesData, isLoading: entriesLoading } = useQuery({
     queryKey: ['payroll-entries', selectedRun?.id],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PAYROLL.GET(selectedRun!.id)).then((r) => r?.payload?.entries || []),
@@ -271,7 +258,6 @@ const PayrollPage: React.FC = () => {
   });
   const entries: PayrollEntry[] = Array.isArray(entriesData) ? entriesData : [];
 
-  // Create run mutation
   const createRun = useMutation({
     mutationFn: (body: { period_month: number; period_year: number }) =>
       apiRequest(API_ENDPOINTS.PAYROLL.CREATE, { method: 'POST', body: JSON.stringify(body) }),
@@ -283,7 +269,6 @@ const PayrollPage: React.FC = () => {
     onError: (e: any) => toast.error(e?.message || 'Failed to create run'),
   });
 
-  // Calculate run mutation
   const calculateRun = useMutation({
     mutationFn: (id: string) =>
       apiRequest(API_ENDPOINTS.PAYROLL.CALCULATE(id), { method: 'POST', body: '{}' }),
@@ -295,7 +280,6 @@ const PayrollPage: React.FC = () => {
     onError: (e: any) => toast.error(e?.message || 'Failed to calculate'),
   });
 
-  // Summary
   const latest = runs[0];
   const totalGross = runs.reduce((s, r) => s + (r.total_gross || 0), 0);
   const totalDeductions = runs.reduce((s, r) => s + (r.total_deductions || 0), 0);
@@ -430,7 +414,7 @@ const PayrollPage: React.FC = () => {
 
       {!selectedRun ? (
         <>
-          {/* Summary Cards */}
+
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <SummaryCard icon={<DollarSign size={20} className="text-primary-600" />} label="Total Payroll" value={fmt(totalGross)} color="bg-primary-50" />
             <SummaryCard icon={<Users size={20} className="text-purple-600" />} label="Employees" value={String(totalEmployees)} color="bg-purple-50" />
@@ -443,7 +427,6 @@ const PayrollPage: React.FC = () => {
             />
           </div>
 
-          {/* Runs Table */}
           <Card className="border-none shadow-sm">
             <Table columns={runCols} data={runs} isLoading={runsLoading} emptyMessage="No payroll runs yet. Create the first run." />
           </Card>
@@ -452,7 +435,7 @@ const PayrollPage: React.FC = () => {
         </>
       ) : (
         <>
-          {/* Run Detail */}
+
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"

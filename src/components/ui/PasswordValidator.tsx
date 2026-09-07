@@ -10,7 +10,7 @@ interface PasswordValidatorProps {
 
 const PasswordValidator: React.FC<PasswordValidatorProps> = ({ password, className }) => {
   const reqs = getPasswordRequirements(password);
-  
+
   const rules = [
     { label: '8 to 16 characters', met: reqs.length },
     { label: 'At least 1 uppercase letter', met: reqs.uppercase },
@@ -18,13 +18,12 @@ const PasswordValidator: React.FC<PasswordValidatorProps> = ({ password, classNa
     { label: 'At least 1 special character', met: reqs.special },
   ];
 
-  // Calculate strength percentage
   const metCount = Object.values(reqs).filter(Boolean).length;
   const strengthPercent = (metCount / 5) * 100;
-  
+
   let strengthLabel = 'Weak';
   let strengthColor = 'bg-red-500';
-  
+
   if (metCount >= 5) {
     strengthLabel = 'Strong';
     strengthColor = 'bg-green-500';
@@ -37,7 +36,7 @@ const PasswordValidator: React.FC<PasswordValidatorProps> = ({ password, classNa
     <div className={cn("flex flex-col gap-4 p-4 bg-gray-50/50 rounded-2xl border border-gray-100", className)}>
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-          <div 
+          <div
             className={cn("h-full transition-all duration-500", strengthColor)}
             style={{ width: `${strengthPercent}%` }}
           />
@@ -68,7 +67,7 @@ const PasswordValidator: React.FC<PasswordValidatorProps> = ({ password, classNa
             </span>
           </div>
         ))}
-        {/* Lowercase check isn't in the specific image checklist but is in global rules */}
+
         <div className="flex items-center gap-2">
             <div className={cn(
               "flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center transition-colors",
