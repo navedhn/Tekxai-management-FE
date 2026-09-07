@@ -142,7 +142,7 @@ const ChatContent: React.FC<ChatContentProps> = ({
             onClick={() => onAddReaction(msg.id, r.emoji)}
             className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs border transition-colors ${
               r.reactedByMe
-                ? 'bg-[#E8EEF8] border-[#005CDA]/30 text-[#005CDA]'
+                ? 'bg-(--color-info-bg) border-[#005CDA]/30 text-[#005CDA]'
                 : 'bg-gray-100 border-gray-200 hover:bg-gray-200'
             }`}
           >
@@ -178,7 +178,7 @@ const ChatContent: React.FC<ChatContentProps> = ({
                 key={i}
                 href={att.url}
                 download={att.name}
-                className="flex items-center gap-2 px-3 py-2.5 bg-[#F2F3F5] hover:bg-[#E3E5E8] rounded-lg border border-gray-200 transition-colors max-w-xs"
+                className="flex items-center gap-2 px-3 py-2.5 bg-(--color-elevated) hover:bg-(--color-state-hover) rounded-lg border border-gray-200 transition-colors max-w-xs"
               >
                 <FileText size={20} className="text-[#005CDA] flex-shrink-0" />
                 <div className="min-w-0">
@@ -195,9 +195,9 @@ const ChatContent: React.FC<ChatContentProps> = ({
   );
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 bg-white h-full relative">
+    <div className="flex-1 flex flex-col min-w-0 bg-(--color-card-bg) h-full relative">
 
-      <div className="h-14 px-3 sm:px-4 flex items-center justify-between border-b border-[#E3E5E8] flex-shrink-0 bg-white z-10">
+      <div className="h-14 px-3 sm:px-4 flex items-center justify-between border-b border-(--color-card-border) flex-shrink-0 bg-(--color-card-bg) z-10">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <button
             onClick={toggleSidebar}
@@ -244,7 +244,7 @@ const ChatContent: React.FC<ChatContentProps> = ({
         <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
           <button
             onClick={() => setShowSearch(v => !v)}
-            className={`p-2 rounded transition-colors ${showSearch ? 'text-[#005CDA] bg-[#E8EEF8]' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'}`}
+            className={`p-2 rounded transition-colors ${showSearch ? 'text-[#005CDA] bg-(--color-info-bg)' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'}`}
             title="Search"
           >
             <Search size={18} />
@@ -293,7 +293,7 @@ const ChatContent: React.FC<ChatContentProps> = ({
       <div className="flex-1 overflow-y-auto px-3 sm:px-4 no-scrollbar">
         {isVoice ? (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-4">
-            <div className="w-20 h-20 rounded-full bg-[#F2F3F5] flex items-center justify-center">
+            <div className="w-20 h-20 rounded-full bg-(--color-elevated) flex items-center justify-center">
               <Volume2 size={36} className="text-gray-400" />
             </div>
             <div>
@@ -322,7 +322,7 @@ const ChatContent: React.FC<ChatContentProps> = ({
                 </div>
               ) : (
                 <div className="flex items-end gap-3">
-                  <div className="w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-full bg-[#F2F3F5] flex items-center justify-center flex-shrink-0">
+                  <div className="w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-full bg-(--color-elevated) flex items-center justify-center flex-shrink-0">
                     <Hash size={36} className="text-gray-400" />
                   </div>
                   <div className="pb-1">
@@ -345,7 +345,7 @@ const ChatContent: React.FC<ChatContentProps> = ({
                 <React.Fragment key={msg.id}>
                   {showDate && <DateDivider label={getDateLabel(msg.timestamp)} />}
                   <div
-                    className={`relative flex gap-3 sm:gap-4 group px-2 -mx-2 rounded hover:bg-[#F2F3F5]/80 transition-colors ${
+                    className={`relative flex gap-3 sm:gap-4 group px-2 -mx-2 rounded hover:bg-(--color-state-hover) transition-colors ${
                       isGrouped ? 'py-0.5 mt-0' : 'py-1 mt-[17px]'
                     }`}
                     onMouseEnter={() => setHoveredMsgId(msg.id)}
@@ -436,7 +436,7 @@ const ChatContent: React.FC<ChatContentProps> = ({
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="mb-1 flex items-center gap-2 px-3 py-2 bg-[#F2F3F5] rounded-t-lg border border-b-0 border-gray-200"
+                className="mb-1 flex items-center gap-2 px-3 py-2 bg-(--color-elevated) rounded-t-lg border border-b-0 border-gray-200"
               >
                 <Reply size={14} className="text-[#005CDA] flex-shrink-0" />
                 <div className="flex-1 min-w-0 text-xs">
@@ -463,7 +463,7 @@ const ChatContent: React.FC<ChatContentProps> = ({
                     {att.type === 'image' ? (
                       <img src={att.url} alt={att.name} className="h-16 w-16 object-cover rounded-lg border border-gray-200" />
                     ) : (
-                      <div className="flex items-center gap-2 px-3 py-2 bg-[#F2F3F5] rounded-lg border border-gray-200">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-(--color-elevated) rounded-lg border border-gray-200">
                         <FileText size={14} className="text-[#005CDA]" />
                         <span className="text-xs font-medium text-gray-700 max-w-[80px] truncate">{att.name}</span>
                       </div>
@@ -480,7 +480,7 @@ const ChatContent: React.FC<ChatContentProps> = ({
             )}
           </AnimatePresence>
 
-          <div className={`relative flex items-center gap-1 bg-[#F2F3F5] rounded-lg px-3 py-2 border border-transparent focus-within:border-gray-300 transition-colors ${replyingTo ? 'rounded-t-none' : ''}`}>
+          <div className={`relative flex items-center gap-1 bg-(--color-elevated) rounded-lg px-3 py-2 border border-transparent focus-within:border-gray-300 transition-colors ${replyingTo ? 'rounded-t-none' : ''}`}>
             <input
               ref={fileInputRef}
               type="file"

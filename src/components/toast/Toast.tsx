@@ -15,25 +15,25 @@ type ToastProps = {
 
 const variantStyles: Record<ToastVariant, { bg: string; icon: React.ReactNode; border: string }> = {
   success: {
-    bg: 'bg-green-100 ',
-    icon: <CheckCircle2 className="text-green-600 dark:text-green-400" size={20} />,
-    border: 'border-green-200 ',
+    bg: 'bg-(--color-success-bg)',
+    icon: <CheckCircle2 className="text-(--color-success)" size={20} />,
+    border: 'border-(--color-success-border)',
   },
   error: {
-    bg: 'bg-red-100 ',
-    icon: <AlertCircle className="text-red-600 dark:text-red-400" size={20} />,
-    border: 'border-red-200 ',
+    bg: 'bg-(--color-danger-bg)',
+    icon: <AlertCircle className="text-(--color-danger)" size={20} />,
+    border: 'border-(--color-danger-border)',
   },
   info: {
-    bg: 'bg-blue-50 ',
-    icon: <Info className="text-blue-600 dark:text-blue-400" size={20} />,
-    border: 'border-blue-200 ',
+    bg: 'bg-(--color-info-bg)',
+    icon: <Info className="text-(--color-info)" size={20} />,
+    border: 'border-(--color-info-border)',
   },
   warning: {
-    bg: 'bg-yellow-50 ',
-    icon: <AlertTriangle className="text-yellow-600 dark:text-yellow-400" size={20} />,
-    border: 'border-yellow-200 ',
-  }
+    bg: 'bg-(--color-warning-bg)',
+    icon: <AlertTriangle className="text-(--color-warning)" size={20} />,
+    border: 'border-(--color-warning-border)',
+  },
 };
 
 const Toast: React.FC<ToastProps> = ({
@@ -42,8 +42,6 @@ const Toast: React.FC<ToastProps> = ({
   variant = 'info',
   duration = 3000,
   onClose,
-  position = 'top-right',
-  darkMode = false
 }) => {
   useEffect(() => {
     if (duration > 0) {
@@ -60,15 +58,14 @@ const Toast: React.FC<ToastProps> = ({
         'flex items-start gap-3 p-4 rounded-lg shadow-lg border max-w-sm animate-slide-in',
         styles.bg,
         styles.border,
-        darkMode && 'dark'
       )}
       role="alert"
     >
       <div className="shrink-0">{styles.icon}</div>
-      <p className="flex-1 text-sm font-medium text-gray-700">{message}</p>
+      <p className="flex-1 text-sm font-medium text-(--color-text-primary)">{message}</p>
       <button
         onClick={() => onClose(id)}
-        className="shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+        className="shrink-0 text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors"
         aria-label="Close"
       >
         <X size={18} />

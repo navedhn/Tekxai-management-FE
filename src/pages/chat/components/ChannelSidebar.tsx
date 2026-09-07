@@ -52,10 +52,10 @@ const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
   const channelBtnClass = (active: boolean, unread?: number) =>
     `w-full flex items-center gap-1.5 px-2 py-1 rounded-md text-[15px] transition-all duration-150 group ${
       active
-        ? 'bg-[#D7DADC] text-gray-900'
+        ? 'bg-(--color-state-active) text-(--color-text-primary)'
         : unread
-          ? 'text-gray-900 font-semibold hover:bg-[#D7DADC]/50'
-          : 'text-gray-600 hover:bg-[#D7DADC]/50 hover:text-gray-900'
+          ? 'text-(--color-text-primary) font-semibold hover:bg-(--color-state-hover)'
+          : 'text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary)'
     }`;
 
   const renderDmItem = (dm: Channel) => {
@@ -67,7 +67,7 @@ const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
         key={dm.id}
         onClick={() => onChannelSelect(dm)}
         className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md transition-all duration-150 group ${
-          isActive ? 'bg-[#D7DADC]' : 'hover:bg-[#D7DADC]/50'
+          isActive ? 'bg-(--color-state-active)' : 'hover:bg-(--color-state-hover)'
         }`}
       >
         <div className="relative flex-shrink-0">
@@ -75,12 +75,12 @@ const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
             {getInitials(displayName)}
           </div>
           {dm.recipientStatus && (
-            <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#F2F3F5] ${getStatusColor(dm.recipientStatus)}`} />
+            <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-(--color-elevated) ${getStatusColor(dm.recipientStatus)}`} />
           )}
         </div>
         <div className="flex-1 min-w-0 text-left">
           <div className="flex items-center justify-between gap-1">
-            <span className={`text-sm truncate ${dm.unread && !isActive ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>
+            <span className={`text-sm truncate ${dm.unread && !isActive ? 'font-bold text-(--color-text-primary)' : 'font-semibold text-(--color-text-secondary)'}`}>
               {displayName}
             </span>
             {dm.unread && !isActive && (
@@ -92,7 +92,7 @@ const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
           {dm.isTyping ? (
             <p className="text-[11px] text-[#005CDA] font-medium truncate">typing...</p>
           ) : dm.lastMessage ? (
-            <p className="text-[11px] text-gray-400 font-medium truncate">{truncatePreview(dm.lastMessage)}</p>
+            <p className="text-[11px] text-(--color-text-secondary) font-medium truncate">{truncatePreview(dm.lastMessage)}</p>
           ) : null}
         </div>
       </button>
@@ -112,20 +112,20 @@ const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
   );
 
   return (
-    <div className="w-full sm:w-[240px] bg-[#F2F3F5] flex flex-col flex-shrink-0 h-full">
+    <div className="w-full sm:w-[240px] bg-(--color-elevated) flex flex-col flex-shrink-0 h-full">
 
-      <div className="h-14 flex items-center justify-center border-b border-[#E3E5E8] flex-shrink-0">
+      <div className="h-14 flex items-center justify-center border-b border-(--color-card-border) flex-shrink-0">
         <img src={texailogo} alt="Tekxai" className="h-9 w-9 object-contain" />
       </div>
 
       <div className="px-2 pt-2 pb-1 flex-shrink-0">
         <div className="relative">
-          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-(--color-text-secondary) pointer-events-none" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search"
-            className="w-full h-7 pl-8 pr-2 text-xs bg-[#E3E5E8] text-gray-700 placeholder:text-gray-400 rounded-md focus:outline-none focus:ring-1 focus:ring-[#005CDA]/30"
+            className="w-full h-7 pl-8 pr-2 text-xs bg-(--color-card-bg) text-(--color-text-primary) placeholder:text-(--color-text-secondary) rounded-md focus:outline-none focus:ring-1 focus:ring-[#005CDA]/30"
           />
         </div>
       </div>
@@ -194,15 +194,15 @@ const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
         )}
       </div>
 
-      <div className="h-[52px] px-2 flex items-center gap-1 bg-[#E9EAEC] flex-shrink-0">
-        <div className="flex items-center gap-2 flex-1 min-w-0 px-1 py-1 rounded hover:bg-[#D7DADC]/60 transition-colors cursor-pointer">
+      <div className="h-[52px] px-2 flex items-center gap-1 bg-(--color-card-bg) flex-shrink-0">
+        <div className="flex items-center gap-2 flex-1 min-w-0 px-1 py-1 rounded hover:bg-(--color-state-hover) transition-colors cursor-pointer">
           <div className={`w-8 h-8 rounded-full bg-gradient-to-b ${getAvatarColor('You')} flex items-center justify-center text-white text-[10px] font-black flex-shrink-0 relative`}>
             YO
-            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-[#E9EAEC]" />
+            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-(--color-card-bg)" />
           </div>
           <div className="flex-1 min-w-0 hidden sm:block">
-            <p className="text-sm font-semibold text-gray-900 truncate leading-tight">You</p>
-            <p className="text-[11px] text-gray-500 truncate leading-tight">Online</p>
+            <p className="text-sm font-semibold text-(--color-text-primary) truncate leading-tight">You</p>
+            <p className="text-[11px] text-(--color-text-secondary) truncate leading-tight">Online</p>
           </div>
         </div>
         <div className="flex items-center gap-0.5 flex-shrink-0">
@@ -214,7 +214,7 @@ const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
             <button
               key={label}
               title={label}
-              className="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-[#D7DADC] rounded transition-colors"
+              className="p-1.5 text-(--color-text-secondary) hover:text-(--color-text-primary) hover:bg-(--color-state-hover) rounded transition-colors"
             >
               <Icon size={16} />
             </button>

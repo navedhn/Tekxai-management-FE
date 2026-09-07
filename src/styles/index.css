@@ -415,10 +415,18 @@ body {
   --color-disabled: #64748b;
 
   /* Soft status fills */
+  --color-success: #4ade80;
   --color-success-bg: rgba(16, 185, 129, 0.14);
+  --color-success-border: rgba(16, 185, 129, 0.35);
+  --color-warning: #fb923c;
   --color-warning-bg: rgba(251, 146, 60, 0.14);
+  --color-warning-border: rgba(251, 146, 60, 0.35);
+  --color-danger: #f87171;
   --color-danger-bg: rgba(248, 113, 113, 0.14);
+  --color-danger-border: rgba(248, 113, 113, 0.35);
+  --color-info: #7db4ff;
   --color-info-bg: rgba(96, 165, 250, 0.14);
+  --color-info-border: rgba(96, 165, 250, 0.35);
 }
 
 :root[data-mode='dark'] body {
@@ -455,6 +463,53 @@ body {
 :root[data-mode='dark'] .bg-gray-100,
 :root[data-mode='dark'] .hover\:bg-gray-100:hover {
   background-color: #222b3d !important;
+}
+
+/* Chat Discord-like panels (channel list, participants, composer chrome) */
+:root[data-mode='dark'] .bg-\[\#F2F3F5\],
+:root[data-mode='dark'] .hover\:bg-\[\#F2F3F5\]\/80:hover,
+:root[data-mode='dark'] .bg-\[\#EAECF0\],
+:root[data-mode='dark'] .bg-\[\#E9EAEC\],
+:root[data-mode='dark'] .bg-\[\#FCFDFE\],
+:root[data-mode='dark'] .bg-\[\#F5F8FF\],
+:root[data-mode='dark'] .bg-\[\#F5F8FF\]\/60 {
+  background-color: var(--color-elevated) !important;
+}
+
+:root[data-mode='dark'] .bg-\[\#E3E5E8\],
+:root[data-mode='dark'] .hover\:bg-\[\#E3E5E8\]:hover,
+:root[data-mode='dark'] .bg-\[\#D7DADC\],
+:root[data-mode='dark'] .hover\:bg-\[\#D7DADC\]:hover,
+:root[data-mode='dark'] .hover\:bg-\[\#D7DADC\]\/50:hover,
+:root[data-mode='dark'] .hover\:bg-\[\#D7DADC\]\/60:hover {
+  background-color: #222b3d !important;
+}
+
+:root[data-mode='dark'] .bg-\[\#E8EEF8\],
+:root[data-mode='dark'] .bg-\[\#E5F2FF\],
+:root[data-mode='dark'] .bg-\[\#F0F5FF\] {
+  background-color: rgba(96, 165, 250, 0.14) !important;
+}
+
+/* Toast / soft status wells */
+:root[data-mode='dark'] .bg-green-100,
+:root[data-mode='dark'] .bg-\[\#E5FDF4\],
+:root[data-mode='dark'] .bg-\[\#ECFDF3\] {
+  background-color: var(--color-success-bg) !important;
+}
+
+:root[data-mode='dark'] .bg-red-100,
+:root[data-mode='dark'] .bg-\[\#FFF0F0\] {
+  background-color: var(--color-danger-bg) !important;
+}
+
+:root[data-mode='dark'] .bg-yellow-50,
+:root[data-mode='dark'] .bg-yellow-100,
+:root[data-mode='dark'] .bg-yellow-200,
+:root[data-mode='dark'] .bg-amber-100,
+:root[data-mode='dark'] .bg-amber-200,
+:root[data-mode='dark'] .bg-\[\#FFF4E5\] {
+  background-color: var(--color-warning-bg) !important;
 }
 
 /* Soft tint chips / icon wells */
@@ -547,15 +602,28 @@ body {
 
 /* Borders */
 :root[data-mode='dark'] .border-gray-50,
+:root[data-mode='dark'] .border-gray-50\/60,
 :root[data-mode='dark'] .border-gray-100,
 :root[data-mode='dark'] .border-gray-200,
+:root[data-mode='dark'] .border-gray-300,
 :root[data-mode='dark'] .border-\[\#EAECF0\],
+:root[data-mode='dark'] .border-\[\#E3E5E8\],
 :root[data-mode='dark'] .border-\[\#00000014\],
 :root[data-mode='dark'] .border-\[\#ABEFC6\],
 :root[data-mode='dark'] .border-\[\#FFD6AE\],
 :root[data-mode='dark'] .border-\[\#FEB3B3\],
-:root[data-mode='dark'] .border-\[\#B2DDFF\] {
+:root[data-mode='dark'] .border-\[\#B2DDFF\],
+:root[data-mode='dark'] .border-green-200,
+:root[data-mode='dark'] .border-red-200,
+:root[data-mode='dark'] .border-blue-200,
+:root[data-mode='dark'] .border-yellow-200 {
   border-color: rgba(148, 163, 184, 0.16) !important;
+}
+
+/* Avatar status rings should match chat panel surfaces */
+:root[data-mode='dark'] .border-\[\#E9EAEC\],
+:root[data-mode='dark'] .border-\[\#F2F3F5\] {
+  border-color: var(--color-elevated) !important;
 }
 
 :root[data-mode='dark'] .divide-gray-50 > :not([hidden]) ~ :not([hidden]),

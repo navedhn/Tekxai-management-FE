@@ -23,7 +23,7 @@ const ServerIcon: React.FC<{
       onMouseLeave={() => setHovered(false)}
     >
 
-      <span className={`absolute left-0 w-1 rounded-r-full bg-gray-900 transition-all duration-200 ${
+      <span className={`absolute left-0 w-1 rounded-r-full bg-(--color-text-primary) transition-all duration-200 ${
         active ? 'h-10' : hovered ? 'h-5 opacity-100' : 'h-2 opacity-0'
       }`} />
 
@@ -46,7 +46,7 @@ const ServerIcon: React.FC<{
       >
         {isDm ? <MessageCircle size={22} /> : server.abbreviation}
         {server.hasNotification && (
-          <span className="absolute -bottom-0.5 -right-0.5 min-w-[18px] h-[18px] px-0.5 bg-red-500 rounded-full border-[3px] border-[#EAECF0] text-[9px] text-white font-bold flex items-center justify-center">
+          <span className="absolute -bottom-0.5 -right-0.5 min-w-[18px] h-[18px] px-0.5 bg-red-500 rounded-full border-[3px] border-(--color-elevated) text-[9px] text-white font-bold flex items-center justify-center">
             {server.unread}
           </span>
         )}
@@ -58,13 +58,13 @@ const ServerIcon: React.FC<{
 const ServerRail: React.FC<ServerRailProps> = ({
   servers, activeServerId, onServerSelect, onAddServer, onBack, dmHomeServer,
 }) => (
-  <div className="w-[72px] bg-[#EAECF0] flex flex-col items-center py-3 gap-2 flex-shrink-0 h-full overflow-y-auto no-scrollbar">
+  <div className="w-[72px] bg-(--color-elevated) flex flex-col items-center py-3 gap-2 flex-shrink-0 h-full overflow-y-auto no-scrollbar">
     <button
       onClick={onBack}
-      className="w-12 h-12 rounded-full bg-white hover:bg-[#D7DADC] flex items-center justify-center transition-all duration-200 active:scale-95 mb-1"
+      className="w-12 h-12 rounded-full bg-(--color-card-bg) hover:bg-(--color-state-hover) flex items-center justify-center transition-all duration-200 active:scale-95 mb-1"
       title="Back to Dashboard"
     >
-      <ArrowLeft size={18} className="text-gray-600" />
+      <ArrowLeft size={18} className="text-(--color-text-secondary)" />
     </button>
 
     <ServerIcon
@@ -74,7 +74,7 @@ const ServerRail: React.FC<ServerRailProps> = ({
       isDm
     />
 
-    <div className="w-8 h-[2px] rounded-full bg-[#D7DADC] my-0.5" />
+    <div className="w-8 h-[2px] rounded-full bg-(--color-card-border) my-0.5" />
 
     {servers.map(s => (
       <ServerIcon
@@ -85,11 +85,11 @@ const ServerRail: React.FC<ServerRailProps> = ({
       />
     ))}
 
-    <div className="w-8 h-[2px] rounded-full bg-[#D7DADC] my-0.5" />
+    <div className="w-8 h-[2px] rounded-full bg-(--color-card-border) my-0.5" />
 
     <button
       onClick={onAddServer}
-      className="w-12 h-12 rounded-full bg-white hover:bg-green-50 hover:rounded-2xl border-2 border-dashed border-gray-300 hover:border-green-500 flex items-center justify-center transition-all duration-200 active:scale-95"
+      className="w-12 h-12 rounded-full bg-(--color-card-bg) hover:bg-green-50 hover:rounded-2xl border-2 border-dashed border-gray-300 hover:border-green-500 flex items-center justify-center transition-all duration-200 active:scale-95"
       title="Add a Server"
     >
       <Plus size={22} className="text-green-600" />
