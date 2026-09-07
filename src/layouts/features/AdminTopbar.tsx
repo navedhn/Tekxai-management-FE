@@ -141,7 +141,7 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
                                 {user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : 'User'}
                             </span>
                             <span className="text-xs text-gray-400 font-medium">
-                                {user?.rolesId === '7170d59d-1f19-4bda-b302-245c48dd18f8' ? 'Admin' : 'Employee'}
+                                {user?.role_name ? user.role_name.replace(/_/g, ' ') : 'Employee'}
                             </span>
                         </span>
                         <ChevronDown size={16} className="hidden md:block text-gray-400" />
@@ -167,7 +167,7 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
                                             {user?.first_name} {user?.last_name}
                                         </span>
                                         <span className="text-gray-400 text-xs font-medium capitalize">
-                                            {user?.rolesId === '7170d59d-1f19-4bda-b302-245c48dd18f8' ? 'Admin' : 'Employee'}
+                                            {user?.role_name ? user.role_name.replace(/_/g, ' ') : 'Employee'}
                                         </span>
                                     </div>
                                 </div>
