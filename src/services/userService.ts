@@ -23,11 +23,11 @@ export interface User {
 }
 
 const fetchUsersApi = async (params?: Record<string, any>) => {
-  // Filter out undefined, null, and empty strings
-  const filteredParams = params 
+
+  const filteredParams = params
     ? Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined && v !== null && v !== ''))
     : {};
-    
+
   const queryString = new URLSearchParams(filteredParams).toString();
   const url = queryString ? `${API_ENDPOINTS.USER.LIST}?${queryString}` : API_ENDPOINTS.USER.LIST;
   const res = await apiRequest<any>(url);
@@ -64,7 +64,7 @@ export const useLazyFetchUsersQuery = (params?: Record<string, any>) => {
     queryFn: () => fetchUsersApi(params),
     enabled: false,
   });
-  
+
   return {
     ...query,
     fetchUsers: (params?: Record<string, any>) => {
@@ -73,26 +73,15 @@ export const useLazyFetchUsersQuery = (params?: Record<string, any>) => {
   };
 };
 
-// Employee headcount/roster changes ripple into the HR Dashboard's own ad hoc
-// keys (hr-dashboard/index.tsx) and employeeService's dashboard-stat key —
-// neither is derived from QUERY_KEYS.USER.LIST, so they must be invalidated
-// explicitly alongside the user list itself.
 const invalidateUserAndDependents = (queryClient: ReturnType<typeof useQueryClient>, userId?: string) => {
   queryClient.invalidateQueries({ queryKey: QUERY_KEYS.USER.LIST });
   queryClient.invalidateQueries({ queryKey: ['employee-list-hr-dash'] });
   queryClient.invalidateQueries({ queryKey: ['employee-stats-hr-dash'] });
   queryClient.invalidateQueries({ queryKey: ['employee-directory'] });
   queryClient.invalidateQueries({ queryKey: QUERY_KEYS.EMPLOYEE.DASHBOARD_STATS });
-  // 'user-list-brief' backs the Reporting Manager / Team Member pickers in
-  // Add Employee, Employee Profile, TeamFormModal, TeamMembersModal, and
-  // several other admin pages — previously never invalidated by any user
-  // mutation, so those pickers could show stale names/statuses indefinitely.
+
   queryClient.invalidateQueries({ queryKey: ['user-list-brief'] });
-  // Employee Profile reads ['employee-full', userId] / ['hr-profile', userId]
-  // (hrService.ts) — previously only hrService's own mutations invalidated
-  // these, so editing a user via ERP Users -> Edit User left an already-open
-  // Employee Profile tab stale. Invalidate by userId when known, otherwise
-  // fall back to the whole key prefix (matches every cached profile).
+
   queryClient.invalidateQueries({ queryKey: userId ? ['employee-full', userId] : ['employee-full'] });
   queryClient.invalidateQueries({ queryKey: userId ? ['hr-profile', userId] : ['hr-profile'] });
 };
@@ -118,9 +107,6 @@ export const useUpdateUserMutation = () => {
   });
 };
 
-// Self-service profile update (name/phone/designation/position/avatar) —
-// distinct from useUpdateUserMutation, which targets an arbitrary user id
-// and is admin-facing. This always targets the logged-in user via /user/me.
 export const useUpdateMyProfileMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -132,13 +118,6 @@ export const useUpdateMyProfileMutation = () => {
   });
 };
 
-// Dedicated employee-avatar upload — direct to private S3
-// (Emp-{employeeId}/profile/profile-picture.ext), replacing the old
-// "uploadFile() then PATCH avatar=file_url" two-step flow for a user who
-// already has an employee_id. Used by both Settings (self, userId = own id)
-// and any HR admin-editing-an-existing-employee flow. Shares the exact same
-// cache invalidation as useUpdateMyProfileMutation/useUpdateUserMutation so
-// Employee Directory/detail/chat member lists all pick up the new avatar.
 export const useUploadAvatarMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -149,10 +128,6 @@ export const useUploadAvatarMutation = () => {
   });
 };
 
-// E2E DM encryption — uploads only the PUBLIC half of the caller's ECDH
-// keypair generated client-side by e2eCrypto.ts; the server stores it as an
-// opaque blob (no crypto logic). The private key never leaves the browser's
-// IndexedDB. See chat/index.tsx's first-load key-bootstrap effect.
 export const useUpdateMyPublicKeyMutation = () => {
   return useMutation({
     mutationFn: (public_key: string) =>
@@ -160,9 +135,6 @@ export const useUpdateMyPublicKeyMutation = () => {
   });
 };
 
-// Fetches a peer's public key so a DM sender can derive the shared AES-GCM
-// key (ECDH) before encrypting. Cached per-user — a peer's public key only
-// changes if they regenerate a keypair (new device / cleared IndexedDB).
 export const useGetUserPublicKeyQuery = (userId: string | null) =>
   useQuery<{ user_id: string; public_key: string } | null>({
     queryKey: ['user-public-key', userId],
@@ -175,9 +147,6 @@ export const useGetUserPublicKeyQuery = (userId: string | null) =>
     retry: false,
   });
 
-// Dedicated RBAC action — the only mutation allowed to change a user's role.
-// Deliberately separate from useUpdateUserMutation (generic profile PUT),
-// which the backend now strips role_id from unconditionally.
 export const useChangeUserRoleMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -189,9 +158,6 @@ export const useChangeUserRoleMutation = () => {
   });
 };
 
-// Deliberately separate from useUpdateUserMutation (generic profile PUT),
-// which the backend now strips employee_id from unconditionally — see
-// EMPLOYEE_ID_CHANGE's own comment.
 export const useUpdateEmployeeIdMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -213,12 +179,6 @@ export const useDeleteUserMutation = () => {
   });
 };
 
-// useBulkUpdateUsersMutation was removed (RBAC security sprint): it posted to
-// PUT /user, a route the backend never implemented, sending an arbitrary
-// client-controlled payload including role_id with none of update_user()'s
-// role-field stripping. It had zero call sites — dead code left as a landmine
-// for whoever eventually added that backend route.
-
 export const useBulkDeleteUsersMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -229,9 +189,6 @@ export const useBulkDeleteUsersMutation = () => {
   });
 };
 
-// Direct admin override for Employee Lifecycle stage — single or bulk (pass
-// one id or many). Bypasses the approval-gated transition endpoints
-// (Move to Probation, Request Confirm, etc.) for cases those don't cover.
 export const useSetLifecycleStageMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -243,12 +200,6 @@ export const useSetLifecycleStageMutation = () => {
   });
 };
 
-// Gated single-employee lifecycle transitions. Each is safety-checked
-// server-side (e.g. archive rejects with 409 if the offboarding checklist /
-// outstanding assets / approvals aren't cleared). These are what the normal
-// employee-profile / offboarding UI should call for sensitive transitions —
-// useSetLifecycleStageMutation above is reserved for the explicit bulk
-// admin-override flow.
 export const useMoveToProbationMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({

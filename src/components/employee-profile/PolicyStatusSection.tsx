@@ -5,14 +5,6 @@ import Badge from '@/components/ui/Badge';
 import { cn } from '@/utils/cn';
 import { useGetPolicies } from '@/services/policyService';
 
-// Policy Status — HR-facing view of an employee's standing against all
-// mandatory, published company policies (Milestone 5). This is distinct from
-// the existing "Policy Acknowledgements" card in HistorySection, which only
-// ever lists what the employee HAS acknowledged. Here we cross-reference the
-// full mandatory policy catalog (fetched via useGetPolicies) against the
-// employee's own acknowledgement records to surface what's still Outstanding.
-// Read-only — HR views status here, the employee acknowledges elsewhere.
-
 export interface PolicyStatusSectionProps {
   policy_acknowledgements: any[];
 }

@@ -5,12 +5,6 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import { TicketFieldDef, TicketFormSection } from '@/types/ticket';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
 
-// Generic renderer for a ticket type's field_schema (M4 — Dynamic Form Engine).
-// The schema shape is defined by the admin Ticket Type editor and validated
-// server-side by validate_custom_fields; this component only needs to render
-// inputs and report values — required/unknown-key enforcement stays on the
-// backend so both always agree.
-
 interface DynamicFormRendererProps {
   sections: TicketFormSection[];
   values: Record<string, unknown>;
@@ -112,9 +106,7 @@ const FieldControl: React.FC<{
       );
 
     default:
-      // text/number/date/time/email/phone/url, plus entity types (user,
-      // employee, team, project, asset, file, image) rendered as free text —
-      // the backend treats all custom field values as opaque strings.
+
       return (
         <Input
           label={label}

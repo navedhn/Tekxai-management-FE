@@ -4,8 +4,6 @@ import { unwrapApiData } from '@/utils/apiResponse';
 import { API_ENDPOINTS } from './api/endpoints';
 import { QUERY_KEYS } from './api/tanstackKeys';
 
-// --- Types ---
-
 export type MeetingRoomStatus = 'ACTIVE' | 'CLOSED' | 'ARCHIVED';
 export type MeetingStatus = 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
 export type AgendaStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
@@ -147,8 +145,6 @@ interface Paginated<T> {
   limit: number;
   pages: number;
 }
-
-// --- Raw API calls ---
 
 function toQuery(params?: Record<string, any>) {
   if (!params) return '';
@@ -306,8 +302,6 @@ const addAttachmentApi = async (data: { attachable_type: AttachableType; attacha
   const res = await apiRequest<unknown>(API_ENDPOINTS.MEETING.ATTACHMENT_CREATE, { method: 'POST', body: JSON.stringify(data) });
   return unwrapApiData<MeetingAttachment>(res);
 };
-
-// --- Hooks ---
 
 export const useMeetingDashboard = () =>
   useQuery({ queryKey: QUERY_KEYS.MEETING.DASHBOARD, queryFn: getDashboardApi });

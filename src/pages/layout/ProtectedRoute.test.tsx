@@ -105,9 +105,6 @@ describe('ProtectedRoute', () => {
     expect(screen.getByText('Protected Content')).toBeInTheDocument();
   });
 
-  // Regression: HR Manager (hr.employees.edit, no erp.users.create) hit
-  // "Employee not found" on /admin/add-employee?mode=edit because the
-  // route required erp.users.create only — an array permission is "any of".
   it('an array permission grants access when the caller holds only one of the listed keys', () => {
     useAuthStore.setState({ isLoggedIn: true, role: 'HR_MANAGER', user: { id: '8' } as never });
     renderProtectedRoute(

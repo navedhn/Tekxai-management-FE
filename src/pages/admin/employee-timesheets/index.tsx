@@ -12,19 +12,6 @@ import { useGetMyAttendanceSummary } from '@/services/attendanceService';
 import { useGetEmployeeTimesheet } from '@/services/attendanceService';
 import { TimesheetEntry } from '@/services/timesheetService';
 
-// ── Karachi-anchored date helpers ────────────────────────────────────────────
-// The Summary Cards' date window must resolve to the SAME calendar day the
-// backend already uses for attendance_date/get_week_start (Asia/Karachi,
-// fixed UTC+5, no DST) — never the viewing admin's own browser timezone.
-// Mirrors timesheets.service.js's karachi_parts()/get_week_start() exactly
-// (same construction: Intl.DateTimeFormat with timeZone for reading a Date's
-// Karachi Y/M/D, Date.UTC minus the fixed offset for building one back) so a
-// browser in any timezone computes the identical "today"/"this week" window
-// the server does. Never uses Date's own local getters/setters (getFullYear,
-// getMonth, getDate, setDate, ...) — those read/write the BROWSER's own OS
-// timezone, which is exactly the class of bug already fixed once in this
-// codebase (desktop-app's check-in display defaulting to the laptop's OS
-// timezone instead of the company's).
 const KARACHI_TZ = 'Asia/Karachi';
 const KARACHI_OFFSET_MS = 5 * 60 * 60 * 1000;
 const WEEKDAY_INDEX: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
@@ -37,8 +24,6 @@ function karachiParts(d: Date) {
   return { year: +get('year'), month: +get('month'), day: +get('day'), weekday: get('weekday') };
 }
 
-// Builds a real instant for a given Karachi Y/M/D (Date.UTC overflows/
-// underflows month-end and negative-day values correctly on its own).
 function karachiDateFromParts(year: number, month: number, day: number) {
   return new Date(Date.UTC(year, month - 1, day) - KARACHI_OFFSET_MS);
 }
@@ -55,9 +40,6 @@ export function startOfWeek(d: Date) {
   return karachiDateFromParts(year, month, diff);
 }
 
-// Real-millisecond day arithmetic (Karachi has no DST, so this is always
-// exact) — NOT Date.setDate(), which mutates via the browser's local
-// timezone and can land on the wrong Karachi calendar day.
 export function addDays(d: Date, n: number) {
   return new Date(d.getTime() + n * 24 * 60 * 60 * 1000);
 }
@@ -77,11 +59,6 @@ const PERIODS = [
   { label: 'Custom', value: 'custom' },
 ];
 
-// Resolves the exact [start,end] date range for the Summary Cards. Kept
-// independent of the backend's own week-vs-range branching inside
-// get_employee_timesheet_ctrl — the summary is always a plain aggregate over
-// a date range, so it doesn't need "which day of the week does this land on"
-// logic at all.
 export function resolveSummaryRange(period: string, customFrom: string, customTo: string): { start: string; end: string } {
   const now = new Date();
   if (period === 'today') return { start: toDateStr(now), end: toDateStr(now) };
@@ -99,10 +76,10 @@ export function resolveSummaryRange(period: string, customFrom: string, customTo
   if (period === 'last_month') {
     return {
       start: toDateStr(startOfMonth(now, -1)),
-      end: toDateStr(addDays(startOfMonth(now), -1)), // last day of previous month
+      end: toDateStr(addDays(startOfMonth(now), -1)),
     };
   }
-  return { start: customFrom, end: customTo }; // custom
+  return { start: customFrom, end: customTo };
 }
 
 function toCsv(rows: TimesheetEntry[]): string {
@@ -129,12 +106,6 @@ const EmployeeTimesheets: React.FC = () => {
   const [customTo, setCustomTo] = useState(toDateStr(new Date()));
   const [customApplied, setCustomApplied] = useState({ from: customFrom, to: customTo });
 
-  // Employee Profile's "Open Full Timesheet" link passes ?user_id= — this
-  // screen must reuse itself for that entry point rather than a separate
-  // profile-embedded copy, per the no-duplicated-UI requirement. We only
-  // have the id from the URL, not the full employee record the search box
-  // needs to render a selected-state chip, so we fetch it via the same
-  // search endpoint, keyed on the id.
   const [resolvingPreselect, setResolvingPreselect] = useState(!!preselectedUserId);
 
   React.useEffect(() => {
@@ -190,11 +161,7 @@ const EmployeeTimesheets: React.FC = () => {
         );
       },
     },
-    // Admin-only columns. Source/Notes only ever populate for This Month /
-    // Last Month / Custom periods (build_range_rows) — Today/Yesterday/This
-    // Week/Last Week reuse the employee's own unmodified build_week_rows,
-    // which doesn't carry these fields. Rendering '—' for the absent case is
-    // an honest gap, not a fabricated value.
+
     {
       header: 'Source', key: 'checkout_source' as any,
       render: (item: any) => <span className="text-gray-500">{item.checkout_source || '—'}</span>,
@@ -203,10 +170,7 @@ const EmployeeTimesheets: React.FC = () => {
       header: 'Notes', key: 'note' as any,
       render: (item: any) => <span className="text-gray-500 truncate max-w-[160px] inline-block">{item.note || '—'}</span>,
     },
-    // Correction Status: no per-entry correction/edit-approval tracking is
-    // wired to these rows yet (that data lives separately as standalone
-    // Timesheet Edit Requests, not joined here) — shown as a static, honest
-    // placeholder rather than fabricated.
+
     {
       header: 'Correction', key: 'correction' as any,
       render: () => <span className="text-gray-300">—</span>,

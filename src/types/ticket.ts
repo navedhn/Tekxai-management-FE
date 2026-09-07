@@ -1,5 +1,3 @@
-// Service-desk tickets carry workflow-defined statuses (any string from the
-// type's workflow steps); the three literals below are the legacy statuses.
 export type TicketStatus = 'pending' | 'in_progress' | 'resolved' | (string & {});
 
 export type TicketRecipientRole =
@@ -30,13 +28,10 @@ export interface TicketReply {
   user?: { id: string; first_name: string; last_name: string; email: string; avatar?: string };
 }
 
-// ─── Service Desk (ticket-type driven) shapes — mirror the backend's
-// ticket_types.field_schema / workflow JSON exactly ─────────────────────────
-
 export interface TicketFieldDef {
   key: string;
   label: string;
-  type: string; // text | textarea | number | date | time | checkbox | switch | select | multiselect | ...
+  type: string;
   placeholder?: string;
   help_text?: string;
   required?: boolean;
@@ -139,7 +134,7 @@ export interface CreateTicketPayload {
   priority: TicketPriority;
   createdBy: string;
   createdByEmail: string;
-  // Service Desk path — present when the ticket is raised against a configured type
+
   ticketTypeId?: string;
   customFields?: Record<string, unknown>;
   projectId?: string;

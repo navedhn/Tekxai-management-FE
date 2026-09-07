@@ -3,15 +3,13 @@ import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from './api/endpoints';
 import { QUERY_KEYS } from './api/tanstackKeys';
 
-// --- API Calls ---
-
 export const getInvitesApi = async (params?: Record<string, any>) => {
-  const filteredParams = params 
+  const filteredParams = params
     ? Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== '' && v !== null && v !== undefined))
     : {};
-    
-  const queryString = Object.keys(filteredParams).length > 0 
-    ? '?' + new URLSearchParams(filteredParams).toString() 
+
+  const queryString = Object.keys(filteredParams).length > 0
+    ? '?' + new URLSearchParams(filteredParams).toString()
     : '';
   return apiRequest(`${API_ENDPOINTS.INVITE.LIST}${queryString}`);
 };
@@ -33,7 +31,6 @@ export const redeemInviteApi = async (payload: any) => {
     body: JSON.stringify(payload),
   });
 };
-
 
 export const updateInviteApi = async (id: string | number, payload: any) => {
   return apiRequest(API_ENDPOINTS.INVITE.UPDATE(id), {
@@ -62,8 +59,6 @@ export const bulkDeleteInvitesApi = async (payload: any) => {
 export const acceptInviteApi = async (id: string | number) => {
   return apiRequest(API_ENDPOINTS.INVITE.ACCEPT(id), { method: 'POST' });
 };
-
-// --- Hooks ---
 
 export const useGetInvitesQuery = (params?: Record<string, any>, enabled: boolean = true) => {
   return useQuery({

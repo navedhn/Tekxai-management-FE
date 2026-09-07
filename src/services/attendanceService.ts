@@ -24,12 +24,6 @@ export const useGetMyAttendanceSummary = (params?: { start_date?: string; end_da
     enabled: options?.enabled,
   });
 
-// Employee Timesheets (admin browser) — a distinct endpoint from
-// useGetWeeklyTimesheet (timesheetService.ts), not a reimplementation of
-// it: Today/Yesterday/This Week/Last Week resolve server-side to the exact
-// same week-shaped rows that endpoint already returns for the logged-in
-// user's own week; This Month/Last Month/Custom return the same row shape
-// for an arbitrary range instead.
 export const useGetEmployeeTimesheet = (params: { user_id: string; period: string; start_date?: string; end_date?: string }, options?: { enabled?: boolean }) =>
   useQuery({
     queryKey: ['employee-timesheet', params],
@@ -57,10 +51,6 @@ export interface NoCheckinFilters {
   status?: string;
 }
 
-// "Didn't check in today" — active employees with no timesheet_entries row
-// and no approved leave for the given day. Distinct from useGetViolationsQuery
-// (which only reads already-recorded LATE/ABSENT/EARLY_OUT rows): this is a
-// live, computed no-show list for a day nobody has been marked absent for yet.
 export const useGetNoCheckinsQuery = (filters?: NoCheckinFilters) =>
   useQuery({
     queryKey: ['no-checkins', filters],
@@ -72,10 +62,6 @@ export const useGetNoCheckinsQuery = (filters?: NoCheckinFilters) =>
     staleTime: 30000,
   });
 
-// Streams the same No-Check-In Today list (same filters) as a branded PDF —
-// GET rather than a mutation since it's a pure export with no server-side
-// state change, but done as a plain async function (not useQuery) since
-// triggering a file download on click isn't a cacheable "get some data" read.
 export async function exportNoCheckinPdf(filters?: NoCheckinFilters) {
   const qs = filters ? '?' + new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([, v]) => v != null && v !== '')) as any).toString() : '';
   const token = localStorage.getItem('tekxai_access_token');
@@ -97,8 +83,6 @@ export async function exportNoCheckinPdf(filters?: NoCheckinFilters) {
   URL.revokeObjectURL(url);
 }
 
-// Turns the no-checkins list into real ABSENT violation rows (idempotent —
-// safe to click more than once for the same day).
 export const useMarkAbsenteesMutation = () => {
   const qc = useQueryClient();
   return useMutation({

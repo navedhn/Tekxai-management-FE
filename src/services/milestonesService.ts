@@ -41,15 +41,12 @@ export interface Milestone {
   depends_on?: MilestoneDependency[];
   members?: { user: MilestoneMember }[];
   tasks: KanbanTask[];
-  // Milestone Financial Foundation — independent of `status`/`completed`
-  // above (see milestones.repository.js/schema comment). `price` always
-  // inherits the parent project's budget_currency; there is no per-milestone
-  // currency.
+
   price: number;
   payment_status: MilestonePaymentStatus;
   created_at: string;
   updated_at: string;
-  // Phase 3 Project Delivery & Evidence Foundation.
+
   original_due_date?: string | null;
   missed_reason_category?: MissedReasonCategory | null;
   missed_reason_detail?: string | null;
@@ -60,10 +57,6 @@ export interface Milestone {
   delivery?: MilestoneDelivery;
 }
 
-// Phase 3 Project Delivery & Evidence Foundation — deliberately separate
-// controlled vocabularies: "what happened" (missed_reason_category) is
-// never conflated with "whose/what fault" (issue_classification). Neither
-// is ever auto-derived from lateness — both are management-entered facts.
 export type MissedReasonCategory =
   | 'CLIENT_DEPENDENCY' | 'ACCESS_INFRASTRUCTURE' | 'SCOPE_CHANGE' | 'BLOCKER'
   | 'RESOURCE_CAPACITY' | 'TECHNICAL_ISSUE' | 'QUALITY_REWORK' | 'OTHER';
@@ -73,8 +66,6 @@ export type IssueClassification =
 export type QaStatus = 'NOT_REQUIRED' | 'PASSED' | 'FAILED';
 export type DeliveryStatus = 'ON_TIME' | 'MISSED' | 'PENDING';
 
-// Always server-derived (see compute_delivery in milestones.repository.js)
-// — never computed or fabricated client-side.
 export interface MilestoneDelivery {
   expected: string;
   deadline: string | null;
@@ -184,11 +175,6 @@ export function useUnarchiveMilestone(projectId: string | null | undefined) {
   });
 }
 
-// Drag-and-drop reorder — sends the full new id order, backend renumbers
-// 1..N by array position in one transaction (see reorder_milestones_svc /
-// PATCH .../milestones/reorder). Optimistically writes the new order into
-// the cache immediately (so the drag feels instant) and rolls back on error;
-// the follow-up invalidation reconciles with the server-computed sequence.
 export function useReorderMilestones(projectId: string | null | undefined, includeArchived = false) {
   const qc = useQueryClient();
   const queryKey = [...QUERY_KEYS.MILESTONE.LIST(projectId || ''), includeArchived];
@@ -211,7 +197,7 @@ export function useReorderMilestones(projectId: string | null | undefined, inclu
             return m ? { ...m, sequence: i + 1 } : null;
           })
           .filter(Boolean) as Milestone[];
-        // keep any rows not included (shouldn't normally happen) at the end
+
         const missing = previous.filter((m) => !orderedIds.includes(m.id));
         qc.setQueryData(queryKey, [...reordered, ...missing]);
       }

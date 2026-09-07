@@ -8,9 +8,6 @@ type TimeTrackerCardProps = {
   seconds: number;
 };
 
-// Attendance policy: Check In / Check Out is exclusively started from the
-// TekXAI Desktop Monitoring Agent — this card is read-only. It never renders
-// an action button and never calls a check-in/check-out API from the web UI.
 const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({ trackerState, seconds }) => (
   <Card className="bg-white border-none shadow-sm py-5 px-8">
     {trackerState === 'tracking' ? (

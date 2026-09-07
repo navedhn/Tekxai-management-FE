@@ -47,4 +47,3 @@ const FormDatePicker: React.FC<Props> = ({
 };
 
 export default FormDatePicker;
-

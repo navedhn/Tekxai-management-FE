@@ -154,17 +154,10 @@ const StarredQueries: React.FC = () => {
         }
     };
 
-    // Support either direct array return or object mapped arrays
     const listData = Array.isArray(rawStarredData)
         ? rawStarredData
         : (rawStarredData?.[activeTab.toLowerCase()] || []);
 
-    // Was hardcoded to 16 on every tab regardless of actual data (confirmed
-    // via the API response — GET /starred/queries always returns all three
-    // {comments,projects,tasks} arrays in one payload, independent of the
-    // `tab` query param) — badges showed 16 even when a tab's list was
-    // empty. Since the backend already returns all three arrays together,
-    // real per-tab counts are available without extra requests.
     const counts = Array.isArray(rawStarredData)
         ? { comments: 0, projects: 0, tasks: 0 }
         : { comments: rawStarredData?.comments?.length || 0, projects: rawStarredData?.projects?.length || 0, tasks: rawStarredData?.tasks?.length || 0 };
@@ -229,13 +222,13 @@ const StarredQueries: React.FC = () => {
                         {entry.projects.map((proj: StarredItem, index: number) => (
                             <motion.div
                                 key={proj.id}
-                                className={`flex items-center justify-between py-2 group overflow-hidden 
+                                className={`flex items-center justify-between py-2 group overflow-hidden
         ${index !== entry.projects.length - 1 ? "border-b border-gray-200" : ""}`}
                                 initial="rest"
                                 whileHover="hover"
                                 animate="rest"
                             >
-                                {/* LEFT ICON (SPACE RESERVED) */}
+
                                 <motion.div
                                     variants={{
                                         rest: { width: 0, opacity: 0 },
@@ -247,10 +240,8 @@ const StarredQueries: React.FC = () => {
                                     <Folder size={16} className="text-primary-500" />
                                 </motion.div>
 
-                                {/* MAIN CONTENT */}
                                 <div className="flex items-center justify-between flex-1 px-2 py-1">
 
-                                    {/* LEFT TEXT */}
                                     <div className="flex items-center gap-4">
                                         <span className="text-sm font-black text-gray-900 w-6">
                                             {proj.id}.
@@ -260,10 +251,8 @@ const StarredQueries: React.FC = () => {
                                         </span>
                                     </div>
 
-                                    {/* RIGHT CONTENT */}
                                     <div className="flex items-center gap-6">
 
-                                        {/* PROGRESS */}
                                         <div className="flex items-center gap-3 w-48">
                                             <div className="h-2 flex-1 bg-gray-100 rounded-full overflow-hidden">
                                                 <div
@@ -273,7 +262,6 @@ const StarredQueries: React.FC = () => {
                                             </div>
                                         </div>
 
-                                        {/* INFO */}
                                         <div className="flex items-center gap-4 text-[11px] font-bold text-gray-400">
                                             <span>
                                                 Completed {proj.completed} out of {proj.total} hr
@@ -292,7 +280,6 @@ const StarredQueries: React.FC = () => {
                                     </div>
                                 </div>
 
-                                {/* RIGHT ACTIONS (SPACE RESERVED) */}
                                 <motion.div
                                     variants={{
                                         rest: { width: 0, opacity: 0 },

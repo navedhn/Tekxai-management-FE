@@ -1,14 +1,6 @@
 import React from 'react';
 import { cn } from '@/utils/cn';
 
-// Design System Phase 11: one reusable badge for status/state labels
-// (Active/Inactive/Pending/Approved/Rejected/Completed/Cancelled/Draft/
-// Late/Absent/Present/Leave, …) so no page invents its own bg-green-100
-// text-green-800 combination. Colors always come from the Phase 2 tokens
-// — never pass a custom color, only a semantic `tone` or a recognized
-// `status` string. Existing Badge.tsx and its call sites are untouched;
-// this is a new, additive component for status-shaped badges specifically.
-
 export type BadgeTone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
 const TONE_CLASS: Record<BadgeTone, string> = {
@@ -19,8 +11,6 @@ const TONE_CLASS: Record<BadgeTone, string> = {
   neutral: 'bg-(--color-neutral-bg) text-(--color-neutral) border-(--color-neutral-border)',
 };
 
-// Canonical status → tone mapping. Lookup is case-insensitive and
-// tolerant of underscores/spaces (e.g. "in_progress", "In Progress").
 const STATUS_TONE: Record<string, BadgeTone> = {
   active: 'success',
   present: 'success',
@@ -71,11 +61,11 @@ export function toneForStatus(status: string, fallback: BadgeTone = 'neutral'): 
 }
 
 export interface StatusBadgeProps {
-  /** A recognized status string (e.g. "Active", "pending", "in_progress"). Its tone is looked up automatically. */
+
   status?: string;
-  /** Explicit tone override — use when `status` isn't one of the recognized labels, or to force a specific color. */
+
   tone?: BadgeTone;
-  /** Display label; defaults to `status` as-is if omitted. */
+
   label?: React.ReactNode;
   size?: 'sm' | 'md';
   className?: string;
@@ -86,7 +76,6 @@ const SIZE_CLASS: Record<'sm' | 'md', string> = {
   md: 'px-2.5 py-1 text-badge',
 };
 
-/** Status/state badge — colors are always derived from a tone, never hardcoded. */
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, tone, label, size = 'md', className }) => {
   const resolvedTone = tone ?? (status ? toneForStatus(status) : 'neutral');
   return (

@@ -12,9 +12,6 @@ function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// Compares each agenda task to the report's completed/pending lists for the
-// same project by fuzzy text match — good enough for a visual diff, not
-// meant as an exact-string audit trail.
 function taskStatus(task: string, item: any | undefined) {
   if (!item) return 'unknown';
   const norm = (s: string) => s.trim().toLowerCase();
@@ -88,12 +85,7 @@ export default function ManagerReviewPage() {
 
       {userId && (
         <>
-          {/* Daily Timeline — built from the timestamps this feature itself
-              captures (agenda/report submission). Check-in/out and break
-              start/end events aren't shown here: attendance doesn't expose a
-              per-day admin lookup in this app today, and break start/end
-              times aren't persisted as a log (only current status) — both
-              would need their own follow-up work to surface here. */}
+
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
             <h2 className="text-sm font-black text-gray-700 mb-3">Daily Timeline</h2>
             {timelineEvents.length === 0 ? (

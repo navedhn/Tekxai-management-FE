@@ -11,7 +11,6 @@ import { ArrowLeft } from 'lucide-react';
 import Loader from '@/components/ui/Loader';
 import { useAuth } from '@/hooks/useAuth';
 
-
 const appreciationIcons = ['👍', '🎁', '🏆', '💰', '👑', '🍸', '🎂', '⑦', '🚩', '⭐', '🍺',
   '🗑️', '🏆', '⚖️', '👑', '🎁', '🍸', '👍', '⑦', '🚩', '⭐'];
 
@@ -75,7 +74,6 @@ const ProfilePage: React.FC = () => {
         </h1>
       </div>
 
-      {/* Tabs */}
       <div className="w-fit">
         <Tabs
           options={['General', 'Task']}
@@ -95,7 +93,7 @@ const ProfilePage: React.FC = () => {
             transition={{ duration: 0.25 }}
             className="flex flex-col gap-6"
           >
-            {/* User Card */}
+
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-primary-500 to-blue-400 p-[2.5px] shadow-lg shadow-primary-100">
@@ -126,9 +124,8 @@ const ProfilePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Info Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Contact Info */}
+
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col gap-6">
                 <h3 className="font-black text-gray-900 text-base">Contact Information</h3>
                 <div className="grid grid-cols-2 gap-y-6 gap-x-8">
@@ -159,7 +156,6 @@ const ProfilePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Working Hours */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col gap-5">
                 <div className="flex items-center justify-between">
                   <h3 className="font-black text-gray-900 text-base">Working Hour</h3>
@@ -187,8 +183,6 @@ const ProfilePage: React.FC = () => {
                 )}
               </div>
             </div>
-
-            {/* Bottom Grid */}
 
           </motion.div>
         )}

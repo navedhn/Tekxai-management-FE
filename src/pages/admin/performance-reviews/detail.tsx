@@ -172,8 +172,6 @@ const PerformanceReviewDetailPage: React.FC = () => {
         <Badge variant="info" className="rounded-lg px-3 py-1.5 text-xs font-black border-none bg-blue-50 text-blue-600">{review.status.replace('_', ' ')}</Badge>
       </div>
 
-      {/* Evidence must be visible before classification/action — evidence sections come first. */}
-
       <SectionCard icon={<Users size={18} className="text-primary-500" />} title="Assigned Projects / Responsibilities" subtitle="From real project membership only — never inferred from owner/leader/bidder.">
         {project_evidence.assigned_projects.length === 0 ? (
           <p className="text-sm text-gray-400 italic">No project assignments found for this employee.</p>

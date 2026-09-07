@@ -78,4 +78,3 @@ const Toast: React.FC<ToastProps> = ({
 };
 
 export default Toast;
-

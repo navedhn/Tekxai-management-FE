@@ -196,7 +196,7 @@ const MonitoringPage: React.FC = () => {
     try {
       if (ssSelectedUser) localStorage.setItem(SS_EMPLOYEE_STORAGE_KEY, ssSelectedUser);
       else localStorage.removeItem(SS_EMPLOYEE_STORAGE_KEY);
-    } catch { /* localStorage unavailable (private mode, etc.) — not fatal */ }
+    } catch {  }
   }, [ssSelectedUser]);
 
   useEffect(() => {
@@ -269,7 +269,6 @@ const MonitoringPage: React.FC = () => {
         </p>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="w-52">
           <SearchableSelect
@@ -295,9 +294,9 @@ const MonitoringPage: React.FC = () => {
 
       {activeTab === 'Productivity Overview' && (
         <div className="flex flex-col gap-6">
-          {/* Activity % + App Usage panels */}
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Activity % Panel */}
+
             <Card className="border-none shadow-sm p-6">
               <div className="flex items-center gap-2 mb-5">
                 <Activity size={18} className="text-primary-500" />
@@ -338,7 +337,6 @@ const MonitoringPage: React.FC = () => {
               )}
             </Card>
 
-            {/* App Usage Panel */}
             <Card className="border-none shadow-sm p-6">
               <div className="flex items-center gap-2 mb-5">
                 <Cpu size={18} className="text-primary-500" />
@@ -364,7 +362,7 @@ const MonitoringPage: React.FC = () => {
                             <span className="text-xs font-black text-gray-400 w-8 text-right">{pct}%</span>
                           </div>
                         </div>
-                        {/* CSS-only horizontal bar */}
+
                         <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-primary-500 rounded-full transition-all duration-500"
@@ -381,7 +379,6 @@ const MonitoringPage: React.FC = () => {
             </Card>
           </div>
 
-          {/* Detailed table */}
           <Card className="border-none shadow-sm">
             <Table
               columns={prodCols}

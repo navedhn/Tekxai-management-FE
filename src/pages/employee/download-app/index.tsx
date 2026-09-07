@@ -95,7 +95,6 @@ export default function DownloadApp() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
 
-      {/* Header */}
       <div className="flex items-center gap-4">
         <div className="w-14 h-14 rounded-2xl bg-[#005CDA] flex items-center justify-center text-white flex-shrink-0">
           <Monitor size={28} />
@@ -106,7 +105,6 @@ export default function DownloadApp() {
         </div>
       </div>
 
-      {/* Build metadata strip */}
       {meta && (
         <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-gray-500">
           <span className="flex items-center gap-1"><span className="font-semibold text-gray-700">v{meta.version}</span></span>
@@ -117,7 +115,6 @@ export default function DownloadApp() {
         </div>
       )}
 
-      {/* No builds yet */}
       {!loading && !ready && (
         <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-5">
           <span className="text-xl mt-0.5">🚧</span>
@@ -130,7 +127,6 @@ export default function DownloadApp() {
         </div>
       )}
 
-      {/* Download cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {platforms.map(p => {
           const isRec = p.key === os;
@@ -190,7 +186,6 @@ export default function DownloadApp() {
         })}
       </div>
 
-      {/* Compatibility */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
         <h2 className="text-base font-black text-gray-900 mb-4">System Requirements</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -207,7 +202,6 @@ export default function DownloadApp() {
         </div>
       </div>
 
-      {/* Release notes */}
       {meta?.commitMessage && (
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
           <h2 className="text-base font-black text-gray-900 mb-3">Release Notes — v{meta.version}</h2>
@@ -218,7 +212,6 @@ export default function DownloadApp() {
         </div>
       )}
 
-      {/* Features */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
         <h2 className="text-base font-black text-gray-900 mb-4">What's included</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -236,7 +229,6 @@ export default function DownloadApp() {
         </div>
       </div>
 
-      {/* Install instructions */}
       <div className="bg-[#F0F5FF] border border-[#005CDA]/20 rounded-2xl p-6 space-y-3">
         <h2 className="text-base font-black text-gray-900">How to install</h2>
         <ol className="space-y-2 text-sm text-gray-700 list-decimal list-inside">

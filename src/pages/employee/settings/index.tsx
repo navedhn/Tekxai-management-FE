@@ -51,13 +51,7 @@ const EmployeeSetting: React.FC = () => {
         }
         setAvatarUploading(true);
         try {
-            // Direct-to-private-S3 upload — the backend persists the object
-            // key (Emp-{employeeId}/profile/profile-picture.ext), never a
-            // public URL, and returns the user record with `avatar` already
-            // resolved to a short-lived presigned URL. That resolved value is
-            // fine to hold in local UI state for immediate display, but is
-            // never the canonical reference (re-resolved fresh server-side on
-            // every subsequent read) — so it's never sent back to the API.
+
             const updated = await uploadAvatar.mutateAsync({ userId: user.id, file });
             updateUserProfile({ avatar: updated?.avatar });
             toast.success('Profile photo updated');
@@ -107,13 +101,8 @@ const EmployeeSetting: React.FC = () => {
                 setOldPassword('');
                 setNewPassword('');
                 setConfirmNewPassword('');
-                // The backend already revokes every refresh token session for this
-                // user on password change (see change_password() in
-                // settings.service.js) — the current access token would otherwise
-                // keep working until it naturally expires, silently leaving the
-                // old session active for up to its lifetime. Log out immediately
-                // instead of waiting for that.
-                try { await logoutMutation.mutateAsync(); } catch { /* best-effort */ }
+
+                try { await logoutMutation.mutateAsync(); } catch {  }
                 clearAuthTokens();
                 userLogout();
                 navigate('/login');
@@ -128,7 +117,7 @@ const EmployeeSetting: React.FC = () => {
         <div className="flex flex-col gap-6 ">
 
             <div className="flex flex-col gap-4">
-                {/* Profile Photo */}
+
                 <Card className="flex items-center justify-between p-6 shadow-sm border border-gray-100 bg-white rounded-xl">
                     <div className="flex items-center gap-4">
                         <div className="relative h-16 w-16 rounded-2xl bg-[#005CDA] text-white flex items-center justify-center text-xl font-black shrink-0 overflow-hidden">
@@ -162,7 +151,6 @@ const EmployeeSetting: React.FC = () => {
 
                 <ThemeSwitcher />
 
-                {/* Notifications Setting */}
                 <Card className="flex items-center justify-between p-6 shadow-sm border border-gray-100 bg-white rounded-xl">
                     <div className="flex flex-col gap-1.5">
                         <h4 className="text-[15px] font-bold text-gray-900 tracking-tight">Show Notifications</h4>
@@ -178,7 +166,6 @@ const EmployeeSetting: React.FC = () => {
                     </button>
                 </Card>
 
-                {/* Update Password Section */}
                 <div className="mt-4 flex flex-col gap-4">
                     <h2 className="text-2xl font-black text-gray-900 tracking-tight">Update Password</h2>
 

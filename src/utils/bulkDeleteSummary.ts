@@ -1,7 +1,5 @@
 import type { BulkDeleteResult } from '@/services/departmentService';
 
-// Shared success/error summary formatting for bulk-delete results, so
-// Departments and Divisions report partial failures identically.
 export function summarizeBulkDelete(
   results: BulkDeleteResult[],
   entityLabel: string,

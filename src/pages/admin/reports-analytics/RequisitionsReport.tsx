@@ -20,8 +20,6 @@ const PAGE_SIZE = 8;
 const TYPES: RequisitionRow['type'][] = ['Hardware', 'Software', 'Office Supplies', 'Travel', 'Other'];
 const STATUSES: RequisitionRow['status'][] = ['Draft', 'Submitted', 'Approved', 'Rejected', 'Fulfilled', 'Closed'];
 
-// Draft/Approved/Rejected already map onto StatusBadge's canonical tones;
-// Submitted/Fulfilled/Closed don't exist there yet, so they're overridden.
 const STATUS_TONE: Partial<Record<RequisitionRow['status'], BadgeTone>> = {
   Submitted: 'warning',
   Fulfilled: 'success',

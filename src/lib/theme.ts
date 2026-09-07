@@ -36,6 +36,6 @@ export function storeTheme(theme: ThemeId) {
   try {
     localStorage.setItem(THEME_STORAGE_KEY, theme);
   } catch {
-    /* private-browsing/unavailable — theme still applies for this tab via applyTheme() */
+
   }
 }

@@ -178,19 +178,14 @@ const ProjectManagement: React.FC = () => {
         ? (
           <div className="flex items-center gap-1.5">
             <span className="text-sm font-bold text-gray-700">{item.client_name}</span>
-            {/* Phase 2 Commercial Project Foundation — a filled dot marks a
-                real client_accounts relation vs. legacy free text, so it's
-                clear at a glance which projects are formally linked. */}
+
             {item.client_id && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="Linked to a real client record" />}
           </div>
         )
         : <span className="text-xs text-gray-400 italic">—</span>
     },
     {
-      // Phase 2 Commercial Project Foundation — Bidder + Source/Platform
-      // combined into one compact column (rather than two more columns) to
-      // avoid overcrowding an already-wide table; both are secondary
-      // commercial metadata, not primary tracking columns like Status/Health.
+
       header: 'Bidder / Source',
       key: 'bidder',
       render: (item) => {
@@ -326,9 +321,7 @@ const ProjectManagement: React.FC = () => {
       render: (item) => {
         const m = item.current_milestone;
         if (!m) return <span className="text-xs text-gray-400 italic">No milestone</span>;
-        // Phase 3 — reads the server-computed delivery.status (compute_delivery)
-        // rather than recomputing overdue client-side, so this always agrees
-        // with the Milestone Details delivery badge for the same milestone.
+
         const isMissed = m.delivery ? m.delivery.status === 'MISSED' : (m.due_date && new Date(m.due_date) < new Date());
         return (
           <div className="flex flex-col gap-0.5 min-w-[140px]">
@@ -343,9 +336,7 @@ const ProjectManagement: React.FC = () => {
       }
     },
     {
-      // Milestone Financial Foundation — every value here comes straight
-      // from the API's `financial` object (compute_financial_summary in
-      // projects.repository.js). Never recalculated in the frontend.
+
       header: 'Financials',
       key: 'financial',
       render: (item) => {

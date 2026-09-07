@@ -79,8 +79,6 @@ export const useBulkUpdateDepartmentsBusinessFunction = () => {
   });
 };
 
-// --- Divisions (org-structure sibling of Departments) ---
-
 export const useGetDivisionsQuery = (departmentId?: string) =>
   useQuery({
     queryKey: ['divisions', departmentId || 'all'],

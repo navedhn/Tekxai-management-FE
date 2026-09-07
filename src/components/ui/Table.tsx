@@ -27,10 +27,7 @@ interface TableProps<T> {
   emptyMessage?: string;
   className?: string;
   headerClassName?: string;
-  // Opt-in only (defaults off) so existing tables keep their current
-  // scroll behavior — a table inside a fixed-height/scrollable panel
-  // (e.g. a long attendance list) can turn this on to keep the header
-  // visible while its own rows scroll underneath.
+
   stickyHeader?: boolean;
   maxBodyHeight?: string;
 }
@@ -128,7 +125,7 @@ const Table = <T,>({
             </button>
 
             {Array.from({ length: Math.min(pagination.totalPages, 5) }).map((_, i) => {
-              // Simplified pagination logic for demo
+
               const pageNum = i + 1;
               return (
                 <button

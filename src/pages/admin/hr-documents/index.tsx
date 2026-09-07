@@ -26,7 +26,6 @@ const STATUS_STYLE: Record<DocumentStatus, string> = {
   ARCHIVED: 'bg-gray-100 text-gray-400',
 };
 
-// New Document: Employee -> Category -> Type -> Template -> Preview -> Generate
 export function NewDocumentModal({ onClose, onGenerated, initialUserId, initialUserName }: { onClose: () => void; onGenerated: (id: string) => void; initialUserId?: string; initialUserName?: string }) {
   const toast = useToastContext();
   const [userId, setUserId] = useState(initialUserId || '');

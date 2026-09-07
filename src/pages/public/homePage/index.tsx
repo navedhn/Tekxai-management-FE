@@ -5,9 +5,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions, resolveHomePath } from '@/services/permissionsService';
 
-/* ══════════════════════════════════════════════
-   PARTICLE CANVAS
-═══════════════════════════════════════════════ */
 const ParticleCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -87,9 +84,6 @@ const ParticleCanvas: React.FC = () => {
   );
 };
 
-/* ══════════════════════════════════════════════
-   COUNTDOWN TIMER
-═══════════════════════════════════════════════ */
 const LAUNCH_DATE = new Date('2025-08-01T00:00:00');
 
 const useCountdown = () => {
@@ -124,7 +118,7 @@ const CountdownUnit: React.FC<{ value: number; label: string }> = ({ value, labe
       position: 'relative',
       overflow: 'hidden',
     }}>
-      {/* shimmer */}
+
       <div style={{
         position: 'absolute', top: 0, left: '-100%',
         width: '60%', height: '100%',
@@ -149,9 +143,6 @@ const CountdownUnit: React.FC<{ value: number; label: string }> = ({ value, labe
   </div>
 );
 
-/* ══════════════════════════════════════════════
-   FEATURE BADGE
-═══════════════════════════════════════════════ */
 const FeatureBadge: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, label }) => (
   <div style={{
     display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -166,9 +157,6 @@ const FeatureBadge: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon
   </div>
 );
 
-/* ══════════════════════════════════════════════
-   MAIN HOME PAGE
-═══════════════════════════════════════════════ */
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { isLoggedIn } = useAuth();
@@ -199,7 +187,6 @@ const HomePage: React.FC = () => {
     }}>
       <ParticleCanvas />
 
-      {/* ── Ambient glow blobs ── */}
       <div style={{
         position: 'fixed', top: '-25%', left: '-15%',
         width: '70vw', height: '70vw', maxWidth: 800, maxHeight: 800,
@@ -222,9 +209,6 @@ const HomePage: React.FC = () => {
         animation: 'blobFloat 8s ease-in-out infinite 2s',
       }} />
 
-      {/* ════════════════════════════════════════
-          NAVBAR
-      ════════════════════════════════════════ */}
       <nav style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
         padding: navScrolled ? '12px 48px' : '20px 48px',
@@ -234,14 +218,12 @@ const HomePage: React.FC = () => {
         borderBottom: navScrolled ? '1px solid rgba(255,255,255,0.07)' : 'none',
         transition: 'all 0.35s ease',
       }}>
-        {/* Brand */}
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }} className='bg-white p-2 rounded-md'>
 
           <img src={texailogo} alt="Logo" width={100} height={100} />
         </div>
 
-
-        {/* Authentication CTA */}
         {isLoggedIn ? (
           <Button
             variant='outline'
@@ -262,9 +244,6 @@ const HomePage: React.FC = () => {
 
       </nav>
 
-      {/* ════════════════════════════════════════
-          HERO SECTION
-      ════════════════════════════════════════ */}
       <main style={{
         position: 'relative', zIndex: 10,
         minHeight: '100vh',
@@ -274,7 +253,6 @@ const HomePage: React.FC = () => {
         textAlign: 'center',
       }}>
 
-        {/* Status pill */}
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 8,
           background: 'rgba(31,123,255,0.12)',
@@ -295,7 +273,6 @@ const HomePage: React.FC = () => {
           </span>
         </div>
 
-        {/* Main heading */}
         <h1 style={{
           fontSize: 'clamp(40px, 7vw, 88px)',
           fontWeight: 900,
@@ -324,7 +301,6 @@ const HomePage: React.FC = () => {
           </span>
         </h1>
 
-        {/* Sub-heading */}
         <p style={{
           fontSize: 'clamp(15px, 2vw, 19px)',
           color: 'rgba(180,210,255,0.72)',
@@ -337,7 +313,6 @@ const HomePage: React.FC = () => {
           task management, smart timesheets, and team analytics — all in one place.
         </p>
 
-        {/* Feature badges */}
         <div style={{
           display: 'flex', flexWrap: 'wrap', gap: 12,
           justifyContent: 'center', marginBottom: 64,
@@ -360,10 +335,6 @@ const HomePage: React.FC = () => {
           } />
         </div>
 
-        {/* ── Countdown ── */}
-
-
-        {/* ── Email notify form ── */}
         <div style={{ width: '100%', maxWidth: 480, animation: 'fadeSlideUp 0.8s 0.5s both' }}>
           {!submitted ? (
             <>
@@ -418,14 +389,8 @@ const HomePage: React.FC = () => {
           )}
         </div>
 
-        {/* ── CTA buttons ── */}
-
-
-        {/* ── Divider & Social proof ── */}
-
       </main>
 
-      {/* ── Footer ── */}
       <footer style={{
         position: 'relative', zIndex: 10,
         padding: '20px 48px',
@@ -441,7 +406,6 @@ const HomePage: React.FC = () => {
 
       </footer>
 
-      {/* ── Keyframe animations ── */}
       <style>{`
         @keyframes fadeSlideUp {
           from { opacity: 0; transform: translateY(24px); }

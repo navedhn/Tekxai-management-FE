@@ -1,6 +1,3 @@
-// Global/shared types
-
-// Auth / User
 export type User = {
     id: string;
     first_name: string;
@@ -33,7 +30,6 @@ export type AuthState = {
     role: string | null;
 };
 
-// Toasts
 export type ToastVariant = 'success' | 'error' | 'info' | 'warning';
 export type ToastPosition = 'top-left' | 'top-right' | 'top-center' | 'bottom-left' | 'bottom-right' | 'bottom-center';
 
@@ -44,10 +40,8 @@ export type ToastItem = {
     duration?: number;
 };
 
-// Select
 export type SelectOption = { label: string; value: string };
 
-// Table
 export type TableColumn<T = any> = {
     name: string;
     selector: (row: T) => any;
@@ -56,5 +50,3 @@ export type TableColumn<T = any> = {
     width?: string;
     minWidth?: string;
 };
-
-

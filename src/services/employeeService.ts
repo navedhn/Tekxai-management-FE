@@ -1,15 +1,9 @@
-/**
- * Employee Service — Real API Implementation
- * Replaces all mock data with actual backend calls.
- * BUG-005 (mock data) FIXED.
- */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from './api/endpoints';
 import { QUERY_KEYS } from './api/tanstackKeys';
 import type { ActivityPreviewVariant } from '@/components/dashboard/ActivityPreview';
 
-// Re-export types the pages import
 export interface DashboardStats {
   completedProjects: number;
   totalHours: number;
@@ -68,8 +62,6 @@ export interface MemberProfile {
   workingHours: { day: string; hours: string; percent: number }[];
   totalProjects: number;
 }
-
-// ── Stats (derived from real project + timesheet data) ──────────────────────
 
 async function fetchDashboardStats(): Promise<DashboardStats> {
   try {
@@ -137,8 +129,7 @@ async function fetchTimesheet(): Promise<TimesheetEntry[]> {
 
 async function fetchProjects(): Promise<ProjectSummary[]> {
   try {
-    // limit: 1000 — the projects page paginates client-side over the full list,
-    // so all assigned projects must be loaded up front (not just the first 20).
+
     const res = await apiRequest<any>(API_ENDPOINTS.PROJECT.LIST + '?limit=1000');
     const records = res?.payload?.records || res?.payload || [];
     return (Array.isArray(records) ? records : []).map((p: any) => ({
@@ -183,8 +174,6 @@ async function fetchEmployeeProjects(): Promise<ProjectSummary[]> {
   }
 }
 
-// ── Hooks ─────────────────────────────────────────────────────────────────────
-
 export const useGetDashboardStats = () =>
   useQuery({ queryKey: QUERY_KEYS.EMPLOYEE.DASHBOARD_STATS, queryFn: fetchDashboardStats, staleTime: 60000 });
 
@@ -228,7 +217,6 @@ export const useGetMemberProfile = (id: string | undefined) =>
     staleTime: 120000,
   });
 
-// ── Employee Directory (new backend endpoint) ────────────────────────────────
 export const useGetEmployeeDirectory = (filters: Record<string, any> = {}) => {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([k, v]) => { if (v !== undefined && v !== '') params.append(k, String(v)); });
@@ -239,7 +227,6 @@ export const useGetEmployeeDirectory = (filters: Record<string, any> = {}) => {
   });
 };
 
-// ── Education Records ────────────────────────────────────────────────────────
 export const useGetEducation = (userId: string) =>
   useQuery({
     queryKey: ['education', userId],
@@ -266,7 +253,6 @@ export const useDeleteEducation = (userId: string) => {
   });
 };
 
-// ── Employment History ───────────────────────────────────────────────────────
 export const useGetEmploymentHistory = (userId: string) =>
   useQuery({
     queryKey: ['employment-history', userId],
@@ -293,7 +279,6 @@ export const useDeleteEmploymentHistory = (userId: string) => {
   });
 };
 
-// ── Increment ────────────────────────────────────────────────────────────────
 export const useGetIncrementHistory = (userId: string) =>
   useQuery({
     queryKey: ['increment-history', userId],
@@ -328,7 +313,6 @@ export const useUpdateIncrement = (userId: string) => {
   });
 };
 
-// ── Overtime ─────────────────────────────────────────────────────────────────
 export const useGetOvertimeList = (filters: Record<string, any> = {}) => {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([k, v]) => { if (v !== undefined && v !== '') params.append(k, String(v)); });
@@ -394,7 +378,6 @@ export const useCancelOvertime = () => {
   });
 };
 
-// ── HR Reports ────────────────────────────────────────────────────────────────
 export const useGetAnnualReport = (userId: string, year: number) =>
   useQuery({
     queryKey: ['hr-report-annual', userId, year],

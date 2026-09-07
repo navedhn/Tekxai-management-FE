@@ -26,15 +26,6 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
     const notifBtnRef = useRef<HTMLButtonElement>(null);
     const profileRef = useRef<HTMLDivElement>(null);
 
-    // Capability-based workspace switcher. Availability comes ONLY from the
-    // caller's actual Access Control grants — never a role name — mirroring
-    // the crm.workspace.access / erp.*.access checks that already gate
-    // route entry (see ProtectedRoute, resolveHomePath). This app IS the
-    // ERP workspace, so it never lists itself; it only offers CRM when the
-    // caller can actually enter it, so e.g. an ICT_MANAGER (ERP tickets +
-    // assets, no CRM grant) sees no CRM item, while a CMO_SOFTWARE_SALES
-    // user (CRM only) never reaches this app in the first place because
-    // resolveHomePath/ProtectedRoute deny it erp.workspace.access.
     const { data: myPerms } = useMyPermissions();
     const canAccessCrm = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('crm.workspace.access');
     const crmAppUrl = import.meta.env.VITE_CRM_APP_URL as string | undefined;
@@ -88,7 +79,7 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
             </div>
 
             <div className="flex items-center gap-3 md:gap-5 relative shrink-0 ml-auto">
-                {/* Help */}
+
                 <button
                     onClick={() => navigate(`${routePrefix}/tickets`)}
                     title="Raise a support ticket"
@@ -97,7 +88,6 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
                     <HelpCircle size={20} />
                 </button>
 
-                {/* Notifications */}
                 <button
                     ref={notifBtnRef}
                     onClick={() => setIsNotifOpen(!isNotifOpen)}
@@ -121,7 +111,6 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
                     triggerRef={notifBtnRef}
                 />
 
-                {/* Profile with Dropdown */}
                 <div ref={profileRef} className="relative flex items-center gap-2.5 pl-3 md:pl-4 border-l border-gray-100 ml-1 md:ml-2">
                     <button
                         onClick={() => setIsProfileOpen(prev => !prev)}
@@ -156,7 +145,7 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
                                 transition={{ duration: 0.18, ease: 'easeOut' }}
                                 className="absolute top-[calc(100%+12px)] right-0 w-52 bg-white rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.12)] border border-gray-100 overflow-hidden z-50"
                             >
-                                {/* User Info */}
+
                                 <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100">
                                     <img
                                         src={user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent((user?.first_name || 'U') + '+' + (user?.last_name || ''))}&background=005CDA&color=fff&size=128`}
@@ -172,7 +161,6 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
                                     </div>
                                 </div>
 
-                                {/* Menu Items */}
                                 <div className="py-2">
                                     {canAccessCrm && crmAppUrl && (
                                         <>

@@ -11,7 +11,6 @@ import {
 } from '@/types/performanceScoring';
 import { calculateTotalScore, getCurrentPeriod, SCORING_CRITERIA } from '@/utils/performanceScoring';
 
-// Raw shape returned by GET /performance/score (matches employee_performance_scores + user relation)
 interface RawScoreRecord {
   id: string;
   user_id: string;
@@ -119,13 +118,11 @@ export const useDeletePerformanceMutation = () => {
   });
 };
 
-// GET /performance/score/:employeeId — score history for one employee
-// (used by the Employee Profile > Performance tab).
 const fetchScoreForEmployee = async (employeeId: string): Promise<EmployeePerformanceRecord[]> => {
   const res = await apiRequest<unknown>(API_ENDPOINTS.PERFORMANCE.SCORE_BY_EMP(employeeId));
   const raw = unwrapApiList<RawScoreRecord>(res);
   if (raw.length) return raw.map(toRecord);
-  // Some deployments return a single record object rather than a list for this route.
+
   const single = unwrapApiData<RawScoreRecord | null>(res);
   return single && (single as any).id ? [toRecord(single)] : [];
 };

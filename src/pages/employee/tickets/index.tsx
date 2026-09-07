@@ -40,10 +40,7 @@ const EmployeeTicketsPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusTab, setStatusTab] = useState('all');
   const [createOpen, setCreateOpen] = useState(false);
-  // Store just the id, not a snapshot of the ticket object — `tickets` polls
-  // every 20s (see useGetTickets), and holding a frozen object here would
-  // keep showing e.g. "Pending" in an already-open modal even after the
-  // list itself refetched the real "In Progress" status underneath it.
+
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const selectedTicket = useMemo(
     () => tickets.find(t => t.id === selectedTicketId) ?? null,

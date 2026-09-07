@@ -24,7 +24,7 @@ interface TeamMember {
 interface CreateProjectSlideOverProps {
   isOpen: boolean;
   onClose: () => void;
-  project?: ProjectDetail | null; // Pass project for edit mode
+  project?: ProjectDetail | null;
 }
 
 const AvatarChip: React.FC<{ member: TeamMember; onRemove: () => void }> = ({ member, onRemove }) => (
@@ -52,8 +52,6 @@ const AvatarChip: React.FC<{ member: TeamMember; onRemove: () => void }> = ({ me
   </motion.div>
 );
 
-// Team member row with a functional-role select — reuses the existing
-// project_members.role column (previously always "MEMBER", never surfaced).
 const MemberRoleRow: React.FC<{
   member: TeamMember;
   onRoleChange: (role: ProjectMemberRole) => void;
@@ -169,9 +167,7 @@ const UserSelectDropdown: React.FC<{
                 </div>
               ) : filteredUsers.length > 0 ? (
                 filteredUsers.map((u: any) => (
-                  // Rich multi-line list row (avatar + two text lines), not a plain
-                  // label/icon button — left as a raw <button> rather than forcing
-                  // it into Button's fixed padding/height/rounded styles.
+
                   <button
                     key={u.id}
                     onClick={() => {
@@ -218,9 +214,8 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
   const [budget, setBudget] = useState('');
   const [budgetCurrency, setBudgetCurrency] = useState('PKR');
 
-  // Phase 2 Commercial Project Foundation.
   const [clientId, setClientId] = useState('');
-  const [clientDisplayName, setClientDisplayName] = useState(''); // prefill label only, for the selected-but-not-in-search-results case
+  const [clientDisplayName, setClientDisplayName] = useState('');
   const [clientSearch, setClientSearch] = useState('');
   const [bidder, setBidder] = useState<TeamMember | null>(null);
   const [bidderSearch, setBidderSearch] = useState('');
@@ -228,10 +223,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
   const [commissionType, setCommissionType] = useState<'' | 'PERCENTAGE' | 'FIXED'>('');
   const [commissionValue, setCommissionValue] = useState('');
   const [commissionStatus, setCommissionStatus] = useState<'' | 'FULL_PROJECT_PAID' | 'MILESTONES_PAID' | 'PENDING'>('');
-  // Tracks whether the client selector was actually touched this session —
-  // distinguishes "never touched a legacy free-text client_name" (omit
-  // client_id entirely, leave client_name exactly as-is) from "explicitly
-  // cleared the selection" (send client_id: null to unlink).
+
   const [clientTouched, setClientTouched] = useState(false);
 
   const [projectOwners, setProjectOwners] = useState<TeamMember[]>([]);
@@ -262,7 +254,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       setBusinessUnitId(project.business_unit_id ? String(project.business_unit_id) : '');
       setBudget(project.budget != null ? String(project.budget) : '');
       setBudgetCurrency(project.budget_currency || 'PKR');
-      // Phase 2 Commercial Project Foundation.
+
       setClientId(project.client_id || '');
       setClientDisplayName(project.client?.name || '');
       setClientSearch('');
@@ -284,12 +276,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
         role: m.role || 'MEMBER',
         allocation_percent: m.allocation_percent ?? 100,
       })));
-      // Owner/Team Leader: normalize_project() already includes the full
-      // `owner`/`team_leader` objects (id/first_name/last_name/avatar), so
-      // prefill from those directly — same pattern as teamMembers above.
-      // Without this, editing a project always started from an empty owner
-      // list, which both blocked the required-owner validation on every edit
-      // and silently overwrote owner_id with whatever was re-picked.
+
       setProjectOwners(project.owner ? [{
         id: project.owner.id,
         name: `${project.owner.first_name} ${project.owner.last_name}`.trim(),
@@ -330,7 +317,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
   }, [project, isOpen]);
 
   const handleSubmit = async () => {
-    // Inline validation
+
     const newErrors: Record<string, string> = {};
     if (!projectName.trim()) newErrors.projectName = 'Project name is required';
     if (!startDate) newErrors.startDate = 'Start date is required';
@@ -340,9 +327,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
     }
     if (projectOwners.length === 0) newErrors.owner = 'At least one project owner is required';
     if (budget !== '' && Number(budget) < 0) newErrors.budget = 'Budget cannot be negative';
-    // Commission must be a complete arrangement (type + value) or fully empty —
-    // mirrors the backend's own validate_commission_fields exactly, so this
-    // never surfaces as a confusing 400 the user couldn't have predicted.
+
     const hasCommissionType = commissionType !== '';
     const hasCommissionValue = commissionValue !== '';
     if (hasCommissionType !== hasCommissionValue) {
@@ -372,20 +357,10 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
       budget: budget !== '' ? Number(budget) : null,
       budget_currency: budgetCurrency,
       owner_id: projectOwners[0]?.id || '',
-      // leader_id is optional — omit it (not '') when no leader is picked, since
-      // it's a foreign key and an empty string fails the DB constraint, silently
-      // rolling back the whole project creation.
+
       leader_id: teamLeaders[0]?.id || undefined,
       members: teamMembers.map(m => ({ user_id: m.id, role: m.role || 'MEMBER', allocation_percent: m.allocation_percent ?? 100 })),
-      // Phase 2 Commercial Project Foundation.
-      //
-      // client_id is only sent if the selector was actually touched this
-      // session — an untouched legacy project (free-text client_name, no
-      // real client_id) must round-trip with its client_name completely
-      // unchanged, not silently nulled out just because the field wasn't
-      // interacted with. Touching it — picking a client OR explicitly
-      // clearing a previous selection — always sends client_id (possibly
-      // null), and the backend re-resolves client_name from it.
+
       ...(clientTouched ? { client_id: clientId || null } : {}),
       bidder_id: bidder?.id || null,
       source: source.trim() || null,
@@ -441,7 +416,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
               <h2 className="text-xl font-black text-gray-900 tracking-tight">
                 {isEdit ? 'Edit Project' : 'New Project'}
               </h2>
-              <div className="w-10 h-10" /> {/* Spacer */}
+              <div className="w-10 h-10" />
             </div>
 
             <div className="flex-1 overflow-y-auto px-8 py-6 flex flex-col gap-8 no-scrollbar">
@@ -464,20 +439,12 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
                   className="min-h-[140px]"
                 />
 
-                {/* Phase 2 Commercial Project Foundation — a real client_accounts
-                    relation via search, not free text, for new/linked
-                    projects. A legacy project whose client_name was never
-                    linked to a real client shows that value read-only below
-                    the selector so it isn't lost or silently misread as "no
-                    client" — picking a real client here is what formally
-                    links it (or leaves it alone entirely if untouched). */}
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Client</label>
                   <SearchableSelect
                     options={(() => {
                       const opts = clientResults.map((c) => ({ label: c.company ? `${c.name} (${c.company})` : c.name, value: c.id }));
-                      // Keep the currently-selected client's label visible even
-                      // if it falls outside the latest search results.
+
                       if (clientId && !opts.some((o) => String(o.value) === clientId)) {
                         opts.unshift({ label: clientDisplayName || clientId, value: clientId });
                       }
@@ -546,11 +513,6 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
                 )}
               </div>
 
-              {/* Phase 2 Commercial Project Foundation — Bidder/Source/Commission.
-                  Deliberately its own section, separate from Team Assignment
-                  (bidder is a commercial responsibility, not a delivery role)
-                  and from Financial (milestone-derived Total/Paid/Remaining/
-                  Active) below — each concept keeps its own meaning. */}
               <div className="flex flex-col gap-4">
                 <h3 className="text-base font-black text-gray-900 tracking-tight">Commercial</h3>
 
@@ -603,9 +565,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
                       { label: 'Website', value: 'Website' },
                       { label: 'Referral', value: 'Referral' },
                       { label: 'Other', value: 'Other' },
-                      // A legacy/custom value already on the project that isn't
-                      // one of the curated suggestions above — kept visible and
-                      // selectable rather than silently hidden.
+
                       ...(source && !['TekXAI', 'Upwork', 'LinkedIn', 'Website', 'Referral', 'Other'].includes(source)
                         ? [{ label: source, value: source }] : []),
                     ]}
@@ -628,11 +588,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
                   <Input
                     label={commissionType === 'PERCENTAGE' ? 'Commission (%)' : `Commission (${budgetCurrency})`}
                     type="number"
-                    // No min/max attributes deliberately — an HTML5 range
-                    // constraint silently blocks native form submission with
-                    // no visible error (see CreateMilestoneModal's identical
-                    // Price field note); the JS validation above is the real
-                    // guard and always shows a clear message.
+
                     step="0.01"
                     value={commissionValue}
                     onChange={(e) => setCommissionValue(e.target.value)}
@@ -717,7 +673,6 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
               <div className="flex flex-col gap-8">
                 <h3 className="text-base font-black text-gray-900 tracking-tight">Team Assignment</h3>
 
-                {/* Project Owner */}
                 <div className="flex flex-col gap-3">
                   <label className="text-[13px] font-bold text-gray-600 ml-1">
                     Project Owners *
@@ -740,7 +695,6 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
                   </div>
                 </div>
 
-                {/* Team Leader */}
                 <div className="flex flex-col gap-3">
                   <label className="text-[13px] font-bold text-gray-600 ml-1">Team Leaders</label>
                   <div className="flex flex-wrap gap-2 items-center min-h-[44px] p-3 rounded-2xl border border-dashed border-gray-200 bg-gray-50/50">
@@ -757,7 +711,6 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
                   </div>
                 </div>
 
-                {/* Team Members — each carries a functional role (Frontend/Backend/QA/etc.) */}
                 <div className="flex flex-col gap-3">
                   <label className="text-[13px] font-bold text-gray-600 ml-1">Team Members</label>
                   <div className="flex flex-wrap gap-2 items-center min-h-[44px] p-3 rounded-2xl border border-dashed border-gray-200 bg-gray-50/50">
@@ -801,4 +754,3 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
 };
 
 export default CreateProjectSlideOver;
-

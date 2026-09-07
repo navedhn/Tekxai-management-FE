@@ -11,13 +11,6 @@ function pkr(n: number) {
   return `PKR ${(n || 0).toLocaleString('en-PK')}`;
 }
 
-// This report shows real, ledger-derived expense totals from
-// GET /expenses/summary (the same endpoint backing Expense Management →
-// Overview). There is no per-status (Pending/Approved/Rejected) breakdown
-// here because expense_transactions has no status/approval-workflow field
-// in the data model — it's a direct-entry ledger, not an approval queue.
-// GET /reporting/internal-data was evaluated and confirmed insufficient for
-// a status or category breakdown (it only exposes two flat aggregates).
 export const ExpensesReport: React.FC = () => {
   const { data: summary, isLoading } = useQuery({
     queryKey: ['expense-summary'],

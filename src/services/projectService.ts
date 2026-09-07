@@ -5,24 +5,16 @@ import { isMockSession } from '@/mocks/mockAuth';
 import { API_ENDPOINTS } from './api/endpoints';
 import { QUERY_KEYS } from './api/tanstackKeys';
 
-// --- Types ---
-
 export interface TeamMember {
   id: string;
   name: string;
   avatar: string;
 }
 
-// Reuses the existing project_members.role column (was always "MEMBER" and
-// unused until this feature — see Tekxai-Operations-OS gap audit, Sprint 2
-// Phase 2). No new table.
 export type ProjectMemberRole =
   | 'FRONTEND' | 'BACKEND' | 'TEAM_LEAD' | 'QA' | 'DEVOPS' | 'UI_UX'
   | 'AI_ENGINEER' | 'BUSINESS_ANALYST' | 'SALES' | 'ESTIMATOR' | 'OTHER' | 'MEMBER';
 
-// Kept in parity with backend PROJECT_MEMBER_ROLES (projects.validation.js) —
-// previously missing AI_ENGINEER/BUSINESS_ANALYST/SALES/ESTIMATOR/OTHER,
-// which the backend already accepted but this dropdown couldn't assign.
 export const PROJECT_MEMBER_ROLES: { value: ProjectMemberRole; label: string }[] = [
   { value: 'TEAM_LEAD',        label: 'Team Lead' },
   { value: 'FRONTEND',         label: 'Frontend Developer' },
@@ -56,40 +48,29 @@ export interface ProjectDto {
   total_hours: number;
   owner_id?: string;
   leader_id?: string;
-  /** @deprecated use `members` — kept for backward compatibility with the backend's legacy param */
+
   member_ids?: string[];
   members?: { user_id: string; role: ProjectMemberRole; allocation_percent?: number }[];
   client_name?: string;
-  // Phase 2 Commercial Project Foundation — a real client_accounts relation.
-  // When sent, this always wins over client_name (the backend re-resolves
-  // client_name from it). null explicitly unlinks. Omit to leave unchanged.
+
   client_id?: string | null;
-  // Internal employee who bid/won this work — distinct from owner_id
-  // (delivery ownership) and leader_id (technical lead); never substituted
-  // for either.
+
   bidder_id?: string | null;
-  // Free-text acquisition channel (same convention as CRM leads/opportunities
-  // .source) — e.g. "TekXAI", "Upwork", "LinkedIn", "Website", "Referral".
+
   source?: string | null;
-  // Commission arrangement — type and value must be set together, or both
-  // left empty/null to represent "no commission" (not zero).
+
   commission_type?: 'PERCENTAGE' | 'FIXED' | null;
   commission_value?: number | null;
   commission_status?: 'FULL_PROJECT_PAID' | 'MILESTONES_PAID' | 'PENDING' | null;
   dev_status?: string;
   status?: string;
-  // progress/progress_mode intentionally absent — MANUAL mode is removed,
-  // progress is always computed server-side from milestone completion and
-  // can no longer be set on create/update.
+
   budget?: number | null;
   budget_currency?: string;
   priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   business_unit_id?: string | null;
 }
 
-// Minimal, display-safe client shape from GET /project/clients-lookup —
-// deliberately not the full CRM Customer Master record (see the backend
-// comment on list_clients_lookup_ctrl for why).
 export interface ClientLookupResult {
   id: string;
   name: string;
@@ -102,10 +83,6 @@ export interface BudgetUpdatePayload {
   budget_spent?: number;
 }
 
-// Phase 3 Project Delivery & Evidence Foundation — re-exported here so
-// projectService consumers (which import Milestone/ActiveMilestone from
-// this file, not milestonesService) don't need a second import just for
-// these types.
 export type {
   MissedReasonCategory, IssueClassification, QaStatus, DeliveryStatus, MilestoneDelivery,
 } from './milestonesService';
@@ -118,7 +95,7 @@ export interface Milestone {
   completed: boolean;
   price?: number;
   payment_status?: 'UNPAID' | 'PAID';
-  // Phase 3 — see MilestoneDelivery; always server-derived.
+
   responsible_resources?: { id: string; first_name?: string | null; last_name?: string | null; avatar?: string | null }[];
   delivery?: _MilestoneDelivery;
 }
@@ -129,17 +106,14 @@ export interface ActiveMilestone {
   due_date: string | null;
   progress_percent: number;
   owner: string | null;
-  // Milestone Financial Foundation
+
   price: number;
   payment_status: 'UNPAID' | 'PAID';
-  // Phase 3 Project Delivery & Evidence Foundation.
+
   responsible_resources?: { id: string; first_name?: string | null; last_name?: string | null; avatar?: string | null }[];
   delivery?: _MilestoneDelivery;
 }
 
-// Milestone Financial Foundation — always server-derived (see
-// compute_financial_summary in projects.repository.js). Never independently
-// editable, never recalculated client-side.
 export interface ProjectFinancialSummary {
   total: number;
   paid: number;
@@ -184,9 +158,9 @@ export interface ProjectDetail {
   id: string;
   title: string;
   status: ProjectStatus;
-  deleted_at?: string | null; // non-null => archived (cascading, see delete_project/restore_project)
-  progress: number; // always computed from milestone completion — never manually set
-  progress_mode?: 'AUTO'; // fixed — MANUAL has been removed
+  deleted_at?: string | null;
+  progress: number;
+  progress_mode?: 'AUTO';
   total_hours: number;
   due_date: string | null;
   start_date: string;
@@ -196,7 +170,7 @@ export interface ProjectDetail {
   member_count: number;
   members: ProjectMember[];
   all_members?: ProjectMember[];
-  /** Compact per-role counts for list-view badges, e.g. { FRONTEND: 2, BACKEND: 3, QA: 1 } */
+
   member_role_counts?: Partial<Record<ProjectMemberRole, number>>;
   owner?: ProjectMember;
   team_leader?: ProjectMember | null;
@@ -206,19 +180,14 @@ export interface ProjectDetail {
   current_milestone?: Milestone | null;
   pending_milestones_count?: number;
   milestone_breakdown?: MilestoneBreakdown;
-  // Phase 3 — a facts-only rollup of each milestone's delivery.status
-  // (compute_delivery); never a performance score.
+
   delivery_summary?: { on_time: number; missed: number; pending: number };
-  // Milestone-derived financial summary — see ProjectFinancialSummary.
-  // Distinct from budget/budget_currency/budget_spent below, which remain
-  // independent internal cost-tracking fields untouched by this phase.
+
   financial?: ProjectFinancialSummary;
   access_completion_score?: AccessCompletionScore;
   frontend_developers?: string[];
   backend_developers?: string[];
-  // Same devops_access row already joined for access_completion_score above —
-  // surfaced directly so list/dashboard views don't need a second call to
-  // GET /project/:id/devops-access. null when the project has no row yet.
+
   devops_access?: {
     point_of_communication: string;
     progress_shared_status: string;
@@ -236,17 +205,14 @@ export interface ProjectDetail {
   } | null;
   client_portal?: ClientPortalInfo;
   health_score?: number;
-  health_status?: 'HEALTHY' | 'AT_RISK' | 'WARNING' | 'CRITICAL'; // 4-tier Green/Yellow/Orange/Red
+  health_status?: 'HEALTHY' | 'AT_RISK' | 'WARNING' | 'CRITICAL';
   created_at: string;
   updated_at: string;
   is_saved: boolean;
   description?: string;
   owner_id?: string | number;
   leader_id?: string | number;
-  // client_name mirrors client.name whenever client_id is set (see the
-  // backend's resolve_client_name) — safe for every existing consumer that
-  // only reads this field to keep working unchanged. client_id/client is
-  // the authoritative relation for new data.
+
   client_name?: string | null;
   client_id?: string | null;
   client?: { id: string; name: string; company: string | null } | null;
@@ -265,8 +231,6 @@ export interface ProjectDetail {
   business_unit?: { id: string; name: string } | null;
   project_code?: string | null;
 }
-
-// --- API Functions ---
 
 const MOCK_PROJECTS: ProjectDetail[] = [
   {
@@ -325,7 +289,7 @@ const getProjectsApi = async (params?: Record<string, any>) => {
   const filteredParams = params
     ? Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined && v !== null && v !== ''))
     : {};
-  
+
   const queryString = new URLSearchParams(filteredParams).toString();
   const url = queryString ? `${API_ENDPOINTS.PROJECT.LIST}?${queryString}` : API_ENDPOINTS.PROJECT.LIST;
   const res = await apiRequest<unknown>(url);
@@ -366,8 +330,6 @@ const updateBudgetApi = async ({ id, data }: { id: string | number; data: Budget
   return unwrapApiData<ProjectDetail>(res);
 };
 
-// DELETE /project/:id is a soft, cascading archive on the backend (not a
-// hard delete) — see be-work's projects.repository.js delete_project().
 const deleteProjectApi = async (id: string | number) => {
   return apiRequest(API_ENDPOINTS.PROJECT.DELETE(id), {
     method: 'DELETE',
@@ -401,8 +363,6 @@ const getSavedProjectsApi = async () => {
   const res = await apiRequest<unknown>(API_ENDPOINTS.PROJECT.SAVED);
   return unwrapApiList<ProjectDetail>(res);
 };
-
-// --- Hooks ---
 
 export const useGetProjects = (params?: Record<string, any>) => {
   return useQuery<ProjectDetail[]>({
@@ -456,10 +416,7 @@ export const useDeleteProjectMutation = () => {
   return useMutation({
     mutationFn: deleteProjectApi,
     onSuccess: () => {
-      // Was missing PROJECT.DASHBOARD invalidation — archiving a project
-      // changes dashboard KPI counts (overdue/blocked/delivered/etc.) but the
-      // dashboard query key was never told to refetch, so it went stale
-      // until an unrelated navigation happened to invalidate it.
+
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PROJECT.LIST });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PROJECT.DASHBOARD });
     },
@@ -506,9 +463,6 @@ export const useGetSavedProjects = () => {
   });
 };
 
-// Phase 2 Commercial Project Foundation — minimal client lookup for the
-// project Client selector (GET /project/clients-lookup, not the full CRM
-// Customer Master endpoint; see the backend controller comment for why).
 async function fetchClientsLookupApi(search?: string): Promise<ClientLookupResult[]> {
   const url = search ? `${API_ENDPOINTS.PROJECT.CLIENTS_LOOKUP}?search=${encodeURIComponent(search)}` : API_ENDPOINTS.PROJECT.CLIENTS_LOOKUP;
   const res = await apiRequest<unknown>(url);

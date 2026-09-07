@@ -9,13 +9,6 @@ import {
   type ZoomConversation, type ZoomMessage,
 } from '@/services/zoomChatService';
 
-// V1: view + send, own conversations only. This whole panel replaces the
-// native channel/message rendering pipeline (reactions, threads, polls, E2E
-// crypto) for exactly as long as the Zoom rail button is active — it never
-// reads from or writes to the channels/messages tables, so a Zoom
-// conversation can never be confused with, sent as, or deleted as a native
-// TekXAI message. Sending goes through the backend's own Zoom-authenticated
-// send endpoint — never a local/fake message, never a native chat send.
 export default function ZoomChatPanel() {
   const { data: status, isLoading: statusLoading, refetch: refetchStatus } = useZoomChatStatus();
   const startConnect = useStartZoomConnect();
@@ -157,11 +150,7 @@ function ZoomSidebar({
   const q = search.trim().toLowerCase();
   const contacts = (data?.contacts || []).filter((c) => !q || c.name.toLowerCase().includes(q));
   const allChannels = data?.channels || [];
-  // Zoom's own channel_type (1 = private, 2 = public) — no separate
-  // group-chat endpoint exists, so private channels are shown as "Group
-  // Chats" (Zoom's own convention for informal multi-person conversations)
-  // and public, named channels as "Channels". Real data only; nothing
-  // fabricated when channel_type is absent (falls into Channels).
+
   const groupChats = allChannels.filter((c) => c.channel_type === 1 && (!q || c.name.toLowerCase().includes(q)));
   const channels = allChannels.filter((c) => c.channel_type !== 1 && (!q || c.name.toLowerCase().includes(q)));
 
@@ -290,9 +279,7 @@ function ZoomConversationPane({
       } else if (isZoomNotConnectedError(e)) {
         setLoadError({ reauth: true, message: 'Zoom is no longer connected.' });
       } else {
-        // Never surface the raw Zoom API error text — a generic, honest
-        // message only. The technical detail still exists server-side in
-        // logs, just not exposed here.
+
         setLoadError({ reauth: false, message: 'Could not load messages from Zoom.' });
       }
     } finally {
@@ -319,14 +306,6 @@ function ZoomConversationPane({
     return <ReauthState onReconnect={() => disconnect.mutate(undefined, { onSuccess: onReauthRequired })} isPending={disconnect.isPending} />;
   }
 
-  // Appends the backend's own normalized send response directly (Option A
-  // — safer than an immediate re-fetch here: Zoom's send endpoint only
-  // confirms a message_id, not a full echo, so a refetch could legitimately
-  // race with Zoom's own indexing and either miss the new message or show
-  // it twice next to this locally-appended one; appending the one
-  // authoritative response we already have avoids that duplicate risk
-  // entirely — nothing here is fabricated, it's the exact text/id the
-  // backend confirmed Zoom accepted).
   const handleSend = async (text: string) => {
     setSendError(null);
     try {
@@ -441,12 +420,6 @@ function ConversationHeader({ conversation }: { conversation: ZoomConversation }
   );
 }
 
-// Styling/behavior mirrors the native TekXAI Messages composer
-// (index.tsx's handleSend/handleKeyDown/textarea — same rounded-xl input,
-// same square send button, same Enter-to-send / Shift+Enter-for-newline
-// convention) — deliberately without the native composer's @-mention,
-// attachment, or slash-command affordances, none of which apply to a Zoom
-// send.
 function Composer({
   conversation, onSend, error, onDismissError,
 }: { conversation: ZoomConversation; onSend: (text: string) => Promise<void>; error: string | null; onDismissError: () => void }) {
@@ -462,8 +435,7 @@ function Composer({
       await onSend(text);
       setDraft('');
     } catch {
-      // error state already set by the caller; keep the draft so the user
-      // doesn't lose what they typed.
+
     } finally {
       setIsSending(false);
       textareaRef.current?.focus();

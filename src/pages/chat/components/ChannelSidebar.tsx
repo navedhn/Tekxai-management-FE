@@ -113,12 +113,11 @@ const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
 
   return (
     <div className="w-full sm:w-[240px] bg-[#F2F3F5] flex flex-col flex-shrink-0 h-full">
-      {/* Brand header */}
+
       <div className="h-14 flex items-center justify-center border-b border-[#E3E5E8] flex-shrink-0">
         <img src={texailogo} alt="Tekxai" className="h-9 w-9 object-contain" />
       </div>
 
-      {/* Search */}
       <div className="px-2 pt-2 pb-1 flex-shrink-0">
         <div className="relative">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -195,7 +194,6 @@ const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
         )}
       </div>
 
-      {/* User panel — Discord style */}
       <div className="h-[52px] px-2 flex items-center gap-1 bg-[#E9EAEC] flex-shrink-0">
         <div className="flex items-center gap-2 flex-1 min-w-0 px-1 py-1 rounded hover:bg-[#D7DADC]/60 transition-colors cursor-pointer">
           <div className={`w-8 h-8 rounded-full bg-gradient-to-b ${getAvatarColor('You')} flex items-center justify-center text-white text-[10px] font-black flex-shrink-0 relative`}>

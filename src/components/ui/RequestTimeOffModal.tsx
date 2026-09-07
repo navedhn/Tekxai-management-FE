@@ -21,9 +21,6 @@ const RequestTimeOffModal: React.FC<RequestTimeOffModalProps> = ({ isOpen, onClo
   const [errors, setErrors]       = useState<Record<string, string>>({});
   const toast = useToastContext();
 
-  // A previous attempt's validation errors must not linger into a fresh
-  // open of the modal (e.g. cancel, reopen) — they used to stay visible
-  // even after the underlying fields were filled in correctly.
   useEffect(() => {
     if (isOpen) setErrors({});
   }, [isOpen]);
@@ -47,7 +44,6 @@ const RequestTimeOffModal: React.FC<RequestTimeOffModalProps> = ({ isOpen, onClo
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
 
-    // Calculate days between dates
     const start = new Date(startDate);
     const end   = new Date(endDate);
     const days  = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
@@ -72,7 +68,7 @@ const RequestTimeOffModal: React.FC<RequestTimeOffModalProps> = ({ isOpen, onClo
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="sm" customClass="max-w-[480px]" title="Request Leave">
       <div className="flex flex-col gap-6">
-        {/* Policy selector */}
+
         {policies.length > 0 && (
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Leave Type *</label>

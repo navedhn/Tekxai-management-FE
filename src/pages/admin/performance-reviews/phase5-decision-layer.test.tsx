@@ -5,12 +5,6 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import PerformanceReviewDetailPage from './detail';
 import { ToastProvider } from '@/components/toast/ToastProvider';
 
-// Phase 5 — Controlled Performance Decision & Increment Evidence Layer.
-// Evidence completeness, decision indicators, missed attribution, and
-// increment readiness must render as facts (not a verdict), and the
-// management decision control must be permission-gated and disabled until
-// the review is COMPLETED.
-
 const BASE: any = {
   review: {
     id: 'r1', user_id: 'u1', reviewer_id: 'u2',
@@ -108,7 +102,7 @@ describe('Phase 5 — Evidence Completeness section', () => {
     mockEvidence = BASE;
     renderDetail();
     expect(screen.getByText('Missed Deliveries — By Attribution (never "N missed = N failures")')).toBeInTheDocument();
-    // Capacity-Related: 1, External: 1, Performance-Related: 0
+
     const capacityFact = screen.getByText('Capacity-Related').nextSibling as HTMLElement;
     expect(capacityFact.textContent).toBe('1');
     const perfFact = screen.getByText('Performance-Related').nextSibling as HTMLElement;
@@ -134,7 +128,7 @@ describe('Phase 5 — Increment Readiness section', () => {
 describe('Phase 5 — Management Decision control', () => {
   it('is disabled until the review is COMPLETED, even for an authorized decider', () => {
     mockPerms = { is_super_admin: false, permissions: ['hr.performance_reviews.decide'] };
-    mockEvidence = BASE; // status: DRAFT
+    mockEvidence = BASE;
     renderDetail();
     expect(screen.getByText('Complete the review above before recording a management decision.')).toBeInTheDocument();
   });

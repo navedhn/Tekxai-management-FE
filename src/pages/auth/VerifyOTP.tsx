@@ -14,7 +14,6 @@ const VerifyOTP: React.FC = () => {
     const location = useLocation();
     const toast = useToastContext();
 
-    // Get email and id from location state or query params
     const email = (location.state as any)?.email || new URLSearchParams(location.search).get('email') || '';
     const id = (location.state as any)?.id || new URLSearchParams(location.search).get('id') || '';
 
@@ -45,20 +44,7 @@ const VerifyOTP: React.FC = () => {
 
         try {
             await verifyOTPMutation.mutateAsync({ id, otp: values.otp });
-            // `id` was already known before this call (it's what /auth/verify/:id
-            // was called with) — previously this re-derived it from the verify
-            // response using field names (payload.id / payload.user.id / etc.)
-            // that never matched the backend's actual `{ data: { user_id } }`
-            // shape, so it always evaluated to undefined and silently broke the
-            // next step. Forwarding the already-known id is simpler and correct.
-            //
-            // The OTP code itself must also be forwarded: /auth/verify/:id only
-            // checks the code's validity, it never marks it used — /auth/reset/:id
-            // is what actually consumes it, and requires the same code again in
-            // its own payload. Dropping it here (as this used to) meant the final
-            // reset call always failed with "OTP is required", which read to the
-            // user as being asked for the OTP a second time right after they'd
-            // already entered their new password.
+
             toast.success('OTP verified successfully!');
             navigate('/reset-password', { state: { id, email, otp: values.otp } });
         } catch (error: any) {
@@ -101,7 +87,7 @@ const VerifyOTP: React.FC = () => {
                                         value={val}
                                         onChange={(e) => {
                                             const value = e.target.value.replace(/[^0-9]/g, '');
-                                            if (!value && val) { // Handle deletion
+                                            if (!value && val) {
                                                 const newOtp = [...otpValues];
                                                 newOtp[index] = '';
                                                 setOtpValues(newOtp);
@@ -114,7 +100,6 @@ const VerifyOTP: React.FC = () => {
                                                 setOtpValues(newOtp);
                                                 setFieldValue('otp', newOtp.join(''));
 
-                                                // Move to next input
                                                 if (index < 3) {
                                                     inputRefs.current[index + 1]?.focus();
                                                 }
@@ -136,7 +121,7 @@ const VerifyOTP: React.FC = () => {
                                                 });
                                                 setOtpValues(newOtp);
                                                 setFieldValue('otp', newOtp.join(''));
-                                                // Focus the last filled input or the first empty one
+
                                                 const nextIndex = Math.min(digits.length, 3);
                                                 inputRefs.current[nextIndex]?.focus();
                                             }
@@ -194,6 +179,5 @@ const VerifyOTP: React.FC = () => {
         </div>
     );
 };
-
 
 export default VerifyOTP;

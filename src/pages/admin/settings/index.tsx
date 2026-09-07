@@ -99,7 +99,6 @@ const TwoFactorSection: React.FC = () => {
         )}
       </Card>
 
-      {/* Enable 2FA Modal */}
       {showEnableModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowEnableModal(false)} />
@@ -123,7 +122,6 @@ const TwoFactorSection: React.FC = () => {
         </div>
       )}
 
-      {/* Disable 2FA Modal */}
       {showDisableModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowDisableModal(false)} />
@@ -329,7 +327,7 @@ const Setting: React.FC = () => {
                 setOldPassword('');
                 setNewPassword('');
                 setConfirmNewPassword('');
-                try { await logoutMutation.mutateAsync(); } catch { /* best-effort */ }
+                try { await logoutMutation.mutateAsync(); } catch {  }
                 clearAuthTokens();
                 userLogout();
                 navigate('/login');
@@ -458,13 +456,12 @@ const Setting: React.FC = () => {
                 )}
                 {activeTab === 'security' && (
                     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                        {/* Two-Factor Authentication */}
+
                         <div className="flex flex-col gap-4">
                             <h2 className="text-2xl font-black text-gray-900 tracking-tight">Security</h2>
                             <TwoFactorSection />
                         </div>
 
-                        {/* Google Calendar Integration */}
                         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                           <div className="flex items-center justify-between mb-4">
                             <div>
@@ -490,7 +487,6 @@ const Setting: React.FC = () => {
                           )}
                         </div>
 
-                        {/* Notifications Setting */}
                         <Card className="flex items-center justify-between p-6 shadow-sm border border-gray-100 bg-white rounded-2xl">
                             <div className="flex flex-col gap-1.5 focus-within:ring-0">
                                 <h4 className="text-[16px] font-black text-gray-900 tracking-tight">Show Notifications</h4>
@@ -505,7 +501,6 @@ const Setting: React.FC = () => {
                             </button>
                         </Card>
 
-                        {/* Update Password Section */}
                         <div className="flex flex-col gap-4">
                             <h2 className="text-2xl font-black text-gray-900 tracking-tight">Update Password</h2>
 
@@ -569,9 +564,7 @@ const Setting: React.FC = () => {
 
                 {activeTab === 'invites' && (
                     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                        {/* Filters Card */}
 
-                        {/* Table Section */}
                         <div className="flex flex-col gap-4">
                             <div className="flex items-center justify-between px-2">
                                 <div className="flex items-baseline gap-2">

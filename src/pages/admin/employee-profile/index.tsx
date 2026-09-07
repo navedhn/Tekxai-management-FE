@@ -309,8 +309,7 @@ const AttendanceSection: React.FC<{ employeeId?: string }> = ({ employeeId }) =>
           </Card>
         ))}
       </div>
-      {/* Reuses the exact Employee Timesheets screen (no duplicated UI) —
-          navigates with the employee pre-selected via ?user_id=. */}
+
       <Button
         variant="secondary"
         size="sm"
@@ -684,10 +683,6 @@ const DocumentsSection: React.FC<{
   const uploadedTypes = new Set(docs.map((d) => d.document_type));
   const missingTypes = REQUIRED_DOC_TYPES.filter((t) => !uploadedTypes.has(t));
 
-  // No network call here — the file is held locally and only actually
-  // uploaded (direct to private S3, via the dedicated endpoint) when the
-  // admin clicks "Add" (handleAddDoc, in the parent). Matches the same
-  // deferred pattern as the Add Employee wizard's Documents step.
   const handleNewDocFile = (file: File) => {
     setNewDoc((p: any) => ({ ...p, file, title: p.title || file.name.replace(/\.[^.]+$/, '') }));
   };
@@ -1332,7 +1327,7 @@ const EmployeeProfilePage: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-6 pb-10">
-      {/* Header */}
+
       <div className="flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full text-gray-400">
           <ArrowLeft size={20} />
@@ -1340,7 +1335,6 @@ const EmployeeProfilePage: React.FC = () => {
         <h1 className="text-2xl font-black text-gray-900">Employee Profile</h1>
       </div>
 
-      {/* Hero Card */}
       <Card className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
         <div className="h-16 w-16 rounded-2xl bg-[#005CDA] text-white flex items-center justify-center text-2xl font-black shrink-0">
           {user.avatar
@@ -1385,7 +1379,6 @@ const EmployeeProfilePage: React.FC = () => {
         </div>
       </Card>
 
-      {/* Tabs */}
       <div className="w-fit max-w-full">
         <Tabs options={tabs.map(t => ({ label: t.label, value: t.id }))} value={activeTab} onChange={setActiveTab} variant="pills" />
       </div>

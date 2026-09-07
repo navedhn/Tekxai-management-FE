@@ -53,12 +53,7 @@ const TeamMembersModal: React.FC<Props> = ({ isOpen, onClose, team }) => {
               label="Add Member"
               options={[
                 { label: 'Select employee', value: '' },
-                // Two employees can legitimately share the same full name
-                // (e.g. two people named "Abu Bakar Aslam"). The label must
-                // carry a stable identifier — the employee ID — so an admin
-                // can tell them apart; the *value* was always the real DB
-                // id (u.id), never derived from the label, so this is a
-                // display fix only and does not change what gets submitted.
+
                 ...available.map((u: any) => ({
                   label: u.employee_id ? `${u.employee_id} — ${u.first_name} ${u.last_name}` : `${u.first_name} ${u.last_name}`,
                   value: u.id,

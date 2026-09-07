@@ -37,8 +37,7 @@ export const useUpdateBusinessUnit = () => {
       apiRequest<any>(API_ENDPOINTS.BUSINESS_UNIT.UPDATE(id), { method: 'PUT', body: JSON.stringify(data) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['business-units'] });
-      // Departments embed/display business_unit — keep their cache fresh too
-      // (e.g. a rename should show up immediately in the Departments grid).
+
       qc.invalidateQueries({ queryKey: ['departments'] });
     },
   });

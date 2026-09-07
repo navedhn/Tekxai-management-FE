@@ -176,7 +176,7 @@ export default function AdminTickets() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-gray-900 flex items-center gap-2">
@@ -186,7 +186,6 @@ export default function AdminTickets() {
         </div>
       </div>
 
-      {/* Stat cards */}
       <div className="grid grid-cols-3 gap-4">
         {[
           { key: 'pending',     label: 'Pending',     cls: 'bg-yellow-50 text-yellow-700' },
@@ -206,7 +205,6 @@ export default function AdminTickets() {
 
       <TicketReportsSection />
 
-      {/* Filters */}
       <div className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -248,7 +246,6 @@ export default function AdminTickets() {
         </Button>
       </div>
 
-      {/* Table */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         {isLoading ? (
           <div className="p-10 text-center text-sm text-gray-400">Loading tickets…</div>

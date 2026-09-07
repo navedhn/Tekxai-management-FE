@@ -37,14 +37,14 @@ const TeamManagement: React.FC = () => {
     const filteredTeams = React.useMemo(() => {
         const records = (teamsData as any)?.payload?.records || (teamsData as any)?.payload || [];
         if (!records) return [];
-        
+
         return records.filter((team: any) => {
-            const matchesSearch = !debouncedSearch || 
+            const matchesSearch = !debouncedSearch ||
                 team.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
                 team.description?.toLowerCase().includes(debouncedSearch.toLowerCase());
-            
+
             const matchesType = filterType === 'ALL' || team.type === filterType;
-            
+
             return matchesSearch && matchesType;
         });
     }, [teamsData, debouncedSearch, filterType]);
@@ -123,11 +123,7 @@ const TeamManagement: React.FC = () => {
             )
         },
         {
-            // Business Unit -> Division -> Department -> Team -> Employee
-            // hierarchy: a team with no department_id has never had its
-            // organizational placement resolved, so it can't be assigned to
-            // any employee from Quick Create/Edit or Add Employee — it's
-            // flagged here rather than silently hidden or defaulted.
+
             header: 'Department',
             key: 'department',
             render: (item) => (

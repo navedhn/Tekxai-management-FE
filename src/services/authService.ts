@@ -6,8 +6,6 @@ import { isMockAuthEnabled, isMockSession, mockLogin } from '@/mocks/mockAuth';
 import { API_ENDPOINTS } from './api/endpoints';
 import { QUERY_KEYS } from './api/tanstackKeys';
 
-// --- Types & DTOs ---
-
 export type LoginCredentials = {
   email: string;
   password: string;
@@ -38,8 +36,6 @@ export type ResetPasswordDto = {
   password: string;
   otp: string;
 };
-
-// --- API Functions ---
 
 const loginApi = async (credentials: LoginCredentials) => {
   if (isMockAuthEnabled()) {
@@ -118,8 +114,6 @@ const resetPasswordApi = async ({ id, password, otp }: ResetPasswordDto) => {
     body: JSON.stringify({ password, otp }),
   });
 };
-
-// --- TanStack Query Hooks ---
 
 export const useLoginMutation = () => {
   return useMutation({

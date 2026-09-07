@@ -36,7 +36,7 @@ export function download_report(type: string, params: Record<string,string>) {
   const link = document.createElement('a');
   link.href = `/api/v1/report/${type}?${qs}`;
   link.setAttribute('download', `${type}_report.csv`);
-  // Note: for authenticated downloads, must pass token header
+
   fetch(link.href, { headers: { Authorization: `Bearer ${token}` } })
     .then(res => res.blob())
     .then(blob => {

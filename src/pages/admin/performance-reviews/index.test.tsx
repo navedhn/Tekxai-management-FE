@@ -5,10 +5,6 @@ import { MemoryRouter } from 'react-router-dom';
 import PerformanceReviewsPage from './index';
 import { ToastProvider } from '@/components/toast/ToastProvider';
 
-// Phase 4 Employee Performance Evidence & Review Foundation — the reviews
-// list page: filters, and a "New Review" flow that never fabricates data
-// (no employee/period is pre-selected).
-
 const REVIEWS = [
   {
     id: 'r1', user_id: 'u1', reviewer_id: 'u2',

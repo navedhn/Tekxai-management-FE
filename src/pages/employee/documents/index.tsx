@@ -56,7 +56,6 @@ const EmployeeDocuments: React.FC = () => {
         <p className="text-sm text-gray-500 font-medium mt-1">Access your employment documents, contracts, and policies.</p>
       </div>
 
-      {/* HR Documents — offer letters, contracts, and other generated documents that may need your review or signature */}
       <Card className="border-none shadow-sm">
         <div className="flex items-center gap-3 mb-4">
           <div className="h-10 w-10 rounded-xl bg-primary-50 flex items-center justify-center text-primary-600"><PenLine size={18} /></div>
@@ -82,7 +81,6 @@ const EmployeeDocuments: React.FC = () => {
         ))}
       </Card>
 
-      {/* Job Description */}
       <Card className="border-none shadow-sm">
         <div className="flex items-center gap-3 mb-4">
           <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600"><Briefcase size={18} /></div>
@@ -100,7 +98,6 @@ const EmployeeDocuments: React.FC = () => {
         )}
       </Card>
 
-      {/* Contracts */}
       <Card className="border-none shadow-sm">
         <div className="flex items-center gap-3 mb-4">
           <div className="h-10 w-10 rounded-xl bg-green-50 flex items-center justify-center text-green-600"><FileText size={18} /></div>
@@ -124,7 +121,6 @@ const EmployeeDocuments: React.FC = () => {
         ))}
       </Card>
 
-      {/* Policies */}
       <Card className="border-none shadow-sm">
         <div className="flex items-center gap-3 mb-4">
           <div className="h-10 w-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600"><ShieldCheck size={18} /></div>

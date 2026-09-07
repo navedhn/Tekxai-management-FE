@@ -2,20 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 
-// Attendance policy: Check In / Check Out can ONLY be triggered from the
-// TekXAI Desktop Monitoring Agent (so screenshots, productivity tracking,
-// idle detection, and monitoring all stay consistent with a single source
-// of truth). This hook is READ-ONLY — it polls today's attendance status
-// for display purposes only and must never call the clock-in/clock-out
-// endpoints from the web UI.
 export type TrackerState = 'idle' | 'tracking';
 
-// Canonical duration display format: `${h}h:${mm}m:${ss}s`, zero-padded
-// minutes/seconds. Must match the desktop app's fmtHms() (renderer.js)
-// exactly — the two apps can't literally share this function (no monorepo/
-// shared package links them, and a 4-line pure formatter doesn't justify
-// introducing one), so this comment IS the contract: change one, change
-// the other, and update both test suites in the same commit.
 export function formatTrackerTime(totalSeconds: number): string {
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
@@ -29,25 +17,20 @@ export function useTimeTracker() {
   const [loading, setLoading] = useState(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Read-only status fetch — reflects whatever the desktop agent has
-  // recorded for today. Never writes/mutates attendance state.
   const refreshToday = useCallback(() => {
     return apiRequest<any>(API_ENDPOINTS.TIMESHEET.TODAY)
       .then((res) => {
         const data = res?.payload || res;
         if (data?.clocked_in && !data?.clocked_out) {
-          // Active session (started from the desktop app) — tick forward
-          // from the check-in time + any prior session seconds today.
+
           const checkIn = new Date(data.entry?.check_in).getTime();
-          // Guard against a skewed/behind local clock — check_in is a server
-          // timestamp, so a wrong local clock could otherwise make `now`
-          // appear to be before check_in and show a negative elapsed time.
+
           const elapsed = Math.max(0, Math.floor((Date.now() - checkIn) / 1000));
           const priorSeconds = data.entry?.prior_seconds || 0;
           setSeconds(priorSeconds + elapsed);
           setTrackerState('tracking');
         } else if (data?.clocked_in && data?.clocked_out) {
-          // Already checked out for the day — show the completed total.
+
           setSeconds(data.entry?.duration_seconds || 0);
           setTrackerState('idle');
         } else {
@@ -60,13 +43,11 @@ export function useTimeTracker() {
 
   useEffect(() => {
     refreshToday().finally(() => setLoading(false));
-    // Poll periodically so the web view stays in sync with the desktop
-    // agent's check-in/check-out actions without requiring a page refresh.
+
     const poll = setInterval(refreshToday, 60_000);
     return () => clearInterval(poll);
   }, [refreshToday]);
 
-  // Tick the displayed timer while an active desktop-app session is running.
   useEffect(() => {
     if (trackerState === 'tracking') {
       intervalRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);

@@ -10,8 +10,6 @@ import {
   useGetEmploymentHistory, useCreateEmploymentHistory, useDeleteEmploymentHistory,
 } from '@/services/employeeService';
 
-// ── Education ────────────────────────────────────────────────────────────────
-
 const EMPTY_EDUCATION = {
   qualification: '',
   field_of_study: '',
@@ -107,8 +105,6 @@ const EducationCard: React.FC<{ userId: string }> = ({ userId }) => {
     </Card>
   );
 };
-
-// ── Experience / Employment History ─────────────────────────────────────────
 
 const EMPTY_EXPERIENCE = {
   company_name: '',
@@ -208,8 +204,6 @@ const ExperienceCard: React.FC<{ userId: string }> = ({ userId }) => {
     </Card>
   );
 };
-
-// ── Exported section ─────────────────────────────────────────────────────────
 
 export interface EducationExperienceSectionProps {
   userId: string;

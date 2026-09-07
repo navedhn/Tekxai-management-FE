@@ -1,15 +1,5 @@
 import React from 'react';
 
-// Small hand-rolled renderer for the exact markdown-lite subset the
-// composer's formatting toolbar and @-mention picker produce — not a full
-// markdown library, deliberately: this only ever needs to round-trip what
-// this app's own composer writes, not arbitrary external markdown.
-//
-// Supported inline: @[Name](user:ID) mentions, @here/@channel broadcasts,
-// **bold**, *italic*, `code`.
-// Supported block: ```fenced code blocks```, "- " bullet-list runs, plain
-// paragraphs (newlines preserved as <br/>).
-
 const MENTION_RE = /@\[([^\]]+)\]\(user:([^)]+)\)/g;
 const INLINE_SPLIT_RE = /(@\[[^\]]+\]\(user:[^)]+\)|@(?:here|channel)\b|\*\*[^*\n]+\*\*|`[^`\n]+`|\*[^*\n]+\*)/gi;
 
@@ -27,8 +17,7 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
           </span>
         );
       }
-      // @here/@channel — a broadcast to everyone in the channel, distinct
-      // (amber, not blue) from a personal @-mention.
+
       const broadcastMatch = /^@(here|channel)$/i.exec(part);
       if (broadcastMatch) {
         return (
@@ -71,7 +60,7 @@ export function renderMessageContent(content: string): React.ReactNode {
         codeLines.push(lines[i]);
         i++;
       }
-      i++; // skip closing fence (or EOF if unterminated — still renders what we have)
+      i++;
       blocks.push(
         <pre key={`b${blockKey++}`} className="my-1 px-3 py-2 rounded-lg bg-gray-900 text-gray-100 text-[13px] font-mono overflow-x-auto">
           <code>{codeLines.join('\n')}</code>
@@ -110,8 +99,6 @@ export function renderMessageContent(content: string): React.ReactNode {
   return blocks;
 }
 
-// Strips markdown/mention syntax down to plain text — for spots where
-// formatting doesn't matter (sidebar "last message" preview line).
 export function toPlainText(content: string): string {
   if (!content) return '';
   return content
@@ -124,9 +111,6 @@ export function toPlainText(content: string): string {
     .trim();
 }
 
-// Extracts unique mentioned user ids from raw content. The draft text itself
-// is the source of truth — the @-mention picker inserts these tokens
-// directly, so there's no separately-tracked selection list to keep in sync.
 export function extractMentionedUserIds(content: string): string[] {
   const ids = new Set<string>();
   const re = new RegExp(MENTION_RE);

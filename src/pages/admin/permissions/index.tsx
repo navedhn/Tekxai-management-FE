@@ -25,17 +25,6 @@ const MAIN_TABS = [
   { label: 'Audit Log', value: 'audit' },
 ];
 
-// Enterprise Access Control page. Replaces the old always-expanded
-// accordion layout with: a searchable role list, a dense sticky-header
-// permission matrix (module x action) instead of long Yes/No rows, real
-// switches, search + module/action filters, and two entirely new
-// capabilities the old page never had — configurable Approval Rules and a
-// Permission Audit Log. The ERP/CRM/HR three-workspace split is gone: HR
-// was merged into the unified Admin sidebar on 2026-07-23, so this page now
-// shows exactly two workspaces (ERP, CRM), with the still-live hr.* keys
-// folded into the ERP view rather than deleted outright (see
-// permission-keys.js for why the underlying data migration is a separate,
-// deliberately-not-yet-executed step).
 export default function PermissionsPage() {
   const toast = useToastContext();
   const [mainTab, setMainTab] = useState<'roles' | 'templates' | 'library' | 'users' | 'approvals' | 'audit'>('roles');
@@ -43,18 +32,8 @@ export default function PermissionsPage() {
   const { data, isLoading } = usePermissionsMatrix();
   const saveMutation = useSaveRolePermissions();
 
-  // Only ever holds permissions the user has actually toggled in this session,
-  // keyed by role then permission — never a full snapshot of the matrix. This
-  // is deliberate: server data (data.by_role) is always the source of truth
-  // for anything the user hasn't touched, so a stale/unrefreshed local copy
-  // can never be sent back to the server and overwrite a concurrent change
-  // (see incident postmortem, 2026-08-26 — a one-time full-snapshot copy that
-  // never re-synced was sent wholesale on Save and wiped 43 real grants).
   const [pendingEdits, setPendingEdits] = useState<Record<string, Record<string, boolean>>>({});
-  // Parallel to pendingEdits: scope narrowing is a separate edit from
-  // granted/ungranted (you can change a permission's scope without
-  // touching whether it's granted, and vice versa) — kept as its own map
-  // for the same reason pendingEdits is delta-only, see comment above.
+
   const [pendingScopeEdits, setPendingScopeEdits] = useState<Record<string, Record<string, PermissionScope>>>({});
   const [selectedRole, setSelectedRole] = useState('');
   const [workspace, setWorkspace] = useState('erp');
@@ -69,8 +48,6 @@ export default function PermissionsPage() {
 
   const definitions: PermissionDef[] = data?.definitions || [];
 
-  // ERP view folds in the still-live hr.* keys (see file header) — CRM
-  // stays its own, unmixed workspace.
   const workspaceDefs = useMemo(
     () => definitions.filter((d) => (workspace === 'erp' ? d.workspace === 'erp' || d.workspace === 'hr' : d.workspace === workspace)),
     [definitions, workspace],
@@ -86,7 +63,6 @@ export default function PermissionsPage() {
     return true;
   }), [workspaceDefs, moduleFilter, actionFilter, search]);
 
-  // Server truth for the selected role, overlaid with any un-saved local edits.
   const serverGrants = data?.by_role?.[selectedRole] || {};
   const roleEdits = pendingEdits[selectedRole] || {};
   const roleGrants = useMemo(() => ({ ...serverGrants, ...roleEdits }), [serverGrants, roleEdits]);
@@ -110,7 +86,7 @@ export default function PermissionsPage() {
   const handleToggle = (permission: string, value: boolean) => {
     setPendingEdits((prev) => {
       const nextRoleEdits = { ...prev[selectedRole], [permission]: value };
-      // Toggling back to the server's actual value means there's nothing to save for this key.
+
       if (serverGrants[permission] === value) delete nextRoleEdits[permission];
       return { ...prev, [selectedRole]: nextRoleEdits };
     });
@@ -132,16 +108,7 @@ export default function PermissionsPage() {
   };
 
   const handleSave = async () => {
-    // Delta only — never the full matrix. Anything the user hasn't touched
-    // is left exactly as the server already has it. `previous` is what this
-    // tab believes is currently granted for each key — the backend rejects
-    // the whole save (409) if that no longer matches reality, instead of
-    // silently overwriting a change made elsewhere since this tab loaded.
-    // Union of every permission touched either way this session — a
-    // scope-only change (granted untouched) must still be sent, and a
-    // granted-only change must still carry whatever scope is currently in
-    // effect (falls back to 'ALL', the same default the backend applies
-    // when scope is omitted).
+
     const touchedPermissions = new Set([...Object.keys(roleEdits), ...Object.keys(roleScopeEdits)]);
     const grants = Array.from(touchedPermissions).map((permission) => ({
       permission,

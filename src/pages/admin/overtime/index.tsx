@@ -207,7 +207,7 @@ export default function OvertimePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
+
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-black text-gray-900">Overtime</h1>
@@ -221,7 +221,6 @@ export default function OvertimePage() {
 
       <StatsBar stats={stats} />
 
-      {/* Filters */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <div className="flex flex-wrap gap-3 mb-4">
           <select value={year} onChange={e => setYear(+e.target.value)}
@@ -242,7 +241,6 @@ export default function OvertimePage() {
           </select>
         </div>
 
-        {/* Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>

@@ -15,13 +15,6 @@ const CATEGORY_LABEL: Record<string, string> = {
   HR: 'HR', MANAGER: 'Manager', IT: 'IT', ASSETS: 'Assets', EMPLOYEE: 'You', GENERAL: 'General',
 };
 
-// Employee self-service onboarding portal. Deliberately self-scoped — every
-// query here is keyed off the logged-in user's own id (useAuthStore), never
-// an id read from a route param or any client-supplied value, so this page
-// can only ever show the viewer's own onboarding, regardless of what the
-// underlying endpoints would otherwise permit (the backend independently
-// enforces the same self/supervisor/HR scoping — this is defense in depth,
-// not the only guard).
 const EmployeeOnboarding: React.FC = () => {
   const navigate = useNavigate();
   const toast = useToastContext();
@@ -53,7 +46,6 @@ const EmployeeOnboarding: React.FC = () => {
         <p className="text-sm text-gray-500 font-medium mt-1">Track and complete your onboarding checklist.</p>
       </div>
 
-      {/* Progress summary — computed entirely from the real readiness endpoint response, never hand-maintained. */}
       <Card className="border-none shadow-sm">
         {readinessLoading ? (
           <p className="text-sm text-gray-400">Loading...</p>
@@ -80,7 +72,6 @@ const EmployeeOnboarding: React.FC = () => {
         )}
       </Card>
 
-      {/* Pending document-signing tasks — link into the existing HR Documents signing flow, no duplicate signing UI here. */}
       {documentTasks.length > 0 && (
         <Card className="border-none shadow-sm">
           <div className="flex items-center gap-3 mb-4">
@@ -107,7 +98,6 @@ const EmployeeOnboarding: React.FC = () => {
         </Card>
       )}
 
-      {/* Required tasks */}
       <Card className="border-none shadow-sm">
         <div className="flex items-center gap-3 mb-4">
           <div className="h-10 w-10 rounded-xl bg-primary-50 flex items-center justify-center text-primary-600"><ListChecks size={18} /></div>
@@ -142,7 +132,6 @@ const EmployeeOnboarding: React.FC = () => {
         })}
       </Card>
 
-      {/* Optional tasks */}
       {optionalTasks.length > 0 && (
         <Card className="border-none shadow-sm">
           <h2 className="text-lg font-black text-gray-900 mb-4">Optional Steps</h2>

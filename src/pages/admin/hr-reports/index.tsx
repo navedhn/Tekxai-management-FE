@@ -19,10 +19,6 @@ import Button from '@/components/ui/Button';
 const v1 = 'api/v1';
 const BUILDER = `${v1}/report/builder`;
 
-// Dimensions HR can break the workforce down by — each maps to an
-// {entity, group_by} pair on the generic report_builder engine (Sprint 1
-// Milestone 1). Adding a new dimension here is a one-line change, no new
-// backend endpoint required.
 type Dimension = {
   key: string; label: string; entity: string; group_by: string;
   resolveLabel?: (value: string, ctx: { departments: any[]; grades: any[]; teams: any[] }) => string;
@@ -63,7 +59,6 @@ function SectionCard({ title, children }: { title: string; children: React.React
   );
 }
 
-// ── Aggregate View ────────────────────────────────────────────────────────────
 function AggregateView() {
   const [year, setYear]   = useState(THIS_YEAR);
   const [month, setMonth] = useState(THIS_MONTH);
@@ -111,7 +106,7 @@ function AggregateView() {
 
       {data && (
         <>
-          {/* Top latecomers */}
+
           {data.top_late_employees?.length > 0 && (
             <SectionCard title="Top Latecomers This Month">
               <table className="w-full text-sm">
@@ -141,7 +136,6 @@ function AggregateView() {
             </SectionCard>
           )}
 
-          {/* Employees over annual leave limit */}
           {data.employees_over_annual_leave?.length > 0 && (
             <SectionCard title={`Employees Over 12 Annual Leaves in ${year}`}>
               <table className="w-full text-sm">
@@ -174,7 +168,6 @@ function AggregateView() {
   );
 }
 
-// ── Per-Employee View ─────────────────────────────────────────────────────────
 function EmployeeView() {
   const [selectedUser, setSelectedUser] = useState('');
   const [year, setYear]   = useState(THIS_YEAR);
@@ -196,7 +189,7 @@ function EmployeeView() {
 
   return (
     <div className="space-y-5">
-      {/* Controls */}
+
       <div className="flex flex-wrap gap-3 items-center">
         <SearchableSelect
           options={(users || []).map((u: any) => ({ label: `${u.first_name} ${u.last_name} (${u.employee_id || u.email})`, value: u.id }))}
@@ -245,7 +238,7 @@ function EmployeeView() {
         <div className="h-64 bg-gray-50 rounded-2xl animate-pulse" />
       ) : report ? (
         <div className="space-y-4">
-          {/* Leave Summary */}
+
           <SectionCard title="Leave Summary">
             <div className="flex flex-wrap gap-3 mb-4">
               <StatBadge label="Approved"    value={report.leaves?.total_approved ?? report.leaves?.total}          color="bg-green-50 text-green-700" />
@@ -256,7 +249,6 @@ function EmployeeView() {
               {mode === 'annual' && <StatBadge label="Sandwich" value={report.leaves?.sandwich_leave_count} color="bg-purple-50 text-purple-700" />}
             </div>
 
-            {/* Leave Records */}
             {report.leaves?.records?.length > 0 && (
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
@@ -291,7 +283,6 @@ function EmployeeView() {
             )}
           </SectionCard>
 
-          {/* Latecoming */}
           <SectionCard title="Latecoming">
             <div className="flex flex-wrap gap-3">
               <StatBadge label="Total Late"    value={report.latecoming?.total ?? report.latecoming?.total}     color="bg-red-50 text-red-700" />
@@ -301,7 +292,6 @@ function EmployeeView() {
             </div>
           </SectionCard>
 
-          {/* WFH */}
           <SectionCard title="Work From Home">
             <div className="flex flex-wrap gap-3">
               <StatBadge label="WFH Days"        value={report.wfh?.wfh_count ?? report.wfh?.count}                   color="bg-blue-50 text-blue-700" />
@@ -310,7 +300,6 @@ function EmployeeView() {
             <p className="text-xs text-gray-400 mt-2">Every 2 WFH days = 1 annual leave deduction.</p>
           </SectionCard>
 
-          {/* Monthly deduction estimate */}
           {mode === 'monthly' && report.deduction_estimate && (
             <SectionCard title="Deduction Estimate">
               <div className="flex flex-wrap gap-3">
@@ -328,10 +317,6 @@ function EmployeeView() {
   );
 }
 
-// ── Workforce Breakdown (Sprint 1 Milestone 2 — HR Reports) ────────────────────
-// Employee Summary / Department / Designation / Grade / Business Unit / Team /
-// Lifecycle counts — all driven by the generic report_builder aggregate
-// endpoint added in Milestone 1, no bespoke HR counting logic.
 function WorkforceBreakdown() {
   const [dimKey, setDimKey] = useState(DIMENSIONS[0].key);
   const dimension = DIMENSIONS.find((d) => d.key === dimKey)!;
@@ -408,11 +393,6 @@ function WorkforceBreakdown() {
   );
 }
 
-// ── Missing Employee Documents report ────────────────────────────────────────
-// Bespoke report (custom columns + gap computation), not the generic
-// entity/group_by DIMENSIONS pattern above — own filter bar + KPI cards +
-// table, following the same SectionCard/StatBadge/SearchableSelect building
-// blocks the rest of this page already uses.
 function MissingDocumentsView() {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
@@ -445,7 +425,7 @@ function MissingDocumentsView() {
 
   return (
     <div className="space-y-5">
-      {/* KPI cards */}
+
       {summaryLoading ? (
         <div className="h-20 bg-gray-50 rounded-2xl animate-pulse" />
       ) : (
@@ -457,7 +437,6 @@ function MissingDocumentsView() {
         </div>
       )}
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
         <SearchableSelect
           options={(businessUnits || []).map((b: any) => ({ label: b.name, value: b.id }))}
@@ -514,7 +493,6 @@ function MissingDocumentsView() {
         </div>
       </div>
 
-      {/* Table */}
       <SectionCard title="Employees with Missing Documents">
         {reportLoading ? (
           <div className="h-40 bg-gray-50 rounded-xl animate-pulse" />
@@ -580,7 +558,6 @@ function MissingDocumentsView() {
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function HRReports() {
   const [view, setView] = useState<'employee' | 'aggregate' | 'workforce' | 'missing-documents'>('aggregate');
 

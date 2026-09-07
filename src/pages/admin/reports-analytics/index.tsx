@@ -6,11 +6,6 @@ import { RequisitionsReport } from './RequisitionsReport';
 import { TicketsReport } from './TicketsReport';
 import { ExpensesReport } from './ExpensesReport';
 
-// Prototype scope: composes mock data (mockData.ts) shaped to match what
-// the report_builder engine's /kpi, /aggregate, and /run endpoints already
-// return for Attendance/Assets/Tickets elsewhere in the app (see those
-// pages' inline "Reports" tabs) — swapping mock generators for live queries
-// later shouldn't require redesigning these tab components.
 const REPORT_TABS = [
   { label: 'Attendance', value: 'attendance' },
   { label: 'Assets', value: 'assets' },

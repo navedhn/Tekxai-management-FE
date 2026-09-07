@@ -3,7 +3,6 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-reac
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/utils/cn';
 
-// Using native Date helpers instead of date-fns to avoid missing dependency errors
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTHS = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -32,7 +31,6 @@ const DatePicker: React.FC<DatePickerProps> = ({
     const selectedDate = value ? new Date(value) : null;
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Close on click outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -90,12 +88,10 @@ const DatePicker: React.FC<DatePickerProps> = ({
         const firstDayOfMonth = new Date(year, month, 1).getDay();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-        // Adjust start day to Monday (0: Sun, 1: Mon...)
         let startDay = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
 
         const calendarDays = [];
 
-        // Previous month days
         const prevMonthLastDay = new Date(year, month, 0).getDate();
         for (let i = startDay - 1; i >= 0; i--) {
             calendarDays.push({
@@ -104,7 +100,6 @@ const DatePicker: React.FC<DatePickerProps> = ({
             });
         }
 
-        // Current month days
         for (let i = 1; i <= daysInMonth; i++) {
             calendarDays.push({
                 date: new Date(year, month, i),
@@ -112,7 +107,6 @@ const DatePicker: React.FC<DatePickerProps> = ({
             });
         }
 
-        // Next month padding
         const totalSlots = 42;
         const nextMonthPadding = totalSlots - calendarDays.length;
         for (let i = 1; i <= nextMonthPadding; i++) {

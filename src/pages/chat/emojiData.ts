@@ -1,7 +1,3 @@
-// Curated emoji set for the chat emoji picker (composer + reactions). Kept as
-// a small hand-picked list rather than pulling in a full emoji-data npm
-// package — a few hundred common emojis covers real usage, and avoids adding
-// a new dependency to the supply chain for something this self-contained.
 export interface EmojiEntry {
   emoji: string;
   name: string;

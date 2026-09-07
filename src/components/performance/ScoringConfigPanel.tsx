@@ -4,8 +4,6 @@ import { useGetBonusConfig, SCORING_CRITERIA } from '@/services/performanceScori
 import { formatPkrAmount, getMaxTotalScore } from '@/utils/performanceScoring';
 import { cn } from '@/utils/cn';
 
-// Scoring categories are fixed backend columns (not admin-editable) and bonus
-// tiers are managed directly in the database — this panel is read-only.
 const ScoringConfigPanel: React.FC<{ className?: string }> = ({ className }) => {
   const { data: bonusTiers = [], isLoading } = useGetBonusConfig();
   const totalMax = getMaxTotalScore(SCORING_CRITERIA);

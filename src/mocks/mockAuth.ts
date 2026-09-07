@@ -29,7 +29,6 @@ const baseUser = (overrides: Partial<NonNullable<User>>): User => ({
   ...overrides,
 });
 
-/** Demo accounts — no backend required when mock auth is enabled. */
 export const MOCK_ACCOUNTS: MockAccount[] = [
   {
     email: 'admin@tekxai.com',
@@ -78,11 +77,6 @@ export const MOCK_ACCOUNTS: MockAccount[] = [
   },
 ];
 
-// Fails closed: mock auth only activates when VITE_USE_MOCK_AUTH is
-// explicitly set to 'true'. Previously this defaulted to `import.meta.env.DEV`,
-// meaning any non-prod deploy that forgot to set the env var would silently
-// let anyone log in as a fake admin/employee/marketing account instead of
-// hitting the real auth API.
 export const isMockAuthEnabled = (): boolean =>
   import.meta.env.VITE_USE_MOCK_AUTH === 'true';
 
@@ -94,7 +88,6 @@ export const setMockSession = (active: boolean): void => {
   else localStorage.removeItem(MOCK_SESSION_KEY);
 };
 
-/** JWT-shaped token with a far-future expiry for local dev. */
 export const createMockJwt = (subject: string): string => {
   const header = btoa(JSON.stringify({ alg: 'none', typ: 'JWT' }));
   const payload = btoa(

@@ -2,11 +2,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 
-// Servers — Discord-style access-controlled workspaces, additive alongside
-// the existing flat/unscoped chat channel list. See be-work's
-// modules/servers/ (routes/controller) and schema.prisma's `servers` /
-// `server_members` models (mirror channel_members exactly).
-
 export interface ServerMember {
   id: string;
   server_id: string;
@@ -33,15 +28,9 @@ export interface Server {
   created_at: string;
   updated_at: string;
   _count?: { members: number; channels: number };
-  members?: ServerMember[]; // list_servers returns just the caller's own row here; get_server returns everyone's
+  members?: ServerMember[];
 }
 
-// No refetchInterval — be-work's servers.controller.js/chat.controller.js
-// emit 'server:update' (create/join/remove/channel changes) over the
-// socket, and src/pages/chat/index.tsx's socket effect invalidates this
-// query key on that event. See docs on that effect for the full picture;
-// this hook is intentionally just the query, not the socket wiring, since
-// it's also used from places the chat page's socket effect doesn't reach.
 export const useGetServersQuery = () =>
   useQuery<Server[]>({
     queryKey: ['servers'],
@@ -61,9 +50,6 @@ export const useGetServerQuery = (serverId: string | null) =>
     enabled: !!serverId,
   });
 
-// Same 'server:update' socket coverage as useGetServersQuery above —
-// covers channel created/archived/deleted inside this server (see
-// notify_server_members in be-work's chat.controller.js).
 export const useGetServerChannelsQuery = (serverId: string | null) =>
   useQuery<any[]>({
     queryKey: ['server-channels', serverId],

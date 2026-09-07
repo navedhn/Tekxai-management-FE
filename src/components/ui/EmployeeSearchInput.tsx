@@ -26,10 +26,6 @@ interface EmployeeSearchInputProps {
   className?: string;
 }
 
-// Standalone employee lookup — deliberately not extracted from or coupled to
-// UserOverridePanel (RBAC module). Searches Name/Employee ID/Email/
-// Department/Designation/Business Unit via the same GET /user?search=
-// endpoint, whose backend match clauses already cover all of these fields.
 const EmployeeSearchInput: React.FC<EmployeeSearchInputProps> = ({
   onSelect,
   selected,

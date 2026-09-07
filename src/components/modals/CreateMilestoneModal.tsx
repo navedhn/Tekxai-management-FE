@@ -22,16 +22,11 @@ const STATUS_OPTIONS: { label: string; value: MilestoneStatus }[] = [
   { label: 'Blocked', value: 'BLOCKED' },
 ];
 
-// Payment state is a financial fact, independent of workflow status above —
-// a milestone can be COMPLETED and still UNPAID, or vice versa.
 const PAYMENT_STATUS_OPTIONS: { label: string; value: 'UNPAID' | 'PAID' }[] = [
   { label: 'Unpaid', value: 'UNPAID' },
   { label: 'Paid', value: 'PAID' },
 ];
 
-// Phase 3 Project Delivery & Evidence Foundation — "what happened" (missed
-// reason) is a deliberately separate vocabulary from "whose/what fault"
-// (issue classification) below; neither is ever inferred from lateness.
 const MISSED_REASON_OPTIONS: { label: string; value: MissedReasonCategory }[] = [
   { label: 'Client Dependency', value: 'CLIENT_DEPENDENCY' },
   { label: 'Access / Infrastructure', value: 'ACCESS_INFRASTRUCTURE' },
@@ -71,7 +66,7 @@ interface CreateMilestoneModalProps {
   projectId: string | number | null;
   milestone?: Milestone | null;
   projectMembers?: SimpleMember[];
-  /** Project's budget_currency — milestone price always inherits it; no per-milestone currency in this phase. */
+
   currency?: string;
 }
 
@@ -90,8 +85,7 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
     title: '', due_date: '', description: '', sequence: '', status: 'NOT_STARTED' as MilestoneStatus,
     estimated_start: '', estimated_end: '', progress_percent: '0', remarks: '',
     price: '0', payment_status: 'UNPAID' as 'UNPAID' | 'PAID',
-    // Phase 3 Project Delivery & Evidence Foundation — '' means "not set",
-    // distinct from any real enum value; never defaulted to something else.
+
     missed_reason_category: '' as MissedReasonCategory | '',
     missed_reason_detail: '',
     issue_classification: '' as IssueClassification | '',
@@ -163,7 +157,7 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
     }
     const price = formData.price === '' ? 0 : +formData.price;
     if (Number.isNaN(price) || price < 0) newErrors.price = 'Price cannot be negative';
-    // Mirrors the backend's own paired validation exactly.
+
     if (formData.missed_reason_category === 'OTHER' && !formData.missed_reason_detail.trim()) {
       newErrors.missed_reason_detail = 'Please explain when selecting "Other"';
     }
@@ -188,7 +182,7 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
       depends_on_ids: dependsOnIds,
       price,
       payment_status: formData.payment_status,
-      // Phase 3 Project Delivery & Evidence Foundation.
+
       missed_reason_category: formData.missed_reason_category || null,
       missed_reason_detail: formData.missed_reason_detail || null,
       issue_classification: formData.issue_classification || null,
@@ -231,12 +225,7 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
         />
 
         <div className={cn('grid gap-4', isEdit ? 'grid-cols-1' : 'grid-cols-2')}>
-          {/* Sequence is only meaningful on create, as an optional insertion
-              position (existing milestones from that position on shift down
-              one) — the backend now server-controls sequence entirely and
-              silently ignores it on update. Reordering an existing milestone
-              is done via drag-and-drop in the milestones list, which calls
-              the dedicated reorder endpoint. */}
+
           {!isEdit && (
             <Input
               label="Insert at Position"
@@ -257,11 +246,7 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
             onChange={(v) => setFormData((f) => ({
               ...f,
               status: v as MilestoneStatus,
-              // Business invariant (enforced server-side too, see
-              // milestones.service.js): a PAID milestone must be COMPLETED.
-              // Moving status away from COMPLETED while marked PAID would be
-              // rejected by the backend — reset it here so the form never
-              // lands in a state the server would refuse.
+
               payment_status: v !== 'COMPLETED' && f.payment_status === 'PAID' ? 'UNPAID' : f.payment_status,
             }))}
           />
@@ -273,17 +258,12 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
           <DatePicker label="Due Date" placeholder="Select date" value={formData.due_date} onChange={(d) => setFormData((f) => ({ ...f, due_date: d }))} />
         </div>
 
-        {/* Financial state — deliberately separate from workflow Status
-            above: a milestone can be Completed and still Unpaid. */}
         <div className="grid grid-cols-2 gap-4">
           <Input
             label={`Price (${currency})`}
             name="price"
             type="number"
-            // No `min` attribute here deliberately: an HTML5 min constraint
-            // silently blocks native form submission (no error shown) before
-            // our own validation below ever runs. The negative check just
-            // beneath (and the backend's own validator) is the real guard.
+
             step="0.01"
             value={formData.price}
             onChange={handleInputChange}
@@ -296,9 +276,7 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
               label="Payment Status"
               options={PAYMENT_STATUS_OPTIONS.map((o) => ({
                 ...o,
-                // A milestone can only be marked PAID once it's COMPLETED
-                // (server-enforced invariant — disabled here too so the
-                // form can't be submitted into a state it would reject).
+
                 disabled: o.value === 'PAID' && formData.status !== 'COMPLETED',
               }))}
               value={formData.payment_status}
@@ -310,12 +288,6 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
           </div>
         </div>
 
-        {/* Phase 3 Project Delivery & Evidence Foundation — only shown once
-            editing a real milestone: there's nothing to explain about a
-            delivery that hasn't happened yet on brand-new one. Deliberately
-            two separate vocabularies: "what happened" (Missed Reason) is
-            never conflated with "whose/what fault" (Issue Classification) —
-            neither is auto-derived from lateness or from each other. */}
         {isEdit && (
           <div className="flex flex-col gap-4 p-4 rounded-2xl border border-gray-100 bg-gray-50/60">
             <span className="text-xs font-black text-gray-500 uppercase tracking-widest">Delivery Evidence</span>

@@ -14,11 +14,6 @@ export const ROLE_LABELS: Record<string, { label: string; color: string }> = {
   EMPLOYEE: { label: 'Employee', color: 'bg-gray-100 text-gray-700' },
 };
 
-// Role creation flow (step 1-2 of 6): name + starting point. Steps 3-5
-// (configure permissions / scope / approval limits) happen on the main
-// matrix/approval-rules screens once the role exists — this modal's only
-// job is to get a real roles-table row into existence with zero seed-file
-// or code edits, per the dynamic-RBAC redesign.
 function CreateRoleModal({ roles, onClose, onCreated }: { roles: string[]; onClose: () => void; onCreated: (roleName: string) => void }) {
   const toast = useToastContext();
   const [name, setName] = useState('');
@@ -96,11 +91,6 @@ interface RoleSelectorProps {
   grantCounts?: Record<string, number>;
 }
 
-// Replaces the old button-row role picker — a searchable, scrollable list
-// so this scales past a handful of roles without the header wrapping into
-// three lines. Also where roles are now created/deleted — no seed-file or
-// code edit needed for either, per the dynamic-RBAC redesign (the `roles`
-// table itself is the source of truth, not any hardcoded array).
 const RoleSelector: React.FC<RoleSelectorProps> = ({ roles, selectedRole, onSelect, grantCounts }) => {
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);

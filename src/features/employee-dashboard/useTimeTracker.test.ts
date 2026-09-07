@@ -3,10 +3,6 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { formatTrackerTime, useTimeTracker } from './useTimeTracker';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 
-// Attendance policy: Check In / Check Out only happens via the desktop
-// agent. useTimeTracker is READ-ONLY — these tests assert it never calls
-// the clock-in/clock-out endpoints and only reflects whatever status the
-// backend (populated by the desktop agent) reports.
 let fakeToday: any = { clocked_in: false, clocked_out: false, entry: null };
 const apiRequestMock = vi.fn((endpoint: string) => {
   if (endpoint === API_ENDPOINTS.TIMESHEET.TODAY) {

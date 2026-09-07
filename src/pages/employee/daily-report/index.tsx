@@ -18,13 +18,11 @@ function isDeveloper(designation?: string | null) {
   return DEV_KEYWORDS.some(k => d.includes(k));
 }
 
-// ── Shared project+tasks item editor (used by both Agenda and Report forms) ────
-
 type ProjectItem = {
   project_id: string;
   project_name_freeform: string;
-  tasks: string[]; // Agenda: plain task list
-  completed_tasks: string[]; // Report: split into completed/pending
+  tasks: string[];
+  completed_tasks: string[];
   pending_tasks: string[];
 };
 
@@ -95,8 +93,6 @@ function TaskListEditor({ label, tasks, onChange }: { label: string; tasks: stri
     </div>
   );
 }
-
-// ── Agenda Modal ─────────────────────────────────────────────────────────────
 
 function AgendaModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
@@ -178,8 +174,6 @@ function AgendaModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ── Report Modal ─────────────────────────────────────────────────────────────
-
 function ReportModal({ onClose, agendaItems }: { onClose: () => void; agendaItems: any[] }) {
   const qc = useQueryClient();
   const toast = useToastContext();
@@ -187,8 +181,6 @@ function ReportModal({ onClose, agendaItems }: { onClose: () => void; agendaItem
   const showCodeDeployed = isDeveloper(user?.designation);
   const { data: myProjects = [] } = useMyProjects();
 
-  // Pre-seed from today's agenda if it exists — the report is meant to
-  // close out the same projects the agenda listed, per the spec's example.
   const seeded = agendaItems.length
     ? agendaItems.map((ai: any) => ({
         project_id: ai.project_id || '', project_name_freeform: ai.project?.title || ai.project_name_freeform || '',
@@ -315,8 +307,6 @@ function ReportModal({ onClose, agendaItems }: { onClose: () => void; agendaItem
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
-
 export default function DailyReportPage() {
   const [showAgendaModal, setShowAgendaModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -394,8 +384,7 @@ export default function DailyReportPage() {
           <p className="text-sm text-gray-400 mt-0.5">Start your day with an agenda, close it out with a report</p>
         </div>
         <div className="flex gap-2">
-          {/* Per spec: hide "Submit Daily Report" until the agenda exists —
-              only offer Agenda submission first. */}
+
           {hasOpenSession && !agendaSubmitted && (
             <button onClick={() => setShowAgendaModal(true)}
               className="flex items-center gap-2 px-4 h-10 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition-colors">

@@ -11,4 +11,3 @@ export const useUserStore = create<UserState>((set) => ({
   profile: null,
   setProfile: (profile) => set({ profile }),
 }));
-

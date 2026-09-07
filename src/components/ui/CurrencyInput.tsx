@@ -1,24 +1,16 @@
 import React, { forwardRef, useCallback, useMemo } from 'react';
 import { cn } from '@/utils/cn';
 
-/**
- * Phase 7 (Inputs): currency-style text input — prefixed symbol +
- * thousands-separator formatting on top of a plain numeric value.
- * Shares the same height/radius/border/focus/error/disabled tokens as
- * Input.tsx. The underlying value handed to `onValueChange` is always
- * a plain number (or empty string while the field is being edited),
- * never the formatted display string.
- */
 export interface CurrencyInputProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'> {
   label?: string;
   error?: string;
   containerClassName?: string;
-  /** Currency symbol or code shown as a fixed prefix, e.g. "$" or "USD". */
+
   currencySymbol?: string;
-  /** Raw numeric value (unformatted). */
+
   value?: number | string;
-  /** Fired with the parsed numeric value (or '' when cleared). */
+
   onValueChange?: (value: number | '') => void;
 }
 

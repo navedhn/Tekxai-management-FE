@@ -6,4 +6,3 @@ export const useModal = () => {
   const close = useCallback(() => setIsOpen(false), []);
   return { isOpen, open, close };
 };
-

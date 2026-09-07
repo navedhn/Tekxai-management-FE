@@ -22,11 +22,11 @@ const GraphSkeleton: React.FC<GraphSkeletonProps> = ({ className, height = 300 }
 
       <div className="flex items-end justify-between gap-2 px-2" style={{ height: typeof height === 'number' ? `${height}px` : height }}>
         {Array.from({ length: 12 }).map((_, i) => (
-          <Skeleton 
-            key={i} 
-            variant="rectangular" 
-            width="6%" 
-            height={`${Math.floor(Math.random() * 60) + 20}%`} 
+          <Skeleton
+            key={i}
+            variant="rectangular"
+            width="6%"
+            height={`${Math.floor(Math.random() * 60) + 20}%`}
             className="rounded-t-lg"
           />
         ))}

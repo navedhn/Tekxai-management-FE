@@ -10,9 +10,6 @@ import { cn } from '@/utils/cn';
 import { useTicketCategoriesQuery, useTicketTypeAssigneesQuery, useSetTicketTypeAssigneesMutation } from '@/services/ticketService';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
 
-// ─── Field & Workflow type definitions (mirrors the backend's field_schema /
-// workflow JSON shape exactly — see ticket-types.validation.js on the backend) ──
-
 export type FieldType =
   | 'text' | 'textarea' | 'number' | 'date' | 'time' | 'checkbox' | 'switch'
   | 'select' | 'multiselect' | 'user' | 'employee' | 'team' | 'department'
@@ -81,8 +78,6 @@ function new_step(existing_keys: Set<string>): WorkflowStep {
   while (existing_keys.has(key)) key = `${base}_${i++}`;
   return { key, label: 'New Step' };
 }
-
-// ─── Field Builder ───────────────────────────────────────────────────────────
 
 function FieldRow({
   field, onChange, onDuplicate, onDelete, onMove, isFirst, isLast, keyError,
@@ -232,8 +227,6 @@ function FieldBuilder({ sections, onChange, duplicateKeys }: { sections: Section
   );
 }
 
-// ─── Workflow Builder ────────────────────────────────────────────────────────
-
 function WorkflowBuilder({ steps, onChange, duplicateNames }: { steps: WorkflowStep[]; onChange: (s: WorkflowStep[]) => void; duplicateNames: Set<string> }) {
   const all_keys = useMemo(() => new Set(steps.map((s) => s.key)), [steps]);
 
@@ -286,8 +279,6 @@ function WorkflowBuilder({ steps, onChange, duplicateNames }: { steps: WorkflowS
   );
 }
 
-// ─── Live Preview ────────────────────────────────────────────────────────────
-
 function LivePreview({ label, sections, workflow }: { label: string; sections: SectionDef[]; workflow: WorkflowStep[] }) {
   return (
     <div className="bg-gray-50 rounded-xl p-4 space-y-5">
@@ -336,8 +327,6 @@ function LivePreview({ label, sections, workflow }: { label: string; sections: S
     </div>
   );
 }
-
-// ─── Editor SlideOver ────────────────────────────────────────────────────────
 
 type Tab = 'basic' | 'fields' | 'workflow' | 'preview';
 

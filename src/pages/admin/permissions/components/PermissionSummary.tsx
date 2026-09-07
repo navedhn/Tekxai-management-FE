@@ -15,9 +15,6 @@ interface PermissionSummaryProps {
   bySource?: Record<string, number>;
 }
 
-// Effective-permission preview — a quick "what does this role/user actually
-// end up with" readout, breaking granted permissions down by where they
-// came from (role vs inheritance vs override) rather than just a bare count.
 const PermissionSummary: React.FC<PermissionSummaryProps> = ({ total, granted, bySource }) => (
   <div className="flex items-center gap-3 flex-wrap">
     <span className="text-sm font-black text-gray-900">{granted}<span className="text-gray-400 font-semibold">/{total}</span></span>

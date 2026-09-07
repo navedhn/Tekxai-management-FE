@@ -1,8 +1,3 @@
-// Mock data for the Super Admin → Reports prototype. Shaped so a future
-// integration with real endpoints (report_builder /kpi, /aggregate, /run —
-// see AttendanceReportsTab in pages/admin/attendance for the live pattern)
-// can drop in without changing the page components' prop shapes.
-
 export const DEPARTMENTS = ['Engineering', 'Marketing', 'Operations', 'Finance', 'HR', 'Sales', 'Customer Success'] as const;
 
 function seededRandom(seed: number) {
@@ -21,10 +16,8 @@ function pad(n: number) {
   return String(n).padStart(2, '0');
 }
 
-// ─── Attendance ─────────────────────────────────────────────────────────────
-
 export interface AttendanceTrendPoint {
-  date: string; // "01 Aug"
+  date: string;
   present: number;
   absent: number;
   onLeave: number;
@@ -92,8 +85,6 @@ export function generateAttendanceRows(count = 60): AttendanceRow[] {
   return rows;
 }
 
-// ─── Assets ─────────────────────────────────────────────────────────────────
-
 export interface AssetRow {
   id: string;
   asset: string;
@@ -134,8 +125,6 @@ export function generateAssetRows(count = 55): AssetRow[] {
   }
   return rows;
 }
-
-// ─── Requisitions ───────────────────────────────────────────────────────────
 
 export interface RequisitionTrendPoint {
   date: string;
@@ -196,8 +185,6 @@ export function generateRequisitionRows(count = 48): RequisitionRow[] {
   }
   return rows;
 }
-
-// ─── Tickets ────────────────────────────────────────────────────────────────
 
 export interface TicketTrendPoint {
   date: string;
@@ -270,16 +257,6 @@ export function generateTicketRows(count = 52): TicketRow[] {
   return rows;
 }
 
-// ─── Expenses ───────────────────────────────────────────────────────────────
-// Mirrors be-work's real `expense_transactions` / `expense_categories` model
-// (prisma/schema.prisma): title, total_amount, category → expense_type
-// ('MARKETING' | 'OPERATIONS' | 'BOTH'), date, paid_to. The real schema has
-// NO status or department column — expenses there are a ledger of
-// account transactions, not an approval workflow. Status/department below
-// are prototype-only additions (flagged in the final report) since the
-// task asks for an approval-style report and the real schema has nothing
-// to conflict with on those two fields.
-
 export type ExpenseCategoryType = 'Marketing' | 'Operations' | 'Both';
 
 export interface ExpenseCategoryDef {
@@ -312,7 +289,7 @@ const EXPENSE_TITLES: Record<string, string[]> = {
 };
 
 export interface ExpenseTrendPoint {
-  month: string; // "Mar 2026"
+  month: string;
   total: number;
   approved: number;
   pending: number;

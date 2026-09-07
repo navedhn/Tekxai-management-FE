@@ -20,14 +20,6 @@ const SOURCE_META: Record<string, { label: string; color: string }> = {
   default_deny: { label: 'Not granted', color: 'bg-gray-50 text-gray-400' },
 };
 
-// Redesigned User Overrides tab — the old version already computed the
-// right underlying data (source: role vs override), it just never labeled
-// "Inherited / Added / Removed / Effective" clearly or grouped by workspace
-// with search+filter. This keeps the exact same direct-save-per-toggle data
-// flow (no local staging here, unlike the Role tab — every click is
-// immediately persisted, matching the pre-existing behavior admins are
-// already used to) and only changes presentation + adds the workspace/
-// search/filter affordances the redesign asked for.
 const UserOverridePanel: React.FC = () => {
   const toast = useToastContext();
   const [searchTerm, setSearchTerm] = useState('');

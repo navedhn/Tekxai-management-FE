@@ -29,14 +29,6 @@ export const TICKET_RECIPIENTS: TicketRecipient[] = [
   { id: 'other',      role: 'other',      label: 'Other',           name: ''              },
 ];
 
-// Workflow-driven tickets carry per-type status keys (OPEN, MANAGER_APPROVAL,
-// PURCHASE, CLOSED, ...) instead of the legacy 'pending'/'in_progress'/
-// 'resolved' literals, so comparing t.status directly against those three
-// strings undercounts almost every ticket. Classify using the ticket's own
-// typeSnapshot.workflow position instead — same 3-way rule the backend's
-// get_ticket_stats() `by_bucket` uses: first step = pending, last step =
-// resolved, anything else = in progress. Legacy tickets (no typeSnapshot)
-// fall back to their original literal status.
 export type TicketBucket = 'pending' | 'in_progress' | 'resolved';
 export const bucketForTicket = (t: SupportTicket): TicketBucket => {
   const wf = t.typeSnapshot?.workflow;
@@ -90,8 +82,7 @@ const fetchTickets = async (filters: TicketListFilters = {}): Promise<SupportTic
 };
 
 const createTicket = async (payload: CreateTicketPayload): Promise<SupportTicket> => {
-  // Service Desk path — the backend derives recipient/assignment from the
-  // ticket type's configuration, so only the type-driven fields are sent.
+
   if (payload.ticketTypeId) {
     const res = await apiRequest<any>(API_ENDPOINTS.TICKET.CREATE, {
       method: 'POST',
@@ -132,17 +123,6 @@ const createTicket = async (payload: CreateTicketPayload): Promise<SupportTicket
   return (res?.payload || res) as SupportTicket;
 };
 
-// Root cause of "employee still sees Pending after admin changes status":
-// the global QueryClient default (staleTime: 5min, refetchOnWindowFocus:
-// false) meant this query only ever refetched on a fresh mount more than
-// 5 minutes after the last one — an admin's status change in a completely
-// separate browser session never reached an already-open employee tab. No
-// websocket infrastructure exists in this app (checked: no socket.io/ws
-// dependency anywhere), so per-query polling is the correct fix here. 20s
-// is frequent enough to feel "live" for a support-ticket workflow without
-// hammering the API — override the global staleTime too, since a value
-// shorter than the poll interval would otherwise let a manual refetch (e.g.
-// window refocus) serve a cached response instead of hitting the network.
 export const useGetTickets = (filters: TicketListFilters = {}) =>
   useQuery({
     queryKey: [...QUERY_KEYS.TICKETS.LIST, filters],
@@ -151,8 +131,6 @@ export const useGetTickets = (filters: TicketListFilters = {}) =>
     refetchInterval: 20_000,
     refetchOnWindowFocus: true,
   });
-
-// ─── Service Desk configuration (categories + types with field_schema) ──────
 
 export const useTicketCategoriesQuery = (includeInactive: boolean = false) =>
   useQuery<TicketCategoryRecord[]>({
@@ -210,9 +188,7 @@ export const useTicketTimelineQuery = (ticketId?: string) =>
       return (res?.payload?.records || []) as TicketTimelineEntry[];
     },
     enabled: !!ticketId,
-    // Same staleness problem as useGetTickets above — a reply or status
-    // change made by the other party (admin vs. employee) must show up in
-    // an already-open detail view without a manual reload.
+
     staleTime: 15_000,
     refetchInterval: !!ticketId ? 20_000 : false,
   });
@@ -222,9 +198,7 @@ export const useCreateTicketMutation = () => {
   return useMutation({
     mutationFn: createTicket,
     onSuccess: () => {
-      // Invalidate the whole 'tickets' key root so both the employee list
-      // (['tickets','list',...]) and the admin list (['tickets','admin-list',...])
-      // refetch after a new ticket is created.
+
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
     },
   });
@@ -283,10 +257,6 @@ export const useDeleteTicketMutation = () => {
   });
 };
 
-// `status` here is always 'all' or one of the 3 abstract stat-tab buckets
-// (see STATUS_TABS) — never a real workflow status key — so this must
-// filter by bucketForTicket(), not by literal t.status equality (which
-// never matched real tickets; see getTicketStats above for why).
 export const filterTicketsByStatus = (
   tickets: SupportTicket[],
   status: TicketStatus | 'all'

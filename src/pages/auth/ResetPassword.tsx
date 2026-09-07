@@ -12,10 +12,6 @@ const ResetPassword: React.FC = () => {
     const location = useLocation();
     const toast = useToastContext();
 
-    // id and otp are passed from VerifyOTP after a successful OTP check.
-    // The backend's reset endpoint re-validates (and consumes) the same OTP
-    // code, so it has to be carried forward here rather than dropped once
-    // verification passes.
     const id = (location.state as any)?.id || '';
     const otp = (location.state as any)?.otp || '';
 

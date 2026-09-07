@@ -5,14 +5,6 @@ import { useGetPublicDocumentQuery, useSignPublicDocumentMutation } from '@/serv
 import SignaturePad from '@/components/hr-documents/SignaturePad';
 import { cn } from '@/utils/cn';
 
-// Public, unauthenticated candidate signing page — reachable at /sign/:token
-// with no login. Every state (loading / not-found / expired / already
-// signed / sign form / success) is handled here so a candidate never sees
-// a raw stack trace or a technical error. Reuses the same plain
-// whitespace-pre-wrap content rendering and typed-name signature capture
-// as the authenticated employee-facing detail page
-// (src/pages/admin/hr-documents/detail.tsx) rather than inventing a new
-// renderer/signature UI.
 const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
     <div className="w-full max-w-2xl">

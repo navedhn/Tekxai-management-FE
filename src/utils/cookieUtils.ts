@@ -25,11 +25,8 @@ export const deleteCookie = (name: string, path: string = '/') => {
     document.cookie = `${encodeURIComponent(name)}=; Path=${path}; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
 };
 
-// Access token helpers
 const ACCESS_TOKEN_COOKIE = 'access_token';
 
 export const getAccessTokenFromCookie = (): string | null => getCookie(ACCESS_TOKEN_COOKIE);
 export const setAccessTokenCookie = (token: string, days?: number) => setCookie(ACCESS_TOKEN_COOKIE, token, { days, sameSite: 'Lax', secure: true });
 export const clearAccessTokenCookie = () => deleteCookie(ACCESS_TOKEN_COOKIE);
-
-

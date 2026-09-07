@@ -3,11 +3,6 @@ import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from './api/endpoints';
 import { QUERY_KEYS } from './api/tanstackKeys';
 
-// GITHUB/SERVER/DOMAIN/SMTP/OPENAI/STRIPE/AWS intentionally excluded — those
-// are tracked exclusively by DevOps Access (git/server/domain/email_smtp/
-// openai/stripe/aws_access_status), matching the backend's DEPENDENCY_TYPES
-// (dependencies.validation.js) so the same access item can't be tracked in
-// two different places with two different statuses.
 export type DependencyType =
   | 'ANTHROPIC' | 'GEMINI'
   | 'TWILIO' | 'FIREBASE' | 'SUPABASE' | 'DIGITALOCEAN' | 'CLOUDFLARE'

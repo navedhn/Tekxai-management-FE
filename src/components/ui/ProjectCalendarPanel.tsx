@@ -4,14 +4,6 @@ import { cn } from '@/utils/cn';
 import { useMilestones } from '@/services/milestonesService';
 import { useKanbanTasks } from '@/services/tasksService';
 
-// Phase 4 (Calendar & Scheduling) — a purely derived view over existing
-// records (milestones.due_date, tasks.due_date, projects.end_date). No new
-// backend endpoint or table: this reuses the same useMilestones/
-// useKanbanTasks hooks the Milestones/Tasks tabs already call, and the same
-// local-Date bucketing convention already used by the all-projects Timeline
-// page (fe-work/src/pages/admin/project-timeline/index.tsx) — not a new
-// timezone strategy.
-
 type CalendarEventType = 'milestone' | 'task' | 'delivery';
 
 interface CalendarEvent {

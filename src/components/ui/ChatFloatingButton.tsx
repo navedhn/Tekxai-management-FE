@@ -11,11 +11,7 @@ const ChatFloatingButton: React.FC = () => {
     const location = useLocation();
     const unreadCount = useChatUnreadCount();
     const toast = useToastContext();
-    // This component is mounted exactly once per active layout (admin/hr/
-    // employee), and exactly one layout is ever mounted at a time — so this
-    // is the single place the unread total is diffed and surfaced, rather
-    // than duplicating the effect in every consumer of useChatUnreadCount
-    // (e.g. the sidebar badge, which only displays the number).
+
     const prevCount = useRef<number | null>(null);
 
     useEffect(() => {
@@ -36,7 +32,6 @@ const ChatFloatingButton: React.FC = () => {
 
     const isOnChat = location.pathname === '/chat';
 
-    // Hide the floating button when already on the chat page
     if (isOnChat) return null;
 
     return (
@@ -65,7 +60,7 @@ const ChatFloatingButton: React.FC = () => {
                     {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
             )}
-            {/* Pulse ring */}
+
             <span className="absolute inset-0 rounded-full animate-ping bg-[#005CDA]/30 pointer-events-none" />
         </motion.button>
     );

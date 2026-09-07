@@ -7,20 +7,6 @@ import {
   useRejectPublicOfferMutation,
 } from '@/services/onboardingOffersPublicService';
 
-// Public, unauthenticated candidate offer-review page — reachable at
-// /offer/:id?token=... with no login. Mirrors
-// src/pages/public/candidateSign/index.tsx's structure exactly (same Shell/
-// StateCard pattern, same PublicLayout route registration).
-//
-// Route shape note: send_offer() (be-work onboarding.controller.js) emails
-// `${FRONTEND_URL}/offer/${o.id}?token=${o.candidate.invite_token}` — the
-// offer id lives in the path, the candidate's invite token in the query
-// string. The public GET/accept/reject endpoints
-// (`/public/onboarding/offers/:token`) resolve EXCLUSIVELY off that query
-// token (never off the path id — see onboarding-public.controller.js), so
-// this page reads `token` from the query string and never uses the `:id`
-// path param for API calls; it exists only so today's already-sent email
-// links resolve to this page.
 const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
     <div className="w-full max-w-2xl">

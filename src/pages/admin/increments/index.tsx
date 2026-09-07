@@ -30,7 +30,6 @@ function PctBadge({ label, pct, eligible = true }: { label: string; pct: number;
   );
 }
 
-// ── Create / Calculate Increment Modal ───────────────────────────────────────
 function IncrementModal({ userId, onClose }: { userId: string; onClose: () => void }) {
   const [year, setYear]      = useState(THIS_YEAR);
   const [calcEnabled, setCalcEnabled] = useState(false);
@@ -74,7 +73,6 @@ function IncrementModal({ userId, onClose }: { userId: string; onClose: () => vo
           <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
         </div>
 
-        {/* Year select + calculate */}
         <div className="flex gap-3 mb-5">
           <select value={year} onChange={e => { setYear(+e.target.value); setCalcEnabled(false); }}
             className="h-10 px-3 border border-gray-200 rounded-xl text-sm flex-1">
@@ -88,7 +86,7 @@ function IncrementModal({ userId, onClose }: { userId: string; onClose: () => vo
 
         {calc && (
           <div className="space-y-5">
-            {/* Recommendation */}
+
             <div className="bg-primary-50 rounded-xl p-4">
               <p className="text-xs font-semibold text-primary-700 uppercase tracking-wide mb-2">Calculated Recommendation</p>
               <div className="flex flex-wrap gap-2 mb-3">
@@ -127,7 +125,6 @@ function IncrementModal({ userId, onClose }: { userId: string; onClose: () => vo
               )}
             </div>
 
-            {/* Overrides */}
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-semibold text-gray-500 block mb-1.5">Performance % Override</label>
@@ -162,7 +159,6 @@ function IncrementModal({ userId, onClose }: { userId: string; onClose: () => vo
   );
 }
 
-// ── Main Increments Page ─────────────────────────────────────────────────────
 export default function IncrementsPage() {
   const [selectedUser, setSelectedUser] = useState('');
   const [showModal, setShowModal]       = useState(false);
@@ -197,7 +193,6 @@ export default function IncrementsPage() {
         )}
       </div>
 
-      {/* Employee picker */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <select value={selectedUser} onChange={e => setSelectedUser(e.target.value)}
           className="h-10 px-3 border border-gray-200 rounded-xl text-sm w-full max-w-xs">

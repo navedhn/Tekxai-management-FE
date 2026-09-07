@@ -9,4 +9,3 @@ export const useResponsive = () => {
   }, []);
   return { width, isMobile: width < 768 };
 };
-

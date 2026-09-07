@@ -1,11 +1,6 @@
 import React from 'react';
 import { cn } from '@/utils/cn';
 
-// Design System Phase 4: the canonical type scale, backed by the
-// text-h1..text-badge tokens in styles/index.css. New screens should
-// reach for these instead of ad hoc text-[Npx]/text-lg combinations;
-// existing call sites are migrated separately (Phase 13).
-
 type HeadingLevel = 1 | 2 | 3 | 4;
 
 const HEADING_CLASS: Record<HeadingLevel, string> = {

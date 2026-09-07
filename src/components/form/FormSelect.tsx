@@ -34,19 +34,17 @@ const FormSelect: React.FC<Props> = ({
     isClearable = false,
     isSearchable = true,
 }) => {
-    // Convert string value to react-select option object
+
     const selectedOption = value
         ? options.find((option) => option.value === value) || null
         : null;
 
-    // Handle change from react-select - converts to Formik-compatible event
     const handleChange = (selected: SingleValue<SelectOption> | readonly SelectOption[]) => {
         if (!onChange) return;
 
         const singleValue = selected as SingleValue<SelectOption>;
         const newValue = singleValue?.value || '';
 
-        // Create a synthetic event that mimics HTML select behavior for Formik compatibility
         const syntheticEvent = {
             target: {
                 name,
@@ -58,15 +56,12 @@ const FormSelect: React.FC<Props> = ({
             },
         } as React.ChangeEvent<HTMLSelectElement>;
 
-        // Call onChange with the synthetic event (works with Formik's handleChange)
         (onChange as React.ChangeEventHandler<HTMLSelectElement>)(syntheticEvent);
     };
 
-    // Handle blur for Formik compatibility
     const handleBlur = () => {
         if (!onBlur) return;
 
-        // Create a synthetic blur event for Formik compatibility
         const syntheticEvent = {
             target: { name },
             currentTarget: { name },
@@ -75,7 +70,6 @@ const FormSelect: React.FC<Props> = ({
         (onBlur as React.FocusEventHandler<HTMLSelectElement>)(syntheticEvent);
     };
 
-    // Custom styles for react-select
     const customStyles: StylesConfig<SelectOption, false> = {
         control: (base, state) => ({
             ...base,

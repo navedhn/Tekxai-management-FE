@@ -20,12 +20,6 @@ interface EmergencyContactsSectionProps {
   userId: string;
 }
 
-/**
- * Self-contained emergency contacts manager for the Employee Profile page.
- * Fetches, lists, adds, edits, and deletes emergency contacts for `userId`.
- * Sprint 1 Phase 2 Milestone 4 — replaces the old single flat-field contact
- * (display-only) with a proper one-to-many list supporting multiple contacts.
- */
 const EmergencyContactsSection: React.FC<EmergencyContactsSectionProps> = ({ userId }) => {
   const toast = useToastContext();
   const { data: contacts, isLoading } = useGetEmergencyContacts(userId);

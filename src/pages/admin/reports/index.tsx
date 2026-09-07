@@ -97,7 +97,6 @@ const ReportsPage: React.FC = () => {
         </Button>
       </div>
 
-      {/* Filters */}
       <div className="flex items-center gap-4 flex-wrap">
         <div className="w-52">
           <SearchableSelect

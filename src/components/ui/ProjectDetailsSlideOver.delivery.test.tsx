@@ -5,11 +5,6 @@ import { MemoryRouter } from 'react-router-dom';
 import ProjectDetailsSlideOver from './ProjectDetailsSlideOver';
 import { ToastProvider } from '@/components/toast/ToastProvider';
 
-// Phase 3 Project Delivery & Evidence Foundation — the Milestones tab's
-// per-milestone Delivery badge/section (deadline/actual/missed
-// reason/classification/QA/rework/evidence), kept distinct from workflow
-// Status and Payment badges.
-
 const PROJECT: any = {
   id: 'p1', title: 'Project', description: '', status: 'IN_PROGRESS',
   progress: 40, total_hours: 10, start_date: '2026-01-01', end_date: '2026-03-01',
@@ -99,8 +94,8 @@ describe('ProjectDetailsSlideOver — Milestones tab Delivery', () => {
     openMilestonesTab();
     expect(screen.getByText('Missed Deliverable')).toBeInTheDocument();
     expect(screen.getByText('MISSED')).toBeInTheDocument();
-    expect(screen.getByText('In Progress')).toBeInTheDocument(); // workflow status, unaffected
-    expect(screen.getAllByText('Unpaid').length).toBeGreaterThan(0); // payment status, unaffected
+    expect(screen.getByText('In Progress')).toBeInTheDocument();
+    expect(screen.getAllByText('Unpaid').length).toBeGreaterThan(0);
   });
 
   it('shows a PENDING badge for a milestone with no deadline yet, no crash', () => {
@@ -119,8 +114,8 @@ describe('ProjectDetailsSlideOver — Milestones tab Delivery', () => {
     expect(screen.getByText('RESOURCE CAPACITY')).toBeInTheDocument();
     expect(screen.getByText('CAPACITY')).toBeInTheDocument();
     expect(screen.getByText('FAILED')).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument(); // rework count
-    expect(screen.getByText('2 documents')).toBeInTheDocument(); // evidence
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByText('2 documents')).toBeInTheDocument();
     expect(screen.getByText('Broke in staging')).toBeInTheDocument();
   });
 

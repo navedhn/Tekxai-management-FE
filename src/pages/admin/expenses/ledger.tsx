@@ -12,7 +12,6 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 const pkr = (v: number) => `PKR ${(v || 0).toLocaleString('en-PK')}`;
 const inputCls = 'w-full h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 bg-white';
 
-// ── Add/Edit Transaction Modal ────────────────────────────────────────────────
 function TransactionModal({
   userId, editTxn, onClose,
 }: { userId: string; editTxn?: any; onClose: () => void }) {
@@ -61,7 +60,6 @@ function TransactionModal({
     select: (r: any) => r?.payload?.records || [],
   });
 
-  // Title autocomplete
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const suggestRef = useRef<HTMLDivElement>(null);
@@ -80,7 +78,6 @@ function TransactionModal({
     setShowSuggestions(false);
   };
 
-  // Add category inline
   const [showAddCat, setShowAddCat] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [newCatType, setNewCatType] = useState<'MARKETING' | 'OPERATIONS' | 'BOTH'>('BOTH');
@@ -157,7 +154,6 @@ function TransactionModal({
           <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
         </div>
 
-        {/* Type toggle */}
         <div className="flex gap-2 mb-4">
           {(['income', 'expense'] as const).map(t => (
             <button key={t} onClick={() => setType(t)}
@@ -326,7 +322,6 @@ function TransactionModal({
   );
 }
 
-// ── Ledger Page ───────────────────────────────────────────────────────────────
 export default function ExpenseLedgerPage() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
@@ -364,7 +359,7 @@ export default function ExpenseLedgerPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
+
       <div className="flex items-center gap-4">
         <button onClick={() => navigate('/admin/finance/expenses')} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl">
           <ArrowLeft size={20} />
@@ -381,7 +376,6 @@ export default function ExpenseLedgerPage() {
         </div>
       </div>
 
-      {/* Summary cards */}
       {account && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {[
@@ -399,7 +393,6 @@ export default function ExpenseLedgerPage() {
         </div>
       )}
 
-      {/* Filters */}
       <div className="flex gap-3 flex-wrap">
         <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
           className="h-10 px-3 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none">
@@ -417,7 +410,6 @@ export default function ExpenseLedgerPage() {
         )}
       </div>
 
-      {/* Ledger table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

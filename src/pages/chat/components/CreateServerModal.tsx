@@ -74,7 +74,6 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({ onClose, onCreate
               </div>
             </div>
 
-            {/* Icon Upload */}
             <div className="flex flex-col items-center gap-3">
               <button
                 onClick={() => fileRef.current?.click()}
@@ -92,7 +91,6 @@ const CreateServerModal: React.FC<CreateServerModalProps> = ({ onClose, onCreate
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
             </div>
 
-            {/* Server Name */}
             <div className="flex flex-col gap-2">
               <label className="text-xs font-black text-gray-600 uppercase tracking-wider">Server Name</label>
               <input

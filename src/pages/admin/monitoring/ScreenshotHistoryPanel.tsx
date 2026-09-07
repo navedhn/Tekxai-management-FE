@@ -40,9 +40,7 @@ function fmtHourRange(hourKey: string) {
   const end = new Date(d);
   end.setHours(end.getHours() + 1);
   const f = (x: Date) => x.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  // Groups can span multiple days once "load more" pulls in older screenshots,
-  // so the date prefix disambiguates hours that repeat day to day (e.g. two
-  // separate "9 PM – 10 PM" buckets a month apart look identical without it).
+
   const dateLabel = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   return `${dateLabel}, ${f(start)} – ${f(end)}`;
 }
@@ -53,9 +51,6 @@ function hourKeyOf(iso: string) {
   return d.toISOString();
 }
 
-// Restored once, outside the component, so the very first render already
-// has the persisted values (lazy useState initializers below read from this
-// same object) — no "restore after mount" flash of empty filters.
 const persisted = loadPersistedFilters();
 
 const ScreenshotHistoryPanel: React.FC<Props> = ({ userOptions, selectedUser, onSelectUser, isSuperAdmin, onDeleteOne }) => {
@@ -65,32 +60,22 @@ const ScreenshotHistoryPanel: React.FC<Props> = ({ userOptions, selectedUser, on
   const [page, setPage] = useState(1);
   const [accumulated, setAccumulated] = useState<Screenshot[]>([]);
   const [openHours, setOpenHours] = useState<Set<string>>(new Set());
-  // Guards the initial auto-expand so it only ever happens once per
-  // employee/filter selection, not on every "load more" page or re-render —
-  // manual accordion toggling afterward behaves exactly as before.
+
   const autoExpandedRef = useRef(false);
 
-  // Employee-scoped filters not yet backend-supported — kept purely
-  // presentational ("coming soon") per scope, see report. Still persisted
-  // (harmlessly inert today) so they restore correctly once/if the backend
-  // gains support, without another frontend change.
   const [activityFilter, setActivityFilter] = useState(persisted.activityFilter || '');
   const [productivityFilter, setProductivityFilter] = useState(persisted.productivityFilter || '');
   const [appFilter, setAppFilter] = useState(persisted.appFilter || '');
   const [siteFilter, setSiteFilter] = useState(persisted.siteFilter || '');
 
-  // Persist filters (not pagination, not expanded cards, not the employee —
-  // that's owned by the parent page) whenever any of them change.
   useEffect(() => {
     try {
       localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify({
         date, activityFilter, productivityFilter, appFilter, siteFilter,
       }));
-    } catch { /* localStorage unavailable — not fatal */ }
+    } catch {  }
   }, [date, activityFilter, productivityFilter, appFilter, siteFilter]);
 
-  // Reset pagination/accumulation whenever the employee or a backend-wired
-  // filter changes so we never mix old and new results.
   useEffect(() => {
     setPage(1);
     setAccumulated([]);
@@ -103,7 +88,6 @@ const ScreenshotHistoryPanel: React.FC<Props> = ({ userOptions, selectedUser, on
   if (timeFrom) params.time_from = timeFrom;
   if (timeTo) params.time_to = timeTo;
 
-  // No employee selected => query is disabled entirely (no network call).
   const { data, isLoading, isFetching } = useGetScreenshots(params, !!selectedUser);
   const total = (data as any)?.total || 0;
 
@@ -115,9 +99,7 @@ const ScreenshotHistoryPanel: React.FC<Props> = ({ userOptions, selectedUser, on
       const seen = new Set(prev.map((r) => r.id));
       return [...prev, ...records.filter((r: Screenshot) => !seen.has(r.id))];
     });
-    // Expand every hour group by default, once, the first time this
-    // employee/filter combination's first page loads (previously only the
-    // latest hour auto-expanded, leaving every earlier hour collapsed).
+
     if (page === 1 && !autoExpandedRef.current && records.length > 0) {
       autoExpandedRef.current = true;
       setOpenHours(new Set(records.map((r: Screenshot) => hourKeyOf(r.captured_at))));
@@ -132,10 +114,7 @@ const ScreenshotHistoryPanel: React.FC<Props> = ({ userOptions, selectedUser, on
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(s);
     }
-    // Chronological order: earliest hour first (e.g. a 7pm check-in shows
-    // the 7-8pm group first, with later hours appended below as they
-    // happen), and within each hour, earliest screenshot first. The API
-    // returns captured_at desc, so each hour's array must be reversed.
+
     for (const shots of map.values()) shots.reverse();
     return Array.from(map.entries()).sort((a, b) => (a[0] < b[0] ? -1 : 1));
   }, [accumulated]);
@@ -152,7 +131,7 @@ const ScreenshotHistoryPanel: React.FC<Props> = ({ userOptions, selectedUser, on
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Filters */}
+
       <Card className="border-none shadow-sm p-4">
         <div className="flex flex-wrap gap-3 items-end">
           <div className="w-56">
@@ -180,7 +159,6 @@ const ScreenshotHistoryPanel: React.FC<Props> = ({ userOptions, selectedUser, on
               className="h-10 px-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-primary-100 outline-none disabled:opacity-40" />
           </div>
 
-          {/* Coming soon — no backend support for per-screenshot activity/app/website filtering yet */}
           <div className="opacity-50 cursor-not-allowed" title="Coming soon — not yet supported by the backend">
             <label className="text-xs font-bold text-gray-400 mb-1 block">ACTIVITY %</label>
             <select disabled value={activityFilter} onChange={() => setActivityFilter('')}
@@ -230,11 +208,7 @@ const ScreenshotHistoryPanel: React.FC<Props> = ({ userOptions, selectedUser, on
             const avgActivity = withActivity.length
               ? Math.round(withActivity.reduce((sum, s) => sum + (s.activity_pct || 0), 0) / withActivity.length)
               : null;
-            // "Working time" per hour bucket: no per-capture duration is stored
-            // (screenshots are point-in-time), so this approximates using that
-            // hour's screenshot count x the desktop agent's ~10-minute capture
-            // interval, capped at 60m — a rough presence indicator, not a
-            // precise timer. Documented limitation, see report.
+
             const workingMinutes = Math.min(60, shots.length * 10);
             return (
               <Card key={hourKey} className="border-none shadow-sm overflow-hidden p-0">
@@ -320,7 +294,7 @@ const ScreenshotCard: React.FC<{ s: Screenshot; isSuperAdmin: boolean; onDelete:
             <Globe size={11} /> {s.website}
           </div>
         )}
-        {/* Future-ready, currently empty placeholders */}
+
         <div className="text-[10px] text-gray-300 italic">Project: {s.project || '—'} · Notes: {s.notes || '—'}</div>
       </div>
     </div>

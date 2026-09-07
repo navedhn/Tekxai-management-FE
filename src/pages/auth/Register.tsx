@@ -15,7 +15,7 @@ const Register: React.FC = () => {
 
   const handleSubmit = async (values: any) => {
     try {
-      // Send exactly the 8 fields requested
+
       const payload = {
         first_name: values.first_name,
         last_name: values.last_name,
@@ -39,7 +39,6 @@ const Register: React.FC = () => {
     }
   };
 
-  // Dependent dropdown options
   const departmentOptions = [
     { value: 'IT / Development', label: 'IT / Development' },
     { value: 'Civil Engineering', label: 'Civil Engineering' }
@@ -82,7 +81,7 @@ const Register: React.FC = () => {
       >
         {({ values, handleChange, handleBlur, setFieldValue, errors, touched }) => (
           <Form className="flex flex-col gap-6">
-            {/* Row 1: Names */}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormInput
                 label="FIRST NAME *"
@@ -108,7 +107,6 @@ const Register: React.FC = () => {
               />
             </div>
 
-            {/* Row 2: Contact */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormInput
                 label="EMAIL ADDRESS *"
@@ -134,7 +132,6 @@ const Register: React.FC = () => {
               />
             </div>
 
-            {/* Row 3: Role & Department */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <SearchableSelect
                 label="REGISTER AS *"
@@ -151,14 +148,13 @@ const Register: React.FC = () => {
                 value={values.department}
                 onChange={(val) => {
                   setFieldValue('department', val);
-                  setFieldValue('position', ''); // Reset position on department change
+                  setFieldValue('position', '');
                 }}
                 options={departmentOptions}
                 error={touched.department && errors.department ? (errors.department as string) : undefined}
               />
             </div>
 
-            {/* Row 4: Position (Dependent) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <SearchableSelect
                 label="POSITION *"
@@ -171,7 +167,6 @@ const Register: React.FC = () => {
               />
             </div>
 
-            {/* Row 5: Password */}
             <div className="flex flex-col gap-4">
               <FormInput
                 label="PASSWORD *"
@@ -185,7 +180,6 @@ const Register: React.FC = () => {
                 error={touched.password && errors.password ? errors.password : undefined}
               />
 
-              {/* Complex Password Validation UI */}
               <PasswordValidator password={values.password} />
             </div>
 

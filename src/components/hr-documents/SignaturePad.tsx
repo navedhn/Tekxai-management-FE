@@ -1,13 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-// Hand-rolled canvas signature pad — no drawing/signature library exists in
-// this app's package.json, and a small pointer-events canvas is simpler
-// than pulling one in for what's fundamentally "draw a line, export a PNG."
-// Shared between the HR/employee sign flow (detail.tsx) and the public
-// candidate signing page so both capture the exact same data shape: a
-// base64 PNG data URL, handed to the backend's existing `signature_data`
-// field (already flexible enough to hold either a typed name or an image —
-// no schema change needed on that side).
 export default function SignaturePad({
   onChange,
   height = 160,
@@ -23,8 +15,7 @@ export default function SignaturePad({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    // Backing-store scaling so strokes stay crisp on high-DPI screens
-    // without the drawn line looking blurry or offset from the cursor.
+
     const ratio = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width * ratio;

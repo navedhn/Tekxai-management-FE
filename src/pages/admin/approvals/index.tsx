@@ -19,8 +19,6 @@ import {
   useGetTicketStats,
 } from '@/services/hrService';
 
-// ── Status config ─────────────────────────────────────────────────────────────
-
 const REQ_STATUS_STYLE: Record<string, string> = {
   DRAFT:        'bg-gray-50 text-gray-500',
   SUBMITTED:    'bg-blue-50 text-blue-700',
@@ -45,8 +43,6 @@ const TICKET_STATUS_STYLE: Record<string, string> = {
   resolved:    'bg-green-50 text-green-700',
 };
 
-// ── Summary stat card ────────────────────────────────────────────────────────
-
 const StatCard: React.FC<{ label: string; value: string | number; icon: React.ReactNode; color: string }> = ({ label, value, icon, color }) => (
   <Card className="flex items-center gap-4 p-5 rounded-2xl border-none shadow-lg">
     <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
@@ -58,8 +54,6 @@ const StatCard: React.FC<{ label: string; value: string | number; icon: React.Re
     </div>
   </Card>
 );
-
-// ── Approval history badge row ────────────────────────────────────────────────
 
 const ApprovalTrail: React.FC<{ approvals: any[] }> = ({ approvals }) => {
   if (!approvals?.length) return <p className="text-xs text-gray-400 italic">No approval history</p>;
@@ -81,17 +75,13 @@ const ApprovalTrail: React.FC<{ approvals: any[] }> = ({ approvals }) => {
   );
 };
 
-// ── MAIN PAGE ─────────────────────────────────────────────────────────────────
-
 const ApprovalsPage: React.FC = () => {
   const toast = useToastContext();
   const [activeTab, setActiveTab] = useState<'requisitions' | 'leaves' | 'tickets'>('requisitions');
 
-  // Filters
   const [reqStatus, setReqStatus] = useState('SUBMITTED');
   const [leaveStatus, setLeaveStatus] = useState('PENDING');
 
-  // Modals
   const [approveReqId, setApproveReqId] = useState<string | null>(null);
   const [approveAction, setApproveAction] = useState<'APPROVED' | 'REJECTED'>('APPROVED');
   const [approveComment, setApproveComment] = useState('');
@@ -105,7 +95,6 @@ const ApprovalsPage: React.FC = () => {
   const [leaveComment, setLeaveComment] = useState('');
   const [detailReq, setDetailReq] = useState<any | null>(null);
 
-  // Queries
   const { data: reqData, isLoading: reqLoading } = useGetRequisitions({ status: reqStatus || undefined });
   const { data: reqStats } = useGetRequisitionStats();
   const { data: leaveData, isLoading: leaveLoading } = useGetLeaves({ status: leaveStatus || undefined });
@@ -119,8 +108,6 @@ const ApprovalsPage: React.FC = () => {
 
   const reqRecords: any[] = reqData?.records || [];
   const leaveRecords: any[] = leaveData?.records || [];
-
-  // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleReqApprove = () => {
     if (!approveReqId) return;
@@ -159,8 +146,6 @@ const ApprovalsPage: React.FC = () => {
       onError: (e: any) => toast.error(e?.message || 'Failed'),
     });
   };
-
-  // ── Columns ───────────────────────────────────────────────────────────────
 
   const REQ_STATUSES = ['DRAFT','SUBMITTED','APPROVED','REJECTED','PROCUREMENT','FULFILLED','ASSET_CREATED','CLOSED'];
 
@@ -299,21 +284,17 @@ const ApprovalsPage: React.FC = () => {
     },
   ];
 
-  // ── Stat cards ────────────────────────────────────────────────────────────
-
   const bs = reqStats?.by_status || {};
   const ts = ticketStats?.by_status || {};
 
   return (
     <div className="flex flex-col gap-8 pb-10">
 
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-black text-gray-900 tracking-tight">Approvals & Operations</h1>
         <p className="text-sm text-gray-500 font-medium mt-0.5">Review pending approvals across requisitions, leaves, and support tickets.</p>
       </div>
 
-      {/* Summary stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Pending Requisitions" value={bs.SUBMITTED || 0} icon={<Package size={20} className="text-blue-600" />} color="bg-blue-50" />
         <StatCard label="Approved Requisitions" value={bs.APPROVED || 0} icon={<CheckCircle size={20} className="text-green-600" />} color="bg-green-50" />
@@ -328,7 +309,6 @@ const ApprovalsPage: React.FC = () => {
         <StatCard label="Resolved Tickets" value={ts.resolved || 0} icon={<CheckCircle size={20} className="text-green-600" />} color="bg-green-50" />
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-2">
         {(['requisitions', 'leaves', 'tickets'] as const).map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)}
@@ -341,7 +321,6 @@ const ApprovalsPage: React.FC = () => {
         ))}
       </div>
 
-      {/* Requisitions tab */}
       {activeTab === 'requisitions' && (
         <div className="flex flex-col gap-4">
           <div className="flex gap-2 flex-wrap">
@@ -360,7 +339,6 @@ const ApprovalsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Leaves tab */}
       {activeTab === 'leaves' && (
         <div className="flex flex-col gap-4">
           <div className="flex gap-2 flex-wrap">
@@ -378,7 +356,6 @@ const ApprovalsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Tickets tab */}
       {activeTab === 'tickets' && (
         <Card className="rounded-2xl border-none shadow-xl p-6">
           <p className="text-sm font-semibold text-gray-500 mb-5">Ticket summary — go to the full Tickets page for details and status updates.</p>
@@ -396,7 +373,6 @@ const ApprovalsPage: React.FC = () => {
         </Card>
       )}
 
-      {/* Requisition detail modal */}
       <Modal isOpen={!!detailReq} onClose={() => setDetailReq(null)} title="Requisition Detail" size="lg">
         {detailReq && (
           <div className="flex flex-col gap-4 p-2 text-sm">
@@ -442,7 +418,6 @@ const ApprovalsPage: React.FC = () => {
         )}
       </Modal>
 
-      {/* Req Approve/Reject Modal */}
       <Modal isOpen={!!approveReqId} onClose={() => { setApproveReqId(null); setApproveComment(''); }}
         title={approveAction === 'APPROVED' ? 'Approve Requisition' : 'Reject Requisition'} size="sm">
         <div className="flex flex-col gap-4 p-2">
@@ -458,7 +433,6 @@ const ApprovalsPage: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Status update modal */}
       <Modal isOpen={!!statusReqId} onClose={() => setStatusReqId(null)} title="Update Requisition Status" size="sm">
         <div className="flex flex-col gap-4 p-2">
           <SearchableSelect label="New Status" options={REQ_STATUSES.filter(s => !['DRAFT','SUBMITTED'].includes(s)).map(s => ({ value: s, label: s.replace(/_/g,' ') }))}
@@ -471,7 +445,6 @@ const ApprovalsPage: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Cost update modal */}
       <Modal isOpen={!!costReqId} onClose={() => setCostReqId(null)} title="Record Actual Cost & Purchase Details" size="sm">
         <div className="flex flex-col gap-4 p-2">
           <div className="grid grid-cols-2 gap-3">
@@ -504,7 +477,6 @@ const ApprovalsPage: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Leave approve/reject modal */}
       <Modal isOpen={!!leaveActionId} onClose={() => { setLeaveActionId(null); setLeaveComment(''); }}
         title={leaveAction === 'approve' ? 'Approve Leave Request' : 'Reject Leave Request'} size="sm">
         <div className="flex flex-col gap-4 p-2">

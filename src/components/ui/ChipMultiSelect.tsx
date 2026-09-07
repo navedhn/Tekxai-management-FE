@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 
-// Shared multi-select chip picker — lifted out of CreateMilestoneModal.tsx
-// (the only place this pattern existed) so the Access Control redesign
-// (and any future feature) can reuse it instead of re-rolling its own.
 export interface ChipMultiSelectProps {
   label?: string;
   options: { id: string; label: string }[];

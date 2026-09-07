@@ -15,11 +15,6 @@ async function fetch_chat_channels() {
   return r?.payload?.records || r?.payload || [];
 }
 
-// DM content is end-to-end encrypted (see chat/index.tsx) — the socket
-// payload's content/iv are ciphertext, not plaintext. Mirrors the same
-// getOrCreateKeyPair → fetch peer public key → deriveSharedKey → decrypt
-// flow chat/index.tsx uses for its own message list, cached per peer so a
-// burst of DMs from the same person only derives the shared key once.
 const sharedKeyCache = new Map<string, CryptoKey>();
 let privateKeyPromise: ReturnType<typeof getOrCreateKeyPair> | null = null;
 
@@ -46,13 +41,6 @@ const AUTO_DISMISS_MS = 6000;
 const MAX_SEEN_IDS = 500;
 const SOUND_THROTTLE_MS = 1000;
 
-// Synthesized two-tone chime via Web Audio — no binary asset, no external
-// URL, no audio library. A single shared AudioContext is created lazily on
-// first attempt (never at module load, so nothing runs before a user
-// gesture); if the browser's autoplay policy has it suspended, we try a
-// silent resume() and just skip this play on failure — never throw, never
-// break the popup. Throttled so a burst of messages plays at most one
-// chime per SOUND_THROTTLE_MS instead of overlapping/stacking sounds.
 let audioCtx: AudioContext | null = null;
 let lastPlayedAt = 0;
 
@@ -87,7 +75,7 @@ function playNotificationSound() {
       start();
     }
   } catch {
-    // Autoplay blocked or Web Audio unavailable — silently skip, popup still shows.
+
   }
 }
 
@@ -97,19 +85,10 @@ interface ChatPopupItem {
   serverId: string | null;
   senderName: string;
   senderAvatar?: string | null;
-  contextName: string; // channel/group name, empty for a DM
+  contextName: string;
   preview: string;
 }
 
-// Global, app-level popup — mounted once in AdminTopbar (shared by every
-// authenticated layout: Admin/Employee/Marketing/Chat) so it's visible
-// regardless of which page is active, not just while on /chat. Listens to
-// the SAME real-time message:new event chat/index.tsx already uses; the
-// server only ever emits it to sockets already in that channel's room
-// (see be-work's shared/socket/index.js auto-join + emit_to_channel), so
-// recipient/RBAC scoping is inherited for free — this component does no
-// authorization of its own, only presentation and own-message/redundant-
-// view suppression.
 const ChatMessagePopup: React.FC = () => {
   const [items, setItems] = useState<ChatPopupItem[]>([]);
   const seenIds = useRef<Set<string>>(new Set());
@@ -128,28 +107,21 @@ const ChatMessagePopup: React.FC = () => {
 
     const handleNewMessage = async (msg: any) => {
       if (!msg?.id || !msg?.channel_id) return;
-      if (msg.user_id === currentUserIdRef.current) return; // never popup your own message
+      if (msg.user_id === currentUserIdRef.current) return;
 
-      if (seenIds.current.has(msg.id)) return; // duplicate socket delivery
+      if (seenIds.current.has(msg.id)) return;
       seenIds.current.add(msg.id);
       if (seenIds.current.size > MAX_SEEN_IDS) {
         const oldest = seenIds.current.values().next().value;
         if (oldest) seenIds.current.delete(oldest);
       }
 
-      // Already actively viewing this exact conversation — no redundant popup.
       const loc = locationRef.current;
       if (loc.pathname === '/chat') {
         const params = new URLSearchParams(loc.search);
         if (params.get('channel') === msg.channel_id) return;
       }
 
-      // Reuse the already-cached, already-authorized channel list (same
-      // data the Chat sidebar itself renders from) to get the name/type —
-      // no new backend field needed. This popup is global (mounted outside
-      // /chat), so the cache may not have been populated yet in this tab —
-      // fetch it on-demand in that case, sharing the same query key/cache
-      // as chat/index.tsx so there's no duplicate fetch once it exists.
       let channels = qc.getQueryData<any[]>(CHAT_CHANNELS_QUERY_KEY);
       if (!channels) {
         try {

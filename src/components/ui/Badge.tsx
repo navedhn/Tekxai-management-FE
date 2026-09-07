@@ -25,7 +25,6 @@ const badgeVariants = classVariants(
   }
 );
 
-
 type BadgeProps = {
   children: React.ReactNode;
   className?: string;
@@ -45,4 +44,3 @@ const Badge: React.FC<BadgeProps> = ({
 };
 
 export default Badge;
-
