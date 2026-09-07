@@ -67,7 +67,7 @@ const MemberSidebar: React.FC<MemberSidebarProps> = ({
             getInitials(member.name)
           )}
         </div>
-        <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${member.online ? 'bg-green-500' : 'bg-gray-400'}`} />
+        <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-(--color-elevated) ${member.online ? 'bg-green-500' : 'bg-gray-400'}`} />
       </div>
       <div className="min-w-0 flex-1">
         <p className={`text-sm font-medium truncate ${member.online ? 'text-gray-700' : 'text-gray-500'}`}>
@@ -112,13 +112,13 @@ const MemberSidebar: React.FC<MemberSidebarProps> = ({
   );
 
   const content = (
-    <div className="flex flex-col h-full bg-[#F2F3F5]">
-      <div className="h-14 px-3 flex items-center justify-between border-b border-[#E3E5E8] flex-shrink-0">
-        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide truncate">
+    <div className="flex flex-col h-full bg-(--color-elevated)">
+      <div className="h-14 px-3 flex items-center justify-between border-b border-(--color-card-border) flex-shrink-0">
+        <h3 className="text-xs font-bold text-(--color-text-secondary) uppercase tracking-wide truncate">
           {title} — {members.length}
         </h3>
         {isMobile && (
-          <button onClick={onClose} className="p-1.5 hover:bg-[#E3E5E8] rounded text-gray-500 shrink-0">
+          <button onClick={onClose} className="p-1.5 hover:bg-(--color-state-hover) rounded text-(--color-text-secondary) shrink-0">
             <X size={18} />
           </button>
         )}
@@ -127,12 +127,12 @@ const MemberSidebar: React.FC<MemberSidebarProps> = ({
       {!compact && (
         <div className="px-3 py-2 flex-shrink-0">
           <div className="relative w-full">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-(--color-text-secondary) pointer-events-none" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search members"
-              className="w-full h-7 pl-8 pr-2 text-xs bg-[#E3E5E8] rounded-md focus:outline-none focus:ring-1 focus:ring-[#005CDA]/30 text-gray-700 placeholder:text-gray-400"
+              className="w-full h-7 pl-8 pr-2 text-xs bg-(--color-card-bg) rounded-md focus:outline-none focus:ring-1 focus:ring-[#005CDA]/30 text-(--color-text-primary) placeholder:text-(--color-text-secondary)"
             />
           </div>
         </div>
@@ -179,7 +179,7 @@ const MemberSidebar: React.FC<MemberSidebarProps> = ({
           animate={{ width: 240, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="border-l border-[#E3E5E8] flex flex-col overflow-hidden flex-shrink-0 h-full"
+          className="border-l border-(--color-card-border) flex flex-col overflow-hidden flex-shrink-0 h-full"
         >
           {content}
         </motion.div>

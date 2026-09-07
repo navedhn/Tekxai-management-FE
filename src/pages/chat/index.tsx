@@ -903,7 +903,7 @@ function ServerRail({
   );
 
   return (
-    <div className="w-[64px] bg-[#EAECF0] flex flex-col items-center py-3 gap-2 shrink-0 h-full overflow-y-auto no-scrollbar">
+    <div className="w-[64px] bg-(--color-elevated) flex flex-col items-center py-3 gap-2 shrink-0 h-full overflow-y-auto no-scrollbar">
       <RailIcon active={activeServerId === null} onClick={onSelectHome} title="Home — DMs" className="bg-gradient-to-b from-[#005CDA] to-[#001F4A]">
         <Home size={18} />
       </RailIcon>
@@ -912,7 +912,7 @@ function ServerRail({
         <Video size={18} />
       </RailIcon>
 
-      <div className="w-8 h-[2px] rounded-full bg-[#D7DADC] my-0.5" />
+      <div className="w-8 h-[2px] rounded-full bg-(--color-card-border) my-0.5" />
 
       {servers.map((s) => (
         <RailIcon
@@ -928,11 +928,11 @@ function ServerRail({
 
       {canCreate && (
         <>
-          <div className="w-8 h-[2px] rounded-full bg-[#D7DADC] my-0.5" />
+          <div className="w-8 h-[2px] rounded-full bg-(--color-card-border) my-0.5" />
           <button
             onClick={onAddServer}
             title="Create a server"
-            className="w-11 h-11 rounded-full bg-white hover:bg-green-50 hover:rounded-2xl border-2 border-dashed border-gray-300 hover:border-green-500 flex items-center justify-center transition-all duration-200 active:scale-95"
+            className="w-11 h-11 rounded-full bg-(--color-card-bg) hover:bg-green-50 hover:rounded-2xl border-2 border-dashed border-gray-300 hover:border-green-500 flex items-center justify-center transition-all duration-200 active:scale-95"
           >
             <Plus size={18} className="text-green-600" />
           </button>
@@ -2954,7 +2954,7 @@ export default function ChatPage() {
         canCreate={canCreateServer}
       />
 
-      <div className="w-64 border-r border-gray-100 flex flex-col shrink-0">
+      <div className="w-64 border-r border-gray-100 flex flex-col shrink-0 bg-(--color-elevated)">
         <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-end">
           <div className="flex items-center gap-1 shrink-0">
             {activeServer ? (

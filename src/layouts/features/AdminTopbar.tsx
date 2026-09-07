@@ -154,7 +154,7 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.92, y: -8 }}
                                 transition={{ duration: 0.18, ease: 'easeOut' }}
-                                className="absolute top-[calc(100%+12px)] right-0 w-52 bg-white rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.12)] border border-gray-100 overflow-hidden z-50"
+                                className="absolute top-[calc(100%+12px)] right-0 w-52 bg-(--color-card-bg) rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.12)] border border-(--color-card-border) overflow-hidden z-50"
                             >
 
                                 <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100">
