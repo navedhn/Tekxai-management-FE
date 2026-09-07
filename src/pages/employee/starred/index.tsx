@@ -6,7 +6,8 @@ import { ChevronRight, Star, MessageSquare, GripVertical, MoreVertical } from '@
 import { cn } from '@/utils/cn';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Folder, Trash2 } from 'lucide-react';
-import Loader from '@/components/ui/Loader';
+import { CardSkeleton, PageSkeleton } from '@/components/skeletons';
+import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 import { useGetStarredQueries, useUnstarItemMutation, type StarredItem } from '@/services/starredService';
 
 interface CommentEntry {
@@ -144,6 +145,7 @@ const MOCK_TASKS: TaskEntry[] = [
 const StarredQueries: React.FC = () => {
     const [activeTab, setActiveTab] = useState('Comments');
     const { data: rawStarredData, isLoading } = useGetStarredQueries({ tab: activeTab.toLowerCase() });
+    const showPageSkeleton = useShowPageSkeleton(isLoading);
 
     const unstarMutation = useUnstarItemMutation();
     const handleUnstar = async (type: string, id: string) => {
@@ -169,7 +171,13 @@ const StarredQueries: React.FC = () => {
 
     const renderComments = () => (
         <div className="flex flex-col gap-6">
-            {isLoading ? <Loader /> : listData.length === 0 ?
+            {isLoading ? (
+                <div className="flex flex-col gap-4">
+                    <CardSkeleton />
+                    <CardSkeleton />
+                    <CardSkeleton />
+                </div>
+            ) : listData.length === 0 ?
                 <div className="text-gray-400 font-bold text-sm flex bg-white rounded-xl items-center justify-center min-h-[300px]">No starred comments found.</div>
                 : listData.map((query: any) => (
                     <div key={query.id} className="group flex items-center gap-6">
@@ -207,7 +215,13 @@ const StarredQueries: React.FC = () => {
 
     const renderProjects = () => (
         <div className="flex flex-col gap-6">
-            {isLoading ? <Loader /> : listData.length === 0 ? <div className="text-gray-400 font-bold text-sm flex bg-white rounded-xl items-center justify-center min-h-[300px]">No starred projects found.</div> : listData.map((entry: any) => (
+            {isLoading ? (
+                <div className="flex flex-col gap-4">
+                    <CardSkeleton />
+                    <CardSkeleton />
+                    <CardSkeleton />
+                </div>
+            ) : listData.length === 0 ? <div className="text-gray-400 font-bold text-sm flex bg-white rounded-xl items-center justify-center min-h-[300px]">No starred projects found.</div> : listData.map((entry: any) => (
                 <div key={entry.id} className="flex flex-col gap-4">
                     <div className="flex items-center gap-3">
                         <img src={entry.avatar} alt={entry.author} className="h-6 w-6 rounded-full border border-gray-100" />
@@ -305,7 +319,13 @@ const StarredQueries: React.FC = () => {
 
     const renderTasks = () => (
         <div className="flex flex-col gap-8">
-            {isLoading ? <Loader /> : listData.length === 0 ? <div className="text-gray-400 font-bold text-sm flex bg-white rounded-xl items-center justify-center min-h-[300px]">No starred tasks found.</div> : listData.map((entry: any) => (
+            {isLoading ? (
+                <div className="flex flex-col gap-4">
+                    <CardSkeleton />
+                    <CardSkeleton />
+                    <CardSkeleton />
+                </div>
+            ) : listData.length === 0 ? <div className="text-gray-400 font-bold text-sm flex bg-white rounded-xl items-center justify-center min-h-[300px]">No starred tasks found.</div> : listData.map((entry: any) => (
                 <div key={entry.id} className="flex flex-col gap-4 ">
                     <div className="flex items-center gap-3">
                         <img src={entry.avatar} alt={entry.author} className="h-6 w-6 rounded-full border border-gray-100" />
@@ -344,6 +364,8 @@ const StarredQueries: React.FC = () => {
             ))}
         </div>
     );
+
+    if (showPageSkeleton) return <PageSkeleton variant="cards" />;
 
     return (
         <div className="flex flex-col gap-8 max-w-6xl mx-auto pb-20">

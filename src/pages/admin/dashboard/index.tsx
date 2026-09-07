@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
     ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
     PieChart, Pie, Cell,
@@ -11,7 +11,8 @@ import Card from '@/components/ui/Card';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import DashboardStatCard from '@/components/ui/DashboardStatCard';
 import Button from '@/components/ui/Button';
-import { StatSkeleton, CardSkeleton } from '@/components/skeletons';
+import { PageSkeleton } from '@/components/skeletons';
+import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 import {
     Users, UserCheck, CalendarClock, UserPlus, Ticket,
     Cake, PlusCircle, FileWarning, Banknote, PackagePlus, Upload,
@@ -104,7 +105,7 @@ const Dashboard: React.FC = () => {
             return r?.payload as DashboardSummary;
         },
         staleTime: 60000,
-
+        placeholderData: keepPreviousData,
         refetchOnWindowFocus: true,
     });
 
@@ -115,22 +116,23 @@ const Dashboard: React.FC = () => {
             return (r?.payload || []) as Announcement[];
         },
         staleTime: 60000,
+        placeholderData: keepPreviousData,
     });
 
-    const attendanceToday = data?.attendance_today;
-    const attendanceTotal = attendanceToday
-        ? attendanceToday.present + attendanceToday.absent + attendanceToday.late + attendanceToday.on_leave
+    const attendanceTotal = data?.attendance_today
+        ? data.attendance_today.present + data.attendance_today.absent + data.attendance_today.late + data.attendance_today.on_leave
         : 0;
+    const showPageSkeleton = useShowPageSkeleton(isLoading, announcementsLoading);
+
+    const attendanceToday = data?.attendance_today;
+
+    if (showPageSkeleton) return <PageSkeleton variant="dashboard-admin" />;
 
     return (
         <div className="flex flex-col gap-8 pb-10">
             <div className="p-3 rounded-[8px] bg-white">
                 <div className="bg-[#F8F8F8] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 py-4">
-                    {isLoading ? (
-                        Array.from({ length: 5 }).map((_, i) => <StatSkeleton key={i} />)
-                    ) : (
-                        <>
-                            <DashboardStatCard
+                    <DashboardStatCard
                                 className="bg-white border border-gray-100 rounded-xl shadow-sm"
                                 icon={<Users size={20} />}
                                 iconClassName="bg-blue-50 text-blue-600"
@@ -170,13 +172,11 @@ const Dashboard: React.FC = () => {
                                 label="Open Tickets"
                                 subtext={<Button variant="link" size="sm" animation="none" rounded={false} className="!p-0 !shadow-none !hover:shadow-none h-auto text-blue-600 font-semibold" onClick={() => navigate('/admin/tickets')}>View tickets →</Button>}
                             />
-                        </>
-                    )}
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <Card isLoading={isLoading} className="flex flex-col gap-6 border-none lg:col-span-2">
+                <Card className="flex flex-col gap-6 border-none lg:col-span-2">
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg font-black text-gray-900 tracking-tight">Attendance Overview</h2>
                         <div className="w-36">
@@ -215,7 +215,7 @@ const Dashboard: React.FC = () => {
                     </div>
                 </Card>
 
-                <Card isLoading={announcementsLoading} className="flex flex-col gap-4 border-none">
+                <Card className="flex flex-col gap-4 border-none">
                     <h2 className="text-lg font-black text-gray-900 tracking-tight">Recent Announcements</h2>
                     {!announcements?.length ? (
                         <p className="text-sm text-gray-400 text-center py-8">No announcements yet</p>
@@ -242,7 +242,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <Card isLoading={isLoading} className="flex flex-col gap-4 border-none">
+                <Card className="flex flex-col gap-4 border-none">
                     <div className="flex items-center gap-2">
                         <Cake size={18} className="text-pink-500" />
                         <h2 className="text-lg font-black text-gray-900 tracking-tight">Upcoming Birthdays</h2>
@@ -267,7 +267,7 @@ const Dashboard: React.FC = () => {
                     )}
                 </Card>
 
-                <Card isLoading={isLoading} className="flex flex-col gap-4 border-none">
+                <Card className="flex flex-col gap-4 border-none">
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg font-black text-gray-900 tracking-tight">Open Tickets by Category</h2>
                         <Button variant="link" size="sm" animation="none" rounded={false} className="!p-0 !shadow-none !hover:shadow-none h-auto text-xs text-blue-600 font-semibold shrink-0" onClick={() => navigate('/admin/tickets')}>View all →</Button>

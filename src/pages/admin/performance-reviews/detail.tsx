@@ -6,7 +6,7 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import Textarea from '@/components/ui/Textarea';
-import Loader from '@/components/ui/Loader';
+import { PageSkeleton } from '@/components/skeletons';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useMyPermissions } from '@/services/permissionsService';
 import {
@@ -110,7 +110,7 @@ const PerformanceReviewDetailPage: React.FC = () => {
   const [evidenceStance, setEvidenceStance] = useState<EvidenceStance>('NEUTRAL');
   const canDecide = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('hr.performance_reviews.decide');
 
-  if (isLoading) return <div className="flex items-center justify-center p-20"><Loader size={32} /></div>;
+  if (isLoading) return <PageSkeleton variant="detail" />;
   if (error || !data) {
     return (
       <Card className="p-10 text-center">

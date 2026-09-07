@@ -4,6 +4,7 @@ import { Settings, Camera, Clock, Save, HardDrive, Timer, ClipboardList } from '
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { PageSkeleton } from '@/components/skeletons';
 import ReportingEmailSettings from './ReportingEmailSettings';
 
 const INTERVAL_OPTIONS = [
@@ -84,7 +85,7 @@ export default function SystemSettings() {
     setDirty(true);
   };
 
-  if (isLoading) return <div className="p-8 text-gray-400 text-sm">Loading…</div>;
+  if (isLoading) return <PageSkeleton variant="form" />;
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">

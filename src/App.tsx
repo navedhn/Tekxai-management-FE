@@ -6,11 +6,13 @@ import RouteFallback from '@/components/layout/RouteFallback';
 import { useTokenRefresh } from '@/hooks/useTokenRefresh';
 import { useProfileRefresh } from '@/hooks/useProfileRefresh';
 import { useTheme } from '@/hooks/useTheme';
+import { useColorMode } from '@/hooks/useColorMode';
 
 const App: React.FC = () => {
   useTokenRefresh();
   useProfileRefresh();
   useTheme();
+  useColorMode();
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });

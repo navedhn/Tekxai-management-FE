@@ -14,7 +14,7 @@ const Loader: React.FC<LoaderProps> = ({
   size = 64,
   className,
   containerClassName,
-  fullPage = true
+  fullPage = false
 }) => {
   const content = (
     <div className={cn('flex flex-col items-center justify-center gap-6', containerClassName)}>

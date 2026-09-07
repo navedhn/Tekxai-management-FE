@@ -54,7 +54,7 @@ const MarketingSidebar: React.FC<MarketingSidebarProps> = memo(({ isOpen, onClos
         <img src={texailogo} className="w-[100px] h-[50px] object-contain brightness-0 invert" alt="TekXAI" />
         <button
           onClick={onClose}
-          className="lg:hidden absolute right-4 p-2 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 transition-colors"
+          className="lg:hidden absolute right-4 p-2 text-white/70 hover:text-white rounded-xl hover:bg-white/10 transition-colors"
         >
           <X size={18} strokeWidth={1.5} />
         </button>
@@ -85,7 +85,7 @@ const MarketingSidebar: React.FC<MarketingSidebarProps> = memo(({ isOpen, onClos
                   : 'text-(--color-sidebar-text) hover:bg-(--color-sidebar-hover) hover:text-white')
               }
             >
-              <link.icon size={18} strokeWidth={1.5} className={`shrink-0 ${isActive ? 'text-white' : 'text-(--color-sidebar-icon) group-hover:text-slate-200'}`} />
+              <link.icon size={18} strokeWidth={1.5} className={`shrink-0 ${isActive ? 'text-white' : 'text-(--color-sidebar-icon) group-hover:text-white'}`} />
               <span className="truncate">{link.label}</span>
             </NavLink>
           );

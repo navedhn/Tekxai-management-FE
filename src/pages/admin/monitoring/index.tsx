@@ -11,7 +11,8 @@ import { apiRequest } from '@/lib/queryClient';
 import { useFetchUsersQuery } from '@/services/userService';
 import { useGetProductivity, useGetAppUsage, useDeleteScreenshot, type Screenshot } from '@/services/monitoringService';
 import { useMyPermissions } from '@/services/permissionsService';
-import { StatSkeleton } from '@/components/skeletons';
+import { PageSkeleton, TableSkeleton } from '@/components/skeletons';
+import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 import ScreenshotHistoryPanel from './ScreenshotHistoryPanel';
 
 const TABS = ['Productivity Overview', 'Screenshot History', 'Reports'];
@@ -186,6 +187,9 @@ const MonitoringPage: React.FC = () => {
   if (dateTo) summaryParams.to = dateTo;
   const { data: productivitySummaryData } = useGetProductivity(summaryParams);
   const productivitySummary = (productivitySummaryData as any)?.records || [];
+  const showPageSkeleton = useShowPageSkeleton(
+    activeTab === 'Productivity Overview' && (pLoading || appLoading)
+  );
 
   const userOptions = [
     { value: '', label: 'All Employees' },
@@ -260,6 +264,10 @@ const MonitoringPage: React.FC = () => {
     },
   ];
 
+  if (showPageSkeleton) return <PageSkeleton variant="stats-table" />;
+
+  const overviewLoading = pLoading || appLoading;
+
   return (
     <div className="flex flex-col gap-8 pb-10">
       <div>
@@ -293,6 +301,9 @@ const MonitoringPage: React.FC = () => {
       <Tabs options={TABS} value={activeTab} onChange={setActiveTab} />
 
       {activeTab === 'Productivity Overview' && (
+        overviewLoading ? (
+          <TableSkeleton rows={8} columns={5} />
+        ) : (
         <div className="flex flex-col gap-6">
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -302,9 +313,7 @@ const MonitoringPage: React.FC = () => {
                 <Activity size={18} className="text-primary-500" />
                 <h3 className="text-base font-black text-gray-900">Productivity Score</h3>
               </div>
-              {pLoading ? (
-                <div className="flex items-center justify-center h-40"><StatSkeleton /></div>
-              ) : agg ? (
+              {agg ? (
                 <div className="flex flex-col items-center gap-4">
                   <div className="relative flex items-center justify-center">
                     <ProgressRing pct={Math.round(agg.avg_score)} size={100} stroke={10} />
@@ -342,9 +351,7 @@ const MonitoringPage: React.FC = () => {
                 <Cpu size={18} className="text-primary-500" />
                 <h3 className="text-base font-black text-gray-900">App Usage</h3>
               </div>
-              {appLoading ? (
-                <div className="flex items-center justify-center h-40"><StatSkeleton /></div>
-              ) : appUsage.length > 0 ? (
+              {appUsage.length > 0 ? (
                 <div className="flex flex-col gap-3">
                   {appUsage.slice(0, 8).map((app) => {
                     const pct = totalAppSecs > 0 ? Math.round((app.duration_seconds / totalAppSecs) * 100) : (app.percentage ?? 0);
@@ -383,7 +390,6 @@ const MonitoringPage: React.FC = () => {
             <Table
               columns={prodCols}
               data={productivity as any[]}
-              isLoading={pLoading}
               emptyMessage="No productivity data. Desktop agent must be running."
               pagination={{
                 currentPage: prodPage,
@@ -395,6 +401,7 @@ const MonitoringPage: React.FC = () => {
             />
           </Card>
         </div>
+        )
       )}
 
       {activeTab === 'Screenshot History' && (

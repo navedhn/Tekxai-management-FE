@@ -4,7 +4,7 @@ import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Input from '@/components/ui/Input';
 import Tabs from '@/components/ui/Tabs';
-import { Button, pageActionButtonClass } from '@/components/ui/Button';
+import { Button, PageActionButton } from '@/components/ui/Button';
 import DashboardStatCard from '@/components/ui/DashboardStatCard';
 import {
   CreateTicketModal,
@@ -18,6 +18,8 @@ import {
   getTicketStats,
   useGetTickets,
 } from '@/services/ticketService';
+import { PageSkeleton } from '@/components/skeletons';
+import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 import { SupportTicket, TicketStatus } from '@/types/ticket';
 import { cn } from '@/utils/cn';
 
@@ -37,6 +39,7 @@ const PRIORITY_STYLES: Record<string, string> = {
 const EmployeeTicketsPage: React.FC = () => {
   const { user } = useAuth();
   const { data: tickets = [], isLoading } = useGetTickets();
+  const showPageSkeleton = useShowPageSkeleton(isLoading);
   const [search, setSearch] = useState('');
   const [statusTab, setStatusTab] = useState('all');
   const [createOpen, setCreateOpen] = useState(false);
@@ -136,6 +139,8 @@ const EmployeeTicketsPage: React.FC = () => {
     },
   ];
 
+  if (showPageSkeleton) return <PageSkeleton variant="stats-table" />;
+
   return (
     <div className="flex flex-col gap-6 pb-10">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -145,16 +150,9 @@ const EmployeeTicketsPage: React.FC = () => {
             Raise tickets to TL, Office Boy, HR, Admin, or anyone on your team.
           </p>
         </div>
-        <Button
-          variant="primary"
-          size="sm"
-          rounded={false}
-          leftIcon={Plus}
-          onClick={() => setCreateOpen(true)}
-          className={pageActionButtonClass}
-        >
+        <PageActionButton leftIcon={Plus} onClick={() => setCreateOpen(true)}>
           Create Ticket
-        </Button>
+        </PageActionButton>
       </div>
 
       <div className="p-3 rounded-[8px] bg-white">
@@ -209,7 +207,6 @@ const EmployeeTicketsPage: React.FC = () => {
           <Table
             columns={columns}
             data={filteredTickets}
-            isLoading={isLoading}
             emptyMessage="No tickets found. Create your first ticket!"
             className="border-0 shadow-none"
           />

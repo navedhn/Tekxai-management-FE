@@ -7,6 +7,8 @@ import { CheckCircle, Circle, FileSignature, ListChecks } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuthStore } from '@/stores/authStore';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { PageSkeleton } from '@/components/skeletons';
+import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 import {
   useGetOnboardingTasks, useGetOnboardingReadiness, useCompleteOnboardingTask,
 } from '@/services/onboardingService';
@@ -24,6 +26,7 @@ const EmployeeOnboarding: React.FC = () => {
   const { data: tasks = [], isLoading: tasksLoading } = useGetOnboardingTasks(userId);
   const { data: readiness, isLoading: readinessLoading } = useGetOnboardingReadiness(userId);
   const completeTask = useCompleteOnboardingTask(userId);
+  const showPageSkeleton = useShowPageSkeleton(tasksLoading, readinessLoading);
 
   const blockingIds = new Set((readiness?.blocking || []).map((b: any) => b.id));
   const isDerived = (t: any) => t.task_type === 'DOCUMENT' || t.task_type === 'ASSET';
@@ -39,6 +42,8 @@ const EmployeeOnboarding: React.FC = () => {
 
   const canSelfComplete = (t: any) => t.task_type === 'MANUAL' && (t.user_id === userId || t.assignee_user_id === userId);
 
+  if (showPageSkeleton) return <PageSkeleton variant="documents" />;
+
   return (
     <div className="flex flex-col gap-8 pb-10">
       <div>
@@ -47,9 +52,7 @@ const EmployeeOnboarding: React.FC = () => {
       </div>
 
       <Card className="border-none shadow-sm">
-        {readinessLoading ? (
-          <p className="text-sm text-gray-400">Loading...</p>
-        ) : readiness ? (
+        {readiness ? (
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-black text-gray-900">
@@ -103,8 +106,7 @@ const EmployeeOnboarding: React.FC = () => {
           <div className="h-10 w-10 rounded-xl bg-primary-50 flex items-center justify-center text-primary-600"><ListChecks size={18} /></div>
           <h2 className="text-lg font-black text-gray-900">Required Steps</h2>
         </div>
-        {tasksLoading ? <p className="text-sm text-gray-400">Loading...</p> :
-         requiredTasks.length === 0 ? <p className="text-sm text-gray-400 italic">No required tasks assigned yet.</p> :
+        {requiredTasks.length === 0 ? <p className="text-sm text-gray-400 italic">No required tasks assigned yet.</p> :
          requiredTasks.map((t: any) => {
           const complete = isComplete(t);
           return (

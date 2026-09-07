@@ -1,17 +1,19 @@
 import React, { useMemo, useState, useEffect, memo } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, Users2, Settings, FolderCheck, Clock, Star, Monitor, X,
   BarChart3, Shield, ClipboardCheck, Ticket, Receipt, Banknote, Webhook, Mail,
   MessageSquare, FileText, Package, CalendarDays, Table2, Layers, Video, Gauge,
   Building2, TrendingUp, UserPlus, ShieldCheck, Briefcase, Heart, AlarmClock,
   UserSearch, PlusCircle, Tag, Network, Landmark, ChevronDown, ChevronRight,
-  Bell as BellIcon, UserMinus, ListChecks,
+  Bell as BellIcon, UserMinus, ListChecks, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
 import { useMyPermissions } from '@/services/permissionsService';
 import { USER_ROLES } from '@/constants/roles';
+import { useSidebarStore } from '@/stores/sidebarStore';
+import { useResponsive } from '@/hooks/useResponsive';
 
 import { cn } from '@/utils/cn';
 import tekxaiLogo from '@/assets/icons/tekxai-logo.svg';
@@ -103,32 +105,52 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-const NavItem: React.FC<{ link: SidebarLink }> = ({ link }) => (
+const NavItem: React.FC<{ link: SidebarLink; collapsed?: boolean; onNavigate?: () => void }> = ({
+  link,
+  collapsed,
+  onNavigate,
+}) => (
   <NavLink
     to={link.to}
     end={link.end}
+    title={collapsed ? link.label : undefined}
+    onClick={onNavigate}
     className={({ isActive }) =>
       cn(
-        'flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-150 group text-[13px] font-medium',
+        'relative flex items-center rounded-xl transition-all duration-200 group text-[13px] font-medium',
+        collapsed ? 'justify-center w-10 h-10 mx-auto px-0' : 'gap-3 px-3.5 py-2.5',
         isActive
-          ? 'bg-(--color-sidebar-active) text-white shadow-md shadow-blue-950/40'
+          ? 'bg-(--color-sidebar-active) text-white shadow-md shadow-black/25'
           : 'text-(--color-sidebar-text) hover:bg-(--color-sidebar-hover) hover:text-white',
       )
     }
   >
     {({ isActive }) => (
       <>
-        <span className={cn('shrink-0 w-5 h-5 flex items-center justify-center transition-colors', isActive ? 'text-white' : 'text-(--color-sidebar-icon) group-hover:text-slate-200')}>
+        {!collapsed && isActive && (
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-white/90" />
+        )}
+        <span
+          className={cn(
+            'shrink-0 w-5 h-5 flex items-center justify-center transition-colors',
+            isActive ? 'text-white' : 'text-(--color-sidebar-icon) group-hover:text-white',
+          )}
+        >
           {link.icon}
         </span>
-        <span className="truncate flex-1">{link.label}</span>
-        {!!link.badge && (
-          <span className={cn(
-            'shrink-0 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black flex items-center justify-center',
-            isActive ? 'bg-white/25 text-white' : 'bg-red-500 text-white',
-          )}>
+        {!collapsed && <span className="truncate flex-1">{link.label}</span>}
+        {!!link.badge && !collapsed && (
+          <span
+            className={cn(
+              'shrink-0 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black flex items-center justify-center',
+              isActive ? 'bg-white/25 text-white' : 'bg-red-500 text-white',
+            )}
+          >
             {link.badge > 99 ? '99+' : link.badge}
           </span>
+        )}
+        {!!link.badge && collapsed && (
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-(--color-sidebar-bg)" />
         )}
       </>
     )}
@@ -138,11 +160,26 @@ const NavItem: React.FC<{ link: SidebarLink }> = ({ link }) => (
 const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
   const { role } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const { data: myPerms } = useMyPermissions();
   const chatUnreadCount = useChatUnreadCount();
+  const collapsed = useSidebarStore((s) => s.collapsed);
+  const toggleCollapsed = useSidebarStore((s) => s.toggleCollapsed);
+  const setCollapsed = useSidebarStore((s) => s.setCollapsed);
+  const { width } = useResponsive();
+  const isRail = collapsed && width >= 1024;
+
+  useEffect(() => {
+    setCollapsed(useSidebarStore.getState().collapsed);
+  }, [setCollapsed]);
+
+  const isAdminWorkspace =
+    !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.workspace.access');
 
   const employeeLinks: SidebarLink[] | null = useMemo(() => {
-    if (!location.pathname.startsWith('/employee')) return null;
+    const onEmployeeRoutes = location.pathname.startsWith('/employee');
+    const onChatAsEmployee = location.pathname.startsWith('/chat') && !isAdminWorkspace;
+    if (!onEmployeeRoutes && !onChatAsEmployee) return null;
 
     const isSuperAdmin = !!myPerms?.is_super_admin;
     const canSeeEmployeeProjects = isSuperAdmin || !!myPerms?.permissions?.includes('erp.employee_projects.view');
@@ -162,7 +199,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { to: '/employee/download-app',label: 'Desktop App',     icon: <Monitor size={18} strokeWidth={SW} /> },
       { to: '/employee/settings',    label: 'Settings',        icon: <Settings size={18} strokeWidth={SW} /> },
     ];
-  }, [role, myPerms, chatUnreadCount, location.pathname]);
+  }, [role, myPerms, chatUnreadCount, location.pathname, isAdminWorkspace]);
 
   const moduleGroups: ModuleGroup[] = useMemo(() => {
     const isAdmin = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.workspace.access');
@@ -272,37 +309,88 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
 
   const isAdmin = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.workspace.access');
   const isHrRole = role === USER_ROLES.HR;
+  const handleNavigate = () => onClose?.();
+
+  const handleGroupClick = (group: ModuleGroup, isOpenGroup: boolean) => {
+    if (isRail) {
+      if (group.items.length === 1) {
+        navigate(group.items[0].to);
+        onClose?.();
+        return;
+      }
+      setCollapsed(false);
+      setOpenModule(group.module);
+      return;
+    }
+    setOpenModule(isOpenGroup ? null : group.module);
+  };
 
   return (
-    <div className={cn(
-      'fixed left-0 top-0 z-110 w-[280px] h-screen flex flex-col bg-(--color-sidebar-bg) border-r border-white/10',
-      isOpen !== undefined && !isOpen ? '-translate-x-full lg:translate-x-0' : '',
-      'transition-transform duration-300'
-    )}>
+    <aside
+      className={cn(
+        'fixed left-0 top-0 z-110 h-screen flex flex-col',
+        'w-[280px] lg:w-sidebar',
+        'bg-(--color-sidebar-bg) border-r border-white/10',
+        'shadow-[4px_0_24px_-12px_rgba(0,0,0,0.45)]',
+        'transition-[width,transform] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]',
+        isOpen !== undefined && !isOpen ? '-translate-x-full lg:translate-x-0' : '',
+      )}
+    >
+      <div
+        className={cn(
+          'relative shrink-0 h-topbar border-b border-white/10',
+          'bg-gradient-to-b from-white/[0.06] to-transparent',
+          'flex items-center justify-center',
+          isRail ? 'px-2' : 'px-4',
+        )}
+      >
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-1/2 -translate-y-1/2 right-3 p-1.5 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition-all lg:hidden"
+            aria-label="Close sidebar"
+          >
+            <X size={18} strokeWidth={SW} />
+          </button>
+        )}
 
-      <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <img src={tekxaiLogo} alt="Tekxai" className="h-8 brightness-0 invert" />
-          {(isAdmin || isHrRole) && (
-            <span className="text-xs font-bold uppercase tracking-widest text-blue-300 bg-white/10 px-2 py-1 rounded-lg">
+        <div className={cn('flex items-center justify-center', isRail ? 'gap-0' : 'gap-2')}>
+          <img
+            src={tekxaiLogo}
+            alt="Tekxai"
+            className={cn('brightness-0 invert object-contain', isRail ? 'h-5 w-5' : 'h-7 w-auto max-w-[130px]')}
+          />
+          {!isRail && (isAdmin || isHrRole) && (
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white bg-white/10 px-2 py-0.5 rounded-full">
               {isAdmin ? 'ERP' : 'HR'}
             </span>
           )}
         </div>
-        {onClose && (
-          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-all lg:hidden">
-            <X size={18} strokeWidth={SW} />
-          </button>
-        )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-0.5">
+      <nav
+        className={cn(
+          'flex-1 overflow-y-auto overflow-x-hidden py-3 flex flex-col gap-0.5',
+          'scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent',
+          isRail ? 'px-1.5' : 'px-3',
+        )}
+      >
         {employeeLinks
-          ? employeeLinks.map((link) => <NavItem key={link.to + link.label} link={link} />)
+          ? employeeLinks.map((link) => (
+              <NavItem key={link.to + link.label} link={link} collapsed={isRail} onNavigate={handleNavigate} />
+            ))
           : moduleGroups.map((group) => {
               if (group.items.length === 1) {
                 const item = group.items[0];
-                return <NavItem key={group.module} link={{ ...item, icon: group.icon, label: group.module }} />;
+                return (
+                  <NavItem
+                    key={group.module}
+                    link={{ ...item, icon: group.icon, label: group.module }}
+                    collapsed={isRail}
+                    onNavigate={handleNavigate}
+                  />
+                );
               }
 
               const isOpenGroup = openModule === group.module;
@@ -311,32 +399,78 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
               return (
                 <div key={group.module}>
                   <button
-                    onClick={() => setOpenModule(isOpenGroup ? null : group.module)}
+                    type="button"
+                    title={isRail ? group.module : undefined}
+                    onClick={() => handleGroupClick(group, isOpenGroup)}
                     className={cn(
-                      'w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-150 group text-[13px] font-medium',
+                      'relative w-full flex items-center rounded-xl transition-all duration-200 group text-[13px] font-medium',
+                      isRail ? 'justify-center w-10 h-10 mx-auto px-0' : 'gap-3 px-3.5 py-2.5',
                       isGroupActive && !isOpenGroup
-                        ? 'bg-blue-500/15 text-blue-300'
+                        ? 'bg-white/15 text-white'
                         : 'text-(--color-sidebar-text) hover:bg-(--color-sidebar-hover) hover:text-white',
                     )}
                   >
-                    <span className={cn('shrink-0 w-5 h-5 flex items-center justify-center transition-colors', isGroupActive && !isOpenGroup ? 'text-blue-300' : 'text-(--color-sidebar-icon) group-hover:text-slate-200')}>
+                    <span
+                      className={cn(
+                        'shrink-0 w-5 h-5 flex items-center justify-center transition-colors',
+                        isGroupActive && !isOpenGroup
+                          ? 'text-white'
+                          : 'text-(--color-sidebar-icon) group-hover:text-white',
+                      )}
+                    >
                       {group.icon}
                     </span>
-                    <span className="truncate flex-1 text-left">{group.module}</span>
-                    <span className="shrink-0 text-slate-500">
-                      {isOpenGroup ? <ChevronDown size={15} strokeWidth={SW} /> : <ChevronRight size={15} strokeWidth={SW} />}
-                    </span>
+                    {!isRail && (
+                      <>
+                        <span className="truncate flex-1 text-left">{group.module}</span>
+                        <span className="shrink-0 text-white/50">
+                          {isOpenGroup ? <ChevronDown size={15} strokeWidth={SW} /> : <ChevronRight size={15} strokeWidth={SW} />}
+                        </span>
+                      </>
+                    )}
+                    {isRail && isGroupActive && (
+                      <span className="absolute left-0 w-[3px] h-4 rounded-r-full bg-(--color-sidebar-active)" />
+                    )}
                   </button>
-                  {isOpenGroup && (
-                    <div className="mt-0.5 ml-4 pl-3 border-l border-white/10 flex flex-col gap-0.5">
-                      {group.items.map((item) => <NavItem key={item.to + item.label} link={item} />)}
+                  {!isRail && isOpenGroup && (
+                    <div className="mt-0.5 ml-3.5 pl-3 border-l border-white/10 flex flex-col gap-0.5">
+                      {group.items.map((item) => (
+                        <NavItem key={item.to + item.label} link={item} onNavigate={handleNavigate} />
+                      ))}
                     </div>
                   )}
                 </div>
               );
             })}
       </nav>
-    </div>
+
+      <div
+        className={cn(
+          'shrink-0 border-t border-white/10 bg-black/10',
+          isRail ? 'p-2' : 'p-3',
+        )}
+      >
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className={cn(
+            'hidden lg:flex items-center rounded-xl transition-all duration-200',
+            'text-(--color-sidebar-text) hover:bg-(--color-sidebar-hover) hover:text-white',
+            isRail ? 'justify-center w-10 h-10 mx-auto' : 'w-full gap-3 px-3.5 py-2.5 text-[13px] font-medium',
+          )}
+        >
+          {isRail ? (
+            <PanelLeftOpen size={18} strokeWidth={SW} className="text-(--color-sidebar-icon)" />
+          ) : (
+            <>
+              <PanelLeftClose size={18} strokeWidth={SW} className="text-(--color-sidebar-icon)" />
+              <span>Collapse</span>
+            </>
+          )}
+        </button>
+      </div>
+    </aside>
   );
 };
 

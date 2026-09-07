@@ -4,7 +4,8 @@ import { Building2, Layers, Users, ChevronDown, ChevronRight, Network } from 'lu
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useGetDepartmentsQuery, useGetDivisionsQuery } from '@/services/departmentService';
-import Loader from '@/components/ui/Loader';
+import { PageSkeleton } from '@/components/skeletons';
+import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 
 function TeamsForScope({ teams, departmentId, divisionId }: { teams: any[]; departmentId: string; divisionId?: string }) {
   const scoped = teams.filter((t: any) =>
@@ -91,7 +92,7 @@ function PersonNode({ person, byManager, depth }: { person: any; byManager: Map<
 export default function OrgChartPage() {
   const { data: departments, isLoading: deptsLoading } = useGetDepartmentsQuery();
 
-  const { data: teams } = useQuery({
+  const { data: teams, isLoading: teamsLoading } = useQuery({
     queryKey: ['teams'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.TEAM.LIST),
     select: (r: any) => r?.payload?.records || r?.payload || [],
@@ -119,6 +120,9 @@ export default function OrgChartPage() {
     return { roots, byManager };
   }, [users]);
 
+  const showPageSkeleton = useShowPageSkeleton(deptsLoading, teamsLoading, usersLoading);
+  if (showPageSkeleton) return <PageSkeleton variant="org-chart" />;
+
   return (
     <div className="flex flex-col gap-8">
       <div>
@@ -128,9 +132,7 @@ export default function OrgChartPage() {
 
       <div>
         <h2 className="text-sm font-black text-gray-500 uppercase tracking-wide mb-3">Departmental Structure</h2>
-        {deptsLoading ? (
-          <div className="flex justify-center py-10"><Loader size={32} /></div>
-        ) : (departments || []).length === 0 ? (
+        {(departments || []).length === 0 ? (
           <div className="bg-white border border-gray-100 rounded-2xl p-10 text-center text-gray-400 text-sm">No departments yet.</div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -144,9 +146,7 @@ export default function OrgChartPage() {
       <div>
         <h2 className="text-sm font-black text-gray-500 uppercase tracking-wide mb-3">Reporting Structure</h2>
         <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5">
-          {usersLoading ? (
-            <div className="flex justify-center py-10"><Loader size={32} /></div>
-          ) : roots.length === 0 ? (
+          {roots.length === 0 ? (
             <div className="text-center text-gray-400 text-sm py-6">No reporting relationships set up yet — assign a Reporting Manager on an employee's profile to build this chart.</div>
           ) : (
             <div className="flex flex-col gap-1">

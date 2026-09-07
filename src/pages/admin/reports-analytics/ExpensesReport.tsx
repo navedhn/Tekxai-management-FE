@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Wallet, TrendingDown, TrendingUp, DollarSign, Info } from 'lucide-react';
 import Card from '@/components/ui/Card';
-import Loader from '@/components/ui/Loader';
+import { PageSkeleton } from '@/components/skeletons';
 import { KpiRow } from './components/KpiRow';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
@@ -24,7 +24,7 @@ export const ExpensesReport: React.FC = () => {
     select: (r: any) => r?.payload?.records || [],
   });
 
-  if (isLoading) return <Loader size={32} />;
+  if (isLoading) return <PageSkeleton variant="stats-table" />;
 
   return (
     <div className="flex flex-col gap-5">

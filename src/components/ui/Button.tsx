@@ -51,10 +51,26 @@ const animationClasses: Record<ButtonAnimation, string> = {
 };
 
 export const pageActionButtonClass =
-  'rounded-xl h-9 min-h-9 text-sm font-bold px-5 shadow-md shadow-primary-100 w-full sm:w-auto whitespace-nowrap shrink-0';
+  'rounded-xl h-10 min-h-10 px-4 text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700 border-0 shadow-none !shadow-none hover:!shadow-none hover:translate-y-0 active:scale-100 w-full sm:w-auto whitespace-nowrap shrink-0 transition-colors';
 
 export const pageOutlineButtonClass =
-  'rounded-xl h-9 min-h-9 text-sm font-medium px-5 border-gray-200 w-full sm:w-auto whitespace-nowrap shrink-0';
+  'rounded-xl h-10 min-h-10 px-4 text-sm font-semibold border-gray-200 shadow-none !shadow-none hover:!shadow-none hover:translate-y-0 active:scale-100 w-full sm:w-auto whitespace-nowrap shrink-0 transition-colors';
+
+export const PageActionButton = forwardRef<HTMLButtonElement, Omit<ButtonProps, 'variant' | 'animation' | 'rounded'>>(
+  ({ size = 'sm', className, ...props }, ref) => (
+    <Button
+      ref={ref}
+      variant="primary"
+      size={size}
+      animation="none"
+      rounded={false}
+      className={cn(pageActionButtonClass, className)}
+      {...props}
+    />
+  )
+);
+
+PageActionButton.displayName = 'PageActionButton';
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (

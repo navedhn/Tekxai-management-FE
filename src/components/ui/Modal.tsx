@@ -46,7 +46,7 @@ const Modal: React.FC<Props> = ({
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6">
+        <div className="fixed inset-0 z-[99999] flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -61,7 +61,7 @@ const Modal: React.FC<Props> = ({
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
             className={classNames(
-              'relative bg-white w-full max-h-[min(90vh,900px)] flex flex-col overflow-hidden rounded-[1.5rem] shadow-2xl z-10',
+              'relative bg-white w-full max-h-[min(92dvh,900px)] flex flex-col overflow-hidden rounded-t-[1.5rem] sm:rounded-[1.5rem] shadow-2xl z-10 pb-[env(safe-area-inset-bottom)]',
               sizes[size],
               customClass
             )}

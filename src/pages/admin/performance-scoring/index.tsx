@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
-import Button, { pageActionButtonClass, pageOutlineButtonClass } from '@/components/ui/Button';
+import Button, { pageOutlineButtonClass, PageActionButton } from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import ActionModal from '@/components/ui/ActionModal';
@@ -206,16 +206,13 @@ const PerformanceScoringPage: React.FC = () => {
           >
             {showCriteria ? 'Hide Configuration' : 'Edit Criteria & Rules'}
           </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            rounded={false}
+          <PageActionButton
             leftIcon={Plus}
             onClick={handleAdd}
-            className={cn(pageActionButtonClass, 'flex-1 sm:flex-none')}
+            className="flex-1 sm:flex-none"
           >
             Score Employee
-          </Button>
+          </PageActionButton>
         </div>
       </div>
 

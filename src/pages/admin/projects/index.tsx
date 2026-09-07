@@ -4,7 +4,7 @@ import { useMyPermissions } from '@/services/permissionsService';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
-import Button, { IconButton, pageActionButtonClass, pageOutlineButtonClass } from '@/components/ui/Button';
+import Button, { IconButton, pageOutlineButtonClass, PageActionButton } from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Tabs from '@/components/ui/Tabs';
 import Loader from '@/components/ui/Loader';
@@ -563,16 +563,12 @@ const ProjectManagement: React.FC = () => {
             </div>
           </div>
 
-          <Button
-            variant="primary"
-            size="sm"
-            rounded={false}
+          <PageActionButton
             leftIcon={Plus}
             onClick={() => { setEditingProject(null); setIsFormOpen(true); }}
-            className={pageActionButtonClass}
           >
             Create Project
-          </Button>
+          </PageActionButton>
         </div>
 
         <Table

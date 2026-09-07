@@ -3,7 +3,8 @@ import { ChevronLeft, ChevronRight, Flag, Rocket, AlertTriangle } from 'lucide-r
 import { cn } from '@/utils/cn';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
-import Loader from '@/components/ui/Loader';
+import { PageSkeleton } from '@/components/skeletons';
+import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 import { useGetProjects } from '@/services/projectService';
 
 interface DayEvent {
@@ -66,7 +67,7 @@ const ProjectTimeline: React.FC = () => {
   const cells: (number | null)[] = [...Array(firstDayOfWeek).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
 
   if (isLoading) {
-    return <div className="flex items-center justify-center py-20"><Loader size={48} /></div>;
+    return <PageSkeleton variant="table" />;
   }
 
   return (

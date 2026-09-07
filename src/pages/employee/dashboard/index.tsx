@@ -14,18 +14,30 @@ import { Search, Play, CheckCircle, Briefcase, FileText } from 'lucide-react';
 import Tabs from '@/components/ui/Tabs';
 import { cn } from '@/utils/cn';
 import ProjectDetailsSlideOver from '@/components/ui/ProjectDetailsSlideOver';
-import { CardSkeleton, StatSkeleton, DashboardStatCard } from '@/components';
+import { DashboardStatCard } from '@/components';
+import { PageSkeleton } from '@/components/skeletons';
+import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 import RecentActivityCard from '@/components/dashboard/RecentActivityCard';
 import { TicketsSummaryCard } from '@/components/tickets';
 import TimeTrackerCard from '@/features/employee-dashboard/TimeTrackerCard';
 import { useTimeTracker } from '@/features/employee-dashboard/useTimeTracker';
+import { useGetTickets } from '@/services/ticketService';
 
 const EmployeeDashboard: React.FC = () => {
     const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
     const { data: activity, isLoading: activityLoading } = useGetRecentActivity();
     const { data: timesheet, isLoading: timesheetLoading } = useGetTimesheet();
     const { data: projects, isLoading: projectsLoading } = useGetProjects();
-    const { trackerState, seconds } = useTimeTracker();
+    const ticketsQuery = useGetTickets();
+    const { trackerState, seconds, loading: trackerLoading } = useTimeTracker();
+    const showPageSkeleton = useShowPageSkeleton(
+        statsLoading,
+        activityLoading,
+        timesheetLoading,
+        projectsLoading,
+        trackerLoading,
+        ticketsQuery,
+    );
 
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -143,6 +155,8 @@ const EmployeeDashboard: React.FC = () => {
         { header: 'Due Date', key: 'dueDate' },
     ];
 
+    if (showPageSkeleton) return <PageSkeleton variant="dashboard-employee" />;
+
     return (
         <div className="flex flex-col gap-8 pb-10">
             <ProjectDetailsSlideOver
@@ -152,37 +166,31 @@ const EmployeeDashboard: React.FC = () => {
                 routePrefix="/employee"
             />
 
-            <div className="flex flex-col lg:flex-row gap-6 items-start p-3 rounded-[8px] bg-white">
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 p-3 flex-1 w-full bg-[#F8F8F8] lg:w-auto">
-                    {statsLoading ? (
-                        Array.from({ length: 3 }).map((_, i) => <StatSkeleton key={i} />)
-                    ) : (
-                        <>
-                            <DashboardStatCard
-                                showDivider
-                                icon={<CheckCircle size={20} />}
-                                iconClassName="bg-[#005CDA1A] text-[#005CDA]"
-                                value={stats?.completedProjects}
-                                label="Completed Projects"
-                                subtext={<>Total Hours: <span className="text-[#005CDA] font-semibold">{stats?.totalHours}hr</span></>}
-                            />
-                            <DashboardStatCard
-                                showDivider
-                                icon={<Play size={18} className="fill-[#F04438]" />}
-                                iconClassName="bg-[#FF58551A] text-[#F04438]"
-                                value={stats?.latestCheckIn}
-                                label="2 hours ago"
-                                subtext={<>Latest Check-in <span className="text-[#005CDA] font-semibold">{stats?.totalHours}hr</span></>}
-                            />
-                            <DashboardStatCard
-                                icon={<FileText size={20} />}
-                                iconClassName="bg-[#F0F9FF] text-[#0086C9]"
-                                value={`0${stats?.pendingTimesheets}`}
-                                label="Pending Timesheet"
-                                subtext="Edit requests awaiting"
-                            />
-                        </>
-                    )}
+            <div className="flex flex-col lg:flex-row gap-6 items-start p-3 rounded-xl bg-white border border-gray-100 shadow-sm">
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 p-3 flex-1 w-full bg-[#F8F8F8] lg:w-auto rounded-lg border border-gray-100">
+                    <DashboardStatCard
+                        showDivider
+                        icon={<CheckCircle size={20} />}
+                        iconClassName="bg-[#005CDA1A] text-[#005CDA]"
+                        value={stats?.completedProjects}
+                        label="Completed Projects"
+                        subtext={<>Total Hours: <span className="text-[#005CDA] font-semibold">{stats?.totalHours}hr</span></>}
+                    />
+                    <DashboardStatCard
+                        showDivider
+                        icon={<Play size={18} className="fill-[#F04438]" />}
+                        iconClassName="bg-[#FF58551A] text-[#F04438]"
+                        value={stats?.latestCheckIn}
+                        label="2 hours ago"
+                        subtext={<>Latest Check-in <span className="text-[#005CDA] font-semibold">{stats?.totalHours}hr</span></>}
+                    />
+                    <DashboardStatCard
+                        icon={<FileText size={20} />}
+                        iconClassName="bg-[#F0F9FF] text-[#0086C9]"
+                        value={`0${stats?.pendingTimesheets}`}
+                        label="Pending Timesheet"
+                        subtext="Edit requests awaiting"
+                    />
                 </div>
 
                 <Tabs
@@ -210,9 +218,7 @@ const EmployeeDashboard: React.FC = () => {
 
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        {activityLoading ? (
-                            Array.from({ length: 4 }).map((_, i) => <CardSkeleton key={i} />)
-                        ) : activity?.map((act) => (
+                        {activity?.map((act) => (
                             <RecentActivityCard key={act.id} activity={act} />
                         ))}
                     </div>
@@ -226,7 +232,6 @@ const EmployeeDashboard: React.FC = () => {
                         <Table
                             columns={timesheetColumns}
                             data={timesheet || []}
-                            isLoading={timesheetLoading}
                             className="border-none shadow-none"
                         />
                     </div>
@@ -260,7 +265,6 @@ const EmployeeDashboard: React.FC = () => {
                     <Table
                         columns={projectColumns}
                         data={paginatedProjects}
-                        isLoading={projectsLoading}
                         pagination={{
                             currentPage: currentPage,
                             totalPages: totalPages,

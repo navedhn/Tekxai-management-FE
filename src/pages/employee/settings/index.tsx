@@ -12,6 +12,7 @@ import { useUploadAvatarMutation } from '@/services/userService';
 import { useAuthStore } from '@/stores/authStore';
 import { clearAuthTokens } from '@/utils/tokenMemory';
 import ThemeSwitcher from '@/components/settings/ThemeSwitcher';
+import { getStoredTheme } from '@/lib/theme';
 
 const EmployeeSetting: React.FC = () => {
     const toast = useToastContext();
@@ -74,7 +75,8 @@ const EmployeeSetting: React.FC = () => {
         setNotifications(newValue);
         updatePreferences.mutate({
             show_notifications: newValue,
-            language: (settingsData as any)?.payload?.language || 'en'
+            language: (settingsData as any)?.payload?.language || 'en',
+            theme: getStoredTheme(),
         }, {
             onSuccess: () => toast.success('Preferences updated'),
             onError: (err: any) => {
