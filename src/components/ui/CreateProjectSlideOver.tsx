@@ -201,6 +201,18 @@ const UserSelectDropdown: React.FC<{
 
 const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen, onClose, project }) => {
   const toast = useToastContext();
+  // Bug fix — Save Changes appeared to do nothing when validation failed
+  // (e.g. editing a legacy project with no Project Owner assigned, like
+  // "North Star Olive™ - Shopify Website"). Validation WAS correctly
+  // blocking the save (setErrors + an inline "At least one project owner
+  // is required" message already render at the Project Owners field), but
+  // that field sits far below the fold under Estimated Hours/Team
+  // Assignment, while Save Changes is a sticky footer always visible
+  // regardless of scroll position — so the error was real but invisible.
+  // Fix is UI-only: on validation failure, show a toast and scroll the
+  // body to the first invalid field (by id, see field-startDate/field-owner
+  // below). Does not touch, weaken, or bypass the existing validation
+  // rules themselves.
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -341,6 +353,16 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
+      // Fix — surface the failure instead of silently doing nothing. The
+      // inline field errors already existed; they just weren't
+      // discoverable when the failing field was scrolled out of view
+      // behind the sticky Save Changes footer.
+      toast.error('Please fix the highlighted fields before saving.');
+      const firstErrorKey = ['startDate', 'endDate', 'owner', 'commission'].find((k) => newErrors[k]);
+      if (firstErrorKey) {
+        const el = document.getElementById(`field-${firstErrorKey}`);
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
     }
 
@@ -614,7 +636,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
                 </div>
               </div>
 
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-4" id="field-startDate">
                 <h3 className="text-base font-black text-gray-900 tracking-tight">Project Parameters</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <DatePicker
@@ -673,7 +695,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
               <div className="flex flex-col gap-8">
                 <h3 className="text-base font-black text-gray-900 tracking-tight">Team Assignment</h3>
 
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3" id="field-owner">
                   <label className="text-[13px] font-bold text-gray-600 ml-1">
                     Project Owners *
                     {errors.owner && <span className="text-red-500 ml-2 font-medium text-xs">({errors.owner})</span>}

@@ -6,7 +6,7 @@ import {
   MessageSquare, FileText, Package, CalendarDays, Table2, Layers, Video, Gauge,
   Building2, TrendingUp, UserPlus, ShieldCheck, Briefcase, Heart, AlarmClock,
   UserSearch, PlusCircle, Tag, Network, Landmark, ChevronDown, ChevronRight,
-  Bell as BellIcon, UserMinus, ListChecks, PanelLeftClose, PanelLeftOpen,
+  Bell as BellIcon, UserMinus, ListChecks, PanelLeftClose, PanelLeftOpen, FileBarChart,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
@@ -280,6 +280,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Projects', tier: 'admin', to: '/admin/meetings', label: 'Meetings', icon: <Video size={18} strokeWidth={SW} /> },
       { module: 'Projects', tier: 'admin', to: '/admin/reports', label: 'Reports', icon: <BarChart3 size={18} strokeWidth={SW} /> },
       { module: 'Projects', tier: 'admin', to: '/admin/project-report', label: 'Project Report', icon: <BarChart3 size={18} strokeWidth={SW} /> },
+      { module: 'Projects', tier: 'admin', to: '/admin/projects-report', label: 'Projects Report', icon: <FileBarChart size={18} strokeWidth={SW} /> },
       { module: 'Projects', tier: 'admin', to: '/admin/starred', label: 'Starred', icon: <Star size={18} strokeWidth={SW} /> },
     ];
 

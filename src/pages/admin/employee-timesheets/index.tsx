@@ -151,6 +151,18 @@ const EmployeeTimesheets: React.FC = () => {
     },
     { header: 'Duration', key: 'duration_label', render: (item) => <span>{item.duration_label}</span> },
     {
+      header: 'Break Time', key: 'break_seconds',
+      render: (item) => <span className="text-gray-500">{!item.has_entry ? '—' : item.break_seconds == null ? '—' : item.break_seconds ? `${Math.floor(item.break_seconds / 3600)}h ${Math.floor((item.break_seconds % 3600) / 60)}m` : '0h 0m'}</span>,
+    },
+    {
+      header: 'Idle Time', key: 'idle_seconds',
+      render: (item) => <span className="text-gray-500">{!item.has_entry ? '—' : item.idle_seconds == null ? '—' : item.idle_seconds ? `${Math.floor(item.idle_seconds / 3600)}h ${Math.floor((item.idle_seconds % 3600) / 60)}m` : '0h 0m'}</span>,
+    },
+    {
+      header: 'Productive Hours', key: 'productive_seconds',
+      render: (item) => <span className={item.has_entry ? 'font-black text-emerald-600' : 'text-gray-300'}>{!item.has_entry ? '—' : item.productive_label ?? '—'}</span>,
+    },
+    {
       header: 'Status', key: 'status',
       render: (item) => {
         if (!item.has_entry && !item.status) return <span className="text-gray-300">—</span>;
