@@ -5,19 +5,33 @@ import Table, { Column } from '@/components/ui/Table';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
-import { UserPlus, Send, Plus, CheckCircle2, ArrowRight, ListChecks, CalendarClock } from 'lucide-react';
+import { UserPlus, Send, Plus, CheckCircle2, XCircle, ArrowRight, ListChecks, CalendarClock, Mail, RefreshCw } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import {
-  useGetCandidates, useCreateCandidate, useCreateOffer, useSendOffer, useAcceptOffer,
-  useGetOnboardingTasks, useCreateOnboardingTask, useCompleteOnboardingTask, useGetOnboardingReadiness,
+  useGetCandidates, useCreateCandidate, useUpdateCandidateStatus,
+  useCreateOffer, useGenerateOfferEmail, useEditOfferEmail, useSendOffer, useAcceptOffer, useRejectOffer,
+  useGenerateCandidateEmail, useEditCandidateEmail, useSendCandidateEmail,
+  useGetOnboardingTasks, useCreateOnboardingTask, useCompleteOnboardingTask, useGetOnboardingReadiness, useMoveToProbation,
+  useGetEmailTemplates,
 } from '@/services/onboardingService';
-import { useCreateInterview } from '@/services/interviewsService';
+import { useCreateInterview, useUpdateInterview, useGenerateInterviewEmail, useEditInterviewEmail, useSendInterviewEmail } from '@/services/interviewsService';
 
+// Full granular pipeline — see candidate-status.service.js (backend) for
+// the enforced transition graph this display mirrors.
 const STATUS_COLORS: Record<string, string> = {
-  INVITED:  'bg-yellow-50 text-yellow-600 border-yellow-100',
-  ACCEPTED: 'bg-green-50 text-green-600 border-green-100',
-  REJECTED: 'bg-red-50 text-red-600 border-red-100',
+  INVITED:            'bg-yellow-50 text-yellow-600 border-yellow-100',
+  UNDER_REVIEW:        'bg-blue-50 text-blue-600 border-blue-100',
+  ROUND_1_SCHEDULED:   'bg-indigo-50 text-indigo-600 border-indigo-100',
+  ROUND_1_COMPLETED:   'bg-indigo-50 text-indigo-600 border-indigo-100',
+  SHORTLISTED:         'bg-teal-50 text-teal-600 border-teal-100',
+  ROUND_2_SCHEDULED:   'bg-purple-50 text-purple-600 border-purple-100',
+  ROUND_2_COMPLETED:   'bg-purple-50 text-purple-600 border-purple-100',
+  FINAL_SHORTLISTED:   'bg-cyan-50 text-cyan-600 border-cyan-100',
+  OFFER_SENT:          'bg-orange-50 text-orange-600 border-orange-100',
+  HIRED:               'bg-green-50 text-green-600 border-green-100',
+  ACCEPTED:            'bg-green-50 text-green-600 border-green-100',
+  REJECTED:            'bg-red-50 text-red-600 border-red-100',
 };
 
 const INTERVIEW_STATUS_COLORS: Record<string, string> = {
@@ -28,18 +42,41 @@ const INTERVIEW_STATUS_COLORS: Record<string, string> = {
   NO_SHOW:     'bg-red-50 text-red-600 border-red-100',
 };
 
+const EMAIL_STATUS_COLORS: Record<string, string> = {
+  PENDING: 'bg-gray-50 text-gray-400 border-gray-100',
+  SENDING: 'bg-yellow-50 text-yellow-600 border-yellow-100',
+  SENT:    'bg-green-50 text-green-600 border-green-100',
+  FAILED:  'bg-red-50 text-red-600 border-red-100',
+};
+
+const TEMPLATE_TYPE_LABELS: Record<string, string> = {
+  INTERVIEW_ROUND_1: 'Round 1 Interview Invitation',
+  INTERVIEW_ROUND_2: 'Round 2 Interview Invitation',
+  INTERVIEW_RESCHEDULE: 'Interview Reschedule / Update',
+  OFFER: 'Offer of Employment',
+  REJECTION: 'Application Update (Rejection)',
+  APPLICATION_STATUS: 'Application / Status Update',
+};
+
 const OnboardingPage: React.FC = () => {
   const toast = useToastContext();
   const navigate = useNavigate();
   const { data: candidates = [], isLoading } = useGetCandidates();
   const createCandidate = useCreateCandidate();
+  const updateCandidateStatus = useUpdateCandidateStatus();
   const createOffer = useCreateOffer();
-  const sendOffer = useSendOffer();
   const acceptOffer = useAcceptOffer();
+  const rejectOffer = useRejectOffer();
+  const moveToProbation = useMoveToProbation();
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ email: '', first_name: '', last_name: '', position: '', phone: '' });
   const [tasksForUser, setTasksForUser] = useState<{ id: string; name: string } | null>(null);
-  const [interviewCandidate, setInterviewCandidate] = useState<{ id: string; name: string } | null>(null);
+  const [interviewCandidate, setInterviewCandidate] = useState<{ id: string; name: string; round: number } | null>(null);
+  const [rescheduleFor, setRescheduleFor] = useState<any | null>(null);
+  const [interviewEmailFor, setInterviewEmailFor] = useState<any | null>(null);
+  const [decisionFor, setDecisionFor] = useState<any | null>(null);
+  const [offerEmailFor, setOfferEmailFor] = useState<{ offer: any; candidate: any } | null>(null);
+  const [candidateEmailFor, setCandidateEmailFor] = useState<{ candidate: any; type: 'REJECTION' | 'APPLICATION_STATUS' } | null>(null);
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,9 +102,9 @@ const OnboardingPage: React.FC = () => {
       </div>
     )},
     { header: 'Position', key: 'position', render: (c) => <span>{c.position || '—'}</span> },
-    { header: 'Status', key: 'status', render: (c) => (
+    { header: 'Stage', key: 'status', render: (c) => (
       <Badge variant="info" className={cn('text-[10px] font-bold border rounded-lg px-2 py-0.5', STATUS_COLORS[c.status] || 'bg-gray-50 text-gray-400')}>
-        {c.status}
+        {c.status.replace(/_/g, ' ')}
       </Badge>
     )},
     { header: 'Invited', key: 'created_at', render: (c) => new Date(c.created_at).toLocaleDateString() },
@@ -75,59 +112,120 @@ const OnboardingPage: React.FC = () => {
       const interviews = c.interviews || [];
       if (interviews.length === 0) return <span className="text-xs text-gray-300">—</span>;
       const latest = interviews[0];
+      const isReschedulePending = !!latest.previous_scheduled_at;
       return (
         <div className="flex flex-col gap-1">
-          <Badge variant="info" className={cn('text-[10px] font-bold border rounded-lg px-2 py-0.5 w-fit', INTERVIEW_STATUS_COLORS[latest.status] || 'bg-gray-50 text-gray-400')}>
-            Round {latest.round}: {latest.status}
-          </Badge>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Badge variant="info" className={cn('text-[10px] font-bold border rounded-lg px-2 py-0.5 w-fit', INTERVIEW_STATUS_COLORS[latest.status] || 'bg-gray-50 text-gray-400')}>
+              Round {latest.round}: {latest.status}
+            </Badge>
+            <Badge variant="info" className={cn('text-[9px] font-bold border rounded-lg px-1.5 py-0.5 w-fit', EMAIL_STATUS_COLORS[latest.email_status] || 'bg-gray-50 text-gray-400')}>
+              Email: {isReschedulePending ? 'RESCHEDULE PENDING' : latest.email_status}
+            </Badge>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <button type="button" onClick={() => setInterviewEmailFor(latest)} className="text-[10px] font-bold text-primary-600 hover:underline flex items-center gap-1">
+              <Mail size={10} /> Email
+            </button>
+            {latest.status === 'SCHEDULED' && (
+              <button type="button" onClick={() => setDecisionFor(latest)} className="text-[10px] font-bold text-gray-500 hover:underline flex items-center gap-1">
+                <CheckCircle2 size={10} /> Record Decision
+              </button>
+            )}
+            {latest.status === 'SCHEDULED' && latest.email_status === 'SENT' && (
+              <button type="button" onClick={() => setRescheduleFor(latest)} className="text-[10px] font-bold text-orange-600 hover:underline flex items-center gap-1">
+                <RefreshCw size={10} /> Reschedule
+              </button>
+            )}
+          </div>
           {interviews.length > 1 && <span className="text-[10px] text-gray-400 font-semibold">{interviews.length} rounds total</span>}
         </div>
       );
     }},
     { header: 'Actions', key: 'id', align: 'right', render: (c) => (
-      <div className="flex gap-2 justify-end">
-        <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs" onClick={() => setInterviewCandidate({ id: c.id, name: `${c.first_name} ${c.last_name}` })}>
-          <CalendarClock size={12} /> Interview
-        </Button>
+      <div className="flex gap-2 justify-end flex-wrap">
         {c.status === 'INVITED' && (
-          <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs" onClick={async () => {
-            try {
-              const offer = await createOffer.mutateAsync({ candidate_id: c.id, position: c.position || 'Position', salary: 0 });
-              toast.success('Offer created');
-            } catch { toast.error('Failed'); }
+          <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs" loading={updateCandidateStatus.isPending} onClick={async () => {
+            try { await updateCandidateStatus.mutateAsync({ id: c.id, status: 'UNDER_REVIEW' }); toast.success('Moved to Under Review'); }
+            catch (err: any) { toast.error(err?.data?.message || 'Failed'); }
           }}>
-            <Plus size={12} /> Offer
+            Start Review
+          </Button>
+        )}
+        {c.status === 'UNDER_REVIEW' && (
+          <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs" onClick={() => setInterviewCandidate({ id: c.id, name: `${c.first_name} ${c.last_name}`, round: 1 })}>
+            <CalendarClock size={12} /> Round 1
+          </Button>
+        )}
+        {c.status === 'SHORTLISTED' && (
+          <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs" onClick={() => setInterviewCandidate({ id: c.id, name: `${c.first_name} ${c.last_name}`, round: 2 })}>
+            <CalendarClock size={12} /> Round 2
+          </Button>
+        )}
+        {c.status === 'FINAL_SHORTLISTED' && !c.offers?.[0] && (
+          <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs" loading={createOffer.isPending} onClick={async () => {
+            try {
+              await createOffer.mutateAsync({ candidate_id: c.id, position: c.position || 'Position', salary: 0 });
+              toast.success('Offer created — select a template to generate the offer email');
+            } catch (err: any) { toast.error(err?.data?.message || 'Failed to create offer'); }
+          }}>
+            <Plus size={12} /> Create Offer
           </Button>
         )}
         {c.offers?.[0]?.status === 'DRAFT' && (
-          <Button size="sm" variant="primary" className="rounded-xl gap-1 h-8 text-xs" loading={sendOffer.isPending} onClick={async () => {
-            try {
-              await sendOffer.mutateAsync(c.offers[0].id);
-              toast.success('Offer sent to candidate');
-            } catch { toast.error('Failed to send offer'); }
-          }}>
-            <Send size={12} /> Send
+          <Button size="sm" variant="primary" className="rounded-xl gap-1 h-8 text-xs" onClick={() => setOfferEmailFor({ offer: c.offers[0], candidate: c })}>
+            <Mail size={12} /> Offer Email
           </Button>
         )}
         {c.offers?.[0]?.status === 'SENT' && !c.employee_profile && (
-          <Button size="sm" variant="primary" className="rounded-xl gap-1 h-8 text-xs" loading={acceptOffer.isPending} onClick={async () => {
-            try {
-              await acceptOffer.mutateAsync(c.offers[0].id);
-              toast.success('Offer accepted — Employee Master created automatically');
-            } catch { toast.error('Failed to accept offer'); }
+          <>
+            <Button size="sm" variant="primary" className="rounded-xl gap-1 h-8 text-xs" loading={acceptOffer.isPending} onClick={async () => {
+              try { await acceptOffer.mutateAsync(c.offers[0].id); toast.success('Offer accepted — Employee record created, onboarding started'); }
+              catch (err: any) { toast.error(err?.data?.message || 'Failed to accept offer'); }
+            }}>
+              <CheckCircle2 size={12} /> Accept & Hire
+            </Button>
+            <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs text-red-500" loading={rejectOffer.isPending} onClick={async () => {
+              try { await rejectOffer.mutateAsync({ id: c.offers[0].id }); toast.success('Offer rejected'); }
+              catch (err: any) { toast.error(err?.data?.message || 'Failed to reject offer'); }
+            }}>
+              <XCircle size={12} /> Reject
+            </Button>
+          </>
+        )}
+        {(c.status === 'UNDER_REVIEW' || c.status === 'ROUND_1_SCHEDULED' || c.status === 'ROUND_1_COMPLETED' || c.status === 'ROUND_2_SCHEDULED' || c.status === 'ROUND_2_COMPLETED' || c.status === 'SHORTLISTED' || c.status === 'FINAL_SHORTLISTED') && (
+          <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs text-red-400" onClick={async () => {
+            try { await updateCandidateStatus.mutateAsync({ id: c.id, status: 'REJECTED' }); toast.success('Candidate rejected'); }
+            catch (err: any) { toast.error(err?.data?.message || 'Failed'); }
           }}>
-            <CheckCircle2 size={12} /> Accept & Hire
+            Reject
+          </Button>
+        )}
+        {c.status === 'REJECTED' && (
+          <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs" onClick={() => setCandidateEmailFor({ candidate: c, type: 'REJECTION' })}>
+            <Mail size={12} /> Rejection Email
+          </Button>
+        )}
+        {!['REJECTED', 'HIRED'].includes(c.status) && (
+          <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs" onClick={() => setCandidateEmailFor({ candidate: c, type: 'APPLICATION_STATUS' })}>
+            <Mail size={12} /> Status Email
           </Button>
         )}
         {c.employee_profile?.user_id && (
-          <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs" onClick={() => navigate(`/admin/add-employee/${c.employee_profile.user_id}`)}>
-            Complete Profile <ArrowRight size={12} />
-          </Button>
-        )}
-        {c.employee_profile?.user_id && (
-          <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs" onClick={() => setTasksForUser({ id: c.employee_profile.user_id, name: `${c.first_name} ${c.last_name}` })}>
-            <ListChecks size={12} /> Tasks
-          </Button>
+          <>
+            <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs" onClick={() => navigate(`/admin/add-employee/${c.employee_profile.user_id}`)}>
+              Complete Profile <ArrowRight size={12} />
+            </Button>
+            <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs" onClick={() => setTasksForUser({ id: c.employee_profile.user_id, name: `${c.first_name} ${c.last_name}` })}>
+              <ListChecks size={12} /> Tasks
+            </Button>
+            <Button size="sm" variant="primary" className="rounded-xl gap-1 h-8 text-xs" loading={moveToProbation.isPending} onClick={async () => {
+              try { await moveToProbation.mutateAsync(c.employee_profile.user_id); toast.success('Converted — employee moved to Probation'); }
+              catch (err: any) { toast.error(err?.data?.message || 'Onboarding checklist is not complete yet'); }
+            }}>
+              Convert to Employee
+            </Button>
+          </>
         )}
       </div>
     )},
@@ -138,7 +236,7 @@ const OnboardingPage: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-gray-900 tracking-tight">Hiring & Onboarding</h1>
-          <p className="text-sm text-gray-500 font-medium mt-1">Manage candidates, offers and onboarding workflows.</p>
+          <p className="text-sm text-gray-500 font-medium mt-1">Manage candidates, interviews, offers and onboarding workflows.</p>
         </div>
         <Button variant="primary" className="rounded-xl gap-2 h-10 px-5 font-black" onClick={() => setShowModal(true)}>
           <UserPlus size={16} /> Invite Candidate
@@ -177,16 +275,62 @@ const OnboardingPage: React.FC = () => {
       )}
 
       {interviewCandidate && (
-        <ScheduleInterviewModal candidateId={interviewCandidate.id} candidateName={interviewCandidate.name} onClose={() => setInterviewCandidate(null)} />
+        <ScheduleInterviewModal candidateId={interviewCandidate.id} candidateName={interviewCandidate.name} round={interviewCandidate.round} onClose={() => setInterviewCandidate(null)} />
+      )}
+
+      {rescheduleFor && (
+        <RescheduleInterviewModal interview={rescheduleFor} onClose={() => setRescheduleFor(null)} />
+      )}
+
+      {interviewEmailFor && (
+        <EmailWorkflowModal
+          title={`Interview Email — Round ${interviewEmailFor.round}`}
+          templateType={interviewEmailFor.previous_scheduled_at ? 'INTERVIEW_RESCHEDULE' : (interviewEmailFor.round >= 2 ? 'INTERVIEW_ROUND_2' : 'INTERVIEW_ROUND_1')}
+          entity={interviewEmailFor}
+          subjectField="email_subject" bodyField="email_body"
+          useGenerate={useGenerateInterviewEmail} useEdit={useEditInterviewEmail} useSend={useSendInterviewEmail}
+          idFor={(e) => e.id}
+          onClose={() => setInterviewEmailFor(null)}
+        />
+      )}
+
+      {decisionFor && (
+        <RecordDecisionModal interview={decisionFor} onClose={() => setDecisionFor(null)} />
+      )}
+
+      {offerEmailFor && (
+        <EmailWorkflowModal
+          title={`Offer Email — ${offerEmailFor.candidate.first_name} ${offerEmailFor.candidate.last_name}`}
+          templateType="OFFER"
+          entity={offerEmailFor.offer}
+          subjectField="email_subject" bodyField="letter_content"
+          useGenerate={useGenerateOfferEmail} useEdit={useEditOfferEmail} useSend={useSendOffer}
+          idFor={(e) => e.id}
+          generateKey="offerId" editKey="offerId"
+          onClose={() => setOfferEmailFor(null)}
+        />
+      )}
+
+      {candidateEmailFor && (
+        <EmailWorkflowModal
+          title={`${candidateEmailFor.type === 'REJECTION' ? 'Rejection' : 'Status Update'} Email — ${candidateEmailFor.candidate.first_name} ${candidateEmailFor.candidate.last_name}`}
+          templateType={candidateEmailFor.type}
+          entity={candidateEmailFor.candidate}
+          subjectField="email_subject" bodyField="email_body"
+          useGenerate={useGenerateCandidateEmail} useEdit={useEditCandidateEmail} useSend={useSendCandidateEmail}
+          idFor={(e) => e.id}
+          extraGenerateArgs={{ type: candidateEmailFor.type }}
+          onClose={() => setCandidateEmailFor(null)}
+        />
       )}
     </div>
   );
 };
 
-function ScheduleInterviewModal({ candidateId, candidateName, onClose }: { candidateId: string; candidateName: string; onClose: () => void }) {
+function ScheduleInterviewModal({ candidateId, candidateName, round, onClose }: { candidateId: string; candidateName: string; round: number; onClose: () => void }) {
   const toast = useToastContext();
   const createInterview = useCreateInterview();
-  const [form, setForm] = useState({ round: '1', title: 'Technical Round', scheduled_at: '', duration_mins: '30', location: '' });
+  const [form, setForm] = useState({ title: round === 2 ? 'HR / Final Round' : 'Technical Round', scheduled_at: '', duration_mins: '30', location: '' });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,33 +338,25 @@ function ScheduleInterviewModal({ candidateId, candidateName, onClose }: { candi
     try {
       await createInterview.mutateAsync({
         candidate_id: candidateId,
-        round: +form.round || 1,
+        round,
         title: form.title,
         scheduled_at: form.scheduled_at,
         duration_mins: +form.duration_mins || 30,
         location: form.location,
       });
-      toast.success('Interview scheduled');
+      toast.success(`Round ${round} scheduled`);
       onClose();
     } catch (err: any) { toast.error(err?.data?.message || 'Failed to schedule interview'); }
   };
 
   return (
-    <Modal isOpen onClose={onClose} title={`Schedule Interview — ${candidateName}`}>
+    <Modal isOpen onClose={onClose} title={`Schedule Round ${round} — ${candidateName}`}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-4">
-        <div className="flex gap-3">
-          <div className="flex flex-col gap-1.5 flex-1">
-            <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Round</label>
-            <input type="number" min={1} value={form.round}
-              onChange={(e) => setForm(p => ({ ...p, round: e.target.value }))}
-              className="h-11 px-4 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none" />
-          </div>
-          <div className="flex flex-col gap-1.5 flex-[2]">
-            <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Title</label>
-            <input type="text" value={form.title} placeholder="e.g. Technical Round"
-              onChange={(e) => setForm(p => ({ ...p, title: e.target.value }))}
-              className="h-11 px-4 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none" />
-          </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Title</label>
+          <input type="text" value={form.title} placeholder="e.g. Technical Round"
+            onChange={(e) => setForm(p => ({ ...p, title: e.target.value }))}
+            className="h-11 px-4 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none" />
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Scheduled At *</label>
@@ -247,6 +383,213 @@ function ScheduleInterviewModal({ candidateId, candidateName, onClose }: { candi
           <Button type="submit" variant="primary" fullWidth loading={createInterview.isPending}>Schedule</Button>
         </div>
       </form>
+    </Modal>
+  );
+}
+
+// Changes an already-scheduled (and already-emailed) interview's date/time.
+// The backend (interviews.service.js update_interview) detects this exact
+// case — email_status was SENT and scheduled_at actually changed — and
+// resets the interview's email to PENDING + stores previous_scheduled_at,
+// so the next "Email" click generates from the INTERVIEW_RESCHEDULE
+// template instead of the original round-invite one.
+function RescheduleInterviewModal({ interview, onClose }: { interview: any; onClose: () => void }) {
+  const toast = useToastContext();
+  const update = useUpdateInterview();
+  const [scheduledAt, setScheduledAt] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!scheduledAt) { toast.error('New date/time is required'); return; }
+    try {
+      await update.mutateAsync({ id: interview.id, data: { scheduled_at: scheduledAt } });
+      toast.success('Interview rescheduled — generate and send the update email');
+      onClose();
+    } catch (err: any) { toast.error(err?.data?.message || 'Failed to reschedule'); }
+  };
+
+  return (
+    <Modal isOpen onClose={onClose} title={`Reschedule Round ${interview.round}`}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-4">
+        <p className="text-xs text-gray-400">Current: {new Date(interview.scheduled_at).toLocaleString()}</p>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">New Date &amp; Time *</label>
+          <input type="datetime-local" value={scheduledAt}
+            onChange={(e) => setScheduledAt(e.target.value)}
+            className="h-11 px-4 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none" />
+        </div>
+        <div className="flex gap-3 pt-2">
+          <Button type="button" variant="outline" fullWidth onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="primary" fullWidth loading={update.isPending}>Save New Time</Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ── Unified Select Template -> Generate -> Edit -> Preview -> Send modal ──
+// Used for interview, offer, and candidate-directed (rejection/status)
+// emails alike — the exact same flow shape for all three, just pointed at
+// different generate/edit/send hooks and entity fields, per the reuse
+// instruction. The content shown IS the entity's stored subject/body field
+// — the exact thing the send call transmits, never regenerated on send.
+function EmailWorkflowModal({
+  title, templateType, entity, subjectField, bodyField,
+  useGenerate, useEdit, useSend, idFor,
+  generateKey = 'id', editKey = 'id',
+  extraGenerateArgs = {},
+  onClose,
+}: {
+  title: string;
+  templateType: string;
+  entity: any;
+  subjectField: string;
+  bodyField: string;
+  useGenerate: () => any;
+  useEdit: () => any;
+  useSend: () => any;
+  idFor: (e: any) => string;
+  generateKey?: string;
+  editKey?: string;
+  extraGenerateArgs?: Record<string, any>;
+  onClose: () => void;
+}) {
+  const toast = useToastContext();
+  const { data: templates = [] } = useGetEmailTemplates(templateType);
+  const generate = useGenerate();
+  const edit = useEdit();
+  const send = useSend();
+  const id = idFor(entity);
+  const [templateId, setTemplateId] = useState('');
+  const [subject, setSubject] = useState(entity[subjectField] || '');
+  const [body, setBody] = useState(entity[bodyField] || '');
+  const [dirty, setDirty] = useState(false);
+
+  const handleGenerate = async () => {
+    try {
+      const r = await generate.mutateAsync({ [generateKey]: id, templateId: templateId || undefined, ...extraGenerateArgs });
+      setSubject(r.payload[subjectField] || ''); setBody(r.payload[bodyField] || ''); setDirty(false);
+      toast.success('Email generated from template');
+    } catch (err: any) { toast.error(err?.data?.message || 'Failed to generate email'); }
+  };
+
+  const handleSaveEdit = async () => {
+    try { await edit.mutateAsync({ [editKey]: id, subject, [bodyField === 'letter_content' ? 'letter_content' : 'body']: body }); setDirty(false); toast.success('Draft saved'); }
+    catch (err: any) { toast.error(err?.data?.message || 'Failed to save edit'); }
+  };
+
+  const handleSend = async () => {
+    try {
+      if (dirty) await edit.mutateAsync({ [editKey]: id, subject, [bodyField === 'letter_content' ? 'letter_content' : 'body']: body });
+      await send.mutateAsync(id);
+      toast.success('Email sent');
+      onClose();
+    } catch (err: any) { toast.error(err?.data?.message || 'Failed to send — SMTP rejected or unavailable'); }
+  };
+
+  const alreadySent = entity.email_status === 'SENT' || entity.status === 'SENT' || entity.status === 'ACCEPTED';
+
+  return (
+    <Modal isOpen onClose={onClose} title={title}>
+      <div className="flex flex-col gap-4 mt-4">
+        {entity.email_error && (
+          <div className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-bold text-red-600">
+            Last send failed: {entity.email_error}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Select Template</label>
+          <div className="flex gap-2">
+            <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} disabled={alreadySent}
+              className="flex-1 h-11 px-4 rounded-xl border border-gray-200 text-sm font-medium outline-none disabled:bg-gray-50">
+              <option value="">{TEMPLATE_TYPE_LABELS[templateType] || 'Default template'}</option>
+              {templates.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+            {!alreadySent && (
+              <Button variant="outline" className="rounded-xl h-11 px-4" loading={generate.isPending} onClick={handleGenerate}>
+                {subject || body ? 'Regenerate' : 'Generate'}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {(subject || body) && (
+          <>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Subject</label>
+              <input value={subject} disabled={alreadySent}
+                onChange={(e) => { setSubject(e.target.value); setDirty(true); }}
+                className="h-11 px-4 rounded-xl border border-gray-200 text-sm font-medium outline-none disabled:bg-gray-50" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Generated Email (HTML)</label>
+              <textarea value={body} disabled={alreadySent} rows={6}
+                onChange={(e) => { setBody(e.target.value); setDirty(true); }}
+                className="px-4 py-3 rounded-xl border border-gray-200 text-xs font-mono outline-none disabled:bg-gray-50" />
+            </div>
+            <div className="border border-gray-100 rounded-xl overflow-hidden bg-gray-50">
+              <p className="text-[10px] font-black text-gray-400 uppercase px-3 pt-3">Preview</p>
+              <div className="max-h-64 overflow-y-auto p-3">
+                <iframe title="email-preview" srcDoc={body} className="w-full border-0" style={{ height: 420, background: '#fff', borderRadius: 8 }} />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button type="button" variant="outline" fullWidth onClick={onClose}>{alreadySent ? 'Close' : 'Cancel'}</Button>
+              {!alreadySent && (
+                <>
+                  <Button type="button" variant="outline" fullWidth loading={edit.isPending} onClick={handleSaveEdit} disabled={!dirty}>Save Draft</Button>
+                  <Button type="button" variant="primary" fullWidth className="gap-1" loading={send.isPending} onClick={handleSend}>
+                    <Send size={14} /> Send Email
+                  </Button>
+                </>
+              )}
+            </div>
+            {alreadySent && <p className="text-xs text-green-600 font-bold text-center">Sent {entity.email_sent_at || entity.sent_at ? new Date(entity.email_sent_at || entity.sent_at).toLocaleString() : ''}</p>}
+          </>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+function RecordDecisionModal({ interview, onClose }: { interview: any; onClose: () => void }) {
+  const toast = useToastContext();
+  const update = useUpdateInterview();
+  const [decision, setDecision] = useState<'PASS' | 'FAIL' | 'HOLD'>('PASS');
+  const [feedback, setFeedback] = useState('');
+
+  const handleSubmit = async () => {
+    try {
+      await update.mutateAsync({ id: interview.id, data: { status: 'COMPLETED', decision, feedback } });
+      toast.success('Decision recorded');
+      onClose();
+    } catch (err: any) { toast.error(err?.data?.message || 'Failed to record decision'); }
+  };
+
+  return (
+    <Modal isOpen onClose={onClose} title={`Record Decision — Round ${interview.round}`}>
+      <div className="flex flex-col gap-4 mt-4">
+        <div className="flex gap-2">
+          {(['PASS', 'FAIL', 'HOLD'] as const).map((d) => (
+            <button key={d} type="button" onClick={() => setDecision(d)}
+              className={cn('flex-1 h-11 rounded-xl border text-xs font-black uppercase', decision === d ? 'bg-primary-600 text-white border-primary-600' : 'border-gray-200 text-gray-500')}>
+              {d}
+            </button>
+          ))}
+        </div>
+        <textarea value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Feedback notes (optional)" rows={3}
+          className="px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none" />
+        <p className="text-xs text-gray-400">
+          {decision === 'PASS' && (interview.round >= 2 ? 'Candidate will move to FINAL SHORTLISTED.' : 'Candidate will move to SHORTLISTED, eligible for Round 2.')}
+          {decision === 'FAIL' && 'Candidate will be REJECTED.'}
+          {decision === 'HOLD' && 'Candidate stays at ROUND COMPLETED — no automatic stage change.'}
+        </p>
+        <div className="flex gap-3 pt-2">
+          <Button type="button" variant="outline" fullWidth onClick={onClose}>Cancel</Button>
+          <Button type="button" variant="primary" fullWidth loading={update.isPending} onClick={handleSubmit}>Save Decision</Button>
+        </div>
+      </div>
     </Modal>
   );
 }

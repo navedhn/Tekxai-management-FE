@@ -7,10 +7,10 @@ import Tabs from '@/components/ui/Tabs';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
-import { ChevronLeft, ChevronRight, Calendar, MoreVertical } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, MoreVertical, Clock, Coffee, Timer, BarChart3 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import RequestTimeOffModal from '@/components/ui/RequestTimeOffModal';
-import { useGetTimeOffRequests, useGetWeeklyTimesheet, useGetRangeTimesheet, useRequestEntryEditMutation, TimesheetEntry } from '@/services/timesheetService';
+import { useGetTimeOffRequests, useGetWeeklyTimesheet, useGetRangeTimesheet, useRequestEntryEditMutation, TimesheetEntry, WeeklyTimesheetData } from '@/services/timesheetService';
 import { useGetMyShiftQuery, useGetMyAttendanceSummary } from '@/services/attendanceService';
 import { CardSkeleton, PageSkeleton, TableSkeleton } from '@/components/skeletons';
 import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
@@ -49,6 +49,16 @@ function fmtRequestDateRange(startIso?: string, endIso?: string) {
   return `${fmtLabel(start)} – ${fmtLabel(end)}`;
 }
 
+// Frontend never computes Productive Hours or any duration itself — this
+// only formats a backend-computed seconds value the same way the backend's
+// own format_duration() does ("Xh Ym"), for the rare spot (e.g. a null
+// safety fallback) where a pre-formatted _label wasn't already provided.
+function fmtHm(totalSeconds: number) {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  return `${h}h ${m}m`;
+}
+
 function fmtWeekRange(start: Date) {
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
@@ -64,6 +74,43 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 const VIEW_TABS = ['Weekly', 'Monthly', 'Custom', 'My Requests'];
+
+// Prototype's four summary cards (Total Duration / Total Break Time /
+// Total Idle Time / Productive Hours) — values always come straight from
+// the backend's canonical totals (WeeklyTimesheetData.total_*_label),
+// never recomputed here.
+const SummaryCards: React.FC<{ data?: WeeklyTimesheetData }> = ({ data }) => (
+  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <Card className="flex items-center gap-3 border-none bg-white p-4 shadow-sm">
+      <div className="flex size-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Clock size={18} /></div>
+      <div className="flex flex-col">
+        <span className="text-xs font-bold text-gray-400">Total Duration</span>
+        <span className="text-lg font-black text-gray-900">{data?.total_duration_label || '0h 0m'}</span>
+      </div>
+    </Card>
+    <Card className="flex items-center gap-3 border-none bg-white p-4 shadow-sm">
+      <div className="flex size-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><Coffee size={18} /></div>
+      <div className="flex flex-col">
+        <span className="text-xs font-bold text-gray-400">Total Break Time</span>
+        <span className="text-lg font-black text-gray-900">{data?.total_break_label ?? '—'}</span>
+      </div>
+    </Card>
+    <Card className="flex items-center gap-3 border-none bg-white p-4 shadow-sm">
+      <div className="flex size-10 items-center justify-center rounded-xl bg-rose-50 text-rose-500"><Timer size={18} /></div>
+      <div className="flex flex-col">
+        <span className="text-xs font-bold text-gray-400">Total Idle Time</span>
+        <span className="text-lg font-black text-gray-900">{data?.total_idle_label ?? '—'}</span>
+      </div>
+    </Card>
+    <Card className="flex items-center gap-3 border-none bg-white p-4 shadow-sm ring-1 ring-emerald-100">
+      <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600"><BarChart3 size={18} /></div>
+      <div className="flex flex-col">
+        <span className="text-xs font-bold text-gray-400">Productive Hours</span>
+        <span className="text-lg font-black text-emerald-600">{data?.total_productive_label ?? '—'}</span>
+      </div>
+    </Card>
+  </div>
+);
 
 const EmployeeTimesheet: React.FC = () => {
   const [activeTab, setActiveTab] = useState('Weekly');
@@ -158,6 +205,36 @@ const EmployeeTimesheet: React.FC = () => {
     },
     { header: 'Duration', key: 'duration_label', render: (item) => <span>{item.duration_label}</span> },
     {
+      header: 'Break Time', key: 'break_seconds',
+      render: (item) => (
+        <span className="text-gray-500">
+          {!item.has_entry ? '—' : item.break_seconds == null ? <span title="No break data recorded for this session">—</span> : fmtHm(item.break_seconds)}
+        </span>
+      ),
+    },
+    {
+      header: 'Idle Time', key: 'idle_seconds',
+      render: (item) => (
+        <span className="text-gray-500">
+          {!item.has_entry ? '—' : item.idle_seconds == null ? <span title="No idle data recorded for this session">—</span> : fmtHm(item.idle_seconds)}
+        </span>
+      ),
+    },
+    {
+      header: 'Productive Hours', key: 'productive_seconds',
+      // Primary working-time metric — visually emphasized per the design
+      // reference (bold + accent color), computed by the backend as
+      // Total Duration − Break Time − Idle Time (attendance-calculation
+      // .service.js). An open/current-day row's value is LIVE — it moves
+      // every time this is refetched, never a fabricated "final" total.
+      render: (item) => (
+        <span className={cn('font-black', item.has_entry ? 'text-emerald-600' : 'text-gray-300')}>
+          {!item.has_entry ? '—' : (item.productive_label ?? (item.productive_seconds != null ? fmtHm(item.productive_seconds) : '—'))}
+          {item.is_open && item.has_entry && <span className="ml-1 text-[10px] font-bold text-gray-400 align-middle">(live)</span>}
+        </span>
+      ),
+    },
+    {
       header: 'Status', key: 'status',
       render: (item) => {
         if (!item.has_entry && !item.status) return null;
@@ -250,6 +327,8 @@ const EmployeeTimesheet: React.FC = () => {
       <Tabs options={VIEW_TABS} value={activeTab} onChange={setActiveTab} />
 
       {activeTab === 'Weekly' && (
+        <div className="flex flex-col gap-4">
+          <SummaryCards data={weeklyTimesheet} />
         <Card className="flex flex-col gap-4 shadow-xl border-none p-0 overflow-hidden bg-white">
           <div className="flex items-center justify-between px-4 pt-4">
             <h2 className="text-xl font-black text-gray-900">{fmtWeekRange(weekAnchor)}</h2>
@@ -282,6 +361,7 @@ const EmployeeTimesheet: React.FC = () => {
               className="border-none shadow-none" headerClassName="bg-[#F0F5FF]/50 border-none rounded-xl" />
           </div>
         </Card>
+        </div>
       )}
 
       {activeTab === 'Monthly' && (
@@ -315,6 +395,8 @@ const EmployeeTimesheet: React.FC = () => {
       )}
 
       {activeTab === 'Custom' && (
+        <div className="flex flex-col gap-4">
+        <SummaryCards data={rangeTimesheet} />
         <Card className="flex flex-col gap-4 shadow-xl border-none p-0 overflow-hidden bg-white">
           <div className="flex flex-wrap items-end gap-3 px-4 pt-4">
             <div className="flex flex-col gap-1">
@@ -341,6 +423,7 @@ const EmployeeTimesheet: React.FC = () => {
               className="border-none shadow-none" headerClassName="bg-[#F0F5FF]/50 border-none rounded-xl" />
           </div>
         </Card>
+        </div>
       )}
 
       {activeTab === 'My Requests' && (
@@ -411,6 +494,24 @@ const EmployeeTimesheet: React.FC = () => {
             )}
           </div>
         </div>
+      )}
+
+      {isTimesheetTab && (
+        <Card className="flex flex-col gap-2 border-none bg-blue-50/60 p-4 shadow-none">
+          <p className="text-xs font-black text-blue-700">Column Guide</p>
+          <p className="text-xs font-bold text-blue-700">
+            Productive Hours = Total Duration − Break Time − Idle Time
+          </p>
+          <p className="text-xs text-blue-600/80">
+            Idle time is automatically tracked based on system activity. Break time is recorded when you manually start a break.
+          </p>
+          <div className="mt-1 flex flex-wrap gap-x-6 gap-y-1">
+            <span className="flex items-center gap-1.5 text-xs text-gray-600"><span className="size-2 rounded-full bg-blue-500" />Total Duration <span className="text-gray-400">— time between check in and check out</span></span>
+            <span className="flex items-center gap-1.5 text-xs text-gray-600"><span className="size-2 rounded-full bg-amber-500" />Break Time <span className="text-gray-400">— time spent on manual breaks</span></span>
+            <span className="flex items-center gap-1.5 text-xs text-gray-600"><span className="size-2 rounded-full bg-rose-500" />Idle Time <span className="text-gray-400">— time with no activity detected</span></span>
+            <span className="flex items-center gap-1.5 text-xs text-gray-600"><span className="size-2 rounded-full bg-emerald-500" />Productive Hours <span className="text-gray-400">— actual working time (excludes break and idle)</span></span>
+          </div>
+        </Card>
       )}
     </div>
   );

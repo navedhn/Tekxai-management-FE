@@ -23,3 +23,18 @@ export const useCompleteOffboardingTask = (userId?: string) => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['offboarding-tasks', userId] }),
   });
 };
+
+export const useSetOffboardingTaskStatus = (userId?: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status, notes, blocked_reason }: { id: string; status: string; notes?: string; blocked_reason?: string }) =>
+      apiRequest(API_ENDPOINTS.OFFBOARDING.SET_TASK_STATUS(id), { method: 'PATCH', body: JSON.stringify({ status, notes, blocked_reason }) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['offboarding-tasks', userId] }); qc.invalidateQueries({ queryKey: ['exit-detail', userId] }); },
+  });
+};
+
+export const useGetExitDetail = (userId?: string) => useQuery({
+  queryKey: ['exit-detail', userId],
+  queryFn: async () => { const r = await apiRequest<any>(API_ENDPOINTS.OFFBOARDING.EXIT_DETAIL(userId as string)); return r?.payload; },
+  enabled: !!userId,
+});

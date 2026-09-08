@@ -84,6 +84,13 @@ const invalidateUserAndDependents = (queryClient: ReturnType<typeof useQueryClie
 
   queryClient.invalidateQueries({ queryKey: userId ? ['employee-full', userId] : ['employee-full'] });
   queryClient.invalidateQueries({ queryKey: userId ? ['hr-profile', userId] : ['hr-profile'] });
+
+  // Offboarding page (/admin/offboarding) reads per-stage employee lists under
+  // this key (['employees','lifecycle-stage',stage]); any mutation that can
+  // move a user's lifecycle_stage must invalidate it so the stage lists
+  // (e.g. Notice Period) refresh immediately instead of requiring a manual
+  // page reload.
+  queryClient.invalidateQueries({ queryKey: ['employees', 'lifecycle-stage'] });
 };
 
 export const useCreateUserMutation = () => {
@@ -212,10 +219,10 @@ export const useMoveToProbationMutation = () => {
 export const useEnterNoticePeriodMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ userId, notice_period_days }: { userId: string; notice_period_days?: number }) =>
+    mutationFn: ({ userId, notice_period_days, exit_type, exit_reason, last_working_date }: { userId: string; notice_period_days?: number; exit_type?: 'RESIGNATION' | 'TERMINATION'; exit_reason?: string; last_working_date?: string }) =>
       apiRequest(API_ENDPOINTS.EMPLOYEE_LIFECYCLE.ENTER_NOTICE_PERIOD(userId), {
         method: 'POST',
-        body: JSON.stringify(notice_period_days ? { notice_period_days } : {}),
+        body: JSON.stringify({ ...(notice_period_days ? { notice_period_days } : {}), ...(exit_type ? { exit_type } : {}), ...(exit_reason ? { exit_reason } : {}), ...(last_working_date ? { last_working_date } : {}) }),
       }),
     onSuccess: (_data, variables) => invalidateUserAndDependents(queryClient, String(variables.userId)),
   });
@@ -266,10 +273,10 @@ export const useRequestExtendProbationMutation = () => {
 export const useRequestTerminateProbationMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ userId, reason }: { userId: string; reason?: string }) =>
+    mutationFn: ({ userId, reason, last_working_date }: { userId: string; reason?: string; last_working_date?: string }) =>
       apiRequest(API_ENDPOINTS.EMPLOYEE_LIFECYCLE.REQUEST_TERMINATE_PROBATION(userId), {
         method: 'POST',
-        body: JSON.stringify(reason ? { reason } : {}),
+        body: JSON.stringify({ ...(reason ? { reason } : {}), ...(last_working_date ? { last_working_date } : {}) }),
       }),
     onSuccess: (_data, variables) => invalidateUserAndDependents(queryClient, String(variables.userId)),
   });

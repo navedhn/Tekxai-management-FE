@@ -683,12 +683,17 @@ export const API_ENDPOINTS = {
     CREATE:             `${v1}/interviews`,
     UPDATE:             (id: string) => `${v1}/interviews/${id}`,
     DELETE:             (id: string) => `${v1}/interviews/${id}`,
+    EMAIL_GENERATE:     (id: string) => `${v1}/interviews/${id}/email/generate`,
+    EMAIL_EDIT:         (id: string) => `${v1}/interviews/${id}/email`,
+    EMAIL_SEND:         (id: string) => `${v1}/interviews/${id}/email/send`,
   },
 
   OFFBOARDING: {
     TASKS:           (userId: string) => `${v1}/offboarding/tasks/${userId}`,
     CREATE_TASK:     `${v1}/offboarding/tasks`,
     COMPLETE_TASK:   (id: string) => `${v1}/offboarding/tasks/${id}/complete`,
+    SET_TASK_STATUS: (id: string) => `${v1}/offboarding/tasks/${id}/status`,
+    EXIT_DETAIL:     (userId: string) => `${v1}/offboarding/exit/${userId}`,
   },
   JOB_REQUISITIONS: {
     LIST:        `${v1}/job-requisitions`,

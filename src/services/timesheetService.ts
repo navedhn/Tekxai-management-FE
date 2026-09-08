@@ -21,6 +21,18 @@ export interface TimesheetEntry {
   status: string | null;
   status_label: string | null;
   no_entry_text: string;
+  is_open?: boolean;
+
+  // Canonical attendance-calculation fields (attendance-calculation
+  // .service.js on the backend — the ONE place these are computed).
+  // break/idle are `null`, not 0, for entries that predate real idle/break
+  // period tracking (activity_tracking_enabled: false) — never fabricate
+  // historical values as zero.
+  break_seconds?: number | null;
+  idle_seconds?: number | null;
+  productive_seconds?: number | null;
+  productive_label?: string | null;
+  detected_overtime_seconds?: number | null;
 
   employee?: string;
 }
@@ -40,6 +52,14 @@ export interface WeeklyTimesheetData {
   week_label: string;
   total_duration_seconds: number;
   total_duration_label: string;
+  // Same canonical totals the per-row values are summed from — never
+  // recompute these on the frontend.
+  total_break_seconds?: number | null;
+  total_break_label?: string | null;
+  total_idle_seconds?: number | null;
+  total_idle_label?: string | null;
+  total_productive_seconds?: number | null;
+  total_productive_label?: string | null;
   rows: TimesheetEntry[];
 }
 
