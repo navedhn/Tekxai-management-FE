@@ -1,10 +1,6 @@
 import { QueryClient } from '@tanstack/react-query';
 import { getAccessToken } from '@/utils/tokenMemory';
-import {
-  getRefreshedAccessToken,
-  isRefreshEndpoint,
-  logoutSession,
-} from '@/lib/authSession';
+import { isRefreshEndpoint, logoutSession, refreshSession } from '@/lib/authSession';
 import { BASE_URL } from '@/lib/apiConfig';
 
 export { BASE_URL };
@@ -27,14 +23,17 @@ async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Re
   let response = await fetch(url, config);
 
   if (response.status === 401 && !isRefreshEndpoint(url)) {
-    const newAccessToken = await getRefreshedAccessToken();
+    const outcome = await refreshSession();
 
-    if (newAccessToken) {
-      headers.set('authorization', `Bearer ${newAccessToken}`);
+    if (outcome.status === 'refreshed') {
+      headers.set('authorization', `Bearer ${outcome.accessToken}`);
       response = await fetch(url, { ...config, headers });
-    } else {
+    } else if (outcome.status === 'expired') {
+      // Refresh session genuinely dead/revoked, or user disabled.
       logoutSession();
     }
+    // 'transient': network/5xx/429 while refreshing — leave the session
+    // intact and let the caller see the original 401 as a normal failure.
   }
 
   return response;

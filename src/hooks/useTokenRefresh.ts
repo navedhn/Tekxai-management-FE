@@ -5,9 +5,12 @@ import {
   getRefreshToken,
   parseJwtExpiryMs,
 } from '@/utils/tokenMemory';
-import { getRefreshedAccessToken, logoutSession } from '@/lib/authSession';
+import { logoutSession, refreshSession } from '@/lib/authSession';
 
 const REFRESH_BEFORE_EXPIRY_MS = 60_000;
+// After a transient failure (offline, 5xx) the proactive refresh must not
+// log the user out — it just tries again shortly.
+const TRANSIENT_RETRY_MS = 30_000;
 
 export const useTokenRefresh = () => {
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
@@ -37,9 +40,14 @@ export const useTokenRefresh = () => {
       const refreshIn = expiresAt - Date.now() - REFRESH_BEFORE_EXPIRY_MS;
 
       const runRefresh = async () => {
-        const newToken = await getRefreshedAccessToken();
-        if (!newToken) {
+        const outcome = await refreshSession();
+        if (outcome.status === 'expired') {
           logoutSession();
+          return;
+        }
+        if (outcome.status === 'transient') {
+          // Keep the user logged in; try again soon.
+          timerRef.current = setTimeout(() => void runRefresh(), TRANSIENT_RETRY_MS);
           return;
         }
         scheduleRefresh();
