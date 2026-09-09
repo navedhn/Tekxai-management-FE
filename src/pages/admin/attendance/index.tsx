@@ -211,7 +211,20 @@ const AttendancePage: React.FC = () => {
   const { data: violationsData, isLoading: vLoading } = useGetViolationsQuery(violationFilters);
   const { data: lateData, isLoading: lateLoading } = useGetViolationsQuery({ violation_type: 'LATE', ...lateDateRange });
 
-  const { data: lateTodayData } = useGetViolationsQuery({ violation_type: 'LATE', ...getTodayRange() });
+  // Same Business Unit -> Department -> Team -> Employee selection as the
+  // No-Check-In tab (single source of org-filter state for this page) —
+  // find_violations() already supports these fields identically to
+  // build_active_roster_where, so "Late Today" and "Present Today" below
+  // represent the same employee population as the No-Check-In tab's
+  // Total Employees/Checked In cards, not a separate unscoped count.
+  const { data: lateTodayData } = useGetViolationsQuery({
+    violation_type: 'LATE',
+    ...getTodayRange(),
+    business_unit_id: noCheckinBuFilter,
+    department_id: noCheckinDeptFilter,
+    team_id: noCheckinTeamFilter,
+    user_id: noCheckinEmployeeFilter,
+  });
   const { data: shifts = [], isLoading: sLoading } = useGetShiftsQuery();
   const { data: employeeDirectory } = useGetEmployeeDirectory({ limit: 100 });
   const users = employeeDirectory?.records || [];
