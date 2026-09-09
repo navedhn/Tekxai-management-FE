@@ -49,7 +49,67 @@ export interface NoCheckinFilters {
   business_unit_id?: string;
   designation_id?: string;
   status?: string;
+  employee_id?: string;
 }
+
+// Org-hierarchy filter cleanup (Attendance dashboard) — Business Unit ->
+// Department -> Team -> Employee, same filter shape as NoCheckinFilters
+// (minus date/designation/status, which the summary block doesn't need)
+// so a single filter-state object on the page can drive both this and the
+// No-Check-In list without duplicating shape.
+export interface OrgFilters {
+  business_unit_id?: string;
+  department_id?: string;
+  team_id?: string;
+  employee_id?: string;
+}
+
+export interface OrgAttendanceSummary {
+  date: string;
+  total_employees: number;
+  checked_in: number;
+  not_checked_in: number;
+  on_leave: number;
+  late: number;
+}
+
+export const useGetOrgAttendanceSummaryQuery = (filters?: OrgFilters & { date?: string }) =>
+  useQuery({
+    queryKey: ['attendance-org-summary', filters],
+    queryFn: async () => {
+      const qs = filters ? '?' + new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([, v]) => v != null && v !== '')) as any).toString() : '';
+      const r = await apiRequest<any>(`${v1}/attendance/org-summary${qs}`);
+      return (r?.payload || { total_employees: 0, checked_in: 0, not_checked_in: 0, on_leave: 0, late: 0 }) as OrgAttendanceSummary;
+    },
+    staleTime: 30000,
+  });
+
+export interface OrgFilterOption {
+  id: string;
+  name: string;
+}
+
+export interface OrgFilterOptions {
+  business_units: OrgFilterOption[];
+  departments: (OrgFilterOption & { business_unit_id: string | null })[];
+  teams: (OrgFilterOption & { department_id: string | null })[];
+  employees: (OrgFilterOption & { employee_id: string | null })[];
+}
+
+// Dependent options for the same hierarchy — refetches whenever a parent
+// filter changes (business_unit_id/department_id/team_id are part of the
+// query key), so switching a parent always gets fresh, correctly-scoped
+// child options rather than stale ones from the previous selection.
+export const useGetOrgFilterOptionsQuery = (parents?: Pick<OrgFilters, 'business_unit_id' | 'department_id' | 'team_id'>) =>
+  useQuery({
+    queryKey: ['attendance-org-filter-options', parents],
+    queryFn: async () => {
+      const qs = parents ? '?' + new URLSearchParams(Object.fromEntries(Object.entries(parents).filter(([, v]) => v != null && v !== '')) as any).toString() : '';
+      const r = await apiRequest<any>(`${v1}/attendance/org-filter-options${qs}`);
+      return (r?.payload || { business_units: [], departments: [], teams: [], employees: [] }) as OrgFilterOptions;
+    },
+    staleTime: 30000,
+  });
 
 export const useGetNoCheckinsQuery = (filters?: NoCheckinFilters) =>
   useQuery({
