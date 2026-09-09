@@ -30,7 +30,16 @@ export const useLazyGetDashboardStatsQuery = () => {
 
 export const useGetTeamsQuery = (params?: Record<string, any>, enabled: boolean = true) => {
   return useQuery({
-    queryKey: [QUERY_KEYS.TEAM.LIST, params],
+    // Spread, not nested — matches every other list query's convention
+    // (see userService/projectService/ticketService, etc.) and is what
+    // lets invalidateQueries({ queryKey: QUERY_KEYS.TEAM.LIST }) below
+    // actually prefix-match this query. Nesting QUERY_KEYS.TEAM.LIST as a
+    // single array element instead produced a structurally different key
+    // (`[['team','list'], params]` vs the invalidation target
+    // `['team','list']`), so create/update/delete never matched this
+    // query and the list silently went stale until a manual reload — the
+    // exact reported bug.
+    queryKey: [...QUERY_KEYS.TEAM.LIST, params],
     queryFn: () => {
       const filteredParams = params
         ? Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined && v !== null && v !== ''))
