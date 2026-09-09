@@ -25,6 +25,7 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { CardSkeleton, PageSkeleton } from '@/components/skeletons';
 import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
+import { useGetOrgFilterOptionsQuery } from '@/services/attendanceService';
 
 const TimesheetManagement: React.FC = () => {
     const toast = useToastContext();
@@ -33,6 +34,39 @@ const TimesheetManagement: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
     const debouncedSearch = useDebounce(searchQuery, 500);
+    // Business Unit -> Department -> Team -> Employee — same org-filter
+    // shape/hooks as the Attendance dashboard's No-Check-In tab (reused,
+    // not a second implementation). Each option list is backend-scoped to
+    // whichever parent(s) are already selected; a parent change clears
+    // any now-invalid child selection.
+    const [buFilter, setBuFilter] = useState('');
+    const [deptFilter, setDeptFilter] = useState('');
+    const [teamFilter, setTeamFilter] = useState('');
+    const [employeeFilter, setEmployeeFilter] = useState('');
+    const setBuFilterAndClearChildren = (value: string) => {
+        setBuFilter(value);
+        setDeptFilter('');
+        setTeamFilter('');
+        setEmployeeFilter('');
+    };
+    const setDeptFilterAndClearChildren = (value: string) => {
+        setDeptFilter(value);
+        setTeamFilter('');
+        setEmployeeFilter('');
+    };
+    const setTeamFilterAndClearChildren = (value: string) => {
+        setTeamFilter(value);
+        setEmployeeFilter('');
+    };
+    const { data: orgFilterOptions } = useGetOrgFilterOptionsQuery({
+        business_unit_id: buFilter,
+        department_id: deptFilter,
+        team_id: teamFilter,
+    });
+    const orgBusinessUnits = orgFilterOptions?.business_units || [];
+    const orgDepartments = orgFilterOptions?.departments || [];
+    const orgTeams = orgFilterOptions?.teams || [];
+    const orgEmployees = orgFilterOptions?.employees || [];
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isRequestEditModalOpen, setIsRequestEditModalOpen] = useState(false);
@@ -40,7 +74,14 @@ const TimesheetManagement: React.FC = () => {
     const [selectedRequest, setSelectedRequest] = useState<EditRequest | null>(null);
     const [editForm, setEditForm] = useState({ checkIn: '20/03/2023', checkOut: '20/03/2024', reason: '' });
 
-    const { data: timesheet, isLoading: isTimesheetLoading } = useGetWeeklyTimesheet({ search: debouncedSearch, status: statusFilter === 'ALL' ? undefined : statusFilter }, activeTab === 'All Entries');
+    const { data: timesheet, isLoading: isTimesheetLoading } = useGetWeeklyTimesheet({
+        search: debouncedSearch,
+        status: statusFilter === 'ALL' ? undefined : statusFilter,
+        business_unit_id: buFilter,
+        department_id: deptFilter,
+        team_id: teamFilter,
+        employee_id: employeeFilter,
+    }, activeTab === 'All Entries');
     const { data: requestData, isLoading: isRequestsLoading } = useGetTimesheetRequests(activeTab === 'Edit Requests' || activeTab === 'Time Off Requests');
 
     const editRequests = requestData?.timesheet_edit_requests || [];
@@ -207,6 +248,34 @@ const TimesheetManagement: React.FC = () => {
                                         value={statusFilter}
                                         onChange={(val) => setStatusFilter(val as string)}
                                         className="h-10 !rounded-xl text-xs font-black min-w-[140px]"
+                                    />
+                                    <SearchableSelect
+                                        options={orgBusinessUnits.map((b) => ({ label: b.name, value: b.id }))}
+                                        value={buFilter || null}
+                                        onChange={(v) => setBuFilterAndClearChildren((v as string) ?? '')}
+                                        placeholder="All Business Units"
+                                        className="h-10 !rounded-xl text-xs font-black min-w-[160px]"
+                                    />
+                                    <SearchableSelect
+                                        options={orgDepartments.map((d) => ({ label: d.name, value: d.id }))}
+                                        value={deptFilter || null}
+                                        onChange={(v) => setDeptFilterAndClearChildren((v as string) ?? '')}
+                                        placeholder="All Departments"
+                                        className="h-10 !rounded-xl text-xs font-black min-w-[150px]"
+                                    />
+                                    <SearchableSelect
+                                        options={orgTeams.map((t) => ({ label: t.name, value: t.id }))}
+                                        value={teamFilter || null}
+                                        onChange={(v) => setTeamFilterAndClearChildren((v as string) ?? '')}
+                                        placeholder="All Teams"
+                                        className="h-10 !rounded-xl text-xs font-black min-w-[150px]"
+                                    />
+                                    <SearchableSelect
+                                        options={orgEmployees.map((e) => ({ label: e.name, value: e.id }))}
+                                        value={employeeFilter || null}
+                                        onChange={(v) => setEmployeeFilter((v as string) ?? '')}
+                                        placeholder="All Employees"
+                                        className="h-10 !rounded-xl text-xs font-black min-w-[160px]"
                                     />
                                 </div>
                             )}
