@@ -259,18 +259,26 @@ const CreateMilestoneModal: React.FC<CreateMilestoneModalProps> = ({ isOpen, onC
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <Input
-            label={`Price (${currency})`}
-            name="price"
-            type="number"
+          <div className="flex flex-col gap-1">
+            <Input
+              label={`Price (${currency})`}
+              name="price"
+              type="number"
 
-            step="0.01"
-            value={formData.price}
-            onChange={handleInputChange}
-            error={errors.price}
-            placeholder="0.00"
-            className="h-12 rounded-xl"
-          />
+              step="0.01"
+              value={formData.price}
+              onChange={handleInputChange}
+              error={errors.price}
+              placeholder="0.00"
+              className="h-12 rounded-xl"
+              disabled={isEdit && milestone?.payment_status === 'PAID'}
+            />
+            {isEdit && milestone?.payment_status === 'PAID' && (
+              <p className="text-[11px] text-gray-400 font-medium ml-1">
+                Price is locked once a milestone is marked Paid.
+              </p>
+            )}
+          </div>
           <div className="flex flex-col gap-1">
             <SearchableSelect
               label="Payment Status"

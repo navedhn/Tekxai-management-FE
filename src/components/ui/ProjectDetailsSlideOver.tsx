@@ -681,8 +681,16 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                                     Archive
                                   </button>
                                   <button
-                                    onClick={() => setMilestoneToDelete({ id: milestone.id, title: milestone.title })}
-                                    className="flex items-center gap-2 text-red-500 font-black hover:bg-red-50 px-3 py-2 rounded-xl transition-all text-xs uppercase tracking-widest"
+                                    disabled={milestone.payment_status === 'PAID'}
+                                    title={milestone.payment_status === 'PAID' ? 'Paid milestones cannot be deleted — use Archive instead' : undefined}
+                                    onClick={() => {
+                                      if (milestone.payment_status === 'PAID') {
+                                        toast.error('Paid milestones cannot be deleted — use Archive instead.');
+                                        return;
+                                      }
+                                      setMilestoneToDelete({ id: milestone.id, title: milestone.title });
+                                    }}
+                                    className="flex items-center gap-2 text-red-500 font-black hover:bg-red-50 px-3 py-2 rounded-xl transition-all text-xs uppercase tracking-widest disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
                                   >
                                     Delete
                                   </button>
