@@ -11,6 +11,8 @@ import {
   useProjectsReportSummary, useProjectsReportRecipients, useProjectsReportEmailPreview, useSendProjectsReportEmail,
 } from '@/services/reportService';
 import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
+import { useFetchUsersQuery } from '@/services/userService';
+import { useClientsLookupQuery } from '@/services/projectService';
 import { PROJECT_STATUS_OPTIONS } from '@/utils/projectStatus';
 
 const HEALTH_OPTIONS = [
@@ -28,9 +30,20 @@ const PRIORITY_OPTIONS = [
   { label: 'Critical', value: 'CRITICAL' },
 ];
 
-function money(n: number | null | undefined) {
+function money(n: number | null | undefined, currency: string = 'PKR') {
   if (n == null) return 'N/A';
-  return `PKR ${Number(n).toLocaleString()}`;
+  return `${currency} ${Number(n).toLocaleString()}`;
+}
+// Backend financial aggregates are grouped by currency ({ PKR: 1234, CAD:
+// 500 }) rather than a single mixed-currency scalar — a project's own
+// budget_currency is a real, meaningful distinction (e.g. Lend It CA is
+// CAD), and summing across currencies into one PKR-labelled number would
+// silently misstate every multi-currency report. Render one line per
+// currency present rather than picking/hiding one.
+function moneyByCurrency(byCurrency: Record<string, number> | null | undefined) {
+  const entries = Object.entries(byCurrency || {});
+  if (entries.length === 0) return money(0);
+  return entries.map(([currency, amount]) => money(amount, currency)).join(' · ');
 }
 function fmtDate(d: string | null | undefined) {
   if (!d) return '—';
@@ -104,6 +117,14 @@ const AdminProjectsReport: React.FC = () => {
   const [filters, setFilters] = useState({ from: '', to: '', business_unit_id: '', project_manager_id: '', client_id: '', status: '', health_status: '', priority: '' });
   const [drillDown, setDrillDown] = useState<{ title: string; columns: any[]; rows: any[] } | null>(null);
   const [showSendModal, setShowSendModal] = useState(false);
+  // PM/Client filters used to take a raw id typed by hand (nobody knows a
+  // user cuid or client-account id off the top of their head) — now backed
+  // by the same lookup services CreateProjectSlideOver already uses, so the
+  // filter is name-searchable and still submits the real id underneath.
+  const [pmSearch, setPmSearch] = useState('');
+  const [clientSearch, setClientSearch] = useState('');
+  const { data: pmResults = [], isFetching: pmLoading } = useFetchUsersQuery({ search: pmSearch }, true);
+  const { data: clientResults = [], isFetching: clientLoading } = useClientsLookupQuery(clientSearch, true);
 
   const params = useMemo(() => {
     const p: Record<string, string> = {};
@@ -151,8 +172,32 @@ const AdminProjectsReport: React.FC = () => {
         <div className="w-48">
           <SearchableSelect label="Business Unit" options={[{ label: 'All Business Units', value: '' }, ...businessUnits.map((b: any) => ({ label: b.name, value: b.id }))]} value={filters.business_unit_id} onChange={(v) => set('business_unit_id', String(v))} />
         </div>
-        <div className="w-48"><Input label="Project Manager (ID)" value={filters.project_manager_id} onChange={(e) => set('project_manager_id', e.target.value)} placeholder="owner user id" className="h-11 rounded-xl" /></div>
-        <div className="w-48"><Input label="Client (ID)" value={filters.client_id} onChange={(e) => set('client_id', e.target.value)} placeholder="client account id" className="h-11 rounded-xl" /></div>
+        <div className="w-56">
+          <SearchableSelect
+            label="Project Manager"
+            options={pmResults.map((u: any) => ({ label: `${u.first_name} ${u.last_name}`.trim(), value: u.id }))}
+            value={filters.project_manager_id}
+            onChange={(v) => set('project_manager_id', v ? String(v) : '')}
+            onSearch={setPmSearch}
+            loading={pmLoading}
+            placeholder="All Project Managers"
+            searchPlaceholder="Search by name..."
+            clearable
+          />
+        </div>
+        <div className="w-56">
+          <SearchableSelect
+            label="Client"
+            options={clientResults.map((c: any) => ({ label: c.company || c.name, value: c.id }))}
+            value={filters.client_id}
+            onChange={(v) => set('client_id', v ? String(v) : '')}
+            onSearch={setClientSearch}
+            loading={clientLoading}
+            placeholder="All Clients"
+            searchPlaceholder="Search by name..."
+            clearable
+          />
+        </div>
         <div className="w-40"><SearchableSelect label="Status" options={[{ label: 'All Statuses', value: '' }, ...PROJECT_STATUS_OPTIONS.map((o) => ({ label: o.label, value: o.value }))]} value={filters.status} onChange={(v) => set('status', String(v))} /></div>
         <div className="w-40"><SearchableSelect label="Health" options={HEALTH_OPTIONS} value={filters.health_status} onChange={(v) => set('health_status', String(v))} /></div>
         <div className="w-40"><SearchableSelect label="Priority" options={PRIORITY_OPTIONS} value={filters.priority} onChange={(v) => set('priority', String(v))} /></div>
@@ -183,19 +228,19 @@ const AdminProjectsReport: React.FC = () => {
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
               <Tile label="Milestones Due" value={report.milestones.milestones_due}
                 onClick={() => openDrill('Milestones Due', [{ key: 'title', label: 'Milestone' }, { key: 'project', label: 'Project' }, { key: 'due_date', label: 'Due Date' }, { key: 'price', label: 'Value', align: 'right' }],
-                  report.milestones.records.due.map((m: any) => ({ title: m.title, project: m.project.title, due_date: fmtDate(m.due_date), price: money(m.price) })))} />
-              <Tile label="Value Due" value={money(report.milestones.value_due)} />
+                  report.milestones.records.due.map((m: any) => ({ title: m.title, project: m.project.title, due_date: fmtDate(m.due_date), price: money(m.price, m.currency) })))} />
+              <Tile label="Value Due" value={moneyByCurrency(report.milestones.value_due)} />
               <Tile label="Delivered" value={report.milestones.delivered}
                 onClick={() => openDrill('Delivered Milestones', [{ key: 'title', label: 'Milestone' }, { key: 'project', label: 'Project' }, { key: 'completed_date', label: 'Completed' }],
                   report.milestones.records.delivered.map((m: any) => ({ title: m.title, project: m.project.title, completed_date: fmtDate(m.completed_date) })))} />
               <Tile label="Client Accepted" value={<NA />} />
               <Tile label="Released" value={<NA />} />
-              <Tile label="Collected" value={money(report.milestones.collected)}
+              <Tile label="Collected" value={moneyByCurrency(report.milestones.collected)}
                 onClick={() => openDrill('Collected', [{ key: 'title', label: 'Milestone' }, { key: 'project', label: 'Project' }, { key: 'price', label: 'Value', align: 'right' }],
-                  report.milestones.records.collected.map((m: any) => ({ title: m.title, project: m.project.title, price: money(m.price) })))} />
-              <Tile label="Pending Value" value={money(report.milestones.pending_value)}
+                  report.milestones.records.collected.map((m: any) => ({ title: m.title, project: m.project.title, price: money(m.price, m.currency) })))} />
+              <Tile label="Pending Value" value={moneyByCurrency(report.milestones.pending_value)}
                 onClick={() => openDrill('Pending Value', [{ key: 'title', label: 'Milestone' }, { key: 'project', label: 'Project' }, { key: 'due_date', label: 'Due Date' }, { key: 'price', label: 'Value', align: 'right' }],
-                  report.milestones.records.pending_value.map((m: any) => ({ title: m.title, project: m.project.title, due_date: fmtDate(m.due_date), price: money(m.price) })))} />
+                  report.milestones.records.pending_value.map((m: any) => ({ title: m.title, project: m.project.title, due_date: fmtDate(m.due_date), price: money(m.price, m.currency) })))} />
               <Tile label="Next Expected" value={report.milestones.next_expected ? `${fmtDate(report.milestones.next_expected.date)}` : '—'} />
             </div>
           </SectionCard>
@@ -251,12 +296,12 @@ const AdminProjectsReport: React.FC = () => {
           {/* 6. Financial & Scope Exceptions */}
           <SectionCard title="Financial &amp; Scope Exceptions">
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-2">
-              <Tile label="Expected Value" value={money(report.financial_exceptions.expected_value)} />
-              <Tile label="Collected" value={money(report.financial_exceptions.collected)} tone="success" />
-              <Tile label="Pending" value={money(report.financial_exceptions.pending)} />
-              <Tile label="Overdue" value={money(report.financial_exceptions.overdue)} tone="danger"
+              <Tile label="Expected Value" value={moneyByCurrency(report.financial_exceptions.expected_value)} />
+              <Tile label="Collected" value={moneyByCurrency(report.financial_exceptions.collected)} tone="success" />
+              <Tile label="Pending" value={moneyByCurrency(report.financial_exceptions.pending)} />
+              <Tile label="Overdue" value={moneyByCurrency(report.financial_exceptions.overdue)} tone="danger"
                 onClick={() => openDrill('Overdue Collections', [{ key: 'title', label: 'Milestone' }, { key: 'project', label: 'Project' }, { key: 'due_date', label: 'Due Date' }, { key: 'price', label: 'Value', align: 'right' }],
-                  report.financial_exceptions.records.overdue.map((m: any) => ({ title: m.title, project: m.project.title, due_date: fmtDate(m.due_date), price: money(m.price) })))} />
+                  report.financial_exceptions.records.overdue.map((m: any) => ({ title: m.title, project: m.project.title, due_date: fmtDate(m.due_date), price: money(m.price, m.currency) })))} />
               <Tile label="Scope Exceptions" value={report.financial_exceptions.scope_exceptions_count}
                 onClick={() => openDrill('Scope Exceptions', [{ key: 'title', label: 'Milestone' }, { key: 'project', label: 'Project' }, { key: 'detail', label: 'Detail' }],
                   report.financial_exceptions.records.scope_exceptions.map((m: any) => ({ title: m.title, project: m.project.title, detail: m.missed_reason_detail || '—' })))} />
