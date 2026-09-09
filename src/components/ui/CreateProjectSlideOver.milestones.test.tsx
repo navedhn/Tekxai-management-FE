@@ -140,6 +140,27 @@ describe('CreateProjectSlideOver — Milestones section', () => {
     );
   });
 
+  it('delete is disabled for a PAID milestone — never opens the confirmation, never calls the API', async () => {
+    renderEditForm();
+    await waitFor(() => expect(screen.getByText('Delivery Phase')).toBeInTheDocument());
+    const paidDeleteButton = screen.getByLabelText('Delete Delivery Phase') as HTMLButtonElement;
+    expect(paidDeleteButton.disabled).toBe(true);
+
+    fireEvent.click(paidDeleteButton);
+    expect(screen.queryByText('Delete Milestone')).not.toBeInTheDocument();
+    expect(mockedApiRequest).not.toHaveBeenCalledWith(
+      expect.stringContaining('ms-2'),
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it('delete remains enabled and functional for a non-PAID milestone', async () => {
+    renderEditForm();
+    await waitFor(() => expect(screen.getByText('Discovery Phase')).toBeInTheDocument());
+    const unpaidDeleteButton = screen.getByLabelText('Delete Discovery Phase') as HTMLButtonElement;
+    expect(unpaidDeleteButton.disabled).toBe(false);
+  });
+
   it('reordering does not offer moving the first milestone up or the last one down', async () => {
     renderEditForm();
     await waitFor(() => expect(screen.getByText('Discovery Phase')).toBeInTheDocument());

@@ -902,8 +902,16 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
                             <IconButton
                               icon={Trash2}
                               aria-label={`Delete ${milestone.title}`}
-                              onClick={() => setMilestoneToDelete({ id: milestone.id, title: milestone.title })}
-                              className="text-gray-400 hover:text-red-500"
+                              disabled={milestone.payment_status === 'PAID'}
+                              title={milestone.payment_status === 'PAID' ? 'Paid milestones cannot be deleted — archive it instead from Project Detail' : undefined}
+                              onClick={() => {
+                                if (milestone.payment_status === 'PAID') {
+                                  toast.error('Paid milestones cannot be deleted — archive it instead from Project Detail.');
+                                  return;
+                                }
+                                setMilestoneToDelete({ id: milestone.id, title: milestone.title });
+                              }}
+                              className="text-gray-400 hover:text-red-500 disabled:hover:text-gray-400"
                             />
                           </div>
                         </div>
