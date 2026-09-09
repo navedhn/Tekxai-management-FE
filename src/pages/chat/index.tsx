@@ -1411,7 +1411,11 @@ function ChannelSection({
               <div className="flex items-center gap-1">
                 <p className={cn('text-xs truncate flex-1', hasUnread ? 'text-gray-700 font-semibold' : 'text-gray-400')}>
                   {lastMsg
-                    ? `${lastMsg.user_id === currentUserId ? 'You' : (lastMsg.user?.first_name || '')}: ${toPlainText(lastMsg.content) || (lastMsg as any).file_name || 'Attachment'}`
+                    ? `${lastMsg.user_id === currentUserId ? 'You' : (lastMsg.user?.first_name || '')}: ${
+                        (lastMsg as any).is_encrypted
+                          ? '🔒 Encrypted message'
+                          : toPlainText(lastMsg.content) || (lastMsg as any).file_name || 'Attachment'
+                      }`
                     : 'No messages yet'}
                 </p>
 
@@ -2606,7 +2610,7 @@ export default function ChatPage() {
       const channelLabel = ch.type === 'DM' ? '' : ` in #${ch.name}`;
       try {
         const n = new Notification(`${senderName}${channelLabel}`, {
-          body: lastMsg.content || (lastMsg as any).file_name || 'Sent an attachment',
+          body: (lastMsg as any).is_encrypted ? '🔒 Encrypted message' : (lastMsg.content || (lastMsg as any).file_name || 'Sent an attachment'),
           icon: '/src/assets/icons/tekxai-logo.svg',
           tag: `chat-${ch.id}`,
         });
