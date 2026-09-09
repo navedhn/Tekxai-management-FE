@@ -4,12 +4,14 @@ import ErrorBoundary from '@/pages/ErrorBoundary';
 import { router } from '@/routes/router';
 import RouteFallback from '@/components/layout/RouteFallback';
 import { useTokenRefresh } from '@/hooks/useTokenRefresh';
+import { useAuthChannel } from '@/hooks/useAuthChannel';
 import { useProfileRefresh } from '@/hooks/useProfileRefresh';
 import { useTheme } from '@/hooks/useTheme';
 import { useColorMode } from '@/hooks/useColorMode';
 
 const App: React.FC = () => {
   useTokenRefresh();
+  useAuthChannel();
   useProfileRefresh();
   useTheme();
   useColorMode();
