@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
-import { useGetShiftsQuery, useGetViolationsQuery, useUpsertShiftMutation, useAssignShiftMutation, useDeleteShiftMutation, useGetNoCheckinsQuery, useMarkAbsenteesMutation, exportNoCheckinPdf, useGetOrgAttendanceSummaryQuery, useGetOrgFilterOptionsQuery } from '@/services/attendanceService';
+import { useGetShiftsQuery, useGetViolationsQuery, useUpsertShiftMutation, useAssignShiftMutation, useDeleteShiftMutation, useGetNoCheckinsQuery, useMarkAbsenteesMutation, exportNoCheckinPdf, useGetOrgAttendanceSummaryQuery, useGetOrgFilterOptionsQuery, useGetTopLateEmployeesQuery } from '@/services/attendanceService';
 import { useGetEmployeeDirectory } from '@/services/employeeService';
 import { useGetTeamsQuery } from '@/services/adminService';
 import { useGetDesignationsQuery } from '@/services/designationService';
@@ -67,7 +67,7 @@ function SummaryCard({ icon: Icon, label, value, subtitle, iconBg, iconColor }: 
   );
 }
 
-function AttendanceReportsTab({ users }: { users: any[] }) {
+function AttendanceReportsTab({ users, orgFilters }: { users: any[]; orgFilters: { business_unit_id?: string; department_id?: string; team_id?: string; employee_id?: string } }) {
   const [dimKey, setDimKey] = useState<'type' | 'employee'>('type');
 
   const kpiCall = (entity: string, metric: string, filters?: any) =>
@@ -85,6 +85,9 @@ function AttendanceReportsTab({ users }: { users: any[] }) {
     { icon: BarChart3, color: 'bg-indigo-500', label: 'Timesheet Entries', value: entriesQ.data },
   ];
 
+  // "By Type" still uses the generic Report Builder (unchanged, out of
+  // scope for this pass — untouched blast radius to Payroll/Expenses/
+  // Executive Analytics/other Report Builder consumers).
   const aggregateMutation = useMutation({
     mutationFn: (body: { entity: string; group_by: string; metric_field?: string }) =>
       apiRequest<any>(`${BUILDER}/aggregate`, { method: 'POST', body: JSON.stringify(body) }).then((r: any) => r?.payload),
@@ -92,18 +95,32 @@ function AttendanceReportsTab({ users }: { users: any[] }) {
 
   React.useEffect(() => {
     if (dimKey === 'type') aggregateMutation.mutate({ entity: 'attendance_violations', group_by: 'violation_type' });
-    else aggregateMutation.mutate({ entity: 'attendance_violations', group_by: 'user_id', metric_field: 'late_mins' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dimKey]);
 
-  const rows = useMemo(() => {
-    const raw = aggregateMutation.data?.rows || [];
-    return raw.map((r: any) => {
-      let label = dimKey === 'type' ? r.violation_type : (users.find((u: any) => u.id === r.user_id)?.first_name ? `${users.find((u: any) => u.id === r.user_id).first_name} ${users.find((u: any) => u.id === r.user_id).last_name}` : r.user_id);
-      return { label, count: r.count, value: r.value };
-    });
-  }, [aggregateMutation.data, dimKey, users]);
+  // "Top Late Employees" — org-hierarchy-scoped Attendance endpoint
+  // (get_top_late_employees), same Business Unit -> Department -> Team ->
+  // Employee filter state as the rest of this page (single source of
+  // org-filter state), not a second filter system. Replaces the previous
+  // unscoped Report Builder aggregate.
+  const { data: topLateData = [], isLoading: topLateLoading } = useGetTopLateEmployeesQuery(
+    dimKey === 'employee' ? orgFilters : undefined,
+  );
 
+  const rows = useMemo(() => {
+    if (dimKey === 'employee') {
+      return topLateData.map((r) => ({
+        label: r.user ? `${r.user.first_name || ''} ${r.user.last_name || ''}`.trim() || r.user_id : r.user_id,
+        count: r.count,
+        value: r.total_late_minutes,
+      }));
+    }
+    const raw = aggregateMutation.data?.rows || [];
+    return raw.map((r: any) => ({ label: r.violation_type, count: r.count, value: r.value }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aggregateMutation.data, topLateData, dimKey, users]);
+
+  const isPending = dimKey === 'employee' ? topLateLoading : aggregateMutation.isPending;
   const max = Math.max(1, ...rows.map((r: any) => (dimKey === 'employee' ? r.value : r.count)));
 
   return (
@@ -130,7 +147,7 @@ function AttendanceReportsTab({ users }: { users: any[] }) {
             <button onClick={() => setDimKey('employee')} className={cn('px-3 h-8 rounded-lg text-xs font-semibold transition-colors', dimKey === 'employee' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}>Top Late Employees</button>
           </div>
         </div>
-        {aggregateMutation.isPending ? (
+        {isPending ? (
           <div className="h-24 bg-gray-50 rounded-xl animate-pulse" />
         ) : rows.length === 0 ? (
           <p className="text-sm text-gray-400 py-6 text-center">No violation data.</p>
@@ -739,7 +756,17 @@ const AttendancePage: React.FC = () => {
         </Card>
       )}
 
-      {activeTab === 'Reports' && <AttendanceReportsTab users={users} />}
+      {activeTab === 'Reports' && (
+        <AttendanceReportsTab
+          users={users}
+          orgFilters={{
+            business_unit_id: noCheckinBuFilter,
+            department_id: noCheckinDeptFilter,
+            team_id: noCheckinTeamFilter,
+            employee_id: noCheckinEmployeeFilter,
+          }}
+        />
+      )}
 
       <Modal isOpen={showShiftModal} onClose={() => { setShowShiftModal(false); setEditingShift(null); }} title={editingShift ? 'Edit Shift' : 'New Shift'}>
         <form onSubmit={handleSaveShift} className="flex flex-col gap-4 mt-4">

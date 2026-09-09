@@ -111,6 +111,29 @@ export const useGetOrgFilterOptionsQuery = (parents?: Pick<OrgFilters, 'business
     staleTime: 30000,
   });
 
+export interface TopLateEmployeeRow {
+  user_id: string;
+  user: { id: string; first_name: string | null; last_name: string | null; avatar: string | null } | null;
+  count: number;
+  total_late_minutes: number;
+}
+
+// Overview -> Top Late Employees — replaces the unscoped generic Report
+// Builder aggregate this widget previously used. Same org-hierarchy
+// filter shape as the rest of this file; every filter is part of the
+// query key so changing any of them (including start_date/end_date, e.g.
+// the "Today" quick filter) triggers a real refetch.
+export const useGetTopLateEmployeesQuery = (filters?: OrgFilters & { start_date?: string; end_date?: string; limit?: number }) =>
+  useQuery({
+    queryKey: ['attendance-top-late-employees', filters],
+    queryFn: async () => {
+      const qs = filters ? '?' + new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([, v]) => v != null && v !== '')) as any).toString() : '';
+      const r = await apiRequest<any>(`${v1}/attendance/top-late-employees${qs}`);
+      return (r?.payload || []) as TopLateEmployeeRow[];
+    },
+    staleTime: 30000,
+  });
+
 export const useGetNoCheckinsQuery = (filters?: NoCheckinFilters) =>
   useQuery({
     queryKey: ['no-checkins', filters],
