@@ -18,11 +18,9 @@ import {
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
-import { useGetShiftsQuery, useGetViolationsQuery, useUpsertShiftMutation, useAssignShiftMutation, useDeleteShiftMutation, useGetNoCheckinsQuery, useMarkAbsenteesMutation, exportNoCheckinPdf } from '@/services/attendanceService';
+import { useGetShiftsQuery, useGetViolationsQuery, useUpsertShiftMutation, useAssignShiftMutation, useDeleteShiftMutation, useGetNoCheckinsQuery, useMarkAbsenteesMutation, exportNoCheckinPdf, useGetOrgAttendanceSummaryQuery, useGetOrgFilterOptionsQuery } from '@/services/attendanceService';
 import { useGetEmployeeDirectory } from '@/services/employeeService';
 import { useGetTeamsQuery } from '@/services/adminService';
-import { useGetDepartmentsQuery } from '@/services/departmentService';
-import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -172,8 +170,29 @@ const AttendancePage: React.FC = () => {
   const [lateDateRange, setLateDateRange] = useState({ start_date: '', end_date: '' });
   const [noCheckinDeptFilter, setNoCheckinDeptFilter] = useState('');
   const [noCheckinBuFilter, setNoCheckinBuFilter] = useState('');
+  const [noCheckinTeamFilter, setNoCheckinTeamFilter] = useState('');
+  const [noCheckinEmployeeFilter, setNoCheckinEmployeeFilter] = useState('');
   const [noCheckinShiftFilter, setNoCheckinShiftFilter] = useState('');
   const [noCheckinSearch, setNoCheckinSearch] = useState('');
+  // Business Unit -> Department -> Team -> Employee: changing a parent
+  // clears any child selection that would otherwise widen/become invalid
+  // under the new parent (the option lists themselves are also re-fetched
+  // scoped to the new parent — see orgFilterOptions below).
+  const setNoCheckinBuFilterAndClearChildren = (value: string) => {
+    setNoCheckinBuFilter(value);
+    setNoCheckinDeptFilter('');
+    setNoCheckinTeamFilter('');
+    setNoCheckinEmployeeFilter('');
+  };
+  const setNoCheckinDeptFilterAndClearChildren = (value: string) => {
+    setNoCheckinDeptFilter(value);
+    setNoCheckinTeamFilter('');
+    setNoCheckinEmployeeFilter('');
+  };
+  const setNoCheckinTeamFilterAndClearChildren = (value: string) => {
+    setNoCheckinTeamFilter(value);
+    setNoCheckinEmployeeFilter('');
+  };
   const [exportingPdf, setExportingPdf] = useState(false);
 
   const applyLateQuickFilter = (which: 'today' | 'week') => {
@@ -198,10 +217,6 @@ const AttendancePage: React.FC = () => {
   const users = employeeDirectory?.records || [];
   const { data: teamsData } = useGetTeamsQuery();
   const teams = (teamsData as any)?.payload?.records || [];
-  const { data: departmentsData } = useGetDepartmentsQuery();
-  const departments = (departmentsData as any) || [];
-  const { data: businessUnitsData = [] } = useGetBusinessUnitsQuery();
-  const businessUnits = (businessUnitsData as any) || [];
   const { data: designationsData = [] } = useGetDesignationsQuery();
   const designations = (designationsData as any) || [];
   const upsertShift = useUpsertShiftMutation();
@@ -210,11 +225,32 @@ const AttendancePage: React.FC = () => {
   const noCheckinFilters = {
     department_id: noCheckinDeptFilter,
     business_unit_id: noCheckinBuFilter,
+    team_id: noCheckinTeamFilter,
+    employee_id: noCheckinEmployeeFilter,
   };
   const { data: noCheckinsData, isLoading: noCheckinsLoading } = useGetNoCheckinsQuery(noCheckinFilters);
   const markAbsentees = useMarkAbsenteesMutation();
   const noCheckinsRaw = (noCheckinsData as any)?.records || [];
-  const noCheckinSummary = (noCheckinsData as any)?.summary || { total_employees: 0, checked_in: 0, not_checked_in: 0 };
+  // Total Employees/Present/On Leave/Late/Not Checked In — same
+  // Business Unit -> Department -> Team -> Employee filters as the roster
+  // above, backend-scoped (attendance.repository.js's
+  // get_org_scoped_attendance_summary, built on the same
+  // build_active_roster_where the roster query already uses), not derived
+  // from the currently-rendered/paginated table.
+  const { data: orgSummary } = useGetOrgAttendanceSummaryQuery(noCheckinFilters);
+  const noCheckinSummary = orgSummary || { total_employees: 0, checked_in: 0, not_checked_in: 0, on_leave: 0, late: 0 };
+  // Dependent option lists — each level scoped to whichever parent(s) are
+  // already selected AND to the caller's own RBAC-forced department (the
+  // backend, not this hook, enforces that forcing).
+  const { data: orgFilterOptions } = useGetOrgFilterOptionsQuery({
+    business_unit_id: noCheckinBuFilter,
+    department_id: noCheckinDeptFilter,
+    team_id: noCheckinTeamFilter,
+  });
+  const orgBusinessUnits = orgFilterOptions?.business_units || [];
+  const orgDepartments = orgFilterOptions?.departments || [];
+  const orgTeams = orgFilterOptions?.teams || [];
+  const orgEmployees = orgFilterOptions?.employees || [];
   const noCheckins = useMemo(() => {
     let rows = noCheckinsRaw;
     if (noCheckinShiftFilter) rows = rows.filter((r: any) => r.shift?.id === noCheckinShiftFilter);
@@ -227,10 +263,12 @@ const AttendancePage: React.FC = () => {
     }
     return rows;
   }, [noCheckinsRaw, noCheckinShiftFilter, noCheckinSearch]);
-  const noCheckinFiltersActive = !!(noCheckinDeptFilter || noCheckinBuFilter || noCheckinShiftFilter || noCheckinSearch);
+  const noCheckinFiltersActive = !!(noCheckinDeptFilter || noCheckinBuFilter || noCheckinTeamFilter || noCheckinEmployeeFilter || noCheckinShiftFilter || noCheckinSearch);
   const clearNoCheckinFilters = () => {
     setNoCheckinDeptFilter('');
     setNoCheckinBuFilter('');
+    setNoCheckinTeamFilter('');
+    setNoCheckinEmployeeFilter('');
     setNoCheckinShiftFilter('');
     setNoCheckinSearch('');
   };
@@ -258,7 +296,7 @@ const AttendancePage: React.FC = () => {
   const handleExportNoCheckinPdf = async () => {
     setExportingPdf(true);
     try {
-      await exportNoCheckinPdf({ department_id: noCheckinDeptFilter, business_unit_id: noCheckinBuFilter });
+      await exportNoCheckinPdf(noCheckinFilters);
     } catch (e: any) {
       toast.error(e?.message || 'Failed to export PDF');
     } finally {
@@ -503,7 +541,7 @@ const AttendancePage: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
             <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
               <p className="text-2xl font-black text-primary-600">{noCheckinSummary.total_employees}</p>
               <p className="text-xs font-bold text-gray-500 mt-0.5">Total Employees</p>
@@ -516,23 +554,51 @@ const AttendancePage: React.FC = () => {
               <p className="text-2xl font-black text-red-600">{noCheckinSummary.not_checked_in}</p>
               <p className="text-xs font-bold text-gray-500 mt-0.5">Not Checked In</p>
             </div>
+            <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+              <p className="text-2xl font-black text-blue-600">{noCheckinSummary.on_leave ?? 0}</p>
+              <p className="text-xs font-bold text-gray-500 mt-0.5">On Leave</p>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+              <p className="text-2xl font-black text-amber-600">{noCheckinSummary.late ?? 0}</p>
+              <p className="text-xs font-bold text-gray-500 mt-0.5">Late</p>
+            </div>
           </div>
 
+          {/* Business Unit -> Department -> Team -> Employee: each option
+              list is backend-scoped to whichever parent(s) are already
+              selected (useGetOrgFilterOptionsQuery), and changing a parent
+              clears any now-invalid child selection. */}
           <div className="flex flex-wrap items-center gap-3 mb-4">
             <SearchableSelect
-              options={businessUnits.map((b: any) => ({ label: b.name, value: b.id }))}
+              options={orgBusinessUnits.map((b) => ({ label: b.name, value: b.id }))}
               value={noCheckinBuFilter || null}
-              onChange={(v) => setNoCheckinBuFilter((v as string) ?? '')}
+              onChange={(v) => setNoCheckinBuFilterAndClearChildren((v as string) ?? '')}
               placeholder="All Business Units"
               containerClassName="w-48"
               className="h-10"
             />
             <SearchableSelect
-              options={departments.map((d: any) => ({ label: d.name, value: d.id }))}
+              options={orgDepartments.map((d) => ({ label: d.name, value: d.id }))}
               value={noCheckinDeptFilter || null}
-              onChange={(v) => setNoCheckinDeptFilter((v as string) ?? '')}
+              onChange={(v) => setNoCheckinDeptFilterAndClearChildren((v as string) ?? '')}
               placeholder="All Departments"
               containerClassName="w-44"
+              className="h-10"
+            />
+            <SearchableSelect
+              options={orgTeams.map((t) => ({ label: t.name, value: t.id }))}
+              value={noCheckinTeamFilter || null}
+              onChange={(v) => setNoCheckinTeamFilterAndClearChildren((v as string) ?? '')}
+              placeholder="All Teams"
+              containerClassName="w-44"
+              className="h-10"
+            />
+            <SearchableSelect
+              options={orgEmployees.map((e) => ({ label: e.name, value: e.id }))}
+              value={noCheckinEmployeeFilter || null}
+              onChange={(v) => setNoCheckinEmployeeFilter((v as string) ?? '')}
+              placeholder="All Employees"
+              containerClassName="w-48"
               className="h-10"
             />
             <SearchableSelect
