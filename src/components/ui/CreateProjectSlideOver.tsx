@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {Clock, X, Plus, Search, User ,Loader2, ArrowRight } from 'lucide-react';
+import {Clock, X, Plus, Search, User ,Loader2, ArrowRight, ListChecks, Pencil, Trash2, ChevronUp, ChevronDown, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import Button, { IconButton } from './Button';
 import Input from './Input';
@@ -12,6 +12,21 @@ import { useFetchUsersQuery } from '@/services/userService';
 import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { PROJECT_STATUS_OPTIONS } from '@/utils/projectStatus';
+import {
+  Milestone,
+  useMilestones,
+  useDeleteMilestone,
+  useReorderMilestones,
+} from '@/services/milestonesService';
+import CreateMilestoneModal from '@/components/modals/CreateMilestoneModal';
+import ActionModal from './ActionModal';
+
+const MILESTONE_STATUS_STYLE: Record<string, string> = {
+  NOT_STARTED: 'bg-gray-100 text-gray-600',
+  IN_PROGRESS: 'bg-blue-50 text-blue-700',
+  COMPLETED: 'bg-emerald-50 text-emerald-700',
+  BLOCKED: 'bg-red-50 text-red-600',
+};
 
 interface TeamMember {
   id: string;
@@ -251,6 +266,43 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
   const { data: bidderUsers = [], isLoading: biddersLoading } = useFetchUsersQuery({ search: bidderSearch }, true);
 
   const isEdit = !!project;
+
+  // Milestones — reuses the exact same canonical hooks/component
+  // ProjectDetailsSlideOver's Milestones tab already uses
+  // (milestonesService.ts + CreateMilestoneModal), not a parallel
+  // implementation. Only relevant once the project actually has an id
+  // (isEdit) — a not-yet-created project has nothing to attach a
+  // milestone to. useMilestones is passed `null` while creating, which
+  // the hook already treats as disabled (see milestonesService.ts).
+  const { data: milestones = [], isLoading: milestonesLoading } = useMilestones(project?.id ?? null);
+  const deleteMilestoneMutation = useDeleteMilestone(project?.id ?? null);
+  const reorderMilestonesMutation = useReorderMilestones(project?.id ?? null);
+  const [showCreateMilestone, setShowCreateMilestone] = useState(false);
+  const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null);
+  const [milestoneToDelete, setMilestoneToDelete] = useState<{ id: string; title: string } | null>(null);
+  const activeMilestones = useMemo(
+    () => [...milestones].filter((m) => !m.archived_at).sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0)),
+    [milestones],
+  );
+
+  const handleConfirmDeleteMilestone = () => {
+    if (!milestoneToDelete) return;
+    deleteMilestoneMutation.mutate(milestoneToDelete.id, {
+      onSuccess: () => { toast.success('Milestone deleted'); setMilestoneToDelete(null); },
+      onError: (e: any) => { toast.error(e?.message || 'Failed to delete milestone'); setMilestoneToDelete(null); },
+    });
+  };
+
+  const moveMilestone = (milestoneId: string, direction: -1 | 1) => {
+    const idx = activeMilestones.findIndex((m) => m.id === milestoneId);
+    const targetIdx = idx + direction;
+    if (idx < 0 || targetIdx < 0 || targetIdx >= activeMilestones.length) return;
+    const next = [...activeMilestones];
+    [next[idx], next[targetIdx]] = [next[targetIdx], next[idx]];
+    reorderMilestonesMutation.mutate(next.map((m) => m.id), {
+      onError: (err: any) => toast.error(err?.message || 'Failed to reorder milestones'),
+    });
+  };
 
   useEffect(() => {
     if (project) {
@@ -756,8 +808,136 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
                 </div>
               </div>
 
+              {isEdit && project && (
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-black text-gray-900 tracking-tight flex items-center gap-2">
+                      <ListChecks size={18} className="text-[#005CDA]" />
+                      Milestones
+                    </h3>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-9 rounded-xl text-xs font-black px-3"
+                      onClick={() => setShowCreateMilestone(true)}
+                    >
+                      <Plus size={14} className="mr-1" />
+                      Add Milestone
+                    </Button>
+                  </div>
+
+                  {milestonesLoading && (
+                    <div className="flex items-center justify-center py-6 text-gray-400">
+                      <Loader2 size={18} className="animate-spin" />
+                    </div>
+                  )}
+
+                  {!milestonesLoading && activeMilestones.length === 0 && (
+                    <div className="text-sm text-gray-400 font-medium py-4 text-center bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                      No milestones yet for this project.
+                    </div>
+                  )}
+
+                  {!milestonesLoading && activeMilestones.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                      {activeMilestones.map((milestone, idx) => (
+                        <div
+                          key={milestone.id}
+                          className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50/50 px-4 py-3"
+                        >
+                          <div className="flex flex-col shrink-0">
+                            <button
+                              type="button"
+                              disabled={idx === 0 || reorderMilestonesMutation.isPending}
+                              onClick={() => moveMilestone(milestone.id, -1)}
+                              className="text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                              aria-label="Move milestone up"
+                            >
+                              <ChevronUp size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={idx === activeMilestones.length - 1 || reorderMilestonesMutation.isPending}
+                              onClick={() => moveMilestone(milestone.id, 1)}
+                              className="text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                              aria-label="Move milestone down"
+                            >
+                              <ChevronDown size={14} />
+                            </button>
+                          </div>
+
+                          <CheckCircle2
+                            size={16}
+                            className={cn('shrink-0', milestone.status === 'COMPLETED' ? 'text-[#005CDA]' : 'text-gray-300')}
+                          />
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-gray-900 text-sm truncate">{milestone.title}</span>
+                              <span className={cn('text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide shrink-0', MILESTONE_STATUS_STYLE[milestone.status] || MILESTONE_STATUS_STYLE.NOT_STARTED)}>
+                                {milestone.status.replace(/_/g, ' ')}
+                              </span>
+                              <span className={cn('text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide shrink-0', milestone.payment_status === 'PAID' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-600')}>
+                                {milestone.payment_status === 'PAID' ? 'Paid' : 'Unpaid'}
+                              </span>
+                            </div>
+                            {milestone.due_date && (
+                              <p className="text-[11px] text-gray-400 font-medium mt-0.5">
+                                Due {new Date(milestone.due_date).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
+
+                          <span className="text-sm font-black text-gray-700 tabular-nums shrink-0">
+                            {budgetCurrency} {Number(milestone.price || 0).toLocaleString()}
+                          </span>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <IconButton
+                              icon={Pencil}
+                              aria-label={`Edit ${milestone.title}`}
+                              onClick={() => setEditingMilestone(milestone)}
+                              className="text-gray-400 hover:text-[#005CDA]"
+                            />
+                            <IconButton
+                              icon={Trash2}
+                              aria-label={`Delete ${milestone.title}`}
+                              onClick={() => setMilestoneToDelete({ id: milestone.id, title: milestone.title })}
+                              className="text-gray-400 hover:text-red-500"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="h-4" />
             </div>
+
+            {isEdit && project && (
+              <>
+                <CreateMilestoneModal
+                  isOpen={showCreateMilestone || !!editingMilestone}
+                  onClose={() => { setShowCreateMilestone(false); setEditingMilestone(null); }}
+                  projectId={project.id}
+                  milestone={editingMilestone}
+                  projectMembers={project.members}
+                  currency={budgetCurrency}
+                />
+                <ActionModal
+                  isOpen={!!milestoneToDelete}
+                  onClose={() => setMilestoneToDelete(null)}
+                  onConfirm={handleConfirmDeleteMilestone}
+                  title="Delete Milestone"
+                  description={`Are you sure you want to delete "${milestoneToDelete?.title}"? This action cannot be undone.`}
+                  confirmText="Delete Milestone"
+                  loading={deleteMilestoneMutation.isPending}
+                  icon="delete"
+                />
+              </>
+            )}
 
             <div className="px-8 py-6 bg-white border-t border-gray-100 shrink-0">
               <Button
