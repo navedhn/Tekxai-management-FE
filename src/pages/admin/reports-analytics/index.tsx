@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import Tabs from '@/components/ui/Tabs';
-import { AttendanceReport } from './AttendanceReport';
 import { AssetsReport } from './AssetsReport';
 import { RequisitionsReport } from './RequisitionsReport';
 import { TicketsReport } from './TicketsReport';
 import { ExpensesReport } from './ExpensesReport';
 
+// NOTE: the "Attendance" tab was removed here (remediation Phase 13). It
+// rendered generateAttendanceRows(60) — fabricated data — which is
+// dangerous for a surface that informs payroll/compliance decisions. Real
+// attendance analytics live at /admin/attendance (dashboard, org-scoped)
+// and /admin/reports (Attendance report, backed by the real API).
 const REPORT_TABS = [
-  { label: 'Attendance', value: 'attendance' },
   { label: 'Assets', value: 'assets' },
   { label: 'Requisitions', value: 'requisitions' },
   { label: 'Tickets', value: 'tickets' },
@@ -15,7 +19,7 @@ const REPORT_TABS = [
 ];
 
 const ReportsAnalyticsPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('attendance');
+  const [activeTab, setActiveTab] = useState('assets');
 
   return (
     <div className="flex flex-col gap-5 pb-10">
@@ -26,9 +30,16 @@ const ReportsAnalyticsPage: React.FC = () => {
         </p>
       </div>
 
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        Looking for attendance analytics? Use{' '}
+        <Link to="/admin/attendance" className="font-semibold underline">Attendance</Link>{' '}
+        or the{' '}
+        <Link to="/admin/reports" className="font-semibold underline">Attendance report</Link>{' '}
+        — both are backed by live data.
+      </div>
+
       <Tabs options={REPORT_TABS} value={activeTab} onChange={setActiveTab} />
 
-      {activeTab === 'attendance' && <AttendanceReport />}
       {activeTab === 'assets' && <AssetsReport />}
       {activeTab === 'requisitions' && <RequisitionsReport />}
       {activeTab === 'tickets' && <TicketsReport />}
