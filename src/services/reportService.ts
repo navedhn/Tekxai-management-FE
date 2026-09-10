@@ -67,7 +67,7 @@ export const useProjectsReportEmailPreview = (params: Record<string, string>, en
 
 export const useSendProjectsReportEmail = () =>
   useMutation({
-    mutationFn: (body: { recipient_ids: string[] } & Record<string, string>) =>
+    mutationFn: (body: { recipient_ids?: string[]; extra_emails?: string[] } & Record<string, unknown>) =>
       apiRequest<any>(`${v1}/report/projects/send-email`, { method: 'POST', body: JSON.stringify(body) }),
   });
 
