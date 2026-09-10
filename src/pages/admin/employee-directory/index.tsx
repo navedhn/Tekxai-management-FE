@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, Plus, UserPlus, Download, Users, CheckCircle, Clock, UserX, Eye, Edit2, Trash2, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown, Zap, FileText, ChevronDown as ChevronDownIcon, FileSpreadsheet, FileType } from 'lucide-react';
+import { Search, Plus, UserPlus, Download, Users, CheckCircle, Clock, UserX, Eye, Edit2, Trash2, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown, Zap, FileText, ChevronDown as ChevronDownIcon, FileSpreadsheet, FileType, UploadCloud } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -11,6 +11,8 @@ import { useGetEmployeeDirectory } from '@/services/employeeService';
 import { useDeleteUserMutation, useBulkDeleteUsersMutation, useSetLifecycleStageMutation } from '@/services/userService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import QuickCreateUserModal from '@/components/ui/QuickCreateUserModal';
+import EmployeeImportModal from '@/components/ui/EmployeeImportModal';
+import { useMyPermissions } from '@/services/permissionsService';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetRolesQuery } from '@/services/roleService';
@@ -116,6 +118,9 @@ export default function EmployeeDirectory() {
   };
 
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const { data: myPerms } = useMyPermissions();
+  const canImport = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('hr.employees.import');
 
   const [quickEditTarget, setQuickEditTarget] = useState<any>(null);
 
@@ -173,7 +178,7 @@ export default function EmployeeDirectory() {
     return f;
   }, [q, divisionId, deptId, teamId, status, employmentStatus, employeeIdFilter, roleFilter, designationFilter, businessUnitFilter, supervisorFilter, gradeFilter, urlFilter, urlLifecycle, sortBy, sortDir, page, limit]);
 
-  const { data, isLoading } = useGetEmployeeDirectory(filters);
+  const { data, isLoading, refetch } = useGetEmployeeDirectory(filters);
   const records: any[] = data?.records || [];
   const stats = data?.stats || {};
   const total = data?.total || 0;
@@ -317,6 +322,14 @@ export default function EmployeeDirectory() {
         onClose={() => setQuickCreateOpen(false)}
       />
 
+      {canImport && (
+        <EmployeeImportModal
+          isOpen={importOpen}
+          onClose={() => setImportOpen(false)}
+          onCommitted={() => refetch?.()}
+        />
+      )}
+
       <QuickCreateUserModal
         isOpen={!!quickEditTarget}
         onClose={() => setQuickEditTarget(null)}
@@ -443,6 +456,11 @@ export default function EmployeeDirectory() {
           <Button variant="outline" size="sm" animation="none" leftIcon={UserPlus} onClick={() => setQuickCreateOpen(true)} className="!h-10">
             Quick Create User
           </Button>
+          {canImport && (
+            <Button variant="outline" size="sm" animation="none" leftIcon={UploadCloud} onClick={() => setImportOpen(true)} className="!h-10">
+              Import Employees
+            </Button>
+          )}
           <PageActionButton leftIcon={Plus} onClick={() => navigate('/admin/add-employee')}>
             Add Employee
           </PageActionButton>
