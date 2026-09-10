@@ -73,14 +73,19 @@ export interface ImportCommitResult {
   rows: (ImportRow & { status: string })[];
 }
 
-type Overrides = Record<string, { active?: boolean; header?: string }>;
+export type FieldOverrides = Record<string, { active?: boolean; header?: string }>;
+// manual row-level match: key = row's lowercased source email, or `row:<n>`;
+// value = an ERP Employee ID / email / user id
+export type RowMatches = Record<string, string>;
 
 export function useEmployeeImportPreview() {
-  return useMutation<ImportPreview, any, { file: File; overrides?: Overrides }>({
-    mutationFn: ({ file, overrides }) => {
+  return useMutation<ImportPreview, any, { file: File; overrides?: FieldOverrides; rowMatches?: RowMatches }>({
+    mutationFn: ({ file, overrides, rowMatches }) => {
       const fd = new FormData();
       fd.append('file', file);
-      if (overrides && Object.keys(overrides).length) fd.append('overrides', JSON.stringify(overrides));
+      const merged: Record<string, unknown> = { ...(overrides || {}) };
+      if (rowMatches && Object.keys(rowMatches).length) merged.row_matches = rowMatches;
+      if (Object.keys(merged).length) fd.append('overrides', JSON.stringify(merged));
       return apiRequest<any>(`${base}/preview`, { method: 'POST', body: fd }).then((r) => r?.payload);
     },
   });

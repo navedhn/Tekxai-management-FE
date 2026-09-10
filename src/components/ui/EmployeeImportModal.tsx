@@ -24,6 +24,7 @@ export default function EmployeeImportModal({
   const [step, setStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [overrides, setOverrides] = useState<Overrides>({});
+  const [rowMatches, setRowMatches] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [committed, setCommitted] = useState<Awaited<ReturnType<ReturnType<typeof useEmployeeImportCommit>['mutateAsync']>> | null>(null);
 
@@ -31,15 +32,15 @@ export default function EmployeeImportModal({
   const commitMut = useEmployeeImportCommit();
 
   const reset = () => {
-    setStep(0); setFile(null); setOverrides({}); setPreview(null); setCommitted(null);
+    setStep(0); setFile(null); setOverrides({}); setRowMatches({}); setPreview(null); setCommitted(null);
     previewMut.reset(); commitMut.reset();
   };
   const close = () => { reset(); onClose(); };
 
-  const runPreview = async (goTo: number, ov: Overrides = overrides) => {
+  const runPreview = async (goTo: number, ov: Overrides = overrides, rm: Record<string, string> = rowMatches) => {
     if (!file) return;
     try {
-      const p = await previewMut.mutateAsync({ file, overrides: ov });
+      const p = await previewMut.mutateAsync({ file, overrides: ov, rowMatches: rm });
       setPreview(p);
       setStep(goTo);
     } catch (e: any) {
@@ -163,7 +164,18 @@ export default function EmployeeImportModal({
               <Stat label="Unmatched" value={preview.summary.unmatched} tone="amber" />
               <Stat label="Ambiguous" value={preview.summary.ambiguous} tone="red" />
             </div>
-            <RowTable rows={rows} mode="match" />
+            <RowTable
+              rows={rows}
+              mode="match"
+              rowMatches={rowMatches}
+              onRowMatchChange={(key, val) => setRowMatches((m) => {
+                const next = { ...m };
+                if (val.trim()) next[key] = val.trim(); else delete next[key];
+                return next;
+              })}
+              onRecheck={() => runPreview(2)}
+              rechecking={previewMut.isPending}
+            />
           </div>
         )}
 
@@ -309,42 +321,80 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: 'bl
   );
 }
 
-function RowTable({ rows, mode }: { rows: ImportRow[]; mode: 'match' | 'result' }) {
+function RowTable({
+  rows, mode, rowMatches, onRowMatchChange, onRecheck, rechecking,
+}: {
+  rows: ImportRow[];
+  mode: 'match' | 'result';
+  rowMatches?: Record<string, string>;
+  onRowMatchChange?: (key: string, value: string) => void;
+  onRecheck?: () => void;
+  rechecking?: boolean;
+}) {
   const icon = (s: string) =>
     s === 'unmatched' ? <AlertTriangle size={14} className="text-amber-500" />
     : s === 'ambiguous' ? <XCircle size={14} className="text-red-500" />
     : s === 'failed' ? <XCircle size={14} className="text-red-500" />
     : <CheckCircle2 size={14} className="text-green-500" />;
+  const keyOf = (r: ImportRow) => (r.email ? r.email.toLowerCase() : `row:${r.row}`);
+  const canManual = mode === 'match' && !!onRowMatchChange;
+  const anyManual = canManual && rows.some((r) => r.status === 'unmatched' || r.status === 'ambiguous');
   return (
-    <div className="overflow-x-auto rounded-xl border border-gray-100 max-h-[36vh] overflow-y-auto">
-      <table className="w-full text-sm">
-        <thead className="bg-gray-50 text-gray-400 uppercase text-xs sticky top-0">
-          <tr>
-            <th className="text-left px-3 py-2 w-10">#</th>
-            <th className="text-left px-3 py-2">Source</th>
-            <th className="text-left px-3 py-2">ERP match</th>
-            <th className="text-left px-3 py-2">{mode === 'result' ? 'Outcome' : 'Status'}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.row} className="border-t border-gray-100">
-              <td className="px-3 py-2 text-gray-400">{r.row}</td>
-              <td className="px-3 py-2 text-gray-600">{r.display_name || r.email || '—'}</td>
-              <td className="px-3 py-2 text-gray-700">
-                {r.match ? <>{r.match.erp_name}<span className="text-gray-400"> · {r.match.method}</span></> : <span className="text-gray-300">—</span>}
-              </td>
-              <td className="px-3 py-2">
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600">
-                  {icon((r as any).status)}
-                  {(r as any).status.replace('_', ' ')}
-                  {r.reason && <span className="text-gray-400">— {r.reason}</span>}
-                </span>
-              </td>
+    <div className="flex flex-col gap-2">
+      <div className="overflow-x-auto rounded-xl border border-gray-100 max-h-[36vh] overflow-y-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-gray-400 uppercase text-xs sticky top-0">
+            <tr>
+              <th className="text-left px-3 py-2 w-10">#</th>
+              <th className="text-left px-3 py-2">Source</th>
+              <th className="text-left px-3 py-2">ERP match</th>
+              <th className="text-left px-3 py-2">{mode === 'result' ? 'Outcome' : 'Status'}</th>
+              {canManual && <th className="text-left px-3 py-2">Manual match</th>}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.row} className="border-t border-gray-100">
+                <td className="px-3 py-2 text-gray-400">{r.row}</td>
+                <td className="px-3 py-2 text-gray-600">{r.display_name || r.email || '—'}</td>
+                <td className="px-3 py-2 text-gray-700">
+                  {r.match ? <>{r.match.erp_name}<span className="text-gray-400"> · {r.match.method}</span></> : <span className="text-gray-300">—</span>}
+                </td>
+                <td className="px-3 py-2">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600">
+                    {icon((r as any).status)}
+                    {(r as any).status.replace('_', ' ')}
+                    {r.reason && <span className="text-gray-400">— {r.reason}</span>}
+                  </span>
+                </td>
+                {canManual && (
+                  <td className="px-3 py-2">
+                    {(r.status === 'unmatched' || r.status === 'ambiguous') ? (
+                      <input
+                        type="text"
+                        placeholder="Employee ID or email"
+                        defaultValue={rowMatches?.[keyOf(r)] || ''}
+                        onBlur={(e) => onRowMatchChange!(keyOf(r), e.target.value)}
+                        className="w-44 rounded-lg border border-gray-200 px-2 py-1 text-xs focus:border-purple-400 focus:outline-none"
+                      />
+                    ) : <span className="text-gray-300 text-xs">—</span>}
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {anyManual && (
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-gray-400">
+            Enter an ERP Employee ID or email for any unmatched row, then re-check. Blank rows stay skipped.
+          </p>
+          <Button variant="outline" size="sm" animation="none" leftIcon={rechecking ? Loader2 : ArrowRight} disabled={rechecking} onClick={onRecheck}>
+            {rechecking ? 'Re-checking…' : 'Re-check matches'}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
