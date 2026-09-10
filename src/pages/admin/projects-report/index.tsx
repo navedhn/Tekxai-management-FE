@@ -392,15 +392,27 @@ function SendReportModal({ params, onClose }: { params: Record<string, string>; 
   const toast = useToastContext();
   const { data: recipients = [], isLoading: loadingRecipients } = useProjectsReportRecipients();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [extraEmailsText, setExtraEmailsText] = useState('');
   const { data: preview, isLoading: loadingPreview } = useProjectsReportEmailPreview(params, true);
   const send = useSendProjectsReportEmail();
 
   const toggle = (id: string) => setSelected((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
 
+  const parseExtraEmails = (s: string) =>
+    [...new Set(s.split(/[\s,;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean))];
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   const handleSend = async () => {
-    if (selected.size === 0) { toast.error('Select at least one recipient.'); return; }
+    const extra = parseExtraEmails(extraEmailsText);
+    if (selected.size === 0 && extra.length === 0) { toast.error('Select a recipient or add an email address.'); return; }
+    const bad = extra.filter((e) => !EMAIL_RE.test(e));
+    if (bad.length) { toast.error(`Not a valid email: ${bad.join(', ')}`); return; }
     try {
-      await send.mutateAsync({ recipient_ids: [...selected], ...params });
+      await send.mutateAsync({
+        ...(selected.size ? { recipient_ids: [...selected] } : {}),
+        ...(extra.length ? { extra_emails: extra } : {}),
+        ...params,
+      });
       toast.success('Project report sent successfully.');
       onClose();
     } catch (err: any) {
@@ -427,6 +439,15 @@ function SendReportModal({ params, onClose }: { params: Record<string, string>; 
               </label>
             ))}
           </div>
+          <label className="mt-3 block text-[10px] font-black text-gray-400 tracking-widest uppercase">Other recipients</label>
+          <input
+            type="text"
+            value={extraEmailsText}
+            onChange={(e) => setExtraEmailsText(e.target.value)}
+            placeholder="email@example.com, another@example.com"
+            className="mt-1 w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-primary-400"
+          />
+          <p className="mt-1 text-[11px] text-gray-400">Comma-separated. These are sent the report even if they aren’t ERP users.</p>
         </div>
 
         <div>
