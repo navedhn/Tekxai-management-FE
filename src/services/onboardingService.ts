@@ -4,6 +4,9 @@ const v1 = 'api/v1';
 export const useGetCandidates = () => useQuery({ queryKey: ['candidates'], queryFn: async () => { const r = await apiRequest<any>(`${v1}/onboarding/candidates`); return r?.payload?.records || []; } });
 export const useCreateCandidate = () => { const qc = useQueryClient(); return useMutation({ mutationFn: (data: any) => apiRequest(`${v1}/onboarding/candidates`, { method: 'POST', body: JSON.stringify(data) }), onSuccess: () => qc.invalidateQueries({ queryKey: ['candidates'] }) }); };
 export const useUpdateCandidateStatus = () => { const qc = useQueryClient(); return useMutation({ mutationFn: ({ id, status }: { id: string; status: string }) => apiRequest(`${v1}/onboarding/candidates/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }), onSuccess: () => qc.invalidateQueries({ queryKey: ['candidates'] }) }); };
+// DELETE /onboarding/candidates/:id — backend is gated to SUPER_ADMIN (403 otherwise).
+// onSuccess only: a failed delete must leave the cached candidate list untouched.
+export const useDeleteCandidate = () => { const qc = useQueryClient(); return useMutation({ mutationFn: (id: string) => apiRequest(`${v1}/onboarding/candidates/${id}`, { method: 'DELETE' }), onSuccess: () => qc.invalidateQueries({ queryKey: ['candidates'] }) }); };
 
 // Candidate-directed email (Rejection / Application Status)
 export const useGenerateCandidateEmail = () => { const qc = useQueryClient(); return useMutation({ mutationFn: ({ id, type, templateId }: { id: string; type: 'REJECTION' | 'APPLICATION_STATUS'; templateId?: string }) => apiRequest<any>(`${v1}/onboarding/candidates/${id}/email/generate`, { method: 'POST', body: JSON.stringify({ type, template_id: templateId }) }), onSuccess: () => qc.invalidateQueries({ queryKey: ['candidates'] }) }); };

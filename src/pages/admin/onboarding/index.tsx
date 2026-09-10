@@ -5,17 +5,18 @@ import Table, { Column } from '@/components/ui/Table';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
-import { UserPlus, Send, Plus, CheckCircle2, XCircle, ArrowRight, ListChecks, CalendarClock, Mail, RefreshCw } from 'lucide-react';
+import { UserPlus, Send, Plus, CheckCircle2, XCircle, ArrowRight, ListChecks, CalendarClock, Mail, RefreshCw, Trash2 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import {
-  useGetCandidates, useCreateCandidate, useUpdateCandidateStatus,
+  useGetCandidates, useCreateCandidate, useUpdateCandidateStatus, useDeleteCandidate,
   useCreateOffer, useGenerateOfferEmail, useEditOfferEmail, useSendOffer, useAcceptOffer, useRejectOffer,
   useGenerateCandidateEmail, useEditCandidateEmail, useSendCandidateEmail,
   useGetOnboardingTasks, useCreateOnboardingTask, useCompleteOnboardingTask, useGetOnboardingReadiness, useMoveToProbation,
   useGetEmailTemplates,
 } from '@/services/onboardingService';
 import { useCreateInterview, useUpdateInterview, useGenerateInterviewEmail, useEditInterviewEmail, useSendInterviewEmail } from '@/services/interviewsService';
+import { useMyPermissions } from '@/services/permissionsService';
 
 // Full granular pipeline — see candidate-status.service.js (backend) for
 // the enforced transition graph this display mirrors.
@@ -68,6 +69,12 @@ const OnboardingPage: React.FC = () => {
   const acceptOffer = useAcceptOffer();
   const rejectOffer = useRejectOffer();
   const moveToProbation = useMoveToProbation();
+  const deleteCandidate = useDeleteCandidate();
+  // Frontend visibility only — the DELETE endpoint is independently gated to
+  // SUPER_ADMIN on the backend (authorize('SUPER_ADMIN') -> 403).
+  const { data: myPerms } = useMyPermissions();
+  const isSuperAdmin = !!myPerms?.is_super_admin;
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ email: '', first_name: '', last_name: '', position: '', phone: '' });
   const [tasksForUser, setTasksForUser] = useState<{ id: string; name: string } | null>(null);
@@ -87,6 +94,19 @@ const OnboardingPage: React.FC = () => {
       setShowModal(false);
       setForm({ email: '', first_name: '', last_name: '', position: '', phone: '' });
     } catch (err: any) { toast.error(err?.data?.message || 'Failed to invite candidate'); }
+  };
+
+  const handleDeleteCandidate = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteCandidate.mutateAsync(deleteTarget.id);
+      toast.success(`Candidate ${deleteTarget.first_name} ${deleteTarget.last_name} deleted`);
+      setDeleteTarget(null);
+    } catch (err: any) {
+      // Keep the row: the list only refetches onSuccess, and the dialog stays
+      // open so the failure is visible and the action is retryable/cancelable.
+      toast.error(err?.data?.message || 'Failed to delete candidate');
+    }
   };
 
   const columns: Column<any>[] = [
@@ -227,6 +247,11 @@ const OnboardingPage: React.FC = () => {
             </Button>
           </>
         )}
+        {isSuperAdmin && (
+          <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={() => setDeleteTarget(c)}>
+            <Trash2 size={12} /> Delete
+          </Button>
+        )}
       </div>
     )},
   ];
@@ -322,6 +347,28 @@ const OnboardingPage: React.FC = () => {
           extraGenerateArgs={{ type: candidateEmailFor.type }}
           onClose={() => setCandidateEmailFor(null)}
         />
+      )}
+
+      {deleteTarget && (
+        <Modal isOpen onClose={() => setDeleteTarget(null)} title="Delete Candidate" size="sm">
+          <div className="flex flex-col gap-4 mt-2">
+            <p className="text-sm text-gray-600">
+              This will permanently delete the candidate record for{' '}
+              <strong className="text-gray-900">{deleteTarget.first_name} {deleteTarget.last_name}</strong>{' '}
+              (<span className="text-gray-500">{deleteTarget.email}</span>), along with their interviews and offers.
+              {deleteTarget.employee_profile?.user_id && (
+                <> Their linked employee record will be kept.</>
+              )}
+            </p>
+            <p className="text-xs text-red-500 font-semibold">This action cannot be undone.</p>
+            <div className="flex gap-3 pt-1">
+              <Button type="button" variant="outline" fullWidth onClick={() => setDeleteTarget(null)}>Cancel</Button>
+              <Button type="button" variant="danger" fullWidth loading={deleteCandidate.isPending} onClick={handleDeleteCandidate}>
+                <Trash2 size={14} /> Delete Candidate
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );
