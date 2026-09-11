@@ -10,6 +10,13 @@ import { useGetRolesQuery } from '@/services/roleService';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
 import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
 import { useDepartmentScopedTeams } from '@/services/adminService';
+// Same canonical shift source/action the Attendance page's "Assign Shift"
+// panel already uses (src/pages/admin/attendance/index.tsx) — GET
+// /attendance/shifts for the real list of shift_schedules rows, POST
+// /attendance/shifts/assign to create the employee_shifts assignment.
+// Deliberately NOT a second shift model/endpoint.
+import { useGetShiftsQuery, useAssignShiftMutation } from '@/services/attendanceService';
+import { useMyPermissions } from '@/services/permissionsService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
@@ -28,6 +35,12 @@ export interface QuickEditUser {
   team?: { id: string; name: string } | null;
   role_id?: string | null;
   hire_date?: string | null;
+
+  // Same shape the Employee Directory list API returns (resolve_effective_shifts
+  // in be-work's attendance.repository.js) — the row object passed in as
+  // editUser already carries this, no extra fetch needed.
+  shift_source?: 'ASSIGNED' | 'FALLBACK_DEFAULT' | 'NONE' | null;
+  assigned_shift?: { id: string; name: string } | null;
 }
 
 interface QuickCreateUserModalProps {
@@ -37,9 +50,34 @@ interface QuickCreateUserModalProps {
   editUser?: QuickEditUser | null;
 }
 
-const EMPTY_FORM = { first_name: '', last_name: '', email: '', password: '', employee_id: '', designation_id: '', business_unit_id: '', department_id: '', team_id: '', role_id: '', hire_date: '' };
+const EMPTY_FORM = { first_name: '', last_name: '', email: '', password: '', employee_id: '', designation_id: '', business_unit_id: '', department_id: '', team_id: '', role_id: '', hire_date: '', shift_id: '' };
 
-function toFormState(u: QuickEditUser) {
+// What Quick Edit's save should do about the shift field, given the
+// employee's real starting shift_source/assigned_shift and the form's
+// current shift_id. Pure/exported so it's directly testable without
+// mounting the whole modal (which pulls in ~6 React Query hooks).
+//   'ASSIGN'              -> call assignShift({ user_id, shift_id })
+//   'CLEAR_UNSUPPORTED'   -> the admin cleared a real assignment; the
+//                             backend has no unassign endpoint (assign_shift
+//                             only ever creates a new employee_shifts row —
+//                             see attendance.repository.js), so this is
+//                             surfaced honestly rather than silently no-op'd
+//                             or faked as success.
+//   'NONE'                -> nothing to do (unchanged, no permission, or
+//                             never had/selected a shift)
+export function resolveShiftUpdateAction(
+  editUser: QuickEditUser | null | undefined,
+  formShiftId: string,
+  canAssignShift: boolean,
+): 'ASSIGN' | 'CLEAR_UNSUPPORTED' | 'NONE' {
+  if (!canAssignShift) return 'NONE';
+  const initialShiftId = editUser?.shift_source === 'ASSIGNED' ? (editUser.assigned_shift?.id || '') : '';
+  if (formShiftId && formShiftId !== initialShiftId) return 'ASSIGN';
+  if (!formShiftId && initialShiftId) return 'CLEAR_UNSUPPORTED';
+  return 'NONE';
+}
+
+export function toFormState(u: QuickEditUser) {
   return {
     first_name: u.first_name || '',
     last_name: u.last_name || '',
@@ -53,6 +91,13 @@ function toFormState(u: QuickEditUser) {
     team_id: u.team?.id || '',
     role_id: u.role_id || '',
     hire_date: u.hire_date ? String(u.hire_date).slice(0, 10) : '',
+    // Preselect only a REAL per-employee assignment (shift_source ===
+    // 'ASSIGNED') — never the org-wide fallback default. Preselecting the
+    // fallback would make an unrelated "no personal assignment" employee
+    // look like they already have one the moment the field is touched, and
+    // saving without changing it would silently create a real assignment
+    // row that was never actually chosen by whoever is editing.
+    shift_id: u.shift_source === 'ASSIGNED' ? (u.assigned_shift?.id || '') : '',
   };
 }
 
@@ -66,6 +111,15 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
   const { data: roles = [] } = useGetRolesQuery();
   const { data: departments = [] } = useGetDepartmentsQuery();
   const { data: businessUnits = [] } = useGetBusinessUnitsQuery();
+  const { data: shifts = [] } = useGetShiftsQuery();
+  const assignShift = useAssignShiftMutation();
+  const { data: myPerms } = useMyPermissions();
+  // Same permission the Attendance page's shift-assign action already
+  // requires server-side (MANAGER = can('erp.attendance.edit') in
+  // be-work's attendance.routes.js) — not a new permission invented for
+  // this form. The backend enforces this regardless of what this hides;
+  // this only controls whether the field is shown at all.
+  const canAssignShift = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.attendance.edit');
 
   const isEditMode = !!editUser;
 
@@ -87,6 +141,9 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
   const designationOptions = designations.map((d) => ({ value: d.id, label: d.name }));
   const roleOptions = roles.map((r) => ({ value: r.id, label: r.name.replace(/_/g, ' ') }));
   const businessUnitOptions = businessUnits.map((bu: any) => ({ value: bu.id, label: bu.name }));
+  // Real shift_schedules rows from GET /attendance/shifts — same source the
+  // Attendance page's Assign Shift panel lists, never a hardcoded set.
+  const shiftOptions = shifts.map((s: any) => ({ value: s.id, label: `${s.name} (${s.start_time}–${s.end_time})` }));
 
   const departmentOptions = departments
     .filter((d: any) => !formData.business_unit_id || (d.business_unit_id || d.business_unit?.id) === formData.business_unit_id)
@@ -147,13 +204,19 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
 
       const roleChanged = formData.role_id && formData.role_id !== editUser.role_id;
       const employeeIdChanged = formData.employee_id.trim() && formData.employee_id.trim() !== (editUser.employee_id || '');
+      const shiftAction = resolveShiftUpdateAction(editUser, formData.shift_id, canAssignShift);
 
       updateUser.mutate({ id: editUser.id, data }, {
         onSuccess: async () => {
           try {
             if (roleChanged) await changeRole.mutateAsync({ id: editUser.id, role_id: formData.role_id });
             if (employeeIdChanged) await changeEmployeeId.mutateAsync({ id: editUser.id, employee_id: formData.employee_id.trim() });
-            toast.success('Employee updated successfully');
+            if (shiftAction === 'ASSIGN') await assignShift.mutateAsync({ user_id: editUser.id, shift_id: formData.shift_id });
+            if (shiftAction === 'CLEAR_UNSUPPORTED') {
+              toast.error('Employee updated, but removing an assigned shift isn’t supported yet — choose a different shift instead of clearing it.');
+            } else {
+              toast.success('Employee updated successfully');
+            }
             onClose();
           } catch (err: any) {
             toast.error(err?.message || err?.response?.data?.message || 'Profile updated, but a follow-up change failed');
@@ -183,6 +246,18 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
       onSuccess: async (res: any) => {
         const newUser = res?.payload || res;
         const name = `${payload.first_name} ${payload.last_name}`.trim();
+
+        // No shift selected -> the employee is simply created without one
+        // (resolves to the org fallback default via shift_source, same as
+        // any other employee with no personal assignment) — never invents
+        // a shift on their behalf.
+        if (canAssignShift && formData.shift_id) {
+          try {
+            await assignShift.mutateAsync({ user_id: newUser.id, shift_id: formData.shift_id });
+          } catch (err: any) {
+            toast.error(err?.message || err?.response?.data?.message || 'User created, but assigning the shift failed — assign it from Employee Directory.');
+          }
+        }
         toast.success('User created successfully');
 
         setFetchingEmployeeId(true);
@@ -354,6 +429,17 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
           placeholder={formData.department_id ? 'Select Team' : 'Select a Department first'}
           className="h-12 !rounded-xl"
         />
+
+        {canAssignShift && (
+          <SearchableSelect
+            label="Shift"
+            options={shiftOptions}
+            value={formData.shift_id}
+            onChange={(v) => handleSelectChange('shift_id')(v ?? '')}
+            placeholder="Select Shift (optional)"
+            className="h-12 !rounded-xl"
+          />
+        )}
 
         <Input
           label="Hiring Date"

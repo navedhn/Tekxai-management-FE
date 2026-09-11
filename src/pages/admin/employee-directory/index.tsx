@@ -21,7 +21,6 @@ import { useGetGradesQuery } from '@/services/gradeService';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
 import { cn } from '@/utils/cn';
 import { EMPLOYMENT_STATUS_LABELS } from '@/constants/employmentStatus';
-import StatusBadge from '@/components/ui/StatusBadge';
 import Button, { IconButton, PageActionButton } from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 
@@ -52,17 +51,6 @@ function StatCard({ icon: Icon, color, iconColor, label, value, total }: any) {
         </div>
       </div>
     </div>
-  );
-}
-
-function ColorBadge({ label, tone }: { label: string; tone: 'purple' | 'blue' }) {
-  const cls = tone === 'purple'
-    ? 'bg-purple-50 text-purple-700 border-purple-200'
-    : 'bg-blue-50 text-blue-700 border-blue-200';
-  return (
-    <span className={cn('inline-flex items-center rounded-full border font-bold uppercase tracking-wide whitespace-nowrap px-2.5 py-1 text-badge', cls)}>
-      {label}
-    </span>
   );
 }
 
@@ -701,12 +689,10 @@ export default function EmployeeDirectory() {
                 </th>
                 {[
                   { label: 'Employee',        col: 'name' },
-                  { label: 'Employee ID',     col: null },
                   { label: 'Designation',     col: 'designation' },
                   { label: 'Department',      col: null },
                   { label: 'Business Unit',   col: null },
                   { label: 'Role',             col: null },
-                  { label: 'Status',          col: 'status' },
                   { label: 'Shift',           col: null },
                   { label: 'Added On',        col: 'created_at' },
                   { label: 'Actions',         col: null },
@@ -741,7 +727,7 @@ export default function EmployeeDirectory() {
                 ))
               ) : records.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-16 text-center">
+                  <td colSpan={9} className="py-16 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center">
                         <Users size={22} className="text-gray-300" />
@@ -757,7 +743,6 @@ export default function EmployeeDirectory() {
                 </tr>
               ) : records.map(emp => {
                 const isChecked = selected.has(emp.id);
-                const statusValue = emp.employment_status || emp.status;
                 return (
                   <tr key={emp.id} className={cn('hover:bg-gray-50/80 transition-colors group', isChecked && 'bg-primary-50 hover:bg-primary-50')}>
                     <td className="py-3 px-2">
@@ -780,7 +765,6 @@ export default function EmployeeDirectory() {
                         </div>
                       </div>
                     </td>
-                    <td className="py-3 px-2 text-gray-600 font-mono text-xs">{emp.employee_id || '—'}</td>
                     <td className="py-3 px-2 text-gray-700">{emp.designation || '—'}</td>
                     <td className="py-3 px-2 text-gray-600">{emp.department?.name || '—'}</td>
                     <td className="py-3 px-2 text-gray-600">{emp.business_unit?.name || '—'}</td>
@@ -798,15 +782,6 @@ export default function EmployeeDirectory() {
                           ))}
                         </div>
                       ) : '—'}
-                    </td>
-                    <td className="py-3 px-2">
-                      {emp.profile_status === 'DRAFT' ? (
-                        <ColorBadge label="Pending" tone="purple" />
-                      ) : String(statusValue).toUpperCase() === 'NOTICE_PERIOD' ? (
-                        <ColorBadge label="Notice Period" tone="blue" />
-                      ) : (
-                        <StatusBadge status={statusValue} label={EMP_STATUS_LABEL[statusValue] || statusValue || '—'} size="sm" />
-                      )}
                     </td>
                     <td className="py-3 px-2 text-gray-500 text-xs whitespace-nowrap">
                       {renderEmployeeShift(emp)}
