@@ -68,6 +68,39 @@ function ColorBadge({ label, tone }: { label: string; tone: 'purple' | 'blue' })
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
+// shift_schedules.start_time/end_time are stored as "HH:MM" 24h strings
+// (see prisma/schema.prisma) — display-only conversion to "9:00 AM".
+export function formatShiftTime(hhmm?: string | null) {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(':').map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return hhmm;
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+}
+
+// The employee list API (GET /api/v1/employee) already resolves each
+// employee's real, currently-effective shift server-side — the same
+// canonical resolver attendance uses (resolve_effective_shifts /
+// get_user_shift) — and returns it as shift_source + assigned_shift/
+// fallback_shift. Never derive a shift from role/department/designation
+// here; only render what the API actually returned.
+//   ASSIGNED         -> a real per-employee assignment (employee_shifts row)
+//   FALLBACK_DEFAULT -> no personal assignment; running on the org default
+//                        shift_schedules row (is_default=true) — still a
+//                        real, resolved value, not a fabricated one
+//   NONE              -> no assignment and no default shift configured
+export function renderEmployeeShift(emp: any) {
+  const shift = emp.shift_source === 'ASSIGNED' ? emp.assigned_shift
+    : emp.shift_source === 'FALLBACK_DEFAULT' ? emp.fallback_shift
+    : null;
+  if (!shift) return '—';
+  const start = formatShiftTime(shift.start_time);
+  const end = formatShiftTime(shift.end_time);
+  const range = start && end ? ` · ${start}–${end}` : '';
+  return `${shift.name}${range}`;
+}
+
 export default function EmployeeDirectory() {
   const navigate = useNavigate();
   const toast = useToastContext();
@@ -674,7 +707,7 @@ export default function EmployeeDirectory() {
                   { label: 'Business Unit',   col: null },
                   { label: 'Role',             col: null },
                   { label: 'Status',          col: 'status' },
-                  { label: 'Join Date',       col: 'hire_date' },
+                  { label: 'Shift',           col: null },
                   { label: 'Added On',        col: 'created_at' },
                   { label: 'Actions',         col: null },
                 ].map(({ label, col }) => (
@@ -776,7 +809,7 @@ export default function EmployeeDirectory() {
                       )}
                     </td>
                     <td className="py-3 px-2 text-gray-500 text-xs whitespace-nowrap">
-                      {emp.hire_date ? new Date(emp.hire_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                      {renderEmployeeShift(emp)}
                     </td>
                     <td className="py-3 px-2 text-gray-500 text-xs whitespace-nowrap">
                       {emp.created_at ? new Date(emp.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
