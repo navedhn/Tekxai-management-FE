@@ -382,6 +382,7 @@ function ScheduleInterviewModal({ candidateId, candidateName, round, onClose }: 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.scheduled_at) { toast.error('Scheduled date/time is required'); return; }
+    if (round === 1 && !form.location.trim()) { toast.error('Location / link is required for Round 1'); return; }
     try {
       await createInterview.mutateAsync({
         candidate_id: candidateId,
@@ -419,7 +420,7 @@ function ScheduleInterviewModal({ candidateId, candidateName, round, onClose }: 
               className="h-11 px-4 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none" />
           </div>
           <div className="flex flex-col gap-1.5 flex-[2]">
-            <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Location / Link</label>
+            <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Location / Link{round === 1 ? ' *' : ''}</label>
             <input type="text" value={form.location} placeholder="Office / Google Meet link"
               onChange={(e) => setForm(p => ({ ...p, location: e.target.value }))}
               className="h-11 px-4 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none" />
