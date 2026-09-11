@@ -116,11 +116,6 @@ function fmtDuration(seconds: number): string {
   return `${h}h ${m}m`;
 }
 
-function fmtMinutes(seconds: number): string {
-  const m = Math.round(seconds / 60);
-  return `${m}m`;
-}
-
 const ProgressRing: React.FC<{ pct: number; size?: number; stroke?: number }> = ({ pct, size = 88, stroke = 8 }) => {
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
@@ -210,7 +205,7 @@ const MonitoringPage: React.FC = () => {
   }, [users, ssSelectedUser]);
 
   const agg = aggregateProductivity(productivitySummary as any[]);
-  const totalAppSecs = appUsage.reduce((s, a) => s + a.duration_seconds, 0);
+  const totalAppSecs = appUsage.reduce((s, a) => s + a.total_seconds, 0);
 
   const prodCols: Column<any>[] = [
     {
@@ -354,7 +349,7 @@ const MonitoringPage: React.FC = () => {
               {appUsage.length > 0 ? (
                 <div className="flex flex-col gap-3">
                   {appUsage.slice(0, 8).map((app) => {
-                    const pct = totalAppSecs > 0 ? Math.round((app.duration_seconds / totalAppSecs) * 100) : (app.percentage ?? 0);
+                    const pct = totalAppSecs > 0 ? Math.round((app.total_seconds / totalAppSecs) * 100) : 0;
                     return (
                       <div key={app.app_name} className="flex flex-col gap-1">
                         <div className="flex items-center justify-between">
@@ -365,7 +360,7 @@ const MonitoringPage: React.FC = () => {
                             <span className="text-sm font-bold text-gray-800 truncate max-w-[140px]">{app.app_name}</span>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-xs font-bold text-gray-500">{fmtMinutes(app.duration_seconds)}</span>
+                            <span className="text-xs font-bold text-gray-500">{app.total_minutes}m</span>
                             <span className="text-xs font-black text-gray-400 w-8 text-right">{pct}%</span>
                           </div>
                         </div>
