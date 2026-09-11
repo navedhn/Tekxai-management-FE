@@ -44,9 +44,9 @@ const PermissionMatrix: React.FC<PermissionMatrixProps> = ({ definitions, grants
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr className="bg-gray-50 border-b border-gray-100">
-            <th className="text-left text-xs font-bold text-gray-500 uppercase tracking-wide py-3 px-4 sticky left-0 bg-gray-50 z-10 min-w-[170px]">Module</th>
+            <th className="text-left text-xs font-bold text-gray-500 uppercase tracking-wide py-3 px-4 sticky left-0 bg-gray-50 z-20 w-[200px] min-w-[200px] max-w-[200px]">Module</th>
             {actions.map((a) => (
-              <th key={a} className="text-center text-xs font-bold text-gray-500 uppercase tracking-wide py-3 px-3 whitespace-nowrap">{a}</th>
+              <th key={a} className="text-center text-xs font-bold text-gray-500 uppercase tracking-wide py-3 px-3 whitespace-nowrap min-w-[96px]">{a}</th>
             ))}
           </tr>
         </thead>
@@ -58,14 +58,14 @@ const PermissionMatrix: React.FC<PermissionMatrixProps> = ({ definitions, grants
             const rowLabel = needsSuffix ? `${moduleLabel(module)} (${groupWorkspace.toUpperCase()})` : moduleLabel(module);
             return (
             <tr key={group} className="hover:bg-primary-50/30 transition-colors">
-              <td className="py-3 px-4 font-semibold text-gray-700 sticky left-0 z-10 bg-white min-w-[170px] whitespace-nowrap">{rowLabel}</td>
+              <td className="py-3 px-4 font-semibold text-gray-700 sticky left-0 z-20 bg-white w-[200px] min-w-[200px] max-w-[200px] whitespace-normal break-words align-middle">{rowLabel}</td>
               {actions.map((action) => {
                 const def = byModuleAction.get(`${group}:${action}`);
-                if (!def) return <td key={action} className="text-center py-3 px-3 text-gray-300">—</td>;
+                if (!def) return <td key={action} className="text-center py-3 px-3 text-gray-300 min-w-[96px]">—</td>;
                 const checked = grants[def.permission] ?? false;
                 const inherited = inheritedKeys?.has(def.permission) ?? false;
                 return (
-                  <td key={action} className="text-center py-3 px-3">
+                  <td key={action} className="text-center py-3 px-3 min-w-[96px]">
                     <PermissionSwitch
                       checked={checked}
                       onChange={(v) => onToggle(def.permission, v)}
