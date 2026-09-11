@@ -43,8 +43,6 @@ const AdminMeetingDetail     = lazy(() => import('@/pages/admin/meetings/meeting
 const AdminMeetingActionItems = lazy(() => import('@/pages/admin/meetings/action-items'));
 const AdminUsers             = lazy(() => import('@/pages/admin/users'));
 const AdminMonitoring        = lazy(() => import('@/pages/admin/monitoring'));
-const AdminReports           = lazy(() => import('@/pages/admin/reports'));
-const AdminProjectReport     = lazy(() => import('@/pages/admin/project-report'));
 const AdminProjectsReport    = lazy(() => import('@/pages/admin/projects-report'));
 const AdminEstimator         = lazy(() => import('@/pages/admin/estimator'));
 const AdminEmployeeProfile   = lazy(() => import('@/pages/admin/employee-profile'));
@@ -174,8 +172,6 @@ const routes: RouteObject[] = [
           { element: <ProtectedRoute permission="erp.teams.view" />, children: [{ path: '/admin/team', element: <AdminTeam /> }] },
           { element: <ProtectedRoute permission="erp.users.view" />, children: [{ path: '/admin/users', element: <AdminUsers /> }] },
           { element: <ProtectedRoute permission="erp.monitoring.view" />, children: [{ path: '/admin/monitoring', element: <AdminMonitoring /> }] },
-          { element: <ProtectedRoute permission="erp.reports.view" />, children: [{ path: '/admin/reports', element: <AdminReports /> }] },
-          { element: <ProtectedRoute permission="erp.reports.view" />, children: [{ path: '/admin/project-report', element: <AdminProjectReport /> }] },
           { element: <ProtectedRoute permission="erp.reports.view" />, children: [{ path: '/admin/projects-report', element: <AdminProjectsReport /> }] },
           { element: <ProtectedRoute permission="erp.estimator.view" />, children: [{ path: '/admin/estimator', element: <AdminEstimator /> }] },
           { element: <ProtectedRoute permission="hr.employee_profiles.view" />, children: [{ path: '/admin/employee/:employeeId', element: <AdminEmployeeProfile /> }] },

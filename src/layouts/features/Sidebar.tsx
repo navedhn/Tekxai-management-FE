@@ -278,8 +278,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Projects', tier: 'admin', to: '/admin/project-tracking', label: 'Project Tracking', icon: <Table2 size={18} strokeWidth={SW} /> },
       { module: 'Projects', tier: 'admin', to: '/admin/project-timeline', label: 'Timeline', icon: <CalendarDays size={18} strokeWidth={SW} /> },
       { module: 'Projects', tier: 'admin', to: '/admin/meetings', label: 'Meetings', icon: <Video size={18} strokeWidth={SW} /> },
-      { module: 'Projects', tier: 'admin', to: '/admin/reports', label: 'Reports', icon: <BarChart3 size={18} strokeWidth={SW} /> },
-      { module: 'Projects', tier: 'admin', to: '/admin/project-report', label: 'Project Report', icon: <BarChart3 size={18} strokeWidth={SW} /> },
       { module: 'Projects', tier: 'admin', to: '/admin/projects-report', label: 'Projects Report', icon: <FileBarChart size={18} strokeWidth={SW} /> },
       { module: 'Projects', tier: 'admin', to: '/admin/starred', label: 'Starred', icon: <Star size={18} strokeWidth={SW} /> },
     ];
