@@ -1,7 +1,19 @@
 import { useMutation } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, BASE_URL } from '@/lib/queryClient';
 
 const base = 'api/v1/employee-import';
+
+// The CSV template is a real file download (Content-Disposition attachment),
+// not JSON — same auth-header-then-blob pattern as reportService's
+// download_report. Returns the .csv Blob for the caller to save.
+export async function downloadEmployeeImportTemplate(): Promise<Blob> {
+  const token = localStorage.getItem('tekxai_access_token');
+  const res = await fetch(`${BASE_URL}${base}/template`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error('Could not download the CSV template');
+  return res.blob();
+}
 
 // ── shapes returned by the backend (kept loose on purpose — the preview
 // payload is large and only ever read field-by-field in the wizard) ────────
@@ -25,7 +37,7 @@ export interface ImportChange {
 
 export interface ImportRow {
   row: number;
-  status: 'will_update' | 'no_change' | 'unmatched' | 'ambiguous';
+  status: 'will_update' | 'no_change' | 'unmatched' | 'ambiguous' | 'invalid';
   email?: string;
   reason?: string;
   display_name?: string | null;
@@ -54,6 +66,7 @@ export interface ImportPreview {
     no_change: number;
     unmatched: number;
     ambiguous: number;
+    invalid: number;
   };
   rows: ImportRow[];
 }

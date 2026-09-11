@@ -1,10 +1,10 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { UploadCloud, FileSpreadsheet, ArrowLeft, ArrowRight, CheckCircle2, AlertTriangle, XCircle, Loader2 } from 'lucide-react';
+import { UploadCloud, FileSpreadsheet, ArrowLeft, ArrowRight, CheckCircle2, AlertTriangle, XCircle, Loader2, Download } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import {
-  useEmployeeImportPreview, useEmployeeImportCommit,
+  useEmployeeImportPreview, useEmployeeImportCommit, downloadEmployeeImportTemplate,
   type ImportPreview, type ImportRow,
 } from '@/services/employeeImportService';
 
@@ -27,6 +27,7 @@ export default function EmployeeImportModal({
   const [rowMatches, setRowMatches] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [committed, setCommitted] = useState<Awaited<ReturnType<ReturnType<typeof useEmployeeImportCommit>['mutateAsync']>> | null>(null);
+  const [templateDownloading, setTemplateDownloading] = useState(false);
 
   const previewMut = useEmployeeImportPreview();
   const commitMut = useEmployeeImportCommit();
@@ -76,6 +77,32 @@ export default function EmployeeImportModal({
         {/* ── Step 0 — Upload ─────────────────────────────────────────── */}
         {step === 0 && (
           <div>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs text-gray-400">
+                Download the template first — it lists every supported field (personal, employment, compensation, emergency contact, bank) with an example row.
+              </p>
+              <Button
+                variant="outline" size="sm" animation="none" leftIcon={Download}
+                disabled={templateDownloading}
+                onClick={async () => {
+                  setTemplateDownloading(true);
+                  try {
+                    const blob = await downloadEmployeeImportTemplate();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = 'employee-import-template.csv'; a.click();
+                    URL.revokeObjectURL(url);
+                  } catch (e: any) {
+                    toast.error(e?.message || 'Could not download the template');
+                  } finally {
+                    setTemplateDownloading(false);
+                  }
+                }}
+                className="!h-9 shrink-0"
+              >
+                Download CSV Template
+              </Button>
+            </div>
             <button
               type="button"
               onClick={() => fileInput.current?.click()}
@@ -163,7 +190,33 @@ export default function EmployeeImportModal({
               <Stat label="No change" value={preview.summary.no_change} />
               <Stat label="Unmatched" value={preview.summary.unmatched} tone="amber" />
               <Stat label="Ambiguous" value={preview.summary.ambiguous} tone="red" />
+              <Stat label="Invalid" value={preview.summary.invalid} tone={preview.summary.invalid ? 'red' : undefined} />
             </div>
+            {rows.some((r) => r.status === 'unmatched' || r.status === 'ambiguous' || r.status === 'invalid') && (
+              <div className="flex justify-end">
+                <Button
+                  variant="outline" size="sm" animation="none" leftIcon={Download}
+                  onClick={() => {
+                    const bad = rows.filter((r) => r.status === 'unmatched' || r.status === 'ambiguous' || r.status === 'invalid');
+                    const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+                    const lines = [
+                      ['Row', 'Employee (source)', 'Error Type', 'Reason'].join(','),
+                      ...bad.map((r) => [
+                        String(r.row), esc(r.display_name || r.email || ''), r.status.toUpperCase(), esc(r.reason || ''),
+                      ].join(',')),
+                    ];
+                    const blob = new Blob([lines.join('\n') + '\n'], { type: 'text/csv;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = 'employee-import-error-report.csv'; a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="!h-9"
+                >
+                  Download Error Report
+                </Button>
+              </div>
+            )}
             <RowTable
               rows={rows}
               mode="match"
@@ -334,6 +387,7 @@ function RowTable({
   const icon = (s: string) =>
     s === 'unmatched' ? <AlertTriangle size={14} className="text-amber-500" />
     : s === 'ambiguous' ? <XCircle size={14} className="text-red-500" />
+    : s === 'invalid' ? <XCircle size={14} className="text-red-500" />
     : s === 'failed' ? <XCircle size={14} className="text-red-500" />
     : <CheckCircle2 size={14} className="text-green-500" />;
   const keyOf = (r: ImportRow) => (r.email ? r.email.toLowerCase() : `row:${r.row}`);
