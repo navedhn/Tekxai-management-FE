@@ -856,12 +856,18 @@ const MonitoringSection: React.FC<{ employeeId?: string }> = ({ employeeId }) =>
         <h3 className="text-base font-black text-gray-900 mb-4">App Usage</h3>
         {loadingApps ? <SectionLoader /> : appUsage.length > 0 ? (
           <div className="space-y-2">
-            {appUsage.map((a) => (
-              <div key={a.app_name} className="flex items-center justify-between py-1.5">
-                <span className="text-sm font-medium text-gray-700">{a.app_name}</span>
-                <span className="text-xs text-gray-400">{Math.round(a.duration_seconds / 60)}m ({a.percentage}%)</span>
-              </div>
-            ))}
+            {(() => {
+              const total_app_secs = appUsage.reduce((s, x) => s + x.total_seconds, 0);
+              return appUsage.map((a) => {
+                const pct = total_app_secs > 0 ? Math.round((a.total_seconds / total_app_secs) * 100) : 0;
+                return (
+                  <div key={a.app_name} className="flex items-center justify-between py-1.5">
+                    <span className="text-sm font-medium text-gray-700">{a.app_name}</span>
+                    <span className="text-xs text-gray-400">{a.total_minutes}m ({pct}%)</span>
+                  </div>
+                );
+              });
+            })()}
           </div>
         ) : <EmptyState label="No app usage data" />}
       </Card>

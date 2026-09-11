@@ -61,10 +61,14 @@ export const useGetProductivity = (params?: Record<string, string>) =>
     staleTime: 30000,
   });
 
+// Matches monitoring.controller.js's get_app_usage() app_summary rows
+// exactly: { app_name, total_seconds, total_minutes } — there is no
+// `percentage` field; the FE computes its own share of the visible list
+// (see totalAppSecs in monitoring/index.tsx).
 export interface AppUsageEntry {
   app_name: string;
-  duration_seconds: number;
-  percentage: number;
+  total_seconds: number;
+  total_minutes: number;
 }
 
 export const useGetAppUsage = (params?: Record<string, string>) =>
