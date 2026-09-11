@@ -58,7 +58,7 @@ const PermissionMatrix: React.FC<PermissionMatrixProps> = ({ definitions, grants
             const rowLabel = needsSuffix ? `${moduleLabel(module)} (${groupWorkspace.toUpperCase()})` : moduleLabel(module);
             return (
             <tr key={group} className="hover:bg-primary-50/30 transition-colors">
-              <td className="py-3 px-4 font-semibold text-gray-700 sticky left-0 bg-white whitespace-nowrap">{rowLabel}</td>
+              <td className="py-3 px-4 font-semibold text-gray-700 sticky left-0 z-10 bg-white min-w-[170px] whitespace-nowrap">{rowLabel}</td>
               {actions.map((action) => {
                 const def = byModuleAction.get(`${group}:${action}`);
                 if (!def) return <td key={action} className="text-center py-3 px-3 text-gray-300">—</td>;
