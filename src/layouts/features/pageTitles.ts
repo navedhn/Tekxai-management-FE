@@ -61,7 +61,6 @@ const PAGE_TITLES: Record<string, string> = {
   '/admin/project-tracking': 'Project Tracking',
   '/admin/project-timeline': 'Timeline',
   '/admin/meetings': 'Meetings',
-  '/admin/reports': 'Reports',
   '/admin/projects-report': 'Projects Report',
   '/admin/starred': 'Starred',
 
