@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useGetProjects, ProjectDetail } from '@/services/projectService';
-import { useGetPostSalesDashboard } from '@/services/crmService';
+import { useGetProjectDeliveryDashboard } from '@/services/crmService';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Input from '@/components/ui/Input';
@@ -66,7 +66,7 @@ const ListPanel: React.FC<{ icon: React.ReactNode; title: string; items: { key: 
 );
 
 function OperationalKpis() {
-  const { data: d } = useGetPostSalesDashboard();
+  const { data: d } = useGetProjectDeliveryDashboard();
   if (!d) return null;
 
   const { top_kpis, project_health, status_distribution, timeline, resource_overview } = d;
@@ -221,7 +221,7 @@ function namesFor(members: ProjectDetail['members'], role: string): string {
 
 export default function ProjectTrackingDashboard() {
   const { data: projects, isLoading } = useGetProjects({ limit: 1000 });
-  const dashboardQuery = useGetPostSalesDashboard();
+  const dashboardQuery = useGetProjectDeliveryDashboard();
   const showPageSkeleton = useShowPageSkeleton(isLoading, dashboardQuery);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);

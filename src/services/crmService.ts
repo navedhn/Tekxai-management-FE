@@ -54,7 +54,13 @@ export interface ClientActivityEntry {
   updated_by: string | null;
 }
 
-export interface PostSalesDashboard {
+// Renamed from PostSalesDashboard — this shape (project health, status
+// distribution, timeline, resourcing) is the Project Delivery dashboard.
+// It used to be fetched from /crm/post-sales-dashboard, which now
+// genuinely serves a DIFFERENT payload (customer success), actively used
+// by tek-pulse-FE's businessDashboardService.ts — the two had collided on
+// one route name. Now points at its own dedicated endpoint.
+export interface ProjectDeliveryDashboard {
   top_kpis: {
     active_clients: number;
     active_projects: number;
@@ -92,10 +98,10 @@ export interface PostSalesDashboard {
   };
 }
 
-export function useGetPostSalesDashboard() {
-  return useQuery<PostSalesDashboard>({
-    queryKey: ['crm-post-sales-dashboard'],
-    queryFn: () => apiRequest<PostSalesDashboard>('api/v1/crm/post-sales-dashboard'),
+export function useGetProjectDeliveryDashboard() {
+  return useQuery<ProjectDeliveryDashboard>({
+    queryKey: ['crm-project-delivery-dashboard'],
+    queryFn: () => apiRequest<ProjectDeliveryDashboard>('api/v1/crm/project-delivery-dashboard'),
   });
 }
 
