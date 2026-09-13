@@ -16,6 +16,7 @@ const ParamRedirect: React.FC<{ build: (params: Record<string, string | undefine
 
 const HomePage               = lazy(() => import('@/pages/public/homePage'));
 const CandidateSignPage      = lazy(() => import('@/pages/public/candidateSign'));
+const ClientNdaSignPage      = lazy(() => import('@/pages/public/clientNdaSign'));
 const OfferReviewPage        = lazy(() => import('@/pages/public/offerReview'));
 const NotFound               = lazy(() => import('@/pages/404'));
 const Forbidden              = lazy(() => import('@/pages/403'));
@@ -59,6 +60,8 @@ const AdminHrDocumentDetail  = lazy(() => import('@/pages/admin/hr-documents/det
 const AdminHrDocumentTemplates = lazy(() => import('@/pages/admin/hr-document-templates'));
 const AdminNda                = lazy(() => import('@/pages/admin/nda'));
 const EmployeeNda              = lazy(() => import('@/pages/employee/nda'));
+const AdminClientNda           = lazy(() => import('@/pages/admin/client-nda'));
+const AdminClientNdaSign       = lazy(() => import('@/pages/admin/client-nda/sign'));
 const AdminOnboarding        = lazy(() => import('@/pages/admin/onboarding'));
 const AdminJobRequisitions   = lazy(() => import('@/pages/admin/job-requisitions'));
 const AdminOffboarding       = lazy(() => import('@/pages/admin/offboarding'));
@@ -132,6 +135,7 @@ const routes: RouteObject[] = [
     children: [
       { path: '/',    element: <HomePage /> },
       { path: '/sign/:token', element: <CandidateSignPage /> },
+      { path: '/client-sign/:token', element: <ClientNdaSignPage /> },
       { path: '/offer/:id', element: <OfferReviewPage /> },
       { path: '/403', element: <Forbidden /> },
       { path: '/404', element: <NotFound /> },
@@ -217,6 +221,7 @@ const routes: RouteObject[] = [
           { element: <ProtectedRoute permission="erp.hr_documents.view" />, children: [{ path: '/admin/documents/:id', element: <AdminHrDocumentDetail /> }] },
           { element: <ProtectedRoute permission="erp.hr_documents.view" />, children: [{ path: '/admin/document-templates', element: <AdminHrDocumentTemplates /> }] },
           { element: <ProtectedRoute permission="erp.hr_documents.manage" />, children: [{ path: '/admin/nda', element: <AdminNda /> }] },
+          { element: <ProtectedRoute permission="crm.client_documents.manage" />, children: [{ path: '/admin/client-nda', element: <AdminClientNda /> }] },
           { element: <ProtectedRoute permission="hr.employees.view" />, children: [{ path: '/admin/employee-directory', element: <EmployeeDirectory /> }] },
           { element: <ProtectedRoute permission={['erp.users.create', 'hr.employees.edit']} />, children: [{ path: '/admin/add-employee/:employeeId?', element: <AddEmployee /> }] },
           { element: <ProtectedRoute permission="hr.reports.view" />, children: [{ path: '/admin/hr-reports', element: <HRReports /> }] },
@@ -315,6 +320,7 @@ const routes: RouteObject[] = [
           { path: '/employee/documents',     element: <EmployeeDocuments /> },
           { path: '/employee/documents/:id', element: <AdminHrDocumentDetail /> },
           { path: '/employee/nda/:id', element: <EmployeeNda /> },
+          { path: '/admin/client-nda/:id/sign', element: <AdminClientNdaSign /> },
           { path: '/employee/onboarding', element: <EmployeeOnboarding /> },
           { path: '/employee/download-app',        element: <DownloadApp /> },
           { path: '/employee/requisitions',        element: <AdminRequisitions /> },
