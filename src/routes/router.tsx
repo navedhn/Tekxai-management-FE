@@ -57,6 +57,8 @@ const PerformanceReviews       = lazy(() => import('@/pages/admin/performance-re
 const PerformanceReviewDetail  = lazy(() => import('@/pages/admin/performance-reviews/detail'));
 const AdminHrDocumentDetail  = lazy(() => import('@/pages/admin/hr-documents/detail'));
 const AdminHrDocumentTemplates = lazy(() => import('@/pages/admin/hr-document-templates'));
+const AdminNda                = lazy(() => import('@/pages/admin/nda'));
+const EmployeeNda              = lazy(() => import('@/pages/employee/nda'));
 const AdminOnboarding        = lazy(() => import('@/pages/admin/onboarding'));
 const AdminJobRequisitions   = lazy(() => import('@/pages/admin/job-requisitions'));
 const AdminOffboarding       = lazy(() => import('@/pages/admin/offboarding'));
@@ -214,6 +216,7 @@ const routes: RouteObject[] = [
           { element: <ProtectedRoute permission="erp.hr_documents.view" />, children: [{ path: '/admin/documents', element: <AdminHrDocuments /> }] },
           { element: <ProtectedRoute permission="erp.hr_documents.view" />, children: [{ path: '/admin/documents/:id', element: <AdminHrDocumentDetail /> }] },
           { element: <ProtectedRoute permission="erp.hr_documents.view" />, children: [{ path: '/admin/document-templates', element: <AdminHrDocumentTemplates /> }] },
+          { element: <ProtectedRoute permission="erp.hr_documents.manage" />, children: [{ path: '/admin/nda', element: <AdminNda /> }] },
           { element: <ProtectedRoute permission="hr.employees.view" />, children: [{ path: '/admin/employee-directory', element: <EmployeeDirectory /> }] },
           { element: <ProtectedRoute permission={['erp.users.create', 'hr.employees.edit']} />, children: [{ path: '/admin/add-employee/:employeeId?', element: <AddEmployee /> }] },
           { element: <ProtectedRoute permission="hr.reports.view" />, children: [{ path: '/admin/hr-reports', element: <HRReports /> }] },
@@ -311,6 +314,7 @@ const routes: RouteObject[] = [
           { path: '/employee/daily-report',        element: <DailyReport /> },
           { path: '/employee/documents',     element: <EmployeeDocuments /> },
           { path: '/employee/documents/:id', element: <AdminHrDocumentDetail /> },
+          { path: '/employee/nda/:id', element: <EmployeeNda /> },
           { path: '/employee/onboarding', element: <EmployeeOnboarding /> },
           { path: '/employee/download-app',        element: <DownloadApp /> },
           { path: '/employee/requisitions',        element: <AdminRequisitions /> },

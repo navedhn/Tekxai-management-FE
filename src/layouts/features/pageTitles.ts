@@ -36,6 +36,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/admin/contracts': 'Contracts',
   '/admin/documents': 'HR Documents',
   '/admin/document-templates': 'Document Templates',
+  '/admin/nda': 'Employee NDA',
 
   '/admin/policies': 'Policies',
 

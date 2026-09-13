@@ -77,7 +77,8 @@ const EmployeeDocuments: React.FC = () => {
               <Badge variant="info" className={cn('text-[10px] font-bold border-0 rounded-lg px-2 py-0.5', HR_DOC_STATUS_STYLE[d.status])}>
                 {d.status}
               </Badge>
-              <Button size="sm" variant="outline" className="rounded-xl h-7 text-xs" onClick={() => navigate(`/employee/documents/${d.id}`)}>
+              <Button size="sm" variant="outline" className="rounded-xl h-7 text-xs"
+                onClick={() => navigate(d.type?.code === 'NDA' ? `/employee/nda/${d.id}` : `/employee/documents/${d.id}`)}>
                 {['SENT', 'VIEWED'].includes(d.status) ? 'Review & Sign' : 'View'}
               </Button>
             </div>

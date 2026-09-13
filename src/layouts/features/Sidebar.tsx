@@ -63,6 +63,7 @@ const ERP_OPS_ROUTE_PERMISSIONS: Record<string, string> = {
   '/admin/contracts': 'hr.contracts.view',
   '/admin/documents': 'erp.hr_documents.view',
   '/admin/document-templates': 'erp.hr_documents.view',
+  '/admin/nda': 'erp.hr_documents.manage',
   '/admin/policies': 'hr.policies.view',
   '/admin/monitoring': 'erp.monitoring.view',
 };
@@ -249,6 +250,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Contracts', tier: 'erpOps', to: '/admin/contracts', label: 'Contracts', icon: <FileText size={18} strokeWidth={SW} /> },
       { module: 'Contracts', tier: 'erpOps', to: '/admin/documents', label: 'HR Documents', icon: <FileText size={18} strokeWidth={SW} /> },
       { module: 'Contracts', tier: 'erpOps', to: '/admin/document-templates', label: 'Document Templates', icon: <Layers size={18} strokeWidth={SW} /> },
+      { module: 'Contracts', tier: 'erpOps', to: '/admin/nda', label: 'Employee NDA', icon: <FileText size={18} strokeWidth={SW} /> },
 
       { module: 'Policies', tier: 'erpOps', to: '/admin/policies', label: 'Policies', icon: <ShieldCheck size={18} strokeWidth={SW} /> },
 

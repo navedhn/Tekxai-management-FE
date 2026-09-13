@@ -11,6 +11,7 @@ import { useToastContext } from '@/components/toast/ToastProvider';
 import { useMyPermissions } from '@/services/permissionsService';
 import { cn } from '@/utils/cn';
 import SignaturePad from '@/components/hr-documents/SignaturePad';
+import { useGetDocumentFields, useGetCompletedNdaPdf } from '@/services/ndaService';
 
 const STATUS_STYLE: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-600',
@@ -114,6 +115,8 @@ export default function HrDocumentDetailPage() {
   const backPath = location.pathname.startsWith('/employee') ? '/employee/documents' : '/admin/documents';
 
   const { data: doc, isLoading } = useGetDocumentDetail(id);
+  const { data: ndaFieldsData } = useGetDocumentFields(doc?.template_version_id ? doc.id : undefined);
+  const completedNdaPdf = useGetCompletedNdaPdf();
   const pdfMutation = useGetDocumentPdf();
   const sendMutation = useSendDocument();
   const resendMutation = useResendDocument();
@@ -133,6 +136,16 @@ export default function HrDocumentDetailPage() {
       viewMutation.mutate({ id: doc.id });
     }
   }, [doc?.id, doc?.status]);
+
+  // A native (fillable-field) NDA the owning employee still needs to
+  // complete belongs on the dedicated fill page, not this generic viewer —
+  // redirect rather than showing a confusing half-relevant screen.
+  useEffect(() => {
+    if (doc && doc.user_id === user?.id && !isHr && doc.template_version_id
+      && ['SENT', 'VIEWED'].includes(doc.status) && (ndaFieldsData?.fields?.length || 0) > 0) {
+      navigate(`/employee/nda/${doc.id}`, { replace: true });
+    }
+  }, [doc?.id, doc?.status, ndaFieldsData]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-32 text-gray-400 text-sm">Loading…</div>;
@@ -300,6 +313,38 @@ export default function HrDocumentDetailPage() {
               <div key={s.id} className="flex items-center justify-between text-sm">
                 <span className="font-semibold text-gray-700">{s.signer_role}</span>
                 <span className="text-gray-400 text-xs">{new Date(s.signed_at!).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {isHr && !!ndaFieldsData?.fields?.length && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">NDA Fields — Employee Submission</p>
+            {doc.status === 'SIGNED' && (
+              <button
+                onClick={() => completedNdaPdf.mutate(doc.id, {
+                  onSuccess: (res) => window.open(res.url, '_blank', 'noopener'),
+                  onError: (e: any) => toast.error(e?.message || 'Failed to generate completed NDA PDF'),
+                })}
+                disabled={completedNdaPdf.isPending}
+                className="flex items-center gap-2 px-3.5 h-9 bg-primary-600 text-white rounded-xl text-xs font-semibold hover:bg-primary-700 disabled:opacity-40"
+              >
+                <Download size={14} />{completedNdaPdf.isPending ? 'Preparing…' : 'Download Completed NDA'}
+              </button>
+            )}
+          </div>
+          <div className="space-y-2">
+            {ndaFieldsData.fields.map((f) => (
+              <div key={f.id} className="flex items-center justify-between text-sm border-b border-gray-50 last:border-0 pb-2">
+                <span className="font-semibold text-gray-700">{f.label}{f.required ? ' *' : ''}</span>
+                <span className="text-gray-500 text-xs">
+                  {f.field_type === 'SIGNATURE' ? (f.value?.value_image ? 'Signed' : '—')
+                    : f.field_type === 'FILE_UPLOAD' ? (f.value?.value_file_key ? 'File uploaded' : '—')
+                    : (f.value?.value_text || '—')}
+                </span>
               </div>
             ))}
           </div>
