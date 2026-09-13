@@ -15,7 +15,7 @@ const v1 = 'api/v1';
 const BUILDER = `${v1}/report/builder`;
 
 function PayrollReportsSection() {
-  const { data: users = [] } = useFetchUsersQuery({});
+  const { data: users = [] } = useFetchUsersQuery({ limit: 1000 });
   const [dimKey, setDimKey] = useState<'employee' | 'bonus'>('employee');
 
   const kpiCall = (entity: string, metric: string, field?: string, filters?: any) =>
