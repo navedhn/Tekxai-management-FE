@@ -734,6 +734,7 @@ const CreateProjectSlideOver: React.FC<CreateProjectSlideOverProps> = ({ isOpen,
                       options={[
                         { label: 'PKR', value: 'PKR' },
                         { label: 'USD', value: 'USD' },
+                        { label: 'CAD', value: 'CAD' },
                         { label: 'EUR', value: 'EUR' },
                         { label: 'GBP', value: 'GBP' },
                       ]}

@@ -6,6 +6,7 @@ import { cn } from '@/utils/cn';
 import { useMyPermissions } from '@/services/permissionsService';
 import Badge from './Badge';
 import Button from './Button';
+import SearchableSelect from './SearchableSelect';
 import RequestExtensionModal from './RequestExtensionModal';
 import CreateMilestoneModal from '../modals/CreateMilestoneModal';
 import AddTaskModal from '../modals/AddTaskModal';
@@ -22,7 +23,7 @@ import ResourceAllocationPanel from './ResourceAllocationPanel';
 import ProjectCalendarPanel from './ProjectCalendarPanel';
 import ActionModal from './ActionModal';
 import StatusDropdown from './StatusDropdown';
-import { useGetProjectDetails, useUpdateProjectMutation } from '@/services/projectService';
+import { useGetProjectDetails, useUpdateProjectMutation, useUpdateBudgetMutation } from '@/services/projectService';
 import { useMilestones, useDeleteMilestone, useArchiveMilestone, useReorderMilestones, Milestone } from '@/services/milestonesService';
 import { useUpdateTask, useDeleteTask } from '@/services/tasksService';
 import { useToastContext } from '@/components/toast/ToastProvider';
@@ -78,6 +79,9 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
   const canEditProject = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.projects.edit') || user?.id === projectOwnerId || user?.id === projectLeaderId;
   const [showRequestModel, setShowRequestModael] = useState(false);
   const [showCreateMilestone, setShowCreateMilestone] = useState(false);
+  const [editingCurrency, setEditingCurrency] = useState(false);
+  const [currencyDraft, setCurrencyDraft] = useState('PKR');
+  const updateBudgetForCurrency = useUpdateBudgetMutation();
   const [showAddTask, setShowAddTask] = useState(false);
   const [activeMilestoneId, setActiveMilestoneId] = useState<string | number | null>(null);
   const [milestoneToDelete, setMilestoneToDelete] = useState<{ id: string; title: string } | null>(null);
@@ -825,7 +829,56 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                         </div>
                         <div className="rounded-2xl border border-gray-100 bg-white p-4">
                           <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Budget Currency</p>
-                          <p className="text-sm font-bold text-gray-700">{project.budget_currency || 'PKR'}</p>
+                          {editingCurrency ? (
+                            <div className="flex items-center gap-2">
+                              <SearchableSelect
+                                options={[
+                                  { label: 'PKR', value: 'PKR' },
+                                  { label: 'USD', value: 'USD' },
+                                  { label: 'CAD', value: 'CAD' },
+                                  { label: 'EUR', value: 'EUR' },
+                                  { label: 'GBP', value: 'GBP' },
+                                ]}
+                                value={currencyDraft}
+                                onChange={(v) => setCurrencyDraft(String(v))}
+                              />
+                              <Button
+                                onClick={() => {
+                                  if (!projectId) return;
+                                  updateBudgetForCurrency.mutate(
+                                    { id: projectId, data: { budget_currency: currencyDraft } },
+                                    {
+                                      onSuccess: () => { toast.success('Currency updated'); setEditingCurrency(false); },
+                                      onError: (e: any) => toast.error(e?.message || 'Failed to update currency'),
+                                    }
+                                  );
+                                }}
+                                disabled={updateBudgetForCurrency.isPending}
+                                className="bg-primary-500 text-white h-9 rounded-xl font-bold text-xs px-3 disabled:opacity-40"
+                              >
+                                {updateBudgetForCurrency.isPending ? 'Saving…' : 'Save'}
+                              </Button>
+                              <Button
+                                onClick={() => setEditingCurrency(false)}
+                                className="bg-gray-100 text-gray-700 h-9 rounded-xl font-bold text-xs px-3"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-bold text-gray-700">{project.budget_currency || 'PKR'}</p>
+                              {canEditProject && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setCurrencyDraft(project.budget_currency || 'PKR'); setEditingCurrency(true); }}
+                                  className="text-xs font-bold text-primary-600 hover:underline"
+                                >
+                                  Edit
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="rounded-2xl border border-gray-100 bg-white p-4">
                           <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Client Name</p>
