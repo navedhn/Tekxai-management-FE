@@ -1,15 +1,111 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '@/components/ui/Card';
+import Modal from '@/components/ui/Modal';
+import Button from '@/components/ui/Button';
 import {
   Users, Briefcase, Ticket, Package, DollarSign, Wallet,
   Activity, Gauge, AlertTriangle, Clock, CalendarClock,
-  ArrowUpRight, ArrowDownRight, UserPlus,
+  ArrowUpRight, ArrowDownRight, UserPlus, Mail, Send,
   Search, Lightbulb, ClipboardList, ShieldAlert, UserMinus,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
-import { useGetExecutiveDashboard } from '@/services/executiveAnalyticsService';
+import {
+  useGetExecutiveDashboard, useExecutiveDashboardEmailRecipients,
+  useExecutiveDashboardEmailPreview, useSendExecutiveDashboardEmail,
+} from '@/services/executiveAnalyticsService';
 import { PageSkeleton } from '@/components/skeletons';
+import { useToastContext } from '@/components/toast/ToastProvider';
+
+// Recipients -> Preview -> Send. Same "preview renders the exact HTML the
+// backend would send" contract as the Projects Report's SendReportModal
+// (fe-work/src/pages/admin/projects-report/index.tsx) — never a
+// client-approximated copy.
+function SendExecutiveEmailModal({ onClose }: { onClose: () => void }) {
+  const toast = useToastContext();
+  const { data: recipients = [], isLoading: loadingRecipients } = useExecutiveDashboardEmailRecipients();
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [extraEmailsText, setExtraEmailsText] = useState('');
+  const { data: preview, isLoading: loadingPreview } = useExecutiveDashboardEmailPreview({}, true);
+  const send = useSendExecutiveDashboardEmail();
+
+  const toggle = (id: string) => setSelected((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  const parseExtraEmails = (s: string) => [...new Set(s.split(/[\s,;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean))];
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const handleSend = async () => {
+    const extra = parseExtraEmails(extraEmailsText);
+    if (selected.size === 0 && extra.length === 0) { toast.error('Select a recipient or add an email address.'); return; }
+    const bad = extra.filter((e) => !EMAIL_RE.test(e));
+    if (bad.length) { toast.error(`Not a valid email: ${bad.join(', ')}`); return; }
+    try {
+      await send.mutateAsync({
+        ...(selected.size ? { recipient_ids: [...selected] } : {}),
+        ...(extra.length ? { extra_emails: extra } : {}),
+      });
+      toast.success('Executive dashboard report sent successfully.');
+      onClose();
+    } catch (err: any) {
+      toast.error(err?.data?.message || 'Failed to send report email.');
+    }
+  };
+
+  return (
+    <Modal isOpen onClose={onClose} title="Send Executive Dashboard Report">
+      <div className="flex flex-col gap-4 mt-4">
+        <div>
+          <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Recipients</label>
+          <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-xl divide-y divide-gray-50">
+            {loadingRecipients ? (
+              <p className="text-xs text-gray-400 p-3">Loading authorized recipients…</p>
+            ) : recipients.length === 0 ? (
+              <p className="text-xs text-gray-400 p-3">No users are currently authorized to receive this report.</p>
+            ) : recipients.map((r: any) => (
+              <label key={r.id} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50">
+                <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggle(r.id)} className="h-4 w-4 rounded accent-primary-600" />
+                <span className="flex-1 text-sm font-semibold text-gray-800">{r.name}</span>
+                <span className="text-[10px] font-black uppercase text-gray-400">{r.role}</span>
+                <span className="text-xs text-gray-400">{r.email}</span>
+              </label>
+            ))}
+          </div>
+          <label className="mt-3 block text-[10px] font-black text-gray-400 tracking-widest uppercase">Other recipients</label>
+          <input
+            type="text"
+            value={extraEmailsText}
+            onChange={(e) => setExtraEmailsText(e.target.value)}
+            placeholder="email@example.com, another@example.com"
+            className="mt-1 w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-primary-400"
+          />
+          <p className="mt-1 text-[11px] text-gray-400">Comma-separated. Sent the report even if they aren't ERP users.</p>
+        </div>
+
+        <div>
+          <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Subject</label>
+          <p className="mt-1 text-sm font-semibold text-gray-800">{preview?.subject || (loadingPreview ? 'Loading…' : '—')}</p>
+        </div>
+
+        <div>
+          <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Email Preview</label>
+          <div className="mt-2 border border-gray-100 rounded-xl overflow-hidden bg-gray-50">
+            {loadingPreview ? (
+              <p className="text-xs text-gray-400 p-6 text-center">Generating preview…</p>
+            ) : (
+              <iframe title="exec-report-email-preview" srcDoc={preview?.html || ''} sandbox="" className="w-full border-0" style={{ height: 420, background: '#fff' }} />
+            )}
+          </div>
+        </div>
+
+        <div className="flex gap-3 pt-2">
+          <Button type="button" variant="outline" fullWidth onClick={onClose}>Cancel</Button>
+          <Button type="button" variant="primary" fullWidth className="gap-1" loading={send.isPending} onClick={handleSend}>
+            <Send size={14} /> Send Email
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
 
 function fmtMoney(n?: number | null) {
   if (n == null) return '—';
@@ -153,6 +249,7 @@ function TrendCard({
 export default function ExecutiveDashboard() {
   const navigate = useNavigate();
   const { data, isLoading } = useGetExecutiveDashboard();
+  const [showSendModal, setShowSendModal] = useState(false);
 
   const co = data?.company_overview;
   const ops = data?.operations;
@@ -207,10 +304,16 @@ export default function ExecutiveDashboard() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-black text-gray-900">Executive Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Company-wide operations, financial, and productivity overview.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-gray-900">Executive Dashboard</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Company-wide operations, financial, and productivity overview.</p>
+        </div>
+        <Button variant="outline" className="gap-1.5 shrink-0" onClick={() => setShowSendModal(true)}>
+          <Mail size={14} /> Email Report
+        </Button>
       </div>
+      {showSendModal && <SendExecutiveEmailModal onClose={() => setShowSendModal(false)} />}
 
       {execSummary && (
         <Card className="border-none shadow-sm p-5 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
