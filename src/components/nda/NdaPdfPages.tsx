@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
-import { PDFWorker } from 'pdfjs-dist';
 // @ts-ignore - vite ?url import, resolves to the worker's final asset URL
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
@@ -12,20 +11,24 @@ import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 // enforcement, so this fetches the worker source as text and re-wraps it
 // in a Blob with an explicit, correct type — the browser trusts the
 // Blob's declared type, not whatever Content-Type the original request
-// carried. Falls back to the plain workerSrc path (pdf.js's own default
+// carried. This is handed to pdf.js as `workerSrc` (rather than us
+// constructing the Worker/PDFWorker ourselves) so the library still
+// creates and handshakes with the worker using its own internal
+// protocol — a hand-built `PDFWorker({ port })` skipped that handshake
+// and pdf.js would silently decide the worker was unusable, itself
+// falling back to a "fake worker" that re-fetches the *original*
+// (wrong-MIME) URL via dynamic import() and failed the exact same way.
+// Falls back to the plain workerSrc path (pdf.js's own default
 // behavior) if this ever fails for an unrelated reason, so a network
 // hiccup here doesn't break the whole viewer.
-let worker_port_promise: Promise<Worker> | null = null;
-function get_or_create_worker_port(): Promise<Worker> {
-  if (!worker_port_promise) {
-    worker_port_promise = fetch(pdfWorkerUrl)
+let worker_src_promise: Promise<string> | null = null;
+function get_or_create_worker_src(): Promise<string> {
+  if (!worker_src_promise) {
+    worker_src_promise = fetch(pdfWorkerUrl)
       .then((res) => res.text())
-      .then((code) => {
-        const blob = new Blob([code], { type: 'text/javascript' });
-        return new Worker(URL.createObjectURL(blob), { type: 'module' });
-      });
+      .then((code) => URL.createObjectURL(new Blob([code], { type: 'text/javascript' })));
   }
-  return worker_port_promise;
+  return worker_src_promise;
 }
 
 export interface PdfPageInfo {
@@ -64,22 +67,15 @@ export default function NdaPdfPages({
 
     (async () => {
       try {
-        let task;
         try {
-          const worker_port = await get_or_create_worker_port();
-          // Cast: pdfjs-dist's bundled .d.ts resolves PDFWorkerParameters
-          // inconsistently across its own type-export paths in this
-          // version, but `port` is a plain runtime `Worker` per the
-          // library's actual JS (verified above) — narrow cast here
-          // rather than widening the whole file to `any`.
-          task = pdfjsLib.getDocument({ url: fileUrl, worker: new PDFWorker({ port: worker_port } as any) });
+          pdfjsLib.GlobalWorkerOptions.workerSrc = await get_or_create_worker_src();
         } catch {
-          // Blob-worker construction failed for some unrelated reason —
-          // fall back to pdf.js's own default workerSrc-based loading
-          // rather than breaking the viewer entirely.
+          // Blob re-wrap failed for some unrelated reason (e.g. the
+          // fetch itself failed) — fall back to pdf.js's own default
+          // workerSrc-based loading rather than breaking the viewer.
           pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
-          task = pdfjsLib.getDocument(fileUrl);
         }
+        const task = pdfjsLib.getDocument(fileUrl);
         const pdf = await task.promise;
         if (cancelled) return;
         const container = containerRef.current;

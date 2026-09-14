@@ -13,6 +13,7 @@ import { useToastContext } from '@/components/toast/ToastProvider';
 import QuickCreateUserModal from '@/components/ui/QuickCreateUserModal';
 import EmployeeImportModal from '@/components/ui/EmployeeImportModal';
 import { useMyPermissions } from '@/services/permissionsService';
+import { downloadFullEmployeeExport } from '@/services/employeeImportService';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { useGetDesignationsQuery } from '@/services/designationService';
 import { useGetRolesQuery } from '@/services/roleService';
@@ -266,6 +267,22 @@ export default function EmployeeDirectory() {
     doc.save('employee-directory.pdf');
   };
 
+  const [fullExportLoading, setFullExportLoading] = useState(false);
+  const handleExportFullProfile = async () => {
+    setFullExportLoading(true);
+    try {
+      const blob = await downloadFullEmployeeExport();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'employee-directory-export.csv'; a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      toast.error(e?.message || 'Could not download the employee export');
+    } finally {
+      setFullExportLoading(false);
+    }
+  };
+
   const { data: departments } = useGetDepartmentsQuery();
 
   const clearFilters = () => {
@@ -473,14 +490,14 @@ export default function EmployeeDirectory() {
             {exportOpen && (
               <div className="absolute top-[calc(100%+6px)] right-0 min-w-[170px] bg-white border border-gray-100 rounded-xl shadow-xl z-[90] overflow-hidden">
                 <ul className="p-1.5 flex flex-col gap-0.5 text-sm">
+                  <li onClick={() => { if (!fullExportLoading) { handleExportFullProfile(); setExportOpen(false); } }} className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-gray-50 text-gray-700 font-medium">
+                    <FileText size={15} className="text-blue-500" /> {fullExportLoading ? 'Preparing export…' : 'Export All Employees (CSV)'}
+                  </li>
                   <li onClick={() => { handleExportPdf(records); setExportOpen(false); }} className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-gray-50 text-gray-700 font-medium">
-                    <FileType size={15} className="text-red-500" /> Export as PDF
+                    <FileType size={15} className="text-red-500" /> Export Current Page as PDF
                   </li>
                   <li onClick={() => { handleExportExcel(records); setExportOpen(false); }} className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-gray-50 text-gray-700 font-medium">
-                    <FileSpreadsheet size={15} className="text-green-600" /> Export as Excel
-                  </li>
-                  <li onClick={() => { handleExportCsv(records); setExportOpen(false); }} className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-gray-50 text-gray-700 font-medium">
-                    <FileText size={15} className="text-blue-500" /> Export as CSV
+                    <FileSpreadsheet size={15} className="text-green-600" /> Export Current Page as Excel
                   </li>
                 </ul>
               </div>

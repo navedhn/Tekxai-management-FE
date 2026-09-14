@@ -3,15 +3,19 @@ import { apiRequest, BASE_URL } from '@/lib/queryClient';
 
 const base = 'api/v1/employee-import';
 
-// The CSV template is a real file download (Content-Disposition attachment),
-// not JSON — same auth-header-then-blob pattern as reportService's
-// download_report. Returns the .csv Blob for the caller to save.
-export async function downloadEmployeeImportTemplate(): Promise<Blob> {
+// Every active employee's full profile, on the same columns the importer
+// understands (plus the export-only Business Unit column) — this doubles
+// as the import template: download, edit the blanks/wrong values, re-upload
+// via the Import Employees modal. Real file download (Content-Disposition
+// attachment), not JSON — same auth-header-then-blob pattern as
+// reportService's download_report. Returns the .csv Blob for the caller to
+// save.
+export async function downloadFullEmployeeExport(): Promise<Blob> {
   const token = localStorage.getItem('tekxai_access_token');
-  const res = await fetch(`${BASE_URL}${base}/template`, {
+  const res = await fetch(`${BASE_URL}${base}/export`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
-  if (!res.ok) throw new Error('Could not download the CSV template');
+  if (!res.ok) throw new Error('Could not download the employee export');
   return res.blob();
 }
 

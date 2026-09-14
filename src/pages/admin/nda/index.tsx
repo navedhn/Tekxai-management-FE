@@ -231,7 +231,7 @@ export default function NdaBuilderPage() {
               <p className="text-xs text-gray-400 mb-2">{fields.length} field(s) placed</p>
               {!hasSignature && <p className="text-xs text-amber-600 mb-2">A Signature field is required before publishing.</p>}
               <Button onClick={saveFields} disabled={saveFieldsMutation.isPending} className="w-full">Save Placement</Button>
-              <Button variant="outline" onClick={() => setStep(3)} className="w-full mt-2">Next: Select Employees</Button>
+              <Button variant="outline" onClick={() => setStep(3)} disabled={!hasSignature} className="w-full mt-2">Next: Select Employees</Button>
             </div>
           </Card>
           <Card className="p-4 overflow-auto max-h-[75vh]">

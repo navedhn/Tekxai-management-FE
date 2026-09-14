@@ -139,6 +139,7 @@ function TransactionModal({
     if (!form.title) { setErr('Title required'); return false; }
     if (!form.total_amount) { setErr('Amount required'); return false; }
     if (type === 'expense') {
+      if (!form.category_id) { setErr('Category required'); return false; }
       const ce = +form.ce_amount || 0, tx = +form.tekxai_amount || 0, total = +form.total_amount || 0;
       if (Math.abs(ce + tx - total) > 1) { setErr(`CE (${ce.toLocaleString()}) + Tekxai (${tx.toLocaleString()}) must equal Total (${total.toLocaleString()})`); return false; }
     }
@@ -204,7 +205,7 @@ function TransactionModal({
             <>
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-gray-500">Category</label>
+                  <label className="text-xs font-semibold text-gray-500">Category <span className="text-red-500">*</span></label>
                   <button type="button" onClick={() => setShowAddCat(v => !v)}
                     className="text-[10px] font-bold text-primary-600 hover:text-primary-700 flex items-center gap-0.5">
                     <Plus size={11} /> Add new
