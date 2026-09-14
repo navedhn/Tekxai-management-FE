@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Formik, Form } from 'formik';
 import { Link, useNavigate } from 'react-router-dom';
+import { ShieldCheck } from 'lucide-react';
 import { useLoginMutation } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
 import { fetchMyPermissions, resolveHomePath } from '@/services/permissionsService';
@@ -80,28 +81,50 @@ const Login: React.FC = () => {
 
   if (requires2FA) {
     return (
-      <div className="flex flex-col gap-6 sm:gap-8">
-        <div className="flex flex-col gap-2 sm:gap-3">
-          <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">Two-Factor Authentication</h1>
-          <p className="text-sm text-gray-500 font-medium">Enter the 6-digit code from your authenticator app.</p>
+      <div className="flex flex-col gap-7">
+        <div className="flex flex-col gap-3">
+          <div className="h-11 w-11 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+            <ShieldCheck size={20} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <h1 className="text-2xl sm:text-[1.75rem] font-black text-gray-900 tracking-tight">
+              Two-factor verification
+            </h1>
+            <p className="text-sm text-gray-500 font-medium leading-relaxed">
+              Enter the 6-digit code from your authenticator app to continue.
+            </p>
+          </div>
         </div>
-        <div className="flex flex-col gap-6">
+
+        <div className="flex flex-col gap-5">
           <input
-            type="text" inputMode="numeric" maxLength={6} placeholder="000000"
-            value={tfaCode} onChange={(e) => setTfaCode(e.target.value.replace(/\D/g, ''))}
-            className="h-16 px-4 rounded-xl border border-gray-200 text-center text-3xl font-black tracking-[0.5em] outline-none focus:ring-2 focus:ring-primary-100 w-full"
+            type="text"
+            inputMode="numeric"
+            maxLength={6}
+            placeholder="000000"
+            value={tfaCode}
+            onChange={(e) => setTfaCode(e.target.value.replace(/\D/g, ''))}
+            className="h-14 px-4 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-center text-2xl font-black tracking-[0.4em] outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-400 w-full transition-shadow"
             autoFocus
           />
           <Button
-            fullWidth size="lg" disabled={tfaLoading || tfaCode.length < 6}
+            fullWidth
+            size="lg"
+            disabled={tfaLoading || tfaCode.length < 6}
             loading={tfaLoading}
-            className="h-12 rounded-xl shadow-[0_10px_30px_rgba(31,123,255,0.2)] text-lg font-bold"
+            className="h-12 rounded-xl text-base font-bold"
             onClick={handleVerify2FA}
           >
-            {tfaLoading ? 'Verifying...' : 'Verify'}
+            {tfaLoading ? 'Verifying...' : 'Verify & continue'}
           </Button>
-          <button onClick={() => { setRequires2FA(false); setTfaCode(''); }}
-            className="text-xs text-gray-400 hover:text-gray-600 font-bold transition-colors text-center">
+          <button
+            type="button"
+            onClick={() => {
+              setRequires2FA(false);
+              setTfaCode('');
+            }}
+            className="text-xs text-gray-400 hover:text-[#005CDA] font-bold transition-colors text-center"
+          >
             Back to login
           </button>
         </div>
@@ -110,58 +133,66 @@ const Login: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col gap-6 sm:gap-8 lg:gap-10">
-      <div className="flex flex-col gap-2 sm:gap-3">
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-gray-900 tracking-tight">
-          Sign in to TEKXAI
+    <div className="flex flex-col gap-7">
+      <div className="flex flex-col gap-2">
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#005CDA]">
+          Welcome back
+        </p>
+        <h1 className="text-2xl sm:text-[1.75rem] font-black text-gray-900 tracking-tight">
+          Sign in to TekXAI
         </h1>
-        <p className="text-sm sm:text-base text-gray-500 font-medium">
-          Please enter your credentials to access your account.
+        <p className="text-sm text-gray-500 font-medium leading-relaxed">
+          Enter your work email and password to access your workspace.
         </p>
       </div>
 
       <Formik initialValues={{ email: '', password: '' }} validate={validateLoginForm} onSubmit={handleSubmit}>
         {({ values, handleChange, handleBlur, errors, touched }) => (
-          <Form className="flex flex-col gap-6">
+          <Form className="flex flex-col gap-5">
             <FormInput
-              label="WORK EMAIL *"
+              label="Work email"
               name="email"
               type="email"
-              placeholder="Enter email"
+              placeholder="you@company.com"
               value={values.email}
               onChange={handleChange}
               onBlur={handleBlur}
-              labelClassName="text-[10px] font-black text-gray-400 tracking-widest uppercase mb-1"
+              labelClassName="text-xs font-bold text-gray-500 mb-1.5"
               error={touched.email && errors.email ? errors.email : undefined}
               autoComplete="username"
             />
+
             <div className="flex flex-col gap-2">
               <FormInput
-                label="PASSWORD *"
+                label="Password"
                 name="password"
                 type="password"
-                placeholder="Enter password"
+                placeholder="Enter your password"
                 value={values.password}
                 onChange={handleChange}
                 onBlur={handleBlur}
-                labelClassName="text-[10px] font-black text-gray-400 tracking-widest uppercase mb-1"
+                labelClassName="text-xs font-bold text-gray-500 mb-1.5"
                 error={touched.password && errors.password ? errors.password : undefined}
                 autoComplete="current-password"
               />
               <div className="flex justify-end">
-                <Link to="/forget-password" className="text-xs text-primary-500 hover:text-primary-600 font-bold transition-colors">
-                  Forgot your password?
+                <Link
+                  to="/forget-password"
+                  className="text-xs text-[#005CDA] hover:opacity-80 font-bold transition-opacity"
+                >
+                  Forgot password?
                 </Link>
               </div>
             </div>
-            <div className="pt-2">
+
+            <div className="pt-1">
               <Button
                 type="submit"
                 disabled={loginMutation.isPending}
                 fullWidth
                 size="lg"
                 loading={loginMutation.isPending}
-                className="h-12 rounded-xl shadow-[0_10px_30px_rgba(31,123,255,0.2)] text-lg font-bold"
+                className="h-12 rounded-xl text-base font-bold"
               >
                 {loginMutation.isPending ? 'Signing in...' : 'Sign in'}
               </Button>
