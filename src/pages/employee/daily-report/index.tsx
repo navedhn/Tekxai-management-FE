@@ -453,12 +453,12 @@ export default function DailyReportPage() {
           <p className="text-sm text-(--color-text-secondary) font-medium mt-0.5">Start your day with an agenda, close it out with a report</p>
         </div>
         <div className="flex flex-wrap gap-2 justify-end">
-          {hasOpenSession && !agendaSubmitted && (
+          {!agendaSubmitted && (
             <PageActionButton leftIcon={ClipboardList} onClick={() => setShowAgendaModal(true)}>
               Submit Today's Agenda
             </PageActionButton>
           )}
-          {agendaSubmitted && !reportSubmitted && (
+          {!reportSubmitted && (
             <PageActionButton leftIcon={Plus} onClick={() => setShowReportModal(true)}>
               Submit Daily Report
             </PageActionButton>
@@ -471,17 +471,17 @@ export default function DailyReportPage() {
           className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
           icon={<ClipboardList size={18} />}
           iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
-          value={agendaSubmitted ? 'Done' : hasOpenSession ? 'Pending' : '—'}
+          value={agendaSubmitted ? 'Done' : 'Pending'}
           label="Today's Agenda"
-          subtext={agendaSubmitted ? 'Submitted' : hasOpenSession ? 'Needs submission' : 'Clock in to start'}
+          subtext={agendaSubmitted ? 'Submitted' : 'Needs submission'}
         />
         <DashboardStatCard
           className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
           icon={<FileText size={18} />}
           iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
-          value={reportSubmitted ? 'Done' : agendaSubmitted ? 'Pending' : '—'}
+          value={reportSubmitted ? 'Done' : 'Pending'}
           label="Daily Report"
-          subtext={reportSubmitted ? 'Submitted' : agendaSubmitted ? 'Needs submission' : 'Agenda first'}
+          subtext={reportSubmitted ? 'Submitted' : 'Needs submission'}
         />
         <DashboardStatCard
           className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"

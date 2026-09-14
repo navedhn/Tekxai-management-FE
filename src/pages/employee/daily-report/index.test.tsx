@@ -64,16 +64,23 @@ describe('Daily Report page — attendance state synchronization via socket even
     useAuthStore.setState({ user: { id: 'u1', designation: 'Backend Developer' } as any });
   });
 
-  it('does not show Submit Today\'s Agenda while checked out', async () => {
+  // Agenda/Report submission is available regardless of open-session state
+  // (the backend never required one — see daily-planning.controller.js's
+  // attendance_business_date, which explicitly falls back to today's date
+  // when clocked out). So the "Hours Today" card's session subtext — not
+  // the Agenda button — is what these tests use as their probe for "did the
+  // socket event actually refetch compliance-status."
+  const openSessionText = () => screen.queryByText('Open session');
+  const noOpenSessionText = () => screen.queryByText('No open session');
+
+  it('shows "No open session" while checked out', async () => {
     renderPage();
-    await waitFor(() => expect(apiRequestMock).toHaveBeenCalled());
-    expect(screen.queryByRole('button', { name: /Submit Today's Agenda/i })).not.toBeInTheDocument();
+    await waitFor(() => expect(noOpenSessionText()).toBeInTheDocument());
   });
 
-  it('receiving a presence:update check-in socket event makes Add Agenda visible without polling or a second Check In', async () => {
+  it('receiving a presence:update check-in socket event refreshes session state without polling or a second Check In', async () => {
     renderPage();
-    await waitFor(() => expect(apiRequestMock).toHaveBeenCalled());
-    expect(screen.queryByRole('button', { name: /Submit Today's Agenda/i })).not.toBeInTheDocument();
+    await waitFor(() => expect(noOpenSessionText()).toBeInTheDocument());
 
     const callsBeforeEvent = apiRequestMock.mock.calls.length;
     complianceStatus = { has_open_session: true, agenda_submitted: false, report_submitted: false };
@@ -83,7 +90,7 @@ describe('Daily Report page — attendance state synchronization via socket even
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Submit Today's Agenda/i })).toBeInTheDocument();
+      expect(openSessionText()).toBeInTheDocument();
     });
     expect(apiRequestMock.mock.calls.length).toBeGreaterThan(callsBeforeEvent);
   });
@@ -97,14 +104,14 @@ describe('Daily Report page — attendance state synchronization via socket even
       fakeSocket.trigger('presence:update', { userId: 'someone-else', status: 'WORKING' });
     });
 
-    expect(screen.queryByRole('button', { name: /Submit Today's Agenda/i })).not.toBeInTheDocument();
+    expect(noOpenSessionText()).toBeInTheDocument();
   });
 
-  it('a Check Out presence event hides Add Agenda again and updates the page correctly', async () => {
+  it('a Check Out presence event updates the page back to no-open-session', async () => {
     complianceStatus = { has_open_session: true, agenda_submitted: false, report_submitted: false };
     renderPage();
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Submit Today's Agenda/i })).toBeInTheDocument();
+      expect(openSessionText()).toBeInTheDocument();
     });
 
     complianceStatus = { has_open_session: false, agenda_submitted: false, report_submitted: false };
@@ -113,7 +120,7 @@ describe('Daily Report page — attendance state synchronization via socket even
     });
 
     await waitFor(() => {
-      expect(screen.queryByRole('button', { name: /Submit Today's Agenda/i })).not.toBeInTheDocument();
+      expect(noOpenSessionText()).toBeInTheDocument();
     });
   });
 
@@ -123,21 +130,20 @@ describe('Daily Report page — attendance state synchronization via socket even
 
     complianceStatus = { has_open_session: true, agenda_submitted: false, report_submitted: false };
     await act(async () => { fakeSocket.trigger('presence:update', { userId: 'u1', status: 'WORKING' }); });
-    await waitFor(() => expect(screen.getByRole('button', { name: /Submit Today's Agenda/i })).toBeInTheDocument());
+    await waitFor(() => expect(openSessionText()).toBeInTheDocument());
 
     complianceStatus = { has_open_session: false, agenda_submitted: false, report_submitted: false };
     await act(async () => { fakeSocket.trigger('presence:update', { userId: 'u1', status: 'ONLINE' }); });
-    await waitFor(() => expect(screen.queryByRole('button', { name: /Submit Today's Agenda/i })).not.toBeInTheDocument());
+    await waitFor(() => expect(noOpenSessionText()).toBeInTheDocument());
 
     complianceStatus = { has_open_session: true, agenda_submitted: false, report_submitted: false };
     await act(async () => { fakeSocket.trigger('presence:update', { userId: 'u1', status: 'WORKING' }); });
-    await waitFor(() => expect(screen.getByRole('button', { name: /Submit Today's Agenda/i })).toBeInTheDocument());
+    await waitFor(() => expect(openSessionText()).toBeInTheDocument());
   });
 
   it('a reconnect (app restart/network recovery) eventually reconciles attendance state', async () => {
     renderPage();
-    await waitFor(() => expect(apiRequestMock).toHaveBeenCalled());
-    expect(screen.queryByRole('button', { name: /Submit Today's Agenda/i })).not.toBeInTheDocument();
+    await waitFor(() => expect(noOpenSessionText()).toBeInTheDocument());
 
     fakeSocket.connected = false;
     complianceStatus = { has_open_session: true, agenda_submitted: false, report_submitted: false };
@@ -148,7 +154,7 @@ describe('Daily Report page — attendance state synchronization via socket even
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Submit Today's Agenda/i })).toBeInTheDocument();
+      expect(openSessionText()).toBeInTheDocument();
     });
   });
 
@@ -156,7 +162,14 @@ describe('Daily Report page — attendance state synchronization via socket even
     complianceStatus = { has_open_session: true, agenda_submitted: false, report_submitted: false };
     renderPage();
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Submit Today's Agenda/i })).toBeInTheDocument();
+      expect(openSessionText()).toBeInTheDocument();
     });
+  });
+
+  it('Submit Today\'s Agenda and Submit Daily Report are both available while checked out', async () => {
+    complianceStatus = { has_open_session: false, agenda_submitted: false, report_submitted: false };
+    renderPage();
+    await waitFor(() => expect(screen.getByRole('button', { name: /Submit Today's Agenda/i })).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /Submit Daily Report/i })).toBeInTheDocument();
   });
 });
