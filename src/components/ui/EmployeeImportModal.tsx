@@ -4,7 +4,7 @@ import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import {
-  useEmployeeImportPreview, useEmployeeImportCommit, downloadEmployeeImportTemplate,
+  useEmployeeImportPreview, useEmployeeImportCommit,
   type ImportPreview, type ImportRow,
 } from '@/services/employeeImportService';
 
@@ -27,7 +27,6 @@ export default function EmployeeImportModal({
   const [rowMatches, setRowMatches] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [committed, setCommitted] = useState<Awaited<ReturnType<ReturnType<typeof useEmployeeImportCommit>['mutateAsync']>> | null>(null);
-  const [templateDownloading, setTemplateDownloading] = useState(false);
 
   const previewMut = useEmployeeImportPreview();
   const commitMut = useEmployeeImportCommit();
@@ -77,32 +76,9 @@ export default function EmployeeImportModal({
         {/* ── Step 0 — Upload ─────────────────────────────────────────── */}
         {step === 0 && (
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs text-gray-400">
-                Download the template first — it lists every supported field (personal, employment, compensation, emergency contact, bank) with an example row.
-              </p>
-              <Button
-                variant="outline" size="sm" animation="none" leftIcon={Download}
-                disabled={templateDownloading}
-                onClick={async () => {
-                  setTemplateDownloading(true);
-                  try {
-                    const blob = await downloadEmployeeImportTemplate();
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url; a.download = 'employee-import-template.csv'; a.click();
-                    URL.revokeObjectURL(url);
-                  } catch (e: any) {
-                    toast.error(e?.message || 'Could not download the template');
-                  } finally {
-                    setTemplateDownloading(false);
-                  }
-                }}
-                className="!h-9 shrink-0"
-              >
-                Download CSV Template
-              </Button>
-            </div>
+            <p className="text-xs text-gray-400 mb-3">
+              No separate template — use <span className="font-semibold text-gray-600">Export</span> on the Employee Directory to download every employee's real data on these exact columns (personal, employment, compensation, emergency contact, bank), edit what needs correcting, then upload it here.
+            </p>
             <button
               type="button"
               onClick={() => fileInput.current?.click()}
