@@ -22,7 +22,7 @@ function splitTime(totalSeconds: number) {
 
 const TimeUnit: React.FC<{ value: string; label: string }> = ({ value, label }) => (
   <div className="flex flex-col items-center gap-1.5">
-    <div className="min-w-[4rem] sm:min-w-[4.75rem] rounded-xl bg-[#F4F7FB] border border-gray-100 px-3 py-2.5 text-center">
+    <div className="min-w-[4rem] sm:min-w-[4.75rem] rounded-xl bg-(--color-elevated) border border-(--color-card-border) px-3 py-2.5 text-center">
       <span className="block text-2xl sm:text-3xl font-black tabular-nums tracking-tight leading-none text-(--color-text-primary)">
         {value}
       </span>
@@ -40,11 +40,11 @@ const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({ trackerState, seconds
   const dayProgress = Math.min(100, Math.round((seconds / (8 * 3600)) * 100));
 
   return (
-    <Card className="bg-white border border-gray-100 shadow-sm py-5 px-5 sm:px-7">
+    <Card className="bg-(--color-card-bg) border border-(--color-card-border) shadow-sm py-5 px-5 sm:px-7">
       <div className="flex flex-col gap-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="h-10 w-10 shrink-0 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+            <div className="h-10 w-10 shrink-0 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center">
               {isTracking ? <Clock size={18} /> : <MonitorSmartphone size={18} />}
             </div>
             <div className="min-w-0">
@@ -63,16 +63,20 @@ const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({ trackerState, seconds
             className={cn(
               'inline-flex items-center gap-1.5 self-start rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide',
               isTracking
-                ? 'bg-emerald-50 text-emerald-700'
+                ? 'bg-(--color-success-bg) text-(--color-success)'
                 : hasTime
-                  ? 'bg-[#E8F1FF] text-[#005CDA]'
-                  : 'bg-gray-100 text-gray-500',
+                  ? 'bg-(--color-info-bg) text-(--color-brand-primary)'
+                  : 'bg-(--color-elevated) text-(--color-text-secondary)',
             )}
           >
             <span
               className={cn(
                 'h-1.5 w-1.5 rounded-full',
-                isTracking ? 'bg-emerald-500 animate-pulse' : hasTime ? 'bg-[#005CDA]' : 'bg-gray-400',
+                isTracking
+                  ? 'bg-(--color-success) animate-pulse'
+                  : hasTime
+                    ? 'bg-(--color-brand-primary)'
+                    : 'bg-(--color-text-secondary)',
               )}
             />
             {isTracking ? 'Tracking' : hasTime ? 'Completed' : 'Idle'}
@@ -82,9 +86,9 @@ const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({ trackerState, seconds
         <div className="flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-8">
           <div className="flex items-end justify-center sm:justify-start gap-2 sm:gap-2.5">
             <TimeUnit value={h} label="Hours" />
-            <span className="pb-7 text-xl font-black text-gray-300">:</span>
+            <span className="pb-7 text-xl font-black text-(--color-text-secondary)">:</span>
             <TimeUnit value={m} label="Mins" />
-            <span className="pb-7 text-xl font-black text-gray-300">:</span>
+            <span className="pb-7 text-xl font-black text-(--color-text-secondary)">:</span>
             <TimeUnit value={s} label="Secs" />
           </div>
 
@@ -93,14 +97,14 @@ const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({ trackerState, seconds
               <span className="text-xs font-medium text-(--color-text-secondary)">
                 {isTracking ? "Today's progress" : hasTime ? "Today's total" : 'Ready to track'}
               </span>
-              <span className="text-xs font-bold text-(--color-sidebar-bg) tabular-nums">
+              <span className="text-xs font-bold text-(--color-brand-primary) tabular-nums">
                 {isTracking || hasTime ? `${dayProgress}% of 8h` : '—'}
               </span>
             </div>
-            <div className="h-1 w-full rounded-full bg-[#EEF2F7] overflow-hidden">
+            <div className="h-1 w-full rounded-full bg-(--color-elevated) overflow-hidden">
               <div
                 className={cn(
-                  'h-full rounded-full transition-all duration-500 bg-(--color-sidebar-bg)',
+                  'h-full rounded-full transition-all duration-500 bg-(--color-brand-primary)',
                   !isTracking && !hasTime && 'bg-transparent',
                 )}
                 style={{ width: `${isTracking || hasTime ? dayProgress : 0}%` }}

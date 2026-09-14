@@ -461,6 +461,7 @@ body {
 }
 
 :root[data-mode='dark'] .bg-gray-100,
+:root[data-mode='dark'] .bg-gray-200,
 :root[data-mode='dark'] .hover\:bg-gray-100:hover {
   background-color: #222b3d !important;
 }
@@ -487,8 +488,15 @@ body {
 
 :root[data-mode='dark'] .bg-\[\#E8EEF8\],
 :root[data-mode='dark'] .bg-\[\#E5F2FF\],
-:root[data-mode='dark'] .bg-\[\#F0F5FF\] {
+:root[data-mode='dark'] .bg-\[\#F0F5FF\],
+:root[data-mode='dark'] .bg-\[\#E8F1FF\] {
   background-color: rgba(96, 165, 250, 0.14) !important;
+}
+
+:root[data-mode='dark'] .bg-\[\#F8FAFC\],
+:root[data-mode='dark'] .bg-\[\#F4F7FB\],
+:root[data-mode='dark'] .bg-\[\#EEF2F7\] {
+  background-color: var(--color-elevated) !important;
 }
 
 /* Toast / soft status wells */
@@ -520,6 +528,7 @@ body {
 :root[data-mode='dark'] .bg-\[\#ECFDF3\],
 :root[data-mode='dark'] .bg-\[\#FFF6ED\],
 :root[data-mode='dark'] .bg-\[\#FFF1F3\],
+:root[data-mode='dark'] .bg-\[\#FFFAEB\],
 :root[data-mode='dark'] .bg-\[\#005CDA1A\],
 :root[data-mode='dark'] .bg-\[\#FF58551A\],
 :root[data-mode='dark'] .bg-blue-50,
@@ -581,13 +590,41 @@ body {
 :root[data-mode='dark'] .text-\[\#005CDA\],
 :root[data-mode='dark'] .text-\[\#0086C9\],
 :root[data-mode='dark'] .text-\[\#175CD3\],
-:root[data-mode='dark'] .text-\[\#0148FF\] {
+:root[data-mode='dark'] .text-\[\#0148FF\],
+:root[data-mode='dark'] .text-\[\#0078D4\],
+:root[data-mode='dark'] .text-\[\#111827\],
+:root[data-mode='dark'] .fill-\[\#005CDA\] {
   color: #7db4ff !important;
+  fill: #7db4ff !important;
+}
+
+:root[data-mode='dark'] .text-green-700,
+:root[data-mode='dark'] .text-emerald-700,
+:root[data-mode='dark'] .text-teal-700 {
+  color: #4ade80 !important;
+}
+
+:root[data-mode='dark'] .text-red-700,
+:root[data-mode='dark'] .text-rose-700 {
+  color: #f87171 !important;
+}
+
+:root[data-mode='dark'] .text-yellow-700,
+:root[data-mode='dark'] .text-orange-700,
+:root[data-mode='dark'] .text-amber-700 {
+  color: #fb923c !important;
+}
+
+:root[data-mode='dark'] .bg-teal-50 {
+  background-color: rgba(45, 212, 191, 0.12) !important;
 }
 
 :root[data-mode='dark'] .text-\[\#C4320A\],
 :root[data-mode='dark'] .text-\[\#F04438\],
-:root[data-mode='dark'] .text-\[\#C01048\] {
+:root[data-mode='dark'] .text-\[\#C01048\],
+:root[data-mode='dark'] .text-\[\#B54708\],
+:root[data-mode='dark'] .text-\[\#C34113\],
+:root[data-mode='dark'] .text-\[\#E95420\] {
   color: #fb923c !important;
 }
 
@@ -598,6 +635,27 @@ body {
 
 :root[data-mode='dark'] .text-\[\#344054\] {
   color: #e2e8f0 !important;
+}
+
+/* Brand rings / solid accents */
+:root[data-mode='dark'] .ring-\[\#005CDA\],
+:root[data-mode='dark'] .ring-\[\#005CDA\]\/15,
+:root[data-mode='dark'] .ring-\[\#005CDA\]\/20,
+:root[data-mode='dark'] .ring-\[\#005CDA\]\/30 {
+  --tw-ring-color: rgba(125, 180, 255, 0.35);
+}
+
+:root[data-mode='dark'] .border-\[\#005CDA\],
+:root[data-mode='dark'] .border-\[\#D1E9FF\],
+:root[data-mode='dark'] .border-\[\#FEDF89\],
+:root[data-mode='dark'] .border-\[\#FFD6AE\] {
+  border-color: rgba(125, 180, 255, 0.35) !important;
+}
+
+:root[data-mode='dark'] .bg-\[\#005CDA\],
+:root[data-mode='dark'] .hover\:bg-\[\#0047b3\]:hover,
+:root[data-mode='dark'] .hover\:bg-\[\#004BB3\]:hover {
+  background-color: #3b82f6 !important;
 }
 
 /* Borders */
@@ -775,6 +833,16 @@ span {
   );
   background-size: 200% 100%;
   animation: shimmer 2s infinite linear;
+}
+
+:root[data-mode='dark'] .animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0) 0,
+    rgba(148, 163, 184, 0.18) 50%,
+    rgba(148, 163, 184, 0) 100%
+  );
+  background-size: 200% 100%;
 }
 
 @keyframes sweep {

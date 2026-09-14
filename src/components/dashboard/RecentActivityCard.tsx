@@ -9,7 +9,7 @@ interface RecentActivityCardProps {
 }
 
 const RecentActivityCard: React.FC<RecentActivityCardProps> = ({ activity }) => (
-  <div className="group cursor-pointer relative rounded-[1.25rem] border border-gray-100 overflow-hidden bg-white">
+  <div className="group cursor-pointer relative rounded-[1.25rem] border border-(--color-card-border) overflow-hidden bg-(--color-card-bg)">
     {activity.image ? (
       <img
         src={activity.image}
@@ -28,10 +28,10 @@ const RecentActivityCard: React.FC<RecentActivityCardProps> = ({ activity }) => 
         className={cn(
           'text-[10px] font-black px-2 py-0.5 rounded-lg border-none',
           activity.progress >= 90
-            ? 'bg-[#005CDA] text-white'
+            ? 'bg-(--color-brand-primary) text-white'
             : activity.progress >= 50
-              ? 'bg-[#12B76A] text-white'
-              : 'bg-[#F04438] text-white'
+              ? 'bg-(--color-success) text-white'
+              : 'bg-(--color-danger) text-white'
         )}
       >
         {activity.progress}%

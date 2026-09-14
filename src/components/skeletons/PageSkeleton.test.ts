@@ -16,6 +16,7 @@ describe('getPageSkeletonVariant', () => {
 
   it('maps timesheet, tickets, documents, settings, chat, and org chart', () => {
     expect(getPageSkeletonVariant('/employee/timesheet')).toBe('timesheet');
+    expect(getPageSkeletonVariant('/employee/daily-report')).toBe('timesheet');
     expect(getPageSkeletonVariant('/employee/tickets')).toBe('stats-table');
     expect(getPageSkeletonVariant('/employee/documents')).toBe('documents');
     expect(getPageSkeletonVariant('/employee/documents/doc-1')).toBe('detail');

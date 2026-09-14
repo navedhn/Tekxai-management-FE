@@ -90,7 +90,7 @@ const EmployeeDashboard: React.FC = () => {
             render: (item) => (
                 <button
                     onClick={() => setSelectedProject(item.id)}
-                    className="text-left font-black text-gray-900 transition-colors hover:text-primary-500 hover:underline underline-offset-4"
+                    className="text-left font-black text-(--color-text-primary) transition-colors hover:text-primary-500 hover:underline underline-offset-4"
                 >
                     {item.title}
                 </button>
@@ -121,7 +121,7 @@ const EmployeeDashboard: React.FC = () => {
                             style={{ width: `${item.progress}%` }}
                         />
                     </div>
-                    <span className="text-[10px] font-bold text-gray-400">{item.progress}%</span>
+                    <span className="text-[10px] font-bold text-(--color-text-secondary)">{item.progress}%</span>
                 </div>
             )
         },
@@ -162,9 +162,9 @@ const EmployeeDashboard: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <DashboardStatCard
-                    className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+                    className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
                     icon={<CheckCircle size={20} />}
-                    iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+                    iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
                     value={stats?.completedProjects ?? 0}
                     label="Completed Projects"
                     subtext={
@@ -175,17 +175,17 @@ const EmployeeDashboard: React.FC = () => {
                     }
                 />
                 <DashboardStatCard
-                    className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
-                    icon={<Play size={18} className="fill-[#005CDA]" />}
-                    iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+                    className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
+                    icon={<Play size={18} className="fill-current text-(--color-brand-primary)" />}
+                    iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
                     value={stats?.latestCheckIn ?? '—'}
                     label="Latest Check-in"
                     subtext="Today's attendance"
                 />
                 <DashboardStatCard
-                    className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+                    className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
                     icon={<FileText size={20} />}
-                    iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+                    iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
                     value={stats?.pendingTimesheets ?? 0}
                     label="Pending Timesheets"
                     subtext="Edit requests awaiting"
@@ -198,16 +198,16 @@ const EmployeeDashboard: React.FC = () => {
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <Card className="lg:col-span-5 flex flex-col gap-4 bg-white border border-gray-100 shadow-sm !p-0 overflow-hidden">
-                    <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
-                        <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+                <Card className="lg:col-span-5 flex flex-col gap-4 bg-white border border-(--color-card-border) shadow-sm !p-0 overflow-hidden">
+                    <div className="flex items-center gap-2.5 px-5 py-4 border-b border-(--color-card-border)">
+                        <div className="h-9 w-9 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center">
                             <Play size={16} />
                         </div>
-                        <h2 className="text-lg font-black text-gray-900 tracking-tight">Recent Activity</h2>
+                        <h2 className="text-lg font-black text-(--color-text-primary) tracking-tight">Recent Activity</h2>
                     </div>
                     <div className="px-5 pb-5">
                     {!activity || activity.length === 0 ? (
-                        <p className="text-sm text-gray-400 text-center py-10">
+                        <p className="text-sm text-(--color-text-secondary) text-center py-10">
                             No recent activity yet.
                         </p>
                     ) : (
@@ -220,12 +220,12 @@ const EmployeeDashboard: React.FC = () => {
                     </div>
                 </Card>
 
-                <Card className="lg:col-span-7 flex flex-col gap-4 bg-white border border-gray-100 shadow-sm !p-0 overflow-hidden">
-                    <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
-                        <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+                <Card className="lg:col-span-7 flex flex-col gap-4 bg-white border border-(--color-card-border) shadow-sm !p-0 overflow-hidden">
+                    <div className="flex items-center gap-2.5 px-5 py-4 border-b border-(--color-card-border)">
+                        <div className="h-9 w-9 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center">
                             <FileText size={16} />
                         </div>
-                        <h2 className="text-lg font-black text-gray-900 tracking-tight">Recent Timesheet</h2>
+                        <h2 className="text-lg font-black text-(--color-text-primary) tracking-tight">Recent Timesheet</h2>
                     </div>
                     <div className="px-4 pb-4">
                         <Table
@@ -233,24 +233,24 @@ const EmployeeDashboard: React.FC = () => {
                             data={timesheet || []}
                             className="border-none shadow-none"
                             emptyMessage="No timesheet entries yet."
-                            headerClassName="bg-[#F8FAFC] border-none rounded-xl"
+                            headerClassName="bg-(--color-elevated) border-none rounded-xl"
                         />
                     </div>
                 </Card>
             </div>
 
-            <Card className="flex flex-col gap-4 bg-white border border-gray-100 shadow-sm !p-0 overflow-hidden">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-5 py-4 border-b border-gray-100">
+            <Card className="flex flex-col gap-4 bg-white border border-(--color-card-border) shadow-sm !p-0 overflow-hidden">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-5 py-4 border-b border-(--color-card-border)">
                     <div className="flex items-center gap-2.5">
-                        <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+                        <div className="h-9 w-9 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center">
                             <Briefcase size={16} />
                         </div>
-                        <h2 className="text-lg font-black text-gray-900 tracking-tight">Projects Summary</h2>
+                        <h2 className="text-lg font-black text-(--color-text-primary) tracking-tight">Projects Summary</h2>
                     </div>
                     <div className="relative w-full sm:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-(--color-text-secondary)" size={18} />
                         <input
-                            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary-100 focus:border-primary-300 outline-none transition-all"
+                            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-(--color-card-border) rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary-100 focus:border-primary-300 outline-none transition-all"
                             placeholder="Search projects..."
                             value={searchTerm}
                             onChange={(e) => {
@@ -265,7 +265,7 @@ const EmployeeDashboard: React.FC = () => {
                         columns={projectColumns}
                         data={paginatedProjects}
                         emptyMessage="No projects found."
-                        headerClassName="bg-[#F8FAFC] border-none rounded-xl"
+                        headerClassName="bg-(--color-elevated) border-none rounded-xl"
                         pagination={{
                             currentPage: currentPage,
                             totalPages: totalPages,

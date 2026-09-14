@@ -67,11 +67,11 @@ function fmtWeekRange(start: Date) {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  'In Progress': 'bg-[#EFF8FF] text-[#175CD3] border-[#B2DDFF]',
-  'On Break':    'bg-[#FFFAEB] text-[#B54708] border-[#FEDF89]',
-  'Overdue':     'bg-[#FFF1F3] text-[#C01048] border-[#FEB3B3]',
-  'Pending':     'bg-[#FFF6ED] text-[#C4320A] border-[#FFD6AE]',
-  'Completed':   'bg-[#EFF8FF] text-[#005CDA] border-[#D1E9FF]',
+  'In Progress': 'bg-(--color-info-bg) text-(--color-info) border-(--color-info-border)',
+  'On Break':    'bg-(--color-warning-bg) text-(--color-warning) border-(--color-warning-border)',
+  'Overdue':     'bg-(--color-danger-bg) text-(--color-danger) border-(--color-danger-border)',
+  'Pending':     'bg-(--color-warning-bg) text-(--color-warning) border-(--color-warning-border)',
+  'Completed':   'bg-(--color-info-bg) text-(--color-brand-primary) border-(--color-info-border)',
 };
 
 const VIEW_TABS = ['Weekly', 'Monthly', 'Custom', 'My Requests'];
@@ -83,30 +83,30 @@ const VIEW_TABS = ['Weekly', 'Monthly', 'Custom', 'My Requests'];
 const SummaryCards: React.FC<{ data?: WeeklyTimesheetData }> = ({ data }) => (
   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
     <DashboardStatCard
-      className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+      className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
       icon={<Clock size={18} />}
-      iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+      iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
       value={data?.total_duration_label || '0h 0m'}
       label="Total Duration"
     />
     <DashboardStatCard
-      className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+      className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
       icon={<Coffee size={18} />}
-      iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+      iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
       value={data?.total_break_label ?? '—'}
       label="Total Break Time"
     />
     <DashboardStatCard
-      className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+      className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
       icon={<Timer size={18} />}
-      iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+      iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
       value={data?.total_idle_label ?? '—'}
       label="Total Idle Time"
     />
     <DashboardStatCard
-      className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+      className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
       icon={<BarChart3 size={18} />}
-      iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+      iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
       value={data?.total_productive_label ?? '—'}
       label="Productive Hours"
     />
@@ -194,21 +194,21 @@ const EmployeeTimesheet: React.FC = () => {
   const columns: Column<TimesheetEntry>[] = [
     {
       header: 'Day', key: 'day_date',
-      render: (item) => <span className="font-bold text-gray-900">{item.day_label || fmtLabel(new Date(item.day_date))}</span>,
+      render: (item) => <span className="font-bold text-(--color-text-primary)">{item.day_label || fmtLabel(new Date(item.day_date))}</span>,
     },
     {
       header: 'Check In', key: 'check_in',
-      render: (item) => <span className={!item.has_entry ? 'text-gray-400' : ''}>{item.check_in || item.no_entry_text}</span>,
+      render: (item) => <span className={!item.has_entry ? 'text-(--color-text-secondary)' : ''}>{item.check_in || item.no_entry_text}</span>,
     },
     {
       header: 'Check Out', key: 'check_out',
-      render: (item) => <span className={!item.has_entry ? 'text-gray-400' : ''}>{item.check_out || item.no_entry_text}</span>,
+      render: (item) => <span className={!item.has_entry ? 'text-(--color-text-secondary)' : ''}>{item.check_out || item.no_entry_text}</span>,
     },
     { header: 'Duration', key: 'duration_label', render: (item) => <span>{item.duration_label}</span> },
     {
       header: 'Break Time', key: 'break_seconds',
       render: (item) => (
-        <span className="text-gray-500">
+        <span className="text-(--color-text-secondary)">
           {!item.has_entry ? '—' : item.break_seconds == null ? <span title="No break data recorded for this session">—</span> : fmtHm(item.break_seconds)}
         </span>
       ),
@@ -216,7 +216,7 @@ const EmployeeTimesheet: React.FC = () => {
     {
       header: 'Idle Time', key: 'idle_seconds',
       render: (item) => (
-        <span className="text-gray-500">
+        <span className="text-(--color-text-secondary)">
           {!item.has_entry ? '—' : item.idle_seconds == null ? <span title="No idle data recorded for this session">—</span> : fmtHm(item.idle_seconds)}
         </span>
       ),
@@ -231,7 +231,7 @@ const EmployeeTimesheet: React.FC = () => {
       render: (item) => (
         <span className={cn('font-black', item.has_entry ? 'text-emerald-600' : 'text-gray-300')}>
           {!item.has_entry ? '—' : (item.productive_label ?? (item.productive_seconds != null ? fmtHm(item.productive_seconds) : '—'))}
-          {item.is_open && item.has_entry && <span className="ml-1 text-[10px] font-bold text-gray-400 align-middle">(live)</span>}
+          {item.is_open && item.has_entry && <span className="ml-1 text-[10px] font-bold text-(--color-text-secondary) align-middle">(live)</span>}
         </span>
       ),
     },
@@ -256,7 +256,7 @@ const EmployeeTimesheet: React.FC = () => {
             disabled={!item.has_entry || !item.entry_id}
             onClick={() => openEditRequest(item)}
             title={item.has_entry ? 'Request a correction' : 'No entry to correct'}
-            className="p-1.5 hover:bg-gray-50 text-gray-400 hover:text-gray-600 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+            className="p-1.5 hover:bg-gray-50 text-(--color-text-secondary) hover:text-gray-600 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
           >
             <MoreVertical size={16} />
           </button>
@@ -278,14 +278,14 @@ const EmployeeTimesheet: React.FC = () => {
         footer={
           <div className="flex justify-end gap-2">
             <Button variant="outline" animation="none" rounded={false} className="rounded-lg" onClick={() => setEditEntry(null)}>Cancel</Button>
-            <Button animation="none" rounded={false} className="rounded-lg bg-[#005CDA] text-white border-0 hover:bg-[#0047AB]" loading={requestEditMutation.isPending} onClick={submitEditRequest}>
+            <Button animation="none" rounded={false} className="rounded-lg bg-(--color-brand-primary) text-white border-0 hover:bg-(--color-brand-primary-hover)" loading={requestEditMutation.isPending} onClick={submitEditRequest}>
               Submit Request
             </Button>
           </div>
         }
       >
         <div className="space-y-4">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-(--color-text-secondary)">
             Current: {editEntry?.check_in || '—'} – {editEntry?.check_out || '—'}
           </p>
           <div className="grid grid-cols-2 gap-4">
@@ -298,40 +298,40 @@ const EmployeeTimesheet: React.FC = () => {
 
       <div className="flex items-start justify-between">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Timesheet</h1>
-          <p className="text-sm text-gray-500 font-medium">View and manage your time entries</p>
+          <h1 className="text-2xl font-black text-(--color-text-primary) tracking-tight">Timesheet</h1>
+          <p className="text-sm text-(--color-text-secondary) font-medium">View and manage your time entries</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <DashboardStatCard
-          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
           icon={<Briefcase size={18} />}
-          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
           value={myShift ? myShift.name : '—'}
           label="My Shift"
           subtext={myShift ? `${myShift.start_time}–${myShift.end_time}` : 'No shift assigned'}
         />
         <DashboardStatCard
-          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
           icon={<Calendar size={18} />}
-          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
           value={mySummary?.present_days ?? '—'}
           label="Working Days"
           subtext="This month"
         />
         <DashboardStatCard
-          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
           icon={<Clock size={18} />}
-          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
           value={mySummary?.late_days ?? '—'}
           label="Late Count"
           subtext="This month"
         />
         <DashboardStatCard
-          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
           icon={<Timer size={18} />}
-          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
           value={mySummary?.total_late_minutes ?? '—'}
           label="Late Minutes"
           subtext="Total this month"
@@ -343,18 +343,18 @@ const EmployeeTimesheet: React.FC = () => {
       {activeTab === 'Weekly' && (
         <div className="flex flex-col gap-4">
           <SummaryCards data={weeklyTimesheet} />
-        <Card className="flex flex-col gap-4 border border-gray-100 shadow-sm p-0 overflow-hidden bg-white">
+        <Card className="flex flex-col gap-4 border border-(--color-card-border) shadow-sm p-0 overflow-hidden bg-white">
           <div className="flex items-center justify-between px-5 pt-5">
             <div className="flex items-center gap-2.5">
-              <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+              <div className="h-9 w-9 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center">
                 <Calendar size={16} />
               </div>
-              <h2 className="text-lg font-black text-gray-900">{fmtWeekRange(weekAnchor)}</h2>
+              <h2 className="text-lg font-black text-(--color-text-primary)">{fmtWeekRange(weekAnchor)}</h2>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setWeekAnchor(d => { const n = new Date(d); n.setDate(n.getDate() - 7); return n; })}
-                className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"
+                className="p-2 rounded-lg hover:bg-gray-100 text-(--color-text-secondary)"
               >
                 <ChevronLeft size={18} />
               </button>
@@ -366,36 +366,36 @@ const EmployeeTimesheet: React.FC = () => {
               </button>
               <button
                 onClick={() => setWeekAnchor(d => { const n = new Date(d); n.setDate(n.getDate() + 7); return n; })}
-                className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"
+                className="p-2 rounded-lg hover:bg-gray-100 text-(--color-text-secondary)"
               >
                 <ChevronRight size={18} />
               </button>
             </div>
           </div>
-          <div className="px-5 text-sm text-gray-500 font-medium">
-            Total: <span className="text-gray-900 font-bold">{timesheet?.total_duration_label || '0h 0m'}</span>
+          <div className="px-5 text-sm text-(--color-text-secondary) font-medium">
+            Total: <span className="text-(--color-text-primary) font-bold">{timesheet?.total_duration_label || '0h 0m'}</span>
           </div>
           <div className="px-4 pb-4">
             <Table columns={columns} data={timesheet?.rows || []} isLoading={isLoading}
-              className="border-none shadow-none" headerClassName="bg-[#F8FAFC] border-none rounded-xl" />
+              className="border-none shadow-none" headerClassName="bg-(--color-elevated) border-none rounded-xl" />
           </div>
         </Card>
         </div>
       )}
 
       {activeTab === 'Monthly' && (
-        <Card className="flex flex-col gap-4 border border-gray-100 shadow-sm p-0 overflow-hidden bg-white">
+        <Card className="flex flex-col gap-4 border border-(--color-card-border) shadow-sm p-0 overflow-hidden bg-white">
           <div className="flex items-center justify-between px-5 pt-5">
             <div className="flex items-center gap-2.5">
-              <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+              <div className="h-9 w-9 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center">
                 <Calendar size={16} />
               </div>
-              <h2 className="text-lg font-black text-gray-900">{fmtMonthYear(monthAnchor)}</h2>
+              <h2 className="text-lg font-black text-(--color-text-primary)">{fmtMonthYear(monthAnchor)}</h2>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setMonthAnchor(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
-                className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"
+                className="p-2 rounded-lg hover:bg-gray-100 text-(--color-text-secondary)"
               >
                 <ChevronLeft size={18} />
               </button>
@@ -407,7 +407,7 @@ const EmployeeTimesheet: React.FC = () => {
               </button>
               <button
                 onClick={() => setMonthAnchor(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
-                className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"
+                className="p-2 rounded-lg hover:bg-gray-100 text-(--color-text-secondary)"
               >
                 <ChevronRight size={18} />
               </button>
@@ -421,15 +421,15 @@ const EmployeeTimesheet: React.FC = () => {
       {activeTab === 'Custom' && (
         <div className="flex flex-col gap-4">
         <SummaryCards data={rangeTimesheet} />
-        <Card className="flex flex-col gap-4 border border-gray-100 shadow-sm p-0 overflow-hidden bg-white">
+        <Card className="flex flex-col gap-4 border border-(--color-card-border) shadow-sm p-0 overflow-hidden bg-white">
           <div className="flex flex-wrap items-end gap-3 px-5 pt-5">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">From</label>
+              <label className="text-xs font-bold text-(--color-text-secondary) uppercase tracking-wide">From</label>
               <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
                 className="h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">To</label>
+              <label className="text-xs font-bold text-(--color-text-secondary) uppercase tracking-wide">To</label>
               <input type="date" value={customTo} min={customFrom} onChange={e => setCustomTo(e.target.value)}
                 className="h-10 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" />
             </div>
@@ -438,26 +438,26 @@ const EmployeeTimesheet: React.FC = () => {
               Apply
             </Button>
           </div>
-          <div className="px-5 text-sm text-gray-500 font-medium">
+          <div className="px-5 text-sm text-(--color-text-secondary) font-medium">
             {customApplied.from} → {customApplied.to} · Total:{' '}
-            <span className="text-gray-900 font-bold">{timesheet?.total_duration_label || '0h 0m'}</span>
+            <span className="text-(--color-text-primary) font-bold">{timesheet?.total_duration_label || '0h 0m'}</span>
           </div>
           <div className="px-4 pb-4">
             <Table columns={columns} data={timesheet?.rows || []} isLoading={isLoading}
-              className="border-none shadow-none" headerClassName="bg-[#F8FAFC] border-none rounded-xl" />
+              className="border-none shadow-none" headerClassName="bg-(--color-elevated) border-none rounded-xl" />
           </div>
         </Card>
         </div>
       )}
 
       {activeTab === 'My Requests' && (
-        <div className="flex flex-col gap-6 bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+        <div className="flex flex-col gap-6 bg-white p-6 rounded-xl border border-(--color-card-border) shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+              <div className="h-9 w-9 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center">
                 <Calendar size={16} />
               </div>
-              <h2 className="text-xl font-black text-gray-900 tracking-tight">My Requests</h2>
+              <h2 className="text-xl font-black text-(--color-text-primary) tracking-tight">My Requests</h2>
             </div>
             <PageActionButton leftIcon={Calendar} onClick={() => setIsRequestModalOpen(true)}>
               Request Time Off
@@ -473,59 +473,59 @@ const EmployeeTimesheet: React.FC = () => {
               </div>
             ) : (
               <>
-            <h3 className="text-base font-bold text-gray-900">Time Off Requests</h3>
+            <h3 className="text-base font-bold text-(--color-text-primary)">Time Off Requests</h3>
             {timeOffRequests?.time_off_requests?.length ? timeOffRequests.time_off_requests.map((req: any) => (
-              <Card key={req.id} className="p-5 flex flex-col gap-3 bg-white border border-gray-100 shadow-sm">
+              <Card key={req.id} className="p-5 flex flex-col gap-3 bg-white border border-(--color-card-border) shadow-sm">
                 <div className="flex items-start justify-between">
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-gray-900">{req.policy_name || 'Leave Request'}</h3>
+                      <h3 className="font-bold text-(--color-text-primary)">{req.policy_name || 'Leave Request'}</h3>
                       <Badge variant={req.status === 'REJECTED' ? 'error' : 'success'}
                         className={cn('px-2 py-0.5 text-[10px] font-bold rounded-lg',
                           req.status === 'REJECTED' ? 'bg-red-50 text-red-500 border-red-100' : 'bg-green-50 text-green-500 border-green-100')}>
                         {req.status_label || req.status}
                       </Badge>
                     </div>
-                    <span className="text-xs text-gray-400 font-bold">{fmtRequestDateRange(req.start_date, req.end_date) || '—'}</span>
+                    <span className="text-xs text-(--color-text-secondary) font-bold">{fmtRequestDateRange(req.start_date, req.end_date) || '—'}</span>
                   </div>
                   <div className="flex flex-col items-end gap-0.5">
-                    <span className="text-base font-black text-gray-900">{req.days ? `${req.days} days` : 'N/A'}</span>
+                    <span className="text-base font-black text-(--color-text-primary)">{req.days ? `${req.days} days` : 'N/A'}</span>
                   </div>
                 </div>
                 <div className="flex flex-col gap-3">
-                  <div className="bg-gray-50/80 p-3 rounded-xl border border-gray-100">
-                    <p className="text-[14px] font-bold text-gray-400">Reason: <span className="font-medium text-gray-600">{req.reason}</span></p>
+                  <div className="bg-gray-50/80 p-3 rounded-xl border border-(--color-card-border)">
+                    <p className="text-[14px] font-bold text-(--color-text-secondary)">Reason: <span className="font-medium text-gray-600">{req.reason}</span></p>
                   </div>
                   {req.manager_comment && (
-                    <div className="bg-gray-50/80 p-3 rounded-xl border border-gray-100">
-                      <p className="text-[14px] font-bold text-gray-400">Manager comment: <span className="font-medium text-gray-600">{req.manager_comment}</span></p>
+                    <div className="bg-gray-50/80 p-3 rounded-xl border border-(--color-card-border)">
+                      <p className="text-[14px] font-bold text-(--color-text-secondary)">Manager comment: <span className="font-medium text-gray-600">{req.manager_comment}</span></p>
                     </div>
                   )}
                 </div>
-                <span className="text-[10px] font-bold text-gray-400">{req.submitted_at_label}</span>
+                <span className="text-[10px] font-bold text-(--color-text-secondary)">{req.submitted_at_label}</span>
               </Card>
             )) : (
-              <div className="py-10 text-center rounded-xl border border-dashed border-gray-200 bg-[#F8FAFC]">
+              <div className="py-10 text-center rounded-xl border border-dashed border-gray-200 bg-(--color-elevated)">
                 <Calendar size={28} className="mx-auto text-gray-300 mb-2" />
-                <p className="text-sm text-gray-500 font-medium">No time off requests yet</p>
+                <p className="text-sm text-(--color-text-secondary) font-medium">No time off requests yet</p>
               </div>
             )}
 
             <div className="mt-4">
-              <h3 className="text-base font-bold text-gray-900">Timesheet Edit Requests</h3>
+              <h3 className="text-base font-bold text-(--color-text-primary)">Timesheet Edit Requests</h3>
               {timeOffRequests?.timesheet_edit_requests?.length ? timeOffRequests.timesheet_edit_requests.map((req: any) => (
-                  <Card key={req.id} className="p-5 flex flex-col gap-3 mt-4 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-gray-900">{req.name || 'Edit Request'}</h3>
-                    <p className="text-sm text-gray-500">{req.reason}</p>
+                  <Card key={req.id} className="p-5 flex flex-col gap-3 mt-4 border border-(--color-card-border) shadow-sm">
+                    <h3 className="font-bold text-(--color-text-primary)">{req.name || 'Edit Request'}</h3>
+                    <p className="text-sm text-(--color-text-secondary)">{req.reason}</p>
                     <Badge variant="info" className={cn('!w-max px-2 py-0.5 text-[10px] font-bold rounded-lg border',
-                      req.status === 'Pending' ? 'bg-orange-50 text-orange-500 border-orange-100' : 'bg-gray-50 text-gray-500')}>
+                      req.status === 'Pending' ? 'bg-orange-50 text-orange-500 border-orange-100' : 'bg-gray-50 text-(--color-text-secondary)')}>
                       {req.status}
                     </Badge>
                   </Card>
                 )) : (
-              <div className="py-10 mt-3 text-center rounded-xl border border-dashed border-gray-200 bg-[#F8FAFC]">
+              <div className="py-10 mt-3 text-center rounded-xl border border-dashed border-gray-200 bg-(--color-elevated)">
                 <Clock size={28} className="mx-auto text-gray-300 mb-2" />
-                <p className="text-sm text-gray-500 font-medium">No edit requests yet</p>
+                <p className="text-sm text-(--color-text-secondary) font-medium">No edit requests yet</p>
               </div>
             )}
             </div>
@@ -592,10 +592,10 @@ const WeekBlock: React.FC<{
     <div className="px-4 py-3">
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-black text-gray-700">{fmtWeekRange(weekStart)}</span>
-        <span className="text-xs text-gray-400 font-semibold">{timesheet?.total_duration_label || '—'}</span>
+        <span className="text-xs text-(--color-text-secondary) font-semibold">{timesheet?.total_duration_label || '—'}</span>
       </div>
       <Table columns={columns} data={timesheet?.rows || []}
-        className="border-none shadow-none text-sm" headerClassName="bg-[#F0F5FF]/50 rounded-lg" />
+        className="border-none shadow-none text-sm" headerClassName="bg-(--color-elevated)/50 rounded-lg" />
     </div>
   );
 };

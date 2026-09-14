@@ -73,7 +73,7 @@ function ProjectPicker({ item, onChange, myProjects }: { item: ProjectItem; onCh
 function TaskListEditor({ label, tasks, onChange }: { label: string; tasks: string[]; onChange: (tasks: string[]) => void }) {
   return (
     <div>
-      <label className="text-xs font-semibold text-gray-500 block mb-1.5">{label}</label>
+      <label className="text-xs font-semibold text-(--color-text-secondary) block mb-1.5">{label}</label>
       <div className="space-y-1.5">
         {tasks.map((t, i) => (
           <div key={i} className="flex gap-1.5">
@@ -85,7 +85,7 @@ function TaskListEditor({ label, tasks, onChange }: { label: string; tasks: stri
             />
             {tasks.length > 1 && (
               <button type="button" onClick={() => onChange(tasks.filter((_, j) => j !== i))}
-                className="w-10 h-10 shrink-0 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl">
+                className="w-10 h-10 shrink-0 flex items-center justify-center text-(--color-text-secondary) hover:text-red-500 hover:bg-red-50 rounded-xl">
                 <Trash2 size={14} />
               </button>
             )}
@@ -136,8 +136,8 @@ function AgendaModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
       size="md"
       title={
         <div className="min-w-0 pr-2">
-          <h3 className="text-lg font-black text-gray-900">Submit Today's Agenda</h3>
-          <p className="text-xs text-gray-400 font-medium mt-1">List what you plan to work on today, by project.</p>
+          <h3 className="text-lg font-black text-(--color-text-primary)">Submit Today's Agenda</h3>
+          <p className="text-xs text-(--color-text-secondary) font-medium mt-1">List what you plan to work on today, by project.</p>
         </div>
       }
       bodyClassName="!p-4 sm:!p-6"
@@ -163,11 +163,11 @@ function AgendaModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
     >
       <div className="space-y-5">
         {items.map((item, idx) => (
-          <div key={idx} className="p-3 sm:p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-3">
+          <div key={idx} className="p-3 sm:p-4 bg-gray-50 rounded-2xl border border-(--color-card-border) space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-gray-500 uppercase tracking-wide">Project {idx + 1}</span>
+              <span className="text-xs font-black text-(--color-text-secondary) uppercase tracking-wide">Project {idx + 1}</span>
               {items.length > 1 && (
-                <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-gray-400 hover:text-red-500">
+                <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-(--color-text-secondary) hover:text-red-500">
                   <Trash2 size={14} />
                 </button>
               )}
@@ -175,7 +175,7 @@ function AgendaModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
             <ProjectPicker item={item} myProjects={myProjects} onChange={(patch) => setItems(items.map((it, i) => i === idx ? { ...it, ...patch } : it))} />
             <TaskListEditor label="Tasks" tasks={item.tasks} onChange={(tasks) => setItems(items.map((it, i) => i === idx ? { ...it, tasks } : it))} />
             <div>
-              <label className="text-xs font-semibold text-gray-500 block mb-1.5">Estimated Time (hours)</label>
+              <label className="text-xs font-semibold text-(--color-text-secondary) block mb-1.5">Estimated Time (hours)</label>
               <input
                 type="number"
                 min="0"
@@ -192,7 +192,7 @@ function AgendaModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
         <button
           type="button"
           onClick={() => setItems([...items, { ...emptyItem(), estimated_hours: '' }])}
-          className="w-full h-10 border border-dashed border-gray-300 rounded-xl text-xs font-semibold text-gray-500 hover:bg-gray-50 flex items-center justify-center gap-1.5"
+          className="w-full h-10 border border-dashed border-gray-300 rounded-xl text-xs font-semibold text-(--color-text-secondary) hover:bg-gray-50 flex items-center justify-center gap-1.5"
         >
           <Plus size={14} />Add another project
         </button>
@@ -259,8 +259,8 @@ function ReportModal({ isOpen, onClose, agendaItems }: { isOpen: boolean; onClos
       size="md"
       title={
         <div className="min-w-0 pr-2">
-          <h3 className="text-lg font-black text-gray-900">Submit Daily Report</h3>
-          <p className="text-xs text-gray-400 font-medium mt-1">Close out today's work — what got done, what's still pending.</p>
+          <h3 className="text-lg font-black text-(--color-text-primary)">Submit Daily Report</h3>
+          <p className="text-xs text-(--color-text-secondary) font-medium mt-1">Close out today's work — what got done, what's still pending.</p>
         </div>
       }
       bodyClassName="!p-4 sm:!p-6"
@@ -286,11 +286,11 @@ function ReportModal({ isOpen, onClose, agendaItems }: { isOpen: boolean; onClos
     >
       <div className="space-y-5">
         {items.map((item, idx) => (
-          <div key={idx} className="p-3 sm:p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-3">
+          <div key={idx} className="p-3 sm:p-4 bg-gray-50 rounded-2xl border border-(--color-card-border) space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-gray-500 uppercase tracking-wide">Project {idx + 1}</span>
+              <span className="text-xs font-black text-(--color-text-secondary) uppercase tracking-wide">Project {idx + 1}</span>
               {items.length > 1 && (
-                <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-gray-400 hover:text-red-500">
+                <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-(--color-text-secondary) hover:text-red-500">
                   <Trash2 size={14} />
                 </button>
               )}
@@ -303,17 +303,17 @@ function ReportModal({ isOpen, onClose, agendaItems }: { isOpen: boolean; onClos
         <button
           type="button"
           onClick={() => setItems([...items, emptyItem()])}
-          className="w-full h-10 border border-dashed border-gray-300 rounded-xl text-xs font-semibold text-gray-500 hover:bg-gray-50 flex items-center justify-center gap-1.5"
+          className="w-full h-10 border border-dashed border-gray-300 rounded-xl text-xs font-semibold text-(--color-text-secondary) hover:bg-gray-50 flex items-center justify-center gap-1.5"
         >
           <Plus size={14} />Add another project
         </button>
 
         <div>
-          <label className="text-xs font-semibold text-gray-500 block mb-1.5">Estimated Time (hours)</label>
+          <label className="text-xs font-semibold text-(--color-text-secondary) block mb-1.5">Estimated Time (hours)</label>
           <input type="number" min="0" max="24" step="0.5" className={inputCls} value={hoursWorked} onChange={(e) => setHoursWorked(e.target.value)} placeholder="8" />
         </div>
         <div>
-          <label className="text-xs font-semibold text-gray-500 block mb-1.5">Additional Notes (optional)</label>
+          <label className="text-xs font-semibold text-(--color-text-secondary) block mb-1.5">Additional Notes (optional)</label>
           <textarea
             className="w-full h-20 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
             value={additionalNotes}
@@ -322,7 +322,7 @@ function ReportModal({ isOpen, onClose, agendaItems }: { isOpen: boolean; onClos
           />
         </div>
         <div>
-          <label className="text-xs font-semibold text-gray-500 block mb-1.5">Blockers (optional)</label>
+          <label className="text-xs font-semibold text-(--color-text-secondary) block mb-1.5">Blockers (optional)</label>
           <textarea
             className="w-full h-20 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
             value={blockers}
@@ -331,7 +331,7 @@ function ReportModal({ isOpen, onClose, agendaItems }: { isOpen: boolean; onClos
           />
         </div>
         <div>
-          <label className="text-xs font-semibold text-gray-500 block mb-1.5">Tomorrow's Plan (optional)</label>
+          <label className="text-xs font-semibold text-(--color-text-secondary) block mb-1.5">Tomorrow's Plan (optional)</label>
           <textarea
             className="w-full h-20 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
             value={tomorrowPlan}
@@ -341,7 +341,7 @@ function ReportModal({ isOpen, onClose, agendaItems }: { isOpen: boolean; onClos
         </div>
 
         {showCodeDeployed && (
-          <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+          <div className="p-3 bg-gray-50 rounded-xl border border-(--color-card-border)">
             <label className="text-xs font-semibold text-gray-600 block mb-2">Code Deployed to Live?</label>
             <div className="flex flex-wrap gap-3">
               <button
@@ -349,7 +349,7 @@ function ReportModal({ isOpen, onClose, agendaItems }: { isOpen: boolean; onClos
                 onClick={() => setCodeDeployed(true)}
                 className={cn(
                   'flex items-center gap-2 px-4 h-9 rounded-xl border text-sm font-semibold transition-colors',
-                  codeDeployed === true ? 'bg-green-50 border-green-400 text-green-700' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                  codeDeployed === true ? 'bg-green-50 border-green-400 text-green-700' : 'bg-white border-gray-200 text-(--color-text-secondary) hover:bg-gray-50'
                 )}
               >
                 <CheckCircle size={15} />Yes
@@ -359,7 +359,7 @@ function ReportModal({ isOpen, onClose, agendaItems }: { isOpen: boolean; onClos
                 onClick={() => setCodeDeployed(false)}
                 className={cn(
                   'flex items-center gap-2 px-4 h-9 rounded-xl border text-sm font-semibold transition-colors',
-                  codeDeployed === false ? 'bg-red-50 border-red-400 text-red-600' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                  codeDeployed === false ? 'bg-red-50 border-red-400 text-red-600' : 'bg-white border-gray-200 text-(--color-text-secondary) hover:bg-gray-50'
                 )}
               >
                 <XCircle size={15} />No
@@ -443,14 +443,14 @@ export default function DailyReportPage() {
   const agendaSubmitted = !!todaysAgenda || !!complianceStatus?.agenda_submitted;
   const reportSubmitted = !!todaysReport || !!complianceStatus?.report_submitted;
 
-  if (showPageSkeleton) return <PageSkeleton variant="table" />;
+  if (showPageSkeleton) return <PageSkeleton variant="timesheet" />;
 
   return (
     <div className="flex flex-col gap-6 pb-10">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Daily Report</h1>
-          <p className="text-sm text-gray-500 font-medium mt-0.5">Start your day with an agenda, close it out with a report</p>
+          <h1 className="text-2xl font-black text-(--color-text-primary) tracking-tight">Daily Report</h1>
+          <p className="text-sm text-(--color-text-secondary) font-medium mt-0.5">Start your day with an agenda, close it out with a report</p>
         </div>
         <div className="flex flex-wrap gap-2 justify-end">
           {hasOpenSession && !agendaSubmitted && (
@@ -468,67 +468,67 @@ export default function DailyReportPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <DashboardStatCard
-          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
           icon={<ClipboardList size={18} />}
-          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
           value={agendaSubmitted ? 'Done' : hasOpenSession ? 'Pending' : '—'}
           label="Today's Agenda"
           subtext={agendaSubmitted ? 'Submitted' : hasOpenSession ? 'Needs submission' : 'Clock in to start'}
         />
         <DashboardStatCard
-          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
           icon={<FileText size={18} />}
-          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
           value={reportSubmitted ? 'Done' : agendaSubmitted ? 'Pending' : '—'}
           label="Daily Report"
           subtext={reportSubmitted ? 'Submitted' : agendaSubmitted ? 'Needs submission' : 'Agenda first'}
         />
         <DashboardStatCard
-          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
           icon={<Clock size={18} />}
-          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
           value={todaysReport?.hours_worked != null ? `${todaysReport.hours_worked}h` : '—'}
           label="Hours Today"
           subtext={hasOpenSession ? 'Open session' : 'No open session'}
         />
         <DashboardStatCard
-          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
           icon={<CheckCircle size={18} />}
-          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
           value={reports.length}
           label="Reports History"
           subtext="All submitted reports"
         />
       </div>
 
-      <Card className="border border-gray-100 shadow-sm !p-0 overflow-hidden">
-        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
-          <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+      <Card className="border border-(--color-card-border) shadow-sm !p-0 overflow-hidden">
+        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-(--color-card-border)">
+          <div className="h-9 w-9 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center">
             <FileText size={16} />
           </div>
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">Report History</h2>
+          <h2 className="text-lg font-black text-(--color-text-primary) tracking-tight">Report History</h2>
         </div>
         <div className="p-4">
         {reports.length === 0 ? (
           <div className="py-14 text-center">
             <FileText size={32} className="text-gray-200 mx-auto mb-3" />
-            <p className="text-sm text-gray-500 font-medium">No reports submitted yet</p>
-            <p className="text-xs text-gray-400 mt-1">Submit your first daily report</p>
+            <p className="text-sm text-(--color-text-secondary) font-medium">No reports submitted yet</p>
+            <p className="text-xs text-(--color-text-secondary) mt-1">Submit your first daily report</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-[#F8FAFC]">
+                <tr className="border-b border-(--color-card-border) bg-(--color-elevated)">
                   {['Date', 'Notes', 'Hours', ...(showCodeDeployed ? ['Deployed'] : [])].map(h => (
-                    <th key={h} className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide py-3 px-3 whitespace-nowrap">{h}</th>
+                    <th key={h} className="text-left text-xs font-semibold text-(--color-text-secondary) uppercase tracking-wide py-3 px-3 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {reports.map((r: any) => (
                   <tr key={r.id} className="hover:bg-gray-50/80 transition-colors">
-                    <td className="py-3 px-3 font-semibold text-gray-900 whitespace-nowrap">
+                    <td className="py-3 px-3 font-semibold text-(--color-text-primary) whitespace-nowrap">
                       {r.date ? new Date(r.date).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }) : '—'}
                     </td>
                     <td className="py-3 px-3 text-gray-600 max-w-[320px]">
@@ -555,7 +555,7 @@ export default function DailyReportPage() {
                             <CheckCircle size={11} />Yes
                           </span>
                         ) : r.code_deployed === false ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-500 rounded-lg text-xs font-semibold">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-(--color-text-secondary) rounded-lg text-xs font-semibold">
                             <XCircle size={11} />No
                           </span>
                         ) : (

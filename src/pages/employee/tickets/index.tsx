@@ -31,7 +31,7 @@ const STATUS_TABS = [
 ];
 
 const PRIORITY_STYLES: Record<string, string> = {
-  low: 'text-gray-500',
+  low: 'text-(--color-text-secondary)',
   medium: 'text-[#C4320A]',
   high: 'text-red-600 font-bold',
 };
@@ -84,7 +84,7 @@ const EmployeeTicketsPage: React.FC = () => {
       header: 'Subject',
       key: 'subject',
       render: item => (
-        <span className="font-semibold text-gray-900 max-w-xs block truncate">{item.subject}</span>
+        <span className="font-semibold text-(--color-text-primary) max-w-xs block truncate">{item.subject}</span>
       ),
     },
     {
@@ -92,8 +92,8 @@ const EmployeeTicketsPage: React.FC = () => {
       key: 'recipientName',
       render: item => (
         <div>
-          <p className="font-medium text-gray-900">{item.recipientName}</p>
-          <p className="text-xs text-gray-500">{item.recipientLabel}</p>
+          <p className="font-medium text-(--color-text-primary)">{item.recipientName}</p>
+          <p className="text-xs text-(--color-text-secondary)">{item.recipientLabel}</p>
         </div>
       ),
     },
@@ -145,8 +145,8 @@ const EmployeeTicketsPage: React.FC = () => {
     <div className="flex flex-col gap-6 pb-10">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Support Tickets</h1>
-          <p className="text-sm text-gray-500 font-medium mt-1">
+          <h1 className="text-2xl font-black text-(--color-text-primary) tracking-tight">Support Tickets</h1>
+          <p className="text-sm text-(--color-text-secondary) font-medium mt-1">
             Raise tickets to TL, Office Boy, HR, Admin, or anyone on your team.
           </p>
         </div>
@@ -157,43 +157,43 @@ const EmployeeTicketsPage: React.FC = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <DashboardStatCard
-          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
           label="Total Tickets"
           value={stats.total}
           icon={<Ticket size={20} />}
-          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
         />
         <DashboardStatCard
-          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
           label="Pending"
           value={stats.pending}
           icon={<Clock size={20} />}
-          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
         />
         <DashboardStatCard
-          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
           label="In Progress"
           value={stats.inProgress}
           icon={<RefreshCw size={20} />}
-          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
         />
         <DashboardStatCard
-          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          className="bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4"
           label="Resolved"
           value={stats.resolved}
           icon={<CheckCircle2 size={20} />}
-          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
         />
       </div>
 
-      <Card className="!p-0 overflow-hidden border border-gray-100 shadow-sm">
-        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
-          <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+      <Card className="!p-0 overflow-hidden border border-(--color-card-border) shadow-sm">
+        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-(--color-card-border)">
+          <div className="h-9 w-9 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center">
             <Ticket size={16} />
           </div>
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">Ticket List</h2>
+          <h2 className="text-lg font-black text-(--color-text-primary) tracking-tight">Ticket List</h2>
         </div>
-        <div className="p-5 border-b border-gray-100 space-y-4">
+        <div className="p-5 border-b border-(--color-card-border) space-y-4">
           <Tabs
             options={STATUS_TABS.map(t => ({ label: t.label, value: t.id }))}
             value={statusTab}
@@ -214,7 +214,7 @@ const EmployeeTicketsPage: React.FC = () => {
             data={filteredTickets}
             emptyMessage="No tickets found. Create your first ticket!"
             className="border-0 shadow-none"
-            headerClassName="bg-[#F8FAFC] border-none rounded-xl"
+            headerClassName="bg-(--color-elevated) border-none rounded-xl"
           />
         </div>
       </Card>

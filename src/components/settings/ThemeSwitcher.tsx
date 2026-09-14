@@ -17,14 +17,14 @@ const ThemeSwitcher: React.FC = () => {
   const { isDark } = useColorMode();
 
   return (
-    <Card className="flex flex-col shadow-sm border border-gray-100 bg-white rounded-xl !p-0 overflow-hidden">
-      <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
-        <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+    <Card className="flex flex-col shadow-sm border border-(--color-card-border) bg-(--color-card-bg) rounded-xl !p-0 overflow-hidden">
+      <div className="flex items-center gap-2.5 px-5 py-4 border-b border-(--color-card-border)">
+        <div className="h-9 w-9 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center">
           <Palette size={16} />
         </div>
         <div>
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">Appearance</h2>
-          <p className="text-[13px] text-gray-500 font-medium tracking-tight mt-0.5">
+          <h2 className="text-lg font-black text-(--color-text-primary) tracking-tight">Appearance</h2>
+          <p className="text-[13px] text-(--color-text-secondary) font-medium tracking-tight mt-0.5">
             {isDark
               ? 'Accent colors change the sidebar and brand highlights. Dark mode keeps surfaces consistent.'
               : 'Pick a color theme for sidebar, accents, and workspace tint.'}

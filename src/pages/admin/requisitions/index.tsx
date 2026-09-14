@@ -22,21 +22,21 @@ import PermissionGate from '@/components/ui/PermissionGate';
 import { useMyPermissions } from '@/services/permissionsService';
 
 const STATUS_STYLES: Record<string, string> = {
-  DRAFT:        'bg-gray-50 text-gray-500 border-gray-200',
-  SUBMITTED:    'bg-[#E8F1FF] text-[#005CDA] border-[#D6E6FF]',
-  APPROVED:     'bg-green-50 text-green-700 border-green-200',
-  REJECTED:     'bg-red-50 text-red-700 border-red-200',
-  PROCUREMENT:  'bg-[#EFF8FF] text-[#175CD3] border-[#B2DDFF]',
-  FULFILLED:    'bg-teal-50 text-teal-700 border-teal-200',
-  ASSET_CREATED:'bg-[#E8F1FF] text-[#005CDA] border-[#D6E6FF]',
-  CLOSED:       'bg-gray-100 text-gray-500 border-gray-300',
+  DRAFT:         'bg-(--color-elevated) text-(--color-text-secondary) border-(--color-border)',
+  SUBMITTED:     'bg-(--color-info-bg) text-(--color-brand-primary) border-(--color-info-border)',
+  APPROVED:      'bg-(--color-success-bg) text-(--color-success) border-(--color-success-border)',
+  REJECTED:      'bg-(--color-danger-bg) text-(--color-danger) border-(--color-danger-border)',
+  PROCUREMENT:   'bg-(--color-info-bg) text-(--color-info) border-(--color-info-border)',
+  FULFILLED:     'bg-(--color-success-bg) text-(--color-success) border-(--color-success-border)',
+  ASSET_CREATED: 'bg-(--color-info-bg) text-(--color-brand-primary) border-(--color-info-border)',
+  CLOSED:        'bg-(--color-elevated) text-(--color-text-secondary) border-(--color-border)',
 };
 
 const PRIORITY_STYLES: Record<string, string> = {
-  LOW:    'bg-gray-50 text-gray-400',
-  MEDIUM: 'bg-yellow-50 text-yellow-700',
-  HIGH:   'bg-orange-50 text-orange-700',
-  URGENT: 'bg-red-50 text-red-700',
+  LOW:    'bg-(--color-elevated) text-(--color-text-secondary)',
+  MEDIUM: 'bg-(--color-warning-bg) text-(--color-warning)',
+  HIGH:   'bg-(--color-warning-bg) text-(--color-warning)',
+  URGENT: 'bg-(--color-danger-bg) text-(--color-danger)',
 };
 
 const RequisitionsPage: React.FC = () => {
@@ -123,8 +123,8 @@ const RequisitionsPage: React.FC = () => {
       header: 'Requisition', key: 'title',
       render: r => (
         <div>
-          <p className="font-semibold text-gray-900 text-sm">{r.title}</p>
-          <p className="text-xs text-gray-400">{r.category?.replace(/_/g, ' ')} · Qty: {r.quantity}</p>
+          <p className="font-semibold text-(--color-text-primary) text-sm">{r.title}</p>
+          <p className="text-xs text-(--color-text-secondary)">{r.category?.replace(/_/g, ' ')} · Qty: {r.quantity}</p>
         </div>
       ),
     },
@@ -133,7 +133,7 @@ const RequisitionsPage: React.FC = () => {
       render: r => (
         <div>
           <p className="text-sm font-semibold text-gray-800">{r.requester?.first_name} {r.requester?.last_name}</p>
-          <p className="text-xs text-gray-400">{r.requester?.department?.name || r.department?.name || '—'}</p>
+          <p className="text-xs text-(--color-text-secondary)">{r.requester?.department?.name || r.department?.name || '—'}</p>
         </div>
       ),
     },
@@ -150,13 +150,13 @@ const RequisitionsPage: React.FC = () => {
       render: r => (
         <div>
           <p className="text-sm font-semibold tabular-nums">{r.estimated_cost ? `PKR ${Number(r.estimated_cost).toLocaleString()}` : '—'}</p>
-          {r.vendor_suggestion && <p className="text-xs text-gray-400 truncate max-w-[140px]" title={r.vendor_suggestion}>{r.vendor_suggestion}</p>}
+          {r.vendor_suggestion && <p className="text-xs text-(--color-text-secondary) truncate max-w-[140px]" title={r.vendor_suggestion}>{r.vendor_suggestion}</p>}
         </div>
       ),
     },
     {
       header: 'Needed By', key: 'needed_by',
-      render: r => <span className="text-sm text-gray-500">{r.needed_by ? new Date(r.needed_by).toLocaleDateString() : '—'}</span>,
+      render: r => <span className="text-sm text-(--color-text-secondary)">{r.needed_by ? new Date(r.needed_by).toLocaleDateString() : '—'}</span>,
     },
     {
       header: 'Status', key: 'status',
@@ -217,8 +217,8 @@ const RequisitionsPage: React.FC = () => {
     <div className="flex flex-col gap-6 pb-10">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Requisitions</h1>
-          <p className="text-sm text-gray-500 font-medium mt-0.5">
+          <h1 className="text-2xl font-black text-(--color-text-primary) tracking-tight">Requisitions</h1>
+          <p className="text-sm text-(--color-text-secondary) font-medium mt-0.5">
             {isEmployeeRoute ? 'Track and create your procurement requests' : 'Manage internal procurement requests'}
           </p>
         </div>
@@ -230,51 +230,51 @@ const RequisitionsPage: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <DashboardStatCard
           className={cn(
-            'bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4 cursor-pointer transition-colors',
-            filters.status === 'SUBMITTED' && 'ring-2 ring-[#005CDA]/30',
+            'bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4 cursor-pointer transition-colors',
+            filters.status === 'SUBMITTED' && 'ring-2 ring-primary-500/30',
           )}
           icon={<Send size={18} />}
-          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
           value={submittedCount}
           label="Submitted"
           onClick={() => setFilters((f: any) => ({ ...f, status: f.status === 'SUBMITTED' ? '' : 'SUBMITTED' }))}
         />
         <DashboardStatCard
           className={cn(
-            'bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4 cursor-pointer transition-colors',
-            filters.status === 'APPROVED' && 'ring-2 ring-[#005CDA]/30',
+            'bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4 cursor-pointer transition-colors',
+            filters.status === 'APPROVED' && 'ring-2 ring-primary-500/30',
           )}
           icon={<CheckCircle size={18} />}
-          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
           value={approvedCount}
           label="Approved"
           onClick={() => setFilters((f: any) => ({ ...f, status: f.status === 'APPROVED' ? '' : 'APPROVED' }))}
         />
         <DashboardStatCard
           className={cn(
-            'bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4 cursor-pointer transition-colors',
-            filters.status === 'PROCUREMENT' && 'ring-2 ring-[#005CDA]/30',
+            'bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4 cursor-pointer transition-colors',
+            filters.status === 'PROCUREMENT' && 'ring-2 ring-primary-500/30',
           )}
           icon={<Package size={18} />}
-          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
           value={procurementCount}
           label="Procurement"
           onClick={() => setFilters((f: any) => ({ ...f, status: f.status === 'PROCUREMENT' ? '' : 'PROCUREMENT' }))}
         />
         <DashboardStatCard
           className={cn(
-            'bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4 cursor-pointer transition-colors',
-            filters.status === 'FULFILLED' && 'ring-2 ring-[#005CDA]/30',
+            'bg-white border border-(--color-card-border) rounded-xl shadow-sm py-4 px-4 cursor-pointer transition-colors',
+            filters.status === 'FULFILLED' && 'ring-2 ring-primary-500/30',
           )}
           icon={<FileText size={18} />}
-          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          iconClassName="bg-(--color-info-bg) text-(--color-brand-primary)"
           value={fulfilledCount}
           label="Fulfilled"
           onClick={() => setFilters((f: any) => ({ ...f, status: f.status === 'FULFILLED' ? '' : 'FULFILLED' }))}
         />
       </div>
 
-      <Card className="flex flex-wrap gap-3 !py-3 border border-gray-100 shadow-sm">
+      <Card className="flex flex-wrap gap-3 !py-3 border border-(--color-card-border) shadow-sm">
         {isAdmin && !isEmployeeRoute && (
           <div className="flex items-center gap-2">
             <input type="checkbox" id="mine" checked={filters.mine === 'true'} onChange={e => setFilters((f: any) => ({ ...f, mine: e.target.checked ? 'true' : '' }))} className="rounded" />
@@ -294,12 +294,12 @@ const RequisitionsPage: React.FC = () => {
         )}
       </Card>
 
-      <Card className="!p-0 overflow-hidden border border-gray-100 shadow-sm">
-        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
-          <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+      <Card className="!p-0 overflow-hidden border border-(--color-card-border) shadow-sm">
+        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-(--color-card-border)">
+          <div className="h-9 w-9 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center">
             <Package size={16} />
           </div>
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">All Requisitions</h2>
+          <h2 className="text-lg font-black text-(--color-text-primary) tracking-tight">All Requisitions</h2>
         </div>
         <Table
           columns={columns}

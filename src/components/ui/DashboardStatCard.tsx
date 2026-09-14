@@ -35,8 +35,8 @@ const DashboardStatCard: React.FC<DashboardStatCardProps> = ({
       onClick={onClick}
       className={cn(
         'flex items-center gap-3 px-3 py-2 min-w-0 text-left',
-        showDivider && 'border-r border-[#00000014] lg:border-gray-100',
-        onClick && 'hover:bg-gray-50 rounded-lg transition-colors cursor-pointer',
+        showDivider && 'border-r border-(--color-border)',
+        onClick && 'hover:bg-(--color-state-hover) rounded-lg transition-colors cursor-pointer',
         className
       )}
     >

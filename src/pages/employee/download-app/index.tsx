@@ -107,9 +107,9 @@ const PLATFORM_LOGOS: Record<
   Exclude<Platform, 'unknown'>,
   { Logo: React.FC<{ className?: string }>; iconBg: string; iconColor: string }
 > = {
-  windows: { Logo: WindowsLogo, iconBg: 'bg-[#E8F1FF]', iconColor: 'text-[#0078D4]' },
-  mac: { Logo: AppleLogo, iconBg: 'bg-[#F3F4F6]', iconColor: 'text-[#111827]' },
-  linux: { Logo: LinuxLogo, iconBg: 'bg-[#FFF4E5]', iconColor: 'text-[#E95420]' },
+  windows: { Logo: WindowsLogo, iconBg: 'bg-(--color-info-bg)', iconColor: 'text-[#0078D4]' },
+  mac: { Logo: AppleLogo, iconBg: 'bg-(--color-elevated)', iconColor: 'text-(--color-text-primary)' },
+  linux: { Logo: LinuxLogo, iconBg: 'bg-(--color-warning-bg)', iconColor: 'text-[#E95420]' },
 };
 
 export default function DownloadApp() {
@@ -177,37 +177,37 @@ export default function DownloadApp() {
   return (
     <div className="flex flex-col gap-6 pb-10">
       <div className="flex items-center gap-3">
-        <div className="h-11 w-11 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center shrink-0">
+        <div className="h-11 w-11 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center shrink-0">
           <Monitor size={22} />
         </div>
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">TekXAI Desktop Agent</h1>
-          <p className="text-sm text-gray-500 font-medium">Time tracking &amp; monitoring for your workstation</p>
+          <h1 className="text-2xl font-black text-(--color-text-primary) tracking-tight">TekXAI Desktop Agent</h1>
+          <p className="text-sm text-(--color-text-secondary) font-medium">Time tracking &amp; monitoring for your workstation</p>
         </div>
       </div>
 
       {meta && (
-        <Card className="bg-white border border-gray-100 shadow-sm !p-4">
-          <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-gray-500">
-            <span className="font-bold text-gray-800">v{meta.version}</span>
+        <Card className="bg-white border border-(--color-card-border) shadow-sm !p-4">
+          <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-(--color-text-secondary)">
+            <span className="font-bold text-(--color-text-primary)">v{meta.version}</span>
             {meta.buildDate && (
               <span className="flex items-center gap-1">
-                <Calendar size={12} className="text-[#005CDA]" /> {fmt(meta.buildDate)}
+                <Calendar size={12} className="text-(--color-brand-primary)" /> {fmt(meta.buildDate)}
               </span>
             )}
             {meta.commit && (
               <span className="flex items-center gap-1">
-                <GitCommit size={12} className="text-[#005CDA]" />
+                <GitCommit size={12} className="text-(--color-brand-primary)" />
                 <code className="font-mono">{meta.commit.slice(0, 7)}</code>
               </span>
             )}
             {meta.author && (
               <span className="flex items-center gap-1">
-                <User size={12} className="text-[#005CDA]" /> {meta.author}
+                <User size={12} className="text-(--color-brand-primary)" /> {meta.author}
               </span>
             )}
             {meta.branch && (
-              <span className="font-mono text-[10px] bg-[#E8F1FF] text-[#005CDA] rounded-md px-1.5 py-0.5 font-semibold">
+              <span className="font-mono text-[10px] bg-(--color-info-bg) text-(--color-brand-primary) rounded-md px-1.5 py-0.5 font-semibold">
                 {meta.branch}
               </span>
             )}
@@ -216,14 +216,14 @@ export default function DownloadApp() {
       )}
 
       {!loading && !ready && (
-        <Card className="bg-white border border-gray-100 shadow-sm !p-5">
+        <Card className="bg-white border border-(--color-card-border) shadow-sm !p-5">
           <div className="flex items-start gap-3">
-            <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center shrink-0">
+            <div className="h-9 w-9 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center shrink-0">
               <AlertTriangle size={16} />
             </div>
             <div>
-              <p className="font-bold text-gray-900 text-sm">Installer builds coming soon</p>
-              <p className="text-gray-500 text-xs mt-1 leading-relaxed">
+              <p className="font-bold text-(--color-text-primary) text-sm">Installer builds coming soon</p>
+              <p className="text-(--color-text-secondary) text-xs mt-1 leading-relaxed">
                 Downloads will be available here once the first CI build completes.
               </p>
             </div>
@@ -241,8 +241,8 @@ export default function DownloadApp() {
             <Card
               key={p.key}
               className={[
-                'bg-white shadow-sm !p-5 flex flex-col gap-4',
-                isRec ? 'border border-[#005CDA] ring-1 ring-[#005CDA]/15' : 'border border-gray-100',
+                'bg-(--color-card-bg) shadow-sm !p-5 flex flex-col gap-4',
+                isRec ? 'border border-(--color-brand-primary) ring-1 ring-primary-500/20' : 'border border-(--color-card-border)',
               ].join(' ')}
             >
               <div className="flex items-start gap-3">
@@ -251,14 +251,14 @@ export default function DownloadApp() {
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-gray-900 text-sm">{p.label}</span>
+                    <span className="font-bold text-(--color-text-primary) text-sm">{p.label}</span>
                     {isRec && (
-                      <span className="text-[10px] font-bold bg-[#E8F1FF] text-[#005CDA] rounded-full px-2 py-0.5">
+                      <span className="text-[10px] font-bold bg-(--color-info-bg) text-(--color-brand-primary) rounded-full px-2 py-0.5">
                         Recommended
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-400 mt-0.5">{p.sub}</p>
+                  <p className="text-xs text-(--color-text-secondary) mt-0.5">{p.sub}</p>
                 </div>
               </div>
 
@@ -268,7 +268,7 @@ export default function DownloadApp() {
                     href={p.url}
                     download
                     onClick={() => trackDownload(p.key, meta?.version ?? null)}
-                    className="flex items-center justify-center gap-2 h-10 rounded-xl bg-[#005CDA] hover:bg-[#0047b3] text-white font-bold text-sm transition-colors"
+                    className="flex items-center justify-center gap-2 h-10 rounded-xl bg-(--color-brand-primary) hover:bg-(--color-brand-primary-hover) text-white font-bold text-sm transition-colors"
                   >
                     <Download size={14} />
                     Download ({p.ext})
@@ -280,7 +280,7 @@ export default function DownloadApp() {
                       onClick={() =>
                         trackDownload(`${p.key}-${p.altLabel?.toLowerCase()}`, meta?.version ?? null)
                       }
-                      className="text-[11px] text-gray-400 hover:text-[#005CDA] text-center underline underline-offset-2"
+                      className="text-[11px] text-(--color-text-secondary) hover:text-(--color-brand-primary) text-center underline underline-offset-2"
                     >
                       Need {p.altLabel} instead?
                     </a>
@@ -289,7 +289,7 @@ export default function DownloadApp() {
               ) : (
                 <button
                   disabled
-                  className="flex items-center justify-center gap-2 h-10 rounded-xl bg-gray-100 text-gray-400 font-bold text-sm cursor-not-allowed"
+                  className="flex items-center justify-center gap-2 h-10 rounded-xl bg-gray-100 text-(--color-text-secondary) font-bold text-sm cursor-not-allowed"
                 >
                   <Download size={14} />
                   Coming Soon
@@ -300,46 +300,46 @@ export default function DownloadApp() {
         })}
       </div>
 
-      <Card className="bg-white border border-gray-100 shadow-sm !p-0 overflow-hidden">
-        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
-          <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+      <Card className="bg-white border border-(--color-card-border) shadow-sm !p-0 overflow-hidden">
+        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-(--color-card-border)">
+          <div className="h-9 w-9 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center">
             <Shield size={16} />
           </div>
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">What&apos;s included</h2>
+          <h2 className="text-lg font-black text-(--color-text-primary) tracking-tight">What&apos;s included</h2>
         </div>
         <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
           {features.map(f => (
             <div key={f.title} className="flex gap-3">
-              <div className="h-10 w-10 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center shrink-0">
+              <div className="h-10 w-10 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center shrink-0">
                 {f.icon}
               </div>
               <div>
-                <div className="font-bold text-sm text-gray-900">{f.title}</div>
-                <div className="text-xs text-gray-500 mt-0.5 leading-relaxed">{f.desc}</div>
+                <div className="font-bold text-sm text-(--color-text-primary)">{f.title}</div>
+                <div className="text-xs text-(--color-text-secondary) mt-0.5 leading-relaxed">{f.desc}</div>
               </div>
             </div>
           ))}
         </div>
       </Card>
 
-      <Card className="bg-white border border-gray-100 shadow-sm !p-0 overflow-hidden">
-        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
-          <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+      <Card className="bg-white border border-(--color-card-border) shadow-sm !p-0 overflow-hidden">
+        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-(--color-card-border)">
+          <div className="h-9 w-9 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center">
             <CheckCircle2 size={16} />
           </div>
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">System Requirements</h2>
+          <h2 className="text-lg font-black text-(--color-text-primary) tracking-tight">System Requirements</h2>
         </div>
         <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {COMPAT.map(c => (
             <div key={c.os} className="flex items-center gap-2 text-sm">
               {c.supported ? (
-                <CheckCircle2 size={16} className="text-[#005CDA] flex-shrink-0" />
+                <CheckCircle2 size={16} className="text-(--color-brand-primary) flex-shrink-0" />
               ) : (
-                <XCircle size={16} className="text-gray-300 flex-shrink-0" />
+                <XCircle size={16} className="text-(--color-text-secondary) flex-shrink-0" />
               )}
-              <span className={c.supported ? 'text-gray-800 font-medium' : 'text-gray-400'}>
+              <span className={c.supported ? 'text-(--color-text-primary) font-medium' : 'text-(--color-text-secondary)'}>
                 {c.os}
-                {c.note ? <span className="ml-1 text-xs text-gray-400">({c.note})</span> : null}
+                {c.note ? <span className="ml-1 text-xs text-(--color-text-secondary)">({c.note})</span> : null}
               </span>
             </div>
           ))}
@@ -347,32 +347,32 @@ export default function DownloadApp() {
       </Card>
 
       {meta?.commitMessage && (
-        <Card className="bg-white border border-gray-100 shadow-sm !p-0 overflow-hidden">
-          <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
-            <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+        <Card className="bg-white border border-(--color-card-border) shadow-sm !p-0 overflow-hidden">
+          <div className="flex items-center gap-2.5 px-5 py-4 border-b border-(--color-card-border)">
+            <div className="h-9 w-9 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center">
               <GitCommit size={16} />
             </div>
-            <h2 className="text-lg font-black text-gray-900 tracking-tight">
+            <h2 className="text-lg font-black text-(--color-text-primary) tracking-tight">
               Release Notes — v{meta.version}
             </h2>
           </div>
           <div className="p-5">
-            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{meta.commitMessage}</p>
+            <p className="text-sm text-(--color-text-primary) leading-relaxed whitespace-pre-wrap">{meta.commitMessage}</p>
             {meta.releaseNotes && meta.releaseNotes !== meta.commitMessage && (
-              <p className="mt-2 text-xs text-gray-500 whitespace-pre-wrap">{meta.releaseNotes}</p>
+              <p className="mt-2 text-xs text-(--color-text-secondary) whitespace-pre-wrap">{meta.releaseNotes}</p>
             )}
           </div>
         </Card>
       )}
 
-      <Card className="bg-white border border-gray-100 shadow-sm !p-0 overflow-hidden">
-        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
-          <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+      <Card className="bg-white border border-(--color-card-border) shadow-sm !p-0 overflow-hidden">
+        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-(--color-card-border)">
+          <div className="h-9 w-9 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center">
             <ListOrdered size={16} />
           </div>
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">How to install</h2>
+          <h2 className="text-lg font-black text-(--color-text-primary) tracking-tight">How to install</h2>
         </div>
-        <ol className="p-5 space-y-2.5 text-sm text-gray-700 list-decimal list-inside">
+        <ol className="p-5 space-y-2.5 text-sm text-(--color-text-primary) list-decimal list-inside">
           <li>Download the installer for your operating system above.</li>
           <li>
             <strong>Windows:</strong> Run the <code>.exe</code> and follow the setup wizard.

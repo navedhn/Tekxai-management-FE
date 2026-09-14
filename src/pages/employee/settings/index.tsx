@@ -115,23 +115,23 @@ const EmployeeSetting: React.FC = () => {
 
     return (
         <div className="flex flex-col gap-6">
-            <Card className="bg-white border border-gray-100 shadow-sm !p-0 overflow-hidden">
-                <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
-                    <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+            <Card className="bg-white border border-(--color-card-border) shadow-sm !p-0 overflow-hidden">
+                <div className="flex items-center gap-2.5 px-5 py-4 border-b border-(--color-card-border)">
+                    <div className="h-9 w-9 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center">
                         <User size={16} />
                     </div>
-                    <h2 className="text-lg font-black text-gray-900 tracking-tight">Profile</h2>
+                    <h2 className="text-lg font-black text-(--color-text-primary) tracking-tight">Profile</h2>
                 </div>
                 <div className="flex items-center justify-between gap-4 p-5">
                     <div className="flex items-center gap-4">
-                        <div className="relative h-16 w-16 rounded-2xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center text-xl font-black shrink-0 overflow-hidden">
+                        <div className="relative h-16 w-16 rounded-2xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center text-xl font-black shrink-0 overflow-hidden">
                             {user?.avatar
                                 ? <img src={user.avatar} alt="Profile" className="h-full w-full object-cover" />
                                 : (initials || <User size={28} />)}
                         </div>
                         <div className="flex flex-col gap-1">
-                            <h4 className="text-[15px] font-bold text-gray-900 tracking-tight">Profile Photo</h4>
-                            <p className="text-[13px] text-gray-500 font-medium tracking-tight">JPG or PNG, up to 5MB</p>
+                            <h4 className="text-[15px] font-bold text-(--color-text-primary) tracking-tight">Profile Photo</h4>
+                            <p className="text-[13px] text-(--color-text-secondary) font-medium tracking-tight">JPG or PNG, up to 5MB</p>
                         </div>
                     </div>
                     <input
@@ -156,17 +156,17 @@ const EmployeeSetting: React.FC = () => {
 
             <ThemeSwitcher />
 
-            <Card className="bg-white border border-gray-100 shadow-sm !p-0 overflow-hidden">
-                <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
-                    <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+            <Card className="bg-white border border-(--color-card-border) shadow-sm !p-0 overflow-hidden">
+                <div className="flex items-center gap-2.5 px-5 py-4 border-b border-(--color-card-border)">
+                    <div className="h-9 w-9 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center">
                         <Bell size={16} />
                     </div>
-                    <h2 className="text-lg font-black text-gray-900 tracking-tight">Preferences</h2>
+                    <h2 className="text-lg font-black text-(--color-text-primary) tracking-tight">Preferences</h2>
                 </div>
                 <div className="flex items-center justify-between gap-4 p-5">
                     <div className="flex flex-col gap-1.5">
-                        <h4 className="text-[15px] font-bold text-gray-900 tracking-tight">Show Notifications</h4>
-                        <p className="text-[13px] text-gray-500 font-medium tracking-tight">
+                        <h4 className="text-[15px] font-bold text-(--color-text-primary) tracking-tight">Show Notifications</h4>
+                        <p className="text-[13px] text-(--color-text-secondary) font-medium tracking-tight">
                             Allow push notifications for user activities and logs
                         </p>
                     </div>
@@ -175,7 +175,11 @@ const EmployeeSetting: React.FC = () => {
                         className={`w-[46px] h-[24px] rounded-full transition-all duration-300 relative shrink-0 ${
                             updatePreferences.isPending ? 'opacity-50 cursor-not-allowed' : ''
                         }`}
-                        style={{ backgroundColor: notifications ? '#005CDA' : '#e5e7eb' }}
+                        style={{
+                            backgroundColor: notifications
+                                ? 'var(--color-brand-primary)'
+                                : 'var(--color-elevated)',
+                        }}
                         disabled={updatePreferences.isPending}
                         aria-label="Toggle notifications"
                     >
@@ -188,17 +192,17 @@ const EmployeeSetting: React.FC = () => {
                 </div>
             </Card>
 
-            <Card className="bg-white border border-gray-100 shadow-sm !p-0 overflow-hidden">
-                <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
-                    <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+            <Card className="bg-white border border-(--color-card-border) shadow-sm !p-0 overflow-hidden">
+                <div className="flex items-center gap-2.5 px-5 py-4 border-b border-(--color-card-border)">
+                    <div className="h-9 w-9 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center">
                         <Lock size={16} />
                     </div>
-                    <h2 className="text-lg font-black text-gray-900 tracking-tight">Update Password</h2>
+                    <h2 className="text-lg font-black text-(--color-text-primary) tracking-tight">Update Password</h2>
                 </div>
                 <div className="flex flex-col gap-6 p-5">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="flex flex-col gap-1">
-                            <span className="text-[14px] font-black text-gray-900 tracking-tight">Old Password</span>
+                            <span className="text-[14px] font-black text-(--color-text-primary) tracking-tight">Old Password</span>
                             <FormInput
                                 name="old_password"
                                 type="password"
@@ -212,7 +216,7 @@ const EmployeeSetting: React.FC = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="flex flex-col gap-1">
-                            <span className="text-[14px] font-black text-gray-900 tracking-tight">Enter New Password</span>
+                            <span className="text-[14px] font-black text-(--color-text-primary) tracking-tight">Enter New Password</span>
                             <FormInput
                                 name="new_password"
                                 type="password"
@@ -221,12 +225,12 @@ const EmployeeSetting: React.FC = () => {
                                 onChange={(e) => setNewPassword(e.target.value)}
                                 autoComplete="new-password"
                             />
-                            <span className="text-xs text-gray-500 font-medium mt-1">
+                            <span className="text-xs text-(--color-text-secondary) font-medium mt-1">
                                 Min 8 characters, 1 Digit & 1 special character
                             </span>
                         </div>
                         <div className="flex flex-col gap-1">
-                            <span className="text-[14px] font-black text-gray-900 tracking-tight">Confirm New Password</span>
+                            <span className="text-[14px] font-black text-(--color-text-primary) tracking-tight">Confirm New Password</span>
                             <FormInput
                                 name="confirm_new_password"
                                 type="password"
