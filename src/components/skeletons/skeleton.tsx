@@ -14,9 +14,9 @@ const Skeleton: React.FC<Props> = ({
   variant = 'text',
   width,
   height,
-  animation = 'shimmer'
+  animation = 'pulse'
 }) => {
-  const baseClasses = 'bg-gray-200  relative overflow-hidden';
+  const baseClasses = 'bg-gray-200';
 
   const variantClasses = {
     text: 'h-4 rounded',

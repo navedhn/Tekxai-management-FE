@@ -507,16 +507,18 @@ const Setting: React.FC = () => {
                             <h2 className="text-2xl font-black text-gray-900 tracking-tight">Update Password</h2>
 
                             <Card className="flex flex-col gap-8 p-8 shadow-sm border border-gray-100 bg-white rounded-2xl">
-                                <div className="flex flex-col gap-2 md:w-1/2">
-                                    <FormInput
-                                        name="old_password"
-                                        label='Old Password'
-                                        type="password"
-                                        placeholder="Enter your old password"
-                                        value={oldPassword}
-                                        onChange={(e) => setOldPassword(e.target.value)}
-                                        autoComplete="current-password"
-                                    />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="flex flex-col gap-2">
+                                        <FormInput
+                                            name="old_password"
+                                            label='Old Password'
+                                            type="password"
+                                            placeholder="Enter your old password"
+                                            value={oldPassword}
+                                            onChange={(e) => setOldPassword(e.target.value)}
+                                            autoComplete="current-password"
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

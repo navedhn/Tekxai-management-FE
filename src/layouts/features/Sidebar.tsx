@@ -11,7 +11,6 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
 import { useMyPermissions } from '@/services/permissionsService';
-import { USER_ROLES } from '@/constants/roles';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { useResponsive } from '@/hooks/useResponsive';
 
@@ -122,20 +121,17 @@ const NavItem: React.FC<{ link: SidebarLink; collapsed?: boolean; onNavigate?: (
         'relative flex items-center rounded-xl transition-all duration-200 group text-[13px] font-medium',
         collapsed ? 'justify-center w-10 h-10 mx-auto px-0' : 'gap-3 px-3.5 py-2.5',
         isActive
-          ? 'bg-(--color-sidebar-active) text-white shadow-md shadow-black/25'
-          : 'text-(--color-sidebar-text) hover:bg-(--color-sidebar-hover) hover:text-white',
+          ? 'bg-[color-mix(in_srgb,var(--color-sidebar-active)_42%,transparent)] text-white'
+          : 'text-(--color-sidebar-text)/90 hover:bg-(--color-sidebar-hover) hover:text-white',
       )
     }
   >
     {({ isActive }) => (
       <>
-        {!collapsed && isActive && (
-          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-white/90" />
-        )}
         <span
           className={cn(
             'shrink-0 w-5 h-5 flex items-center justify-center transition-colors',
-            isActive ? 'text-white' : 'text-(--color-sidebar-icon) group-hover:text-white',
+            isActive ? 'text-white' : 'text-(--color-sidebar-icon)/80 group-hover:text-white',
           )}
         >
           {link.icon}
@@ -145,7 +141,7 @@ const NavItem: React.FC<{ link: SidebarLink; collapsed?: boolean; onNavigate?: (
           <span
             className={cn(
               'shrink-0 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black flex items-center justify-center',
-              isActive ? 'bg-white/25 text-white' : 'bg-red-500 text-white',
+              isActive ? 'bg-white/20 text-white' : 'bg-red-500 text-white',
             )}
           >
             {link.badge > 99 ? '99+' : link.badge}
@@ -158,6 +154,14 @@ const NavItem: React.FC<{ link: SidebarLink; collapsed?: boolean; onNavigate?: (
     )}
   </NavLink>
 );
+
+const NavSectionLabel: React.FC<{ label: string }> = ({ label }) => (
+  <p className="px-3.5 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-white/40">
+    {label}
+  </p>
+);
+
+type EmployeeNavSection = { label: string; links: SidebarLink[] };
 
 const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
   const { role } = useAuth();
@@ -178,7 +182,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
   const isAdminWorkspace =
     !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.workspace.access');
 
-  const employeeLinks: SidebarLink[] | null = useMemo(() => {
+  const employeeSections: EmployeeNavSection[] | null = useMemo(() => {
     const onEmployeeRoutes = location.pathname.startsWith('/employee');
     const onChatAsEmployee = location.pathname.startsWith('/chat') && !isAdminWorkspace;
     if (!onEmployeeRoutes && !onChatAsEmployee) return null;
@@ -187,19 +191,39 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
     const canSeeEmployeeProjects = isSuperAdmin || !!myPerms?.permissions?.includes('erp.employee_projects.view');
     const canSeeStarredQueries = isSuperAdmin || !!myPerms?.permissions?.includes('erp.starred_queries.view');
 
+    const work: SidebarLink[] = [
+      { to: '/employee', label: 'Home', icon: <Home size={18} strokeWidth={SW} />, end: true },
+      ...(canSeeEmployeeProjects
+        ? [{ to: '/employee/projects', label: 'Projects', icon: <FolderCheck size={18} strokeWidth={SW} /> }]
+        : []),
+      ...(canSeeStarredQueries
+        ? [{ to: '/employee/starred', label: 'Starred Queries', icon: <Star size={18} strokeWidth={SW} /> }]
+        : []),
+      { to: '/employee/timesheet', label: 'Timesheet', icon: <Clock size={18} strokeWidth={SW} /> },
+      { to: '/employee/daily-report', label: 'Daily Report', icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
+      { to: '/employee/requisitions', label: 'Requisitions', icon: <Package size={18} strokeWidth={SW} /> },
+    ];
+
+    const support: SidebarLink[] = [
+      { to: '/employee/tickets', label: 'Support Tickets', icon: <Ticket size={18} strokeWidth={SW} /> },
+      { to: '/chat', label: 'Messages', icon: <MessageSquare size={18} strokeWidth={SW} />, badge: chatUnreadCount },
+      ...(isSuperAdmin
+        ? [{ to: '/employee/documents', label: 'My Documents', icon: <FileText size={18} strokeWidth={SW} /> }]
+        : []),
+      ...(isSuperAdmin
+        ? [{ to: '/employee/onboarding', label: 'My Onboarding', icon: <ListChecks size={18} strokeWidth={SW} /> }]
+        : []),
+    ];
+
+    const account: SidebarLink[] = [
+      { to: '/employee/download-app', label: 'Desktop App', icon: <Monitor size={18} strokeWidth={SW} /> },
+      { to: '/employee/settings', label: 'Settings', icon: <Settings size={18} strokeWidth={SW} /> },
+    ];
+
     return [
-      { to: '/employee',             label: 'Home',            icon: <Home size={18} strokeWidth={SW} />,          end: true },
-      ...(canSeeEmployeeProjects ? [{ to: '/employee/projects', label: 'Projects', icon: <FolderCheck size={18} strokeWidth={SW} /> }] : []),
-      ...(canSeeStarredQueries ? [{ to: '/employee/starred', label: 'Starred Queries', icon: <Star size={18} strokeWidth={SW} /> }] : []),
-      { to: '/employee/timesheet',   label: 'Timesheet',       icon: <Clock size={18} strokeWidth={SW} /> },
-      { to: '/employee/tickets',     label: 'Support Tickets', icon: <Ticket size={18} strokeWidth={SW} /> },
-      ...(isSuperAdmin ? [{ to: '/employee/documents', label: 'My Documents', icon: <FileText size={18} strokeWidth={SW} /> }] : []),
-      ...(isSuperAdmin ? [{ to: '/employee/onboarding', label: 'My Onboarding', icon: <ListChecks size={18} strokeWidth={SW} /> }] : []),
-      { to: '/employee/requisitions',label: 'Requisitions',    icon: <Package size={18} strokeWidth={SW} /> },
-      { to: '/employee/daily-report',label: 'Daily Report',    icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
-      { to: '/chat',                 label: 'Messages',        icon: <MessageSquare size={18} strokeWidth={SW} />, badge: chatUnreadCount },
-      { to: '/employee/download-app',label: 'Desktop App',     icon: <Monitor size={18} strokeWidth={SW} /> },
-      { to: '/employee/settings',    label: 'Settings',        icon: <Settings size={18} strokeWidth={SW} /> },
+      { label: 'Work', links: work },
+      { label: 'Support', links: support },
+      { label: 'Account', links: account },
     ];
   }, [role, myPerms, chatUnreadCount, location.pathname, isAdminWorkspace]);
 
@@ -310,8 +334,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
     if (active) setOpenModule(active.module);
   }, [location.pathname, moduleGroups]);
 
-  const isAdmin = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.workspace.access');
-  const isHrRole = role === USER_ROLES.HR;
   const handleNavigate = () => onClose?.();
 
   const handleGroupClick = (group: ModuleGroup, isOpenGroup: boolean) => {
@@ -331,17 +353,49 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 z-110 h-screen flex flex-col',
+        'fixed left-0 top-0 z-110 h-screen flex flex-col overflow-hidden',
         'w-[280px] lg:w-sidebar',
-        'bg-(--color-sidebar-bg) border-r border-white/10',
-        'shadow-[4px_0_24px_-12px_rgba(0,0,0,0.45)]',
+        'bg-(--color-sidebar-bg) border-r border-white/[0.08]',
+        'shadow-[8px_0_32px_-14px_rgba(0,0,0,0.55)]',
         'transition-[width,transform] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]',
         isOpen !== undefined && !isOpen ? '-translate-x-full lg:translate-x-0' : '',
       )}
     >
+      {/* Soft blue depth on the same shade family */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage: `
+            linear-gradient(
+              180deg,
+              color-mix(in srgb, var(--color-sidebar-active) 28%, var(--color-sidebar-bg)) 0%,
+              var(--color-sidebar-bg) 48%,
+              color-mix(in srgb, #020b1a 28%, var(--color-sidebar-bg)) 100%
+            )
+          `,
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-20 left-[-30%] h-64 w-[160%] opacity-60"
+        style={{
+          background:
+            'radial-gradient(ellipse at center, color-mix(in srgb, var(--color-sidebar-active) 45%, transparent) 0%, transparent 70%)',
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute bottom-0 right-[-40%] h-72 w-72 opacity-40"
+        style={{
+          background:
+            'radial-gradient(circle, color-mix(in srgb, var(--color-sidebar-active) 40%, transparent) 0%, transparent 70%)',
+        }}
+      />
+
       <div
         className={cn(
-          'relative shrink-0 h-topbar border-b border-white/10',
+          'relative shrink-0 h-topbar',
           'bg-gradient-to-b from-white/[0.06] to-transparent',
           'flex items-center justify-center',
           isRail ? 'px-2' : 'px-4',
@@ -351,37 +405,40 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-1/2 -translate-y-1/2 right-3 p-1.5 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition-all lg:hidden"
+            className="absolute top-1/2 -translate-y-1/2 right-3 p-1.5 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition-all lg:hidden z-10"
             aria-label="Close sidebar"
           >
             <X size={18} strokeWidth={SW} />
           </button>
         )}
 
-        <div className={cn('flex items-center justify-center', isRail ? 'gap-0' : 'gap-2')}>
+        <div className={cn('flex items-center justify-center', isRail ? 'gap-0' : 'gap-2.5')}>
           <img
             src={tekxaiLogo}
             alt="Tekxai"
             className={cn('brightness-0 invert object-contain', isRail ? 'h-5 w-5' : 'h-7 w-auto max-w-[130px]')}
           />
-          {!isRail && (isAdmin || isHrRole) && (
-            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white bg-white/10 px-2 py-0.5 rounded-full">
-              {isAdmin ? 'ERP' : 'HR'}
-            </span>
-          )}
         </div>
       </div>
 
       <nav
         className={cn(
-          'flex-1 overflow-y-auto overflow-x-hidden py-3 flex flex-col gap-0.5',
-          'scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent',
+          'relative flex-1 overflow-y-auto overflow-x-hidden py-2 flex flex-col gap-0.5',
+          'scrollbar-thin scrollbar-thumb-white/15 scrollbar-track-transparent',
           isRail ? 'px-1.5' : 'px-3',
         )}
       >
-        {employeeLinks
-          ? employeeLinks.map((link) => (
-              <NavItem key={link.to + link.label} link={link} collapsed={isRail} onNavigate={handleNavigate} />
+        {employeeSections
+          ? employeeSections.map((section) => (
+              <div key={section.label} className="flex flex-col gap-0.5">
+                {!isRail && <NavSectionLabel label={section.label} />}
+                {isRail && section.label !== 'Work' && (
+                  <div className="mx-auto my-1.5 h-px w-6 bg-white/10" aria-hidden />
+                )}
+                {section.links.map((link) => (
+                  <NavItem key={link.to + link.label} link={link} collapsed={isRail} onNavigate={handleNavigate} />
+                ))}
+              </div>
             ))
           : moduleGroups.map((group) => {
               if (group.items.length === 1) {
@@ -409,8 +466,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
                       'relative w-full flex items-center rounded-xl transition-all duration-200 group text-[13px] font-medium',
                       isRail ? 'justify-center w-10 h-10 mx-auto px-0' : 'gap-3 px-3.5 py-2.5',
                       isGroupActive && !isOpenGroup
-                        ? 'bg-white/15 text-white'
-                        : 'text-(--color-sidebar-text) hover:bg-(--color-sidebar-hover) hover:text-white',
+                        ? 'bg-[color-mix(in_srgb,var(--color-sidebar-active)_42%,transparent)] text-white'
+                        : 'text-(--color-sidebar-text)/90 hover:bg-(--color-sidebar-hover) hover:text-white',
                     )}
                   >
                     <span
@@ -418,7 +475,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
                         'shrink-0 w-5 h-5 flex items-center justify-center transition-colors',
                         isGroupActive && !isOpenGroup
                           ? 'text-white'
-                          : 'text-(--color-sidebar-icon) group-hover:text-white',
+                          : 'text-(--color-sidebar-icon)/80 group-hover:text-white',
                       )}
                     >
                       {group.icon}
@@ -430,9 +487,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
                           {isOpenGroup ? <ChevronDown size={15} strokeWidth={SW} /> : <ChevronRight size={15} strokeWidth={SW} />}
                         </span>
                       </>
-                    )}
-                    {isRail && isGroupActive && (
-                      <span className="absolute left-0 w-[3px] h-4 rounded-r-full bg-(--color-sidebar-active)" />
                     )}
                   </button>
                   {!isRail && isOpenGroup && (
@@ -449,7 +503,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
 
       <div
         className={cn(
-          'shrink-0 border-t border-white/10 bg-black/10',
+          'relative shrink-0 border-t border-white/[0.08]',
+          'bg-[color-mix(in_srgb,var(--color-sidebar-active)_12%,transparent)]',
           isRail ? 'p-2' : 'p-3',
         )}
       >
@@ -459,15 +514,16 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           className={cn(
             'hidden lg:flex items-center rounded-xl transition-all duration-200',
-            'text-(--color-sidebar-text) hover:bg-(--color-sidebar-hover) hover:text-white',
+            'text-(--color-sidebar-text)/90 hover:bg-(--color-sidebar-hover) hover:text-white',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30',
             isRail ? 'justify-center w-10 h-10 mx-auto' : 'w-full gap-3 px-3.5 py-2.5 text-[13px] font-medium',
           )}
         >
           {isRail ? (
-            <PanelLeftOpen size={18} strokeWidth={SW} className="text-(--color-sidebar-icon)" />
+            <PanelLeftOpen size={18} strokeWidth={SW} className="text-(--color-sidebar-icon)/80" />
           ) : (
             <>
-              <PanelLeftClose size={18} strokeWidth={SW} className="text-(--color-sidebar-icon)" />
+              <PanelLeftClose size={18} strokeWidth={SW} className="text-(--color-sidebar-icon)/80" />
               <span>Collapse</span>
             </>
           )}

@@ -1,5 +1,7 @@
+import React from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { formatTrackerTime, useTimeTracker } from './useTimeTracker';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 
@@ -15,6 +17,14 @@ vi.mock('@/lib/queryClient', () => ({
   apiRequest: (...args: any[]) => (apiRequestMock as any)(...args),
 }));
 
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return ({ children }: { children: React.ReactNode }) =>
+    React.createElement(QueryClientProvider, { client: queryClient }, children);
+}
+
 describe('formatTrackerTime', () => {
   it('formats seconds into h:m:s', () => {
     expect(formatTrackerTime(3661)).toBe('1h:01m:01s');
@@ -29,7 +39,7 @@ describe('useTimeTracker (read-only — no check-in/check-out capability)', () =
   });
 
   it('never exposes a check-in or check-out handler', () => {
-    const { result } = renderHook(() => useTimeTracker());
+    const { result } = renderHook(() => useTimeTracker(), { wrapper: createWrapper() });
     expect((result.current as any).handleCheckIn).toBeUndefined();
     expect((result.current as any).handleCheckOut).toBeUndefined();
     expect((result.current as any).handleBreak).toBeUndefined();
@@ -37,7 +47,7 @@ describe('useTimeTracker (read-only — no check-in/check-out capability)', () =
   });
 
   it('shows idle when the desktop agent has not checked the user in', async () => {
-    const { result } = renderHook(() => useTimeTracker());
+    const { result } = renderHook(() => useTimeTracker(), { wrapper: createWrapper() });
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.trackerState).toBe('idle');
     expect(result.current.seconds).toBe(0);
@@ -49,7 +59,7 @@ describe('useTimeTracker (read-only — no check-in/check-out capability)', () =
       clocked_out: false,
       entry: { check_in: new Date().toISOString(), prior_seconds: 100 },
     };
-    const { result } = renderHook(() => useTimeTracker());
+    const { result } = renderHook(() => useTimeTracker(), { wrapper: createWrapper() });
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.trackerState).toBe('tracking');
     expect(result.current.seconds).toBeGreaterThanOrEqual(100);
@@ -57,14 +67,14 @@ describe('useTimeTracker (read-only — no check-in/check-out capability)', () =
 
   it('shows completed total once the desktop agent has checked the user out', async () => {
     fakeToday = { clocked_in: true, clocked_out: true, entry: { duration_seconds: 28800 } };
-    const { result } = renderHook(() => useTimeTracker());
+    const { result } = renderHook(() => useTimeTracker(), { wrapper: createWrapper() });
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.trackerState).toBe('idle');
     expect(result.current.seconds).toBe(28800);
   });
 
   it('only ever calls the read-only TIMESHEET.TODAY endpoint, never clock-in/clock-out', async () => {
-    const { result } = renderHook(() => useTimeTracker());
+    const { result } = renderHook(() => useTimeTracker(), { wrapper: createWrapper() });
     await waitFor(() => expect(result.current.loading).toBe(false));
     const calledEndpoints = apiRequestMock.mock.calls.map((c) => c[0]);
     expect(calledEndpoints.every((e) => e === API_ENDPOINTS.TIMESHEET.TODAY)).toBe(true);

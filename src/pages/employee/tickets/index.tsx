@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, Search, Eye } from 'lucide-react';
+import { Plus, Search, Eye, Ticket, Clock, RefreshCw, CheckCircle2 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Input from '@/components/ui/Input';
@@ -155,40 +155,45 @@ const EmployeeTicketsPage: React.FC = () => {
         </PageActionButton>
       </div>
 
-      <div className="p-3 rounded-[8px] bg-white">
-        <div className="bg-[#F8F8F8] grid grid-cols-2 lg:grid-cols-4 gap-3 py-4">
-          <DashboardStatCard
-            label="Total Tickets"
-            value={stats.total}
-            icon={<span className="text-lg">🎫</span>}
-            iconClassName="bg-[#E4F0FF]"
-            showDivider
-          />
-          <DashboardStatCard
-            label="Pending"
-            value={stats.pending}
-            icon={<span className="text-lg">⏳</span>}
-            iconClassName="bg-[#FFF6ED]"
-            showDivider
-          />
-          <DashboardStatCard
-            label="In Progress"
-            value={stats.inProgress}
-            icon={<span className="text-lg">🔄</span>}
-            iconClassName="bg-[#EFF8FF]"
-            showDivider
-          />
-          <DashboardStatCard
-            label="Resolved"
-            value={stats.resolved}
-            icon={<span className="text-lg">✅</span>}
-            iconClassName="bg-[#ECFDF3]"
-          />
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <DashboardStatCard
+          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          label="Total Tickets"
+          value={stats.total}
+          icon={<Ticket size={20} />}
+          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+        />
+        <DashboardStatCard
+          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          label="Pending"
+          value={stats.pending}
+          icon={<Clock size={20} />}
+          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+        />
+        <DashboardStatCard
+          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          label="In Progress"
+          value={stats.inProgress}
+          icon={<RefreshCw size={20} />}
+          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+        />
+        <DashboardStatCard
+          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          label="Resolved"
+          value={stats.resolved}
+          icon={<CheckCircle2 size={20} />}
+          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+        />
       </div>
 
-      <Card className="!p-0 overflow-hidden">
-        <div className="p-6 border-b border-gray-100 space-y-4">
+      <Card className="!p-0 overflow-hidden border border-gray-100 shadow-sm">
+        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
+          <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+            <Ticket size={16} />
+          </div>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">Ticket List</h2>
+        </div>
+        <div className="p-5 border-b border-gray-100 space-y-4">
           <Tabs
             options={STATUS_TABS.map(t => ({ label: t.label, value: t.id }))}
             value={statusTab}
@@ -209,6 +214,7 @@ const EmployeeTicketsPage: React.FC = () => {
             data={filteredTickets}
             emptyMessage="No tickets found. Create your first ticket!"
             className="border-0 shadow-none"
+            headerClassName="bg-[#F8FAFC] border-none rounded-xl"
           />
         </div>
       </Card>

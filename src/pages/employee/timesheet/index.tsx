@@ -7,7 +7,7 @@ import Tabs from '@/components/ui/Tabs';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
-import { ChevronLeft, ChevronRight, Calendar, MoreVertical, Clock, Coffee, Timer, BarChart3 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, MoreVertical, Clock, Coffee, Timer, BarChart3, Briefcase } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import RequestTimeOffModal from '@/components/ui/RequestTimeOffModal';
 import { useGetTimeOffRequests, useGetWeeklyTimesheet, useGetRangeTimesheet, useRequestEntryEditMutation, TimesheetEntry, WeeklyTimesheetData } from '@/services/timesheetService';
@@ -15,6 +15,7 @@ import { useGetMyShiftQuery, useGetMyAttendanceSummary } from '@/services/attend
 import { CardSkeleton, PageSkeleton, TableSkeleton } from '@/components/skeletons';
 import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import DashboardStatCard from '@/components/ui/DashboardStatCard';
 
 function toDateStr(d: Date) {
 
@@ -81,34 +82,34 @@ const VIEW_TABS = ['Weekly', 'Monthly', 'Custom', 'My Requests'];
 // never recomputed here.
 const SummaryCards: React.FC<{ data?: WeeklyTimesheetData }> = ({ data }) => (
   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-    <Card className="flex items-center gap-3 border-none bg-white p-4 shadow-sm">
-      <div className="flex size-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Clock size={18} /></div>
-      <div className="flex flex-col">
-        <span className="text-xs font-bold text-gray-400">Total Duration</span>
-        <span className="text-lg font-black text-gray-900">{data?.total_duration_label || '0h 0m'}</span>
-      </div>
-    </Card>
-    <Card className="flex items-center gap-3 border-none bg-white p-4 shadow-sm">
-      <div className="flex size-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><Coffee size={18} /></div>
-      <div className="flex flex-col">
-        <span className="text-xs font-bold text-gray-400">Total Break Time</span>
-        <span className="text-lg font-black text-gray-900">{data?.total_break_label ?? '—'}</span>
-      </div>
-    </Card>
-    <Card className="flex items-center gap-3 border-none bg-white p-4 shadow-sm">
-      <div className="flex size-10 items-center justify-center rounded-xl bg-rose-50 text-rose-500"><Timer size={18} /></div>
-      <div className="flex flex-col">
-        <span className="text-xs font-bold text-gray-400">Total Idle Time</span>
-        <span className="text-lg font-black text-gray-900">{data?.total_idle_label ?? '—'}</span>
-      </div>
-    </Card>
-    <Card className="flex items-center gap-3 border-none bg-white p-4 shadow-sm ring-1 ring-emerald-100">
-      <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600"><BarChart3 size={18} /></div>
-      <div className="flex flex-col">
-        <span className="text-xs font-bold text-gray-400">Productive Hours</span>
-        <span className="text-lg font-black text-emerald-600">{data?.total_productive_label ?? '—'}</span>
-      </div>
-    </Card>
+    <DashboardStatCard
+      className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+      icon={<Clock size={18} />}
+      iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+      value={data?.total_duration_label || '0h 0m'}
+      label="Total Duration"
+    />
+    <DashboardStatCard
+      className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+      icon={<Coffee size={18} />}
+      iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+      value={data?.total_break_label ?? '—'}
+      label="Total Break Time"
+    />
+    <DashboardStatCard
+      className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+      icon={<Timer size={18} />}
+      iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+      value={data?.total_idle_label ?? '—'}
+      label="Total Idle Time"
+    />
+    <DashboardStatCard
+      className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+      icon={<BarChart3 size={18} />}
+      iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+      value={data?.total_productive_label ?? '—'}
+      label="Productive Hours"
+    />
   </div>
 );
 
@@ -297,41 +298,59 @@ const EmployeeTimesheet: React.FC = () => {
 
       <div className="flex items-start justify-between">
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">Timesheet</h1>
-          <p className="text-sm text-gray-400 font-bold">View and manage your time entries</p>
+          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Timesheet</h1>
+          <p className="text-sm text-gray-500 font-medium">View and manage your time entries</p>
         </div>
       </div>
 
-      <Card className="flex flex-wrap items-center gap-8 shadow-xl border-none bg-white">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">My Shift</span>
-          <span className="text-sm font-black text-gray-900">
-            {myShift ? `${myShift.name} · ${myShift.start_time}–${myShift.end_time}` : 'No shift assigned'}
-          </span>
-        </div>
-        <div className="h-8 w-px bg-gray-100" />
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Working Days (This Month)</span>
-          <span className="text-sm font-black text-gray-900">{mySummary?.present_days ?? '—'}</span>
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Late Count</span>
-          <span className="text-sm font-black text-gray-900">{mySummary?.late_days ?? '—'}</span>
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Total Late Minutes</span>
-          <span className="text-sm font-black text-gray-900">{mySummary?.total_late_minutes ?? '—'}</span>
-        </div>
-      </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <DashboardStatCard
+          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          icon={<Briefcase size={18} />}
+          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          value={myShift ? myShift.name : '—'}
+          label="My Shift"
+          subtext={myShift ? `${myShift.start_time}–${myShift.end_time}` : 'No shift assigned'}
+        />
+        <DashboardStatCard
+          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          icon={<Calendar size={18} />}
+          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          value={mySummary?.present_days ?? '—'}
+          label="Working Days"
+          subtext="This month"
+        />
+        <DashboardStatCard
+          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          icon={<Clock size={18} />}
+          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          value={mySummary?.late_days ?? '—'}
+          label="Late Count"
+          subtext="This month"
+        />
+        <DashboardStatCard
+          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          icon={<Timer size={18} />}
+          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          value={mySummary?.total_late_minutes ?? '—'}
+          label="Late Minutes"
+          subtext="Total this month"
+        />
+      </div>
 
       <Tabs options={VIEW_TABS} value={activeTab} onChange={setActiveTab} />
 
       {activeTab === 'Weekly' && (
         <div className="flex flex-col gap-4">
           <SummaryCards data={weeklyTimesheet} />
-        <Card className="flex flex-col gap-4 shadow-xl border-none p-0 overflow-hidden bg-white">
-          <div className="flex items-center justify-between px-4 pt-4">
-            <h2 className="text-xl font-black text-gray-900">{fmtWeekRange(weekAnchor)}</h2>
+        <Card className="flex flex-col gap-4 border border-gray-100 shadow-sm p-0 overflow-hidden bg-white">
+          <div className="flex items-center justify-between px-5 pt-5">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+                <Calendar size={16} />
+              </div>
+              <h2 className="text-lg font-black text-gray-900">{fmtWeekRange(weekAnchor)}</h2>
+            </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setWeekAnchor(d => { const n = new Date(d); n.setDate(n.getDate() - 7); return n; })}
@@ -353,21 +372,26 @@ const EmployeeTimesheet: React.FC = () => {
               </button>
             </div>
           </div>
-          <div className="px-4 pb-2 text-sm text-gray-500 font-semibold">
-            Total: <span className="text-gray-900 font-black">{timesheet?.total_duration_label || '0h 0m'}</span>
+          <div className="px-5 text-sm text-gray-500 font-medium">
+            Total: <span className="text-gray-900 font-bold">{timesheet?.total_duration_label || '0h 0m'}</span>
           </div>
           <div className="px-4 pb-4">
             <Table columns={columns} data={timesheet?.rows || []} isLoading={isLoading}
-              className="border-none shadow-none" headerClassName="bg-[#F0F5FF]/50 border-none rounded-xl" />
+              className="border-none shadow-none" headerClassName="bg-[#F8FAFC] border-none rounded-xl" />
           </div>
         </Card>
         </div>
       )}
 
       {activeTab === 'Monthly' && (
-        <Card className="flex flex-col gap-4 shadow-xl border-none p-0 overflow-hidden bg-white">
-          <div className="flex items-center justify-between px-4 pt-4">
-            <h2 className="text-xl font-black text-gray-900">{fmtMonthYear(monthAnchor)}</h2>
+        <Card className="flex flex-col gap-4 border border-gray-100 shadow-sm p-0 overflow-hidden bg-white">
+          <div className="flex items-center justify-between px-5 pt-5">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+                <Calendar size={16} />
+              </div>
+              <h2 className="text-lg font-black text-gray-900">{fmtMonthYear(monthAnchor)}</h2>
+            </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setMonthAnchor(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
@@ -397,8 +421,8 @@ const EmployeeTimesheet: React.FC = () => {
       {activeTab === 'Custom' && (
         <div className="flex flex-col gap-4">
         <SummaryCards data={rangeTimesheet} />
-        <Card className="flex flex-col gap-4 shadow-xl border-none p-0 overflow-hidden bg-white">
-          <div className="flex flex-wrap items-end gap-3 px-4 pt-4">
+        <Card className="flex flex-col gap-4 border border-gray-100 shadow-sm p-0 overflow-hidden bg-white">
+          <div className="flex flex-wrap items-end gap-3 px-5 pt-5">
             <div className="flex flex-col gap-1">
               <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">From</label>
               <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
@@ -414,22 +438,27 @@ const EmployeeTimesheet: React.FC = () => {
               Apply
             </Button>
           </div>
-          <div className="px-4 pb-2 text-sm text-gray-500 font-semibold">
-            {customApplied.from} → {customApplied.to} &nbsp;·&nbsp; Total:{' '}
-            <span className="text-gray-900 font-black">{timesheet?.total_duration_label || '0h 0m'}</span>
+          <div className="px-5 text-sm text-gray-500 font-medium">
+            {customApplied.from} → {customApplied.to} · Total:{' '}
+            <span className="text-gray-900 font-bold">{timesheet?.total_duration_label || '0h 0m'}</span>
           </div>
           <div className="px-4 pb-4">
             <Table columns={columns} data={timesheet?.rows || []} isLoading={isLoading}
-              className="border-none shadow-none" headerClassName="bg-[#F0F5FF]/50 border-none rounded-xl" />
+              className="border-none shadow-none" headerClassName="bg-[#F8FAFC] border-none rounded-xl" />
           </div>
         </Card>
         </div>
       )}
 
       {activeTab === 'My Requests' && (
-        <div className="flex flex-col gap-8 bg-white p-6 rounded-xl">
+        <div className="flex flex-col gap-6 bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-black text-gray-900 tracking-tight">My Requests</h2>
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+                <Calendar size={16} />
+              </div>
+              <h2 className="text-xl font-black text-gray-900 tracking-tight">My Requests</h2>
+            </div>
             <PageActionButton leftIcon={Calendar} onClick={() => setIsRequestModalOpen(true)}>
               Request Time Off
             </PageActionButton>
@@ -444,9 +473,9 @@ const EmployeeTimesheet: React.FC = () => {
               </div>
             ) : (
               <>
-            <h3 className="text-lg font-black text-gray-900">Time Off Requests</h3>
+            <h3 className="text-base font-bold text-gray-900">Time Off Requests</h3>
             {timeOffRequests?.time_off_requests?.length ? timeOffRequests.time_off_requests.map((req: any) => (
-              <Card key={req.id} className="p-6 flex flex-col gap-4 bg-white border border-gray-100 shadow-sm">
+              <Card key={req.id} className="p-5 flex flex-col gap-3 bg-white border border-gray-100 shadow-sm">
                 <div className="flex items-start justify-between">
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
@@ -475,43 +504,35 @@ const EmployeeTimesheet: React.FC = () => {
                 </div>
                 <span className="text-[10px] font-bold text-gray-400">{req.submitted_at_label}</span>
               </Card>
-            )) : <p className="text-xs text-gray-400 font-bold mt-2">No time off requests found.</p>}
+            )) : (
+              <div className="py-10 text-center rounded-xl border border-dashed border-gray-200 bg-[#F8FAFC]">
+                <Calendar size={28} className="mx-auto text-gray-300 mb-2" />
+                <p className="text-sm text-gray-500 font-medium">No time off requests yet</p>
+              </div>
+            )}
 
             <div className="mt-4">
-              <h3 className="text-lg font-black text-gray-900">Timesheet Edit Requests</h3>
+              <h3 className="text-base font-bold text-gray-900">Timesheet Edit Requests</h3>
               {timeOffRequests?.timesheet_edit_requests?.length ? timeOffRequests.timesheet_edit_requests.map((req: any) => (
-                  <Card key={req.id} className="p-6 flex flex-col gap-4 mt-4 border border-gray-100 shadow-sm">
+                  <Card key={req.id} className="p-5 flex flex-col gap-3 mt-4 border border-gray-100 shadow-sm">
                     <h3 className="font-bold text-gray-900">{req.name || 'Edit Request'}</h3>
-                    <p className="text-[14px] text-gray-400">{req.reason}</p>
+                    <p className="text-sm text-gray-500">{req.reason}</p>
                     <Badge variant="info" className={cn('!w-max px-2 py-0.5 text-[10px] font-bold rounded-lg border',
                       req.status === 'Pending' ? 'bg-orange-50 text-orange-500 border-orange-100' : 'bg-gray-50 text-gray-500')}>
                       {req.status}
                     </Badge>
                   </Card>
-                )) : <p className="text-xs text-gray-400 italic mt-2">No edit requests found.</p>}
+                )) : (
+              <div className="py-10 mt-3 text-center rounded-xl border border-dashed border-gray-200 bg-[#F8FAFC]">
+                <Clock size={28} className="mx-auto text-gray-300 mb-2" />
+                <p className="text-sm text-gray-500 font-medium">No edit requests yet</p>
+              </div>
+            )}
             </div>
               </>
             )}
           </div>
         </div>
-      )}
-
-      {isTimesheetTab && (
-        <Card className="flex flex-col gap-2 border-none bg-blue-50/60 p-4 shadow-none">
-          <p className="text-xs font-black text-blue-700">Column Guide</p>
-          <p className="text-xs font-bold text-blue-700">
-            Productive Hours = Total Duration − Break Time − Idle Time
-          </p>
-          <p className="text-xs text-blue-600/80">
-            Idle time is automatically tracked based on system activity. Break time is recorded when you manually start a break.
-          </p>
-          <div className="mt-1 flex flex-wrap gap-x-6 gap-y-1">
-            <span className="flex items-center gap-1.5 text-xs text-gray-600"><span className="size-2 rounded-full bg-blue-500" />Total Duration <span className="text-gray-400">— time between check in and check out</span></span>
-            <span className="flex items-center gap-1.5 text-xs text-gray-600"><span className="size-2 rounded-full bg-amber-500" />Break Time <span className="text-gray-400">— time spent on manual breaks</span></span>
-            <span className="flex items-center gap-1.5 text-xs text-gray-600"><span className="size-2 rounded-full bg-rose-500" />Idle Time <span className="text-gray-400">— time with no activity detected</span></span>
-            <span className="flex items-center gap-1.5 text-xs text-gray-600"><span className="size-2 rounded-full bg-emerald-500" />Productive Hours <span className="text-gray-400">— actual working time (excludes break and idle)</span></span>
-          </div>
-        </Card>
       )}
     </div>
   );

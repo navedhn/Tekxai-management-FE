@@ -11,24 +11,20 @@ import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
 import { Search, Play, CheckCircle, Briefcase, FileText } from 'lucide-react';
-import Tabs from '@/components/ui/Tabs';
 import { cn } from '@/utils/cn';
 import ProjectDetailsSlideOver from '@/components/ui/ProjectDetailsSlideOver';
 import { DashboardStatCard } from '@/components';
 import { PageSkeleton } from '@/components/skeletons';
 import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 import RecentActivityCard from '@/components/dashboard/RecentActivityCard';
-import { TicketsSummaryCard } from '@/components/tickets';
 import TimeTrackerCard from '@/features/employee-dashboard/TimeTrackerCard';
 import { useTimeTracker } from '@/features/employee-dashboard/useTimeTracker';
-import { useGetTickets } from '@/services/ticketService';
 
 const EmployeeDashboard: React.FC = () => {
     const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
     const { data: activity, isLoading: activityLoading } = useGetRecentActivity();
     const { data: timesheet, isLoading: timesheetLoading } = useGetTimesheet();
     const { data: projects, isLoading: projectsLoading } = useGetProjects();
-    const ticketsQuery = useGetTickets();
     const { trackerState, seconds, loading: trackerLoading } = useTimeTracker();
     const showPageSkeleton = useShowPageSkeleton(
         statsLoading,
@@ -36,12 +32,10 @@ const EmployeeDashboard: React.FC = () => {
         timesheetLoading,
         projectsLoading,
         trackerLoading,
-        ticketsQuery,
     );
 
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
-    const [viewMode, setViewMode] = useState<'hours' | 'days'>('hours');
     const [selectedProject, setSelectedProject] = useState<string | null>(null);
     const itemsPerPage = 8;
 
@@ -166,40 +160,35 @@ const EmployeeDashboard: React.FC = () => {
                 routePrefix="/employee"
             />
 
-            <div className="flex flex-col lg:flex-row gap-6 items-start p-3 rounded-xl bg-white border border-gray-100 shadow-sm">
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 p-3 flex-1 w-full bg-[#F8F8F8] lg:w-auto rounded-lg border border-gray-100">
-                    <DashboardStatCard
-                        showDivider
-                        icon={<CheckCircle size={20} />}
-                        iconClassName="bg-[#005CDA1A] text-[#005CDA]"
-                        value={stats?.completedProjects}
-                        label="Completed Projects"
-                        subtext={<>Total Hours: <span className="text-[#005CDA] font-semibold">{stats?.totalHours}hr</span></>}
-                    />
-                    <DashboardStatCard
-                        showDivider
-                        icon={<Play size={18} className="fill-[#F04438]" />}
-                        iconClassName="bg-[#FF58551A] text-[#F04438]"
-                        value={stats?.latestCheckIn}
-                        label="2 hours ago"
-                        subtext={<>Latest Check-in <span className="text-[#005CDA] font-semibold">{stats?.totalHours}hr</span></>}
-                    />
-                    <DashboardStatCard
-                        icon={<FileText size={20} />}
-                        iconClassName="bg-[#F0F9FF] text-[#0086C9]"
-                        value={`0${stats?.pendingTimesheets}`}
-                        label="Pending Timesheet"
-                        subtext="Edit requests awaiting"
-                    />
-                </div>
-
-                <Tabs
-                    options={['Hours', 'Days']}
-                    value={viewMode === 'hours' ? 'Hours' : 'Days'}
-                    onChange={(val) => setViewMode(val === 'Hours' ? 'hours' : 'days')}
-                    size="sm"
-                    tabClassName='py-3 px-4 w-full justify-center text-[14px] font-medium font-inter'
-                    className='flex flex-col w-full justify-center items-center min-h-[100px] min-w-[140px]'
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <DashboardStatCard
+                    className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+                    icon={<CheckCircle size={20} />}
+                    iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+                    value={stats?.completedProjects ?? 0}
+                    label="Completed Projects"
+                    subtext={
+                        <>
+                            Total hours:{' '}
+                            <span className="text-[#005CDA] font-semibold">{stats?.totalHours ?? 0}hr</span>
+                        </>
+                    }
+                />
+                <DashboardStatCard
+                    className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+                    icon={<Play size={18} className="fill-[#005CDA]" />}
+                    iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+                    value={stats?.latestCheckIn ?? '—'}
+                    label="Latest Check-in"
+                    subtext="Today's attendance"
+                />
+                <DashboardStatCard
+                    className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+                    icon={<FileText size={20} />}
+                    iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+                    value={stats?.pendingTimesheets ?? 0}
+                    label="Pending Timesheets"
+                    subtext="Edit requests awaiting"
                 />
             </div>
 
@@ -208,63 +197,75 @@ const EmployeeDashboard: React.FC = () => {
                 seconds={seconds}
             />
 
-            <TicketsSummaryCard />
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-
-                <Card className="lg:col-span-5 flex flex-col gap-6 bg-white border-none shadow-sm">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-extrabold text-gray-900 tracking-tight">Recent Activity</h2>
-
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <Card className="lg:col-span-5 flex flex-col gap-4 bg-white border border-gray-100 shadow-sm !p-0 overflow-hidden">
+                    <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
+                        <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+                            <Play size={16} />
+                        </div>
+                        <h2 className="text-lg font-black text-gray-900 tracking-tight">Recent Activity</h2>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        {activity?.map((act) => (
-                            <RecentActivityCard key={act.id} activity={act} />
-                        ))}
+                    <div className="px-5 pb-5">
+                    {!activity || activity.length === 0 ? (
+                        <p className="text-sm text-gray-400 text-center py-10">
+                            No recent activity yet.
+                        </p>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-4">
+                            {activity.map((act) => (
+                                <RecentActivityCard key={act.id} activity={act} />
+                            ))}
+                        </div>
+                    )}
                     </div>
                 </Card>
 
-                <Card className="lg:col-span-7 flex flex-col gap-6 bg-white border-none shadow-sm">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-extrabold text-gray-900 tracking-tight">Recent Timesheet</h2>
+                <Card className="lg:col-span-7 flex flex-col gap-4 bg-white border border-gray-100 shadow-sm !p-0 overflow-hidden">
+                    <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
+                        <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+                            <FileText size={16} />
+                        </div>
+                        <h2 className="text-lg font-black text-gray-900 tracking-tight">Recent Timesheet</h2>
                     </div>
-                    <div className="">
+                    <div className="px-4 pb-4">
                         <Table
                             columns={timesheetColumns}
                             data={timesheet || []}
                             className="border-none shadow-none"
+                            emptyMessage="No timesheet entries yet."
+                            headerClassName="bg-[#F8FAFC] border-none rounded-xl"
                         />
                     </div>
                 </Card>
             </div>
 
-            <Card className="flex flex-col gap-6 bg-white border-none shadow-sm">
-                <div className="flex flex-col    gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-primary-50 text-gradient-to-b from-[#005CDA] to-[#001F4A] rounded-xl">
-                            <Briefcase size={20} className="text-[#005CDA]" />
+            <Card className="flex flex-col gap-4 bg-white border border-gray-100 shadow-sm !p-0 overflow-hidden">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-5 py-4 border-b border-gray-100">
+                    <div className="flex items-center gap-2.5">
+                        <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+                            <Briefcase size={16} />
                         </div>
-                        <h2 className="text-xl font-extrabold text-gray-900 tracking-tight">Projects Summary</h2>
+                        <h2 className="text-lg font-black text-gray-900 tracking-tight">Projects Summary</h2>
                     </div>
-                    <div className="flex items-center gap-4 w-full md:w-auto">
-                        <div className="relative flex-1 md:w-64">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                            <input
-                                className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary-100 focus:border-primary-300 outline-none transition-all"
-                                placeholder="Search projects..."
-                                value={searchTerm}
-                                onChange={(e) => {
-                                    setSearchTerm(e.target.value);
-                                    setCurrentPage(1);
-                                }}
-                            />
-                        </div>
+                    <div className="relative w-full sm:w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                        <input
+                            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary-100 focus:border-primary-300 outline-none transition-all"
+                            placeholder="Search projects..."
+                            value={searchTerm}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                        />
                     </div>
                 </div>
-                <div className="">
+                <div className="px-4 pb-4">
                     <Table
                         columns={projectColumns}
                         data={paginatedProjects}
+                        emptyMessage="No projects found."
+                        headerClassName="bg-[#F8FAFC] border-none rounded-xl"
                         pagination={{
                             currentPage: currentPage,
                             totalPages: totalPages,

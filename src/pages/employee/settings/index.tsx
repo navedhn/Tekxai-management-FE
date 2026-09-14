@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import FormInput from '@/components/form/FormInput';
-import SearchableSelect from '@/components/ui/SearchableSelect';
-import { Lock, Globe, User, Camera } from 'lucide-react';
+import { Lock, User, Camera, Bell } from 'lucide-react';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useGetMySettingsQuery, useUpdatePreferencesMutation, useChangePasswordMutation } from '@/services/settingsService';
 import { useLogoutMutation } from '@/services/authService';
@@ -52,7 +51,6 @@ const EmployeeSetting: React.FC = () => {
         }
         setAvatarUploading(true);
         try {
-
             const updated = await uploadAvatar.mutateAsync({ userId: user.id, file });
             updateUserProfile({ avatar: updated?.avatar });
             toast.success('Profile photo updated');
@@ -104,7 +102,7 @@ const EmployeeSetting: React.FC = () => {
                 setNewPassword('');
                 setConfirmNewPassword('');
 
-                try { await logoutMutation.mutateAsync(); } catch {  }
+                try { await logoutMutation.mutateAsync(); } catch { /* ignore */ }
                 clearAuthTokens();
                 userLogout();
                 navigate('/login');
@@ -116,13 +114,17 @@ const EmployeeSetting: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col gap-6 ">
-
-            <div className="flex flex-col gap-4">
-
-                <Card className="flex items-center justify-between p-6 shadow-sm border border-gray-100 bg-white rounded-xl">
+        <div className="flex flex-col gap-6">
+            <Card className="bg-white border border-gray-100 shadow-sm !p-0 overflow-hidden">
+                <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
+                    <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+                        <User size={16} />
+                    </div>
+                    <h2 className="text-lg font-black text-gray-900 tracking-tight">Profile</h2>
+                </div>
+                <div className="flex items-center justify-between gap-4 p-5">
                     <div className="flex items-center gap-4">
-                        <div className="relative h-16 w-16 rounded-2xl bg-[#005CDA] text-white flex items-center justify-center text-xl font-black shrink-0 overflow-hidden">
+                        <div className="relative h-16 w-16 rounded-2xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center text-xl font-black shrink-0 overflow-hidden">
                             {user?.avatar
                                 ? <img src={user.avatar} alt="Profile" className="h-full w-full object-cover" />
                                 : (initials || <User size={28} />)}
@@ -149,30 +151,53 @@ const EmployeeSetting: React.FC = () => {
                         <Camera size={16} />
                         {avatarUploading ? 'Uploading...' : 'Change Photo'}
                     </Button>
-                </Card>
+                </div>
+            </Card>
 
-                <ThemeSwitcher />
+            <ThemeSwitcher />
 
-                <Card className="flex items-center justify-between p-6 shadow-sm border border-gray-100 bg-white rounded-xl">
+            <Card className="bg-white border border-gray-100 shadow-sm !p-0 overflow-hidden">
+                <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
+                    <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+                        <Bell size={16} />
+                    </div>
+                    <h2 className="text-lg font-black text-gray-900 tracking-tight">Preferences</h2>
+                </div>
+                <div className="flex items-center justify-between gap-4 p-5">
                     <div className="flex flex-col gap-1.5">
                         <h4 className="text-[15px] font-bold text-gray-900 tracking-tight">Show Notifications</h4>
-                        <p className="text-[13px] text-gray-500 font-medium tracking-tight">Allow to receive push notifications for user activities and logs count</p>
+                        <p className="text-[13px] text-gray-500 font-medium tracking-tight">
+                            Allow push notifications for user activities and logs
+                        </p>
                     </div>
                     <button
                         onClick={handleNotificationsToggle}
-                        className={`w-[46px] h-[24px] rounded-full transition-all duration-300 relative shrink-0 ${notifications ? 'bg-[#06b6d4] shadow-[0_0_10px_rgba(6,182,212,0.4)]' : 'bg-gray-200'} ${updatePreferences.isPending ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        style={{ backgroundColor: notifications ? '#00bfa5' : '#e5e7eb', boxShadow: notifications ? 'none' : 'none' }}
+                        className={`w-[46px] h-[24px] rounded-full transition-all duration-300 relative shrink-0 ${
+                            updatePreferences.isPending ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                        style={{ backgroundColor: notifications ? '#005CDA' : '#e5e7eb' }}
                         disabled={updatePreferences.isPending}
+                        aria-label="Toggle notifications"
                     >
-                        <div className={`absolute top-0.5 w-[20px] h-[20px] rounded-full bg-white transition-all duration-300 shadow-sm ${notifications ? 'left-[24px]' : 'left-0.5'}`} />
+                        <div
+                            className={`absolute top-0.5 w-[20px] h-[20px] rounded-full bg-white transition-all duration-300 shadow-sm ${
+                                notifications ? 'left-[24px]' : 'left-0.5'
+                            }`}
+                        />
                     </button>
-                </Card>
+                </div>
+            </Card>
 
-                <div className="mt-4 flex flex-col gap-4">
-                    <h2 className="text-2xl font-black text-gray-900 tracking-tight">Update Password</h2>
-
-                    <Card className="flex flex-col gap-6 p-6 shadow-sm border border-gray-100 bg-white rounded-xl">
-                        <div className="flex flex-col gap-1 md:w-1/2">
+            <Card className="bg-white border border-gray-100 shadow-sm !p-0 overflow-hidden">
+                <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
+                    <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+                        <Lock size={16} />
+                    </div>
+                    <h2 className="text-lg font-black text-gray-900 tracking-tight">Update Password</h2>
+                </div>
+                <div className="flex flex-col gap-6 p-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="flex flex-col gap-1">
                             <span className="text-[14px] font-black text-gray-900 tracking-tight">Old Password</span>
                             <FormInput
                                 name="old_password"
@@ -183,41 +208,49 @@ const EmployeeSetting: React.FC = () => {
                                 autoComplete="current-password"
                             />
                         </div>
+                    </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="flex flex-col gap-1">
-                                <span className="text-[14px] font-black text-gray-900 tracking-tight">Enter New Password</span>
-                                <FormInput
-                                    name="new_password"
-                                    type="password"
-                                    placeholder="Enter new password"
-                                    value={newPassword}
-                                    onChange={(e) => setNewPassword(e.target.value)}
-                                    autoComplete="new-password"
-                                />
-                                <span className="text-xs text-gray-500 font-medium mt-1">Min 8 characters, 1 Digit & 1 special character</span>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <span className="text-[14px] font-black text-gray-900 tracking-tight">Confirm New Password</span>
-                                <FormInput
-                                    name="confirm_new_password"
-                                    type="password"
-                                    placeholder="Confirm new password"
-                                    value={confirmNewPassword}
-                                    onChange={(e) => setConfirmNewPassword(e.target.value)}
-                                    autoComplete="new-password"
-                                />
-                            </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="flex flex-col gap-1">
+                            <span className="text-[14px] font-black text-gray-900 tracking-tight">Enter New Password</span>
+                            <FormInput
+                                name="new_password"
+                                type="password"
+                                placeholder="Enter new password"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                autoComplete="new-password"
+                            />
+                            <span className="text-xs text-gray-500 font-medium mt-1">
+                                Min 8 characters, 1 Digit & 1 special character
+                            </span>
                         </div>
+                        <div className="flex flex-col gap-1">
+                            <span className="text-[14px] font-black text-gray-900 tracking-tight">Confirm New Password</span>
+                            <FormInput
+                                name="confirm_new_password"
+                                type="password"
+                                placeholder="Confirm new password"
+                                value={confirmNewPassword}
+                                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                                autoComplete="new-password"
+                            />
+                        </div>
+                    </div>
 
-                        <div className="flex justify-end mt-2">
-                            <Button variant="primary" size="md" className="rounded-xl px-8 font-black shadow-lg shadow-primary-100" onClick={handleSave} disabled={changePassword.isPending}>
-                                {changePassword.isPending ? 'Updating...' : 'Update Password'}
-                            </Button>
-                        </div>
-                    </Card>
+                    <div className="flex justify-end">
+                        <Button
+                            variant="primary"
+                            size="md"
+                            className="rounded-xl px-8 font-black"
+                            onClick={handleSave}
+                            disabled={changePassword.isPending}
+                        >
+                            {changePassword.isPending ? 'Updating...' : 'Update Password'}
+                        </Button>
+                    </div>
                 </div>
-            </div>
+            </Card>
         </div>
     );
 };

@@ -170,9 +170,9 @@ body {
   --color-brand-primary: #005CDA;
   --color-brand-primary-hover: #004BB3;
   --color-brand-primary-active: #003A8C;
-  --color-brand-secondary: #001F4A;
-  --color-sidebar-bg: #001F4A;
-  --color-sidebar-hover: rgba(255, 255, 255, 0.1);
+  --color-brand-secondary: #062A5C;
+  --color-sidebar-bg: #062A5C;
+  --color-sidebar-hover: rgba(0, 92, 218, 0.22);
   --color-sidebar-active: #005CDA;
   --color-sidebar-text: #ffffff;
   --color-sidebar-icon: #ffffff;
@@ -182,7 +182,7 @@ body {
   --color-primary-500: #2B7FFF;
   --color-primary-600: #005CDA;
   --color-primary-700: #004BB3;
-  --gradient-primary: linear-gradient(180deg, #005CDA 0%, #001F4A 100%);
+  --gradient-primary: linear-gradient(180deg, #005CDA 0%, #062A5C 100%);
 }
 :root[data-theme="tekxai-blue"]:not([data-mode='dark']) {
   --color-app-bg: #f0f6ff;

@@ -85,75 +85,25 @@ function ChartBlock({ className }: { className?: string }) {
 
 function DashboardEmployeeSkeleton() {
   return (
-    <div className="flex flex-col gap-8 pb-10">
-      <div className="flex flex-col lg:flex-row gap-6 items-start p-3 rounded-[8px] bg-white">
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 p-3 flex-1 w-full bg-[#F8F8F8]">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <StatSkeleton key={i} />
-          ))}
-        </div>
-        <div className="flex flex-col w-full justify-center items-center min-h-[100px] min-w-[140px] gap-3 p-3">
-          <Skeleton variant="rectangular" width="100%" height={44} className="rounded-xl" />
-        </div>
+    <div className="flex flex-col gap-6 pb-10">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} variant="rectangular" height={88} className="rounded-lg" />
+        ))}
       </div>
 
-      <Surface className="p-6 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Skeleton variant="circular" width={48} height={48} />
-          <div className="flex flex-col gap-2">
-            <Skeleton variant="text" width={140} height={18} />
-            <Skeleton variant="text" width={90} height={14} />
-          </div>
-        </div>
-        <Skeleton variant="rectangular" width={120} height={40} className="rounded-xl" />
-      </Surface>
+      <Skeleton variant="rectangular" height={72} className="rounded-lg" />
 
-      <Surface className="p-6 flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Skeleton variant="rectangular" width={40} height={40} className="rounded-xl" />
-            <div className="flex flex-col gap-2">
-              <Skeleton variant="text" width={140} height={18} />
-              <Skeleton variant="text" width={200} height={12} />
-            </div>
-          </div>
-          <Skeleton variant="rectangular" width={110} height={36} className="rounded-lg" />
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} variant="rectangular" height={56} className="rounded-lg" />
-          ))}
-        </div>
-        <div className="flex flex-col gap-2">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} variant="rectangular" height={44} className="rounded-lg" />
-          ))}
-        </div>
-      </Surface>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <Surface className="lg:col-span-5 p-6 flex flex-col gap-4">
-          <Skeleton variant="text" width={150} height={20} />
-          <div className="grid grid-cols-2 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <CardSkeleton key={i} />
-            ))}
-          </div>
-        </Surface>
-        <Surface className="lg:col-span-7 p-6 flex flex-col gap-4">
-          <Skeleton variant="text" width={160} height={20} />
-          <TableSkeleton rows={5} columns={5} />
-        </Surface>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Skeleton variant="rectangular" height={220} className="rounded-lg" />
+        <Skeleton variant="rectangular" height={220} className="rounded-lg" />
       </div>
 
-      <Surface className="p-6 flex flex-col gap-4">
-        <div className="flex items-center gap-3">
-          <Skeleton variant="rectangular" width={40} height={40} className="rounded-xl" />
-          <Skeleton variant="text" width={180} height={22} />
-        </div>
-        <Skeleton variant="rectangular" width={256} height={40} className="rounded-xl" />
-        <TableSkeleton rows={6} columns={6} />
-      </Surface>
+      <div className="flex flex-col gap-3">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} variant="rectangular" height={44} className="rounded-lg" />
+        ))}
+      </div>
     </div>
   );
 }

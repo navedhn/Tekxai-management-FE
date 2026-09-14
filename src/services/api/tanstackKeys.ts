@@ -91,6 +91,7 @@ export const QUERY_KEYS = {
   },
   TIMESHEET: {
     WEEKLY:     ['timesheet', 'weekly'],
+    TODAY:      ['timesheet', 'today'],
     REQUESTS:   ['timesheet', 'requests'],
     MY_REQUESTS:['timesheet', 'my-requests'],
     POLICIES:   ['timesheet', 'policies'],

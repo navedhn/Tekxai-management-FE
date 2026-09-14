@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, FileText, CheckCircle, XCircle, ClipboardList, Trash2 } from 'lucide-react';
+import { Plus, FileText, CheckCircle, XCircle, ClipboardList, Trash2, Clock } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
@@ -9,6 +9,8 @@ import { useToastContext } from '@/components/toast/ToastProvider';
 import { getSocket } from '@/lib/socket';
 import { PageActionButton } from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
+import Card from '@/components/ui/Card';
+import DashboardStatCard from '@/components/ui/DashboardStatCard';
 import { PageSkeleton } from '@/components/skeletons';
 import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 
@@ -444,11 +446,11 @@ export default function DailyReportPage() {
   if (showPageSkeleton) return <PageSkeleton variant="table" />;
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between">
+    <div className="flex flex-col gap-6 pb-10">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-gray-900">Daily Planning</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Start your day with an agenda, close it out with a report</p>
+          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Daily Report</h1>
+          <p className="text-sm text-gray-500 font-medium mt-0.5">Start your day with an agenda, close it out with a report</p>
         </div>
         <div className="flex flex-wrap gap-2 justify-end">
           {hasOpenSession && !agendaSubmitted && (
@@ -464,47 +466,72 @@ export default function DailyReportPage() {
         </div>
       </div>
 
-      {hasOpenSession && !agendaSubmitted && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3">
-          <ClipboardList size={18} className="text-amber-600 shrink-0" />
-          <p className="text-sm text-amber-800 font-medium">
-            You're clocked in — submit today's agenda to get started. Daily Report will unlock once it's in.
-          </p>
-        </div>
-      )}
-      {agendaSubmitted && !reportSubmitted && hasOpenSession && (
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center gap-3">
-          <FileText size={18} className="text-blue-600 shrink-0" />
-          <p className="text-sm text-blue-800 font-medium">
-            Agenda submitted for today. Submit your Daily Report before checking out.
-          </p>
-        </div>
-      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <DashboardStatCard
+          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          icon={<ClipboardList size={18} />}
+          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          value={agendaSubmitted ? 'Done' : hasOpenSession ? 'Pending' : '—'}
+          label="Today's Agenda"
+          subtext={agendaSubmitted ? 'Submitted' : hasOpenSession ? 'Needs submission' : 'Clock in to start'}
+        />
+        <DashboardStatCard
+          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          icon={<FileText size={18} />}
+          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          value={reportSubmitted ? 'Done' : agendaSubmitted ? 'Pending' : '—'}
+          label="Daily Report"
+          subtext={reportSubmitted ? 'Submitted' : agendaSubmitted ? 'Needs submission' : 'Agenda first'}
+        />
+        <DashboardStatCard
+          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          icon={<Clock size={18} />}
+          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          value={todaysReport?.hours_worked != null ? `${todaysReport.hours_worked}h` : '—'}
+          label="Hours Today"
+          subtext={hasOpenSession ? 'Open session' : 'No open session'}
+        />
+        <DashboardStatCard
+          className="bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4"
+          icon={<CheckCircle size={18} />}
+          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          value={reports.length}
+          label="Reports History"
+          subtext="All submitted reports"
+        />
+      </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      <Card className="border border-gray-100 shadow-sm !p-0 overflow-hidden">
+        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
+          <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+            <FileText size={16} />
+          </div>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">Report History</h2>
+        </div>
+        <div className="p-4">
         {reports.length === 0 ? (
-          <div className="py-16 text-center">
+          <div className="py-14 text-center">
             <FileText size={32} className="text-gray-200 mx-auto mb-3" />
-            <p className="text-sm text-gray-400 font-semibold">No reports submitted yet</p>
-            <p className="text-xs text-gray-300 mt-1">Submit your first daily report</p>
+            <p className="text-sm text-gray-500 font-medium">No reports submitted yet</p>
+            <p className="text-xs text-gray-400 mt-1">Submit your first daily report</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100">
+                <tr className="border-b border-gray-100 bg-[#F8FAFC]">
                   {['Date', 'Notes', 'Hours', ...(showCodeDeployed ? ['Deployed'] : [])].map(h => (
-                    <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
+                    <th key={h} className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide py-3 px-3 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {reports.map((r: any) => (
-                  <tr key={r.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="py-3 px-2 font-semibold text-gray-900 whitespace-nowrap">
+                  <tr key={r.id} className="hover:bg-gray-50/80 transition-colors">
+                    <td className="py-3 px-3 font-semibold text-gray-900 whitespace-nowrap">
                       {r.date ? new Date(r.date).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }) : '—'}
                     </td>
-                    <td className="py-3 px-2 text-gray-600 max-w-[320px]">
+                    <td className="py-3 px-3 text-gray-600 max-w-[320px]">
                       {r.items?.length ? (
                         <div className="space-y-1">
                           {r.items.map((it: any) => (
@@ -518,11 +545,11 @@ export default function DailyReportPage() {
                         <p className="line-clamp-2 text-xs leading-relaxed">{r.todays_progress || '—'}</p>
                       )}
                     </td>
-                    <td className="py-3 px-2 font-semibold text-gray-700">
+                    <td className="py-3 px-3 font-semibold text-gray-700">
                       {r.hours_worked != null ? `${r.hours_worked}h` : '—'}
                     </td>
                     {showCodeDeployed && (
-                      <td className="py-3 px-2">
+                      <td className="py-3 px-3">
                         {r.code_deployed === true ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 rounded-lg text-xs font-semibold">
                             <CheckCircle size={11} />Yes
@@ -542,7 +569,8 @@ export default function DailyReportPage() {
             </table>
           </div>
         )}
-      </div>
+        </div>
+      </Card>
 
       {showAgendaModal && (
         <AgendaModal isOpen={showAgendaModal} onClose={() => setShowAgendaModal(false)} />

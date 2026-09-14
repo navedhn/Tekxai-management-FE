@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Plus, Filter, CheckCircle, XCircle, Clock, Package } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { Plus, Filter, CheckCircle, XCircle, Package, FileText, Send } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
@@ -8,6 +9,7 @@ import SearchableSelect from '@/components/ui/SearchableSelect';
 import Modal from '@/components/ui/Modal';
 import { Button, PageActionButton } from '@/components/ui/Button';
 import Textarea from '@/components/ui/Textarea';
+import DashboardStatCard from '@/components/ui/DashboardStatCard';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import {
@@ -21,12 +23,12 @@ import { useMyPermissions } from '@/services/permissionsService';
 
 const STATUS_STYLES: Record<string, string> = {
   DRAFT:        'bg-gray-50 text-gray-500 border-gray-200',
-  SUBMITTED:    'bg-blue-50 text-blue-700 border-blue-200',
+  SUBMITTED:    'bg-[#E8F1FF] text-[#005CDA] border-[#D6E6FF]',
   APPROVED:     'bg-green-50 text-green-700 border-green-200',
   REJECTED:     'bg-red-50 text-red-700 border-red-200',
-  PROCUREMENT:  'bg-purple-50 text-purple-700 border-purple-200',
+  PROCUREMENT:  'bg-[#EFF8FF] text-[#175CD3] border-[#B2DDFF]',
   FULFILLED:    'bg-teal-50 text-teal-700 border-teal-200',
-  ASSET_CREATED:'bg-indigo-50 text-indigo-700 border-indigo-200',
+  ASSET_CREATED:'bg-[#E8F1FF] text-[#005CDA] border-[#D6E6FF]',
   CLOSED:       'bg-gray-100 text-gray-500 border-gray-300',
 };
 
@@ -39,13 +41,14 @@ const PRIORITY_STYLES: Record<string, string> = {
 
 const RequisitionsPage: React.FC = () => {
   const toast = useToastContext();
+  const location = useLocation();
+  const isEmployeeRoute = location.pathname.startsWith('/employee');
 
   const { data: myPerms } = useMyPermissions();
   const isAdmin = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.requisitions.approve');
 
-  const [filters, setFilters] = useState<any>({ mine: isAdmin ? '' : 'true', status: isAdmin ? '' : 'SUBMITTED' });
+  const [filters, setFilters] = useState<any>({ mine: isAdmin && !isEmployeeRoute ? '' : 'true', status: isAdmin && !isEmployeeRoute ? '' : '' });
   const [createOpen, setCreateOpen] = useState(false);
-  const [detailId, setDetailId] = useState<string | null>(null);
   const [approveId, setApproveId] = useState<string | null>(null);
   const [approveAction, setApproveAction] = useState<'APPROVED' | 'REJECTED'>('APPROVED');
   const [approveComment, setApproveComment] = useState('');
@@ -72,6 +75,11 @@ const RequisitionsPage: React.FC = () => {
   const statuses = meta?.statuses || [];
   const categories = meta?.categories || [];
   const priorities = meta?.priorities || [];
+
+  const submittedCount = records.filter(r => r.status === 'SUBMITTED').length;
+  const approvedCount = records.filter(r => r.status === 'APPROVED').length;
+  const procurementCount = records.filter(r => r.status === 'PROCUREMENT').length;
+  const fulfilledCount = records.filter(r => r.status === 'FULFILLED').length;
 
   const deptOptions = Array.isArray(departmentsData)
     ? (departmentsData as any[]).map((d: any) => ({ value: d.id, label: d.name }))
@@ -207,30 +215,67 @@ const RequisitionsPage: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-6 pb-10">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-gray-900">Requisitions</h1>
-          <p className="text-sm text-gray-500 font-medium mt-0.5">Manage internal procurement requests</p>
+          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Requisitions</h1>
+          <p className="text-sm text-gray-500 font-medium mt-0.5">
+            {isEmployeeRoute ? 'Track and create your procurement requests' : 'Manage internal procurement requests'}
+          </p>
         </div>
         <PageActionButton leftIcon={Plus} onClick={() => setCreateOpen(true)}>
           New Requisition
         </PageActionButton>
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        {['SUBMITTED', 'APPROVED', 'PROCUREMENT', 'FULFILLED'].map(s => {
-          const count = records.filter(r => r.status === s).length;
-          return (
-            <div key={s} className={cn('px-4 py-2 rounded-xl border text-sm font-bold cursor-pointer', filters.status === s ? 'bg-[#005CDA] text-white border-[#005CDA]' : 'bg-white text-gray-600 border-gray-200')}
-              onClick={() => setFilters((f: any) => ({ ...f, status: f.status === s ? '' : s }))}>
-              {s.replace(/_/g, ' ')} {count > 0 && <span className="ml-1 opacity-70">({count})</span>}
-            </div>
-          );
-        })}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <DashboardStatCard
+          className={cn(
+            'bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4 cursor-pointer transition-colors',
+            filters.status === 'SUBMITTED' && 'ring-2 ring-[#005CDA]/30',
+          )}
+          icon={<Send size={18} />}
+          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          value={submittedCount}
+          label="Submitted"
+          onClick={() => setFilters((f: any) => ({ ...f, status: f.status === 'SUBMITTED' ? '' : 'SUBMITTED' }))}
+        />
+        <DashboardStatCard
+          className={cn(
+            'bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4 cursor-pointer transition-colors',
+            filters.status === 'APPROVED' && 'ring-2 ring-[#005CDA]/30',
+          )}
+          icon={<CheckCircle size={18} />}
+          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          value={approvedCount}
+          label="Approved"
+          onClick={() => setFilters((f: any) => ({ ...f, status: f.status === 'APPROVED' ? '' : 'APPROVED' }))}
+        />
+        <DashboardStatCard
+          className={cn(
+            'bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4 cursor-pointer transition-colors',
+            filters.status === 'PROCUREMENT' && 'ring-2 ring-[#005CDA]/30',
+          )}
+          icon={<Package size={18} />}
+          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          value={procurementCount}
+          label="Procurement"
+          onClick={() => setFilters((f: any) => ({ ...f, status: f.status === 'PROCUREMENT' ? '' : 'PROCUREMENT' }))}
+        />
+        <DashboardStatCard
+          className={cn(
+            'bg-white border border-gray-100 rounded-xl shadow-sm py-4 px-4 cursor-pointer transition-colors',
+            filters.status === 'FULFILLED' && 'ring-2 ring-[#005CDA]/30',
+          )}
+          icon={<FileText size={18} />}
+          iconClassName="bg-[#E8F1FF] text-[#005CDA]"
+          value={fulfilledCount}
+          label="Fulfilled"
+          onClick={() => setFilters((f: any) => ({ ...f, status: f.status === 'FULFILLED' ? '' : 'FULFILLED' }))}
+        />
       </div>
 
-      <Card className="flex flex-wrap gap-3 !py-3">
-        {isAdmin && (
+      <Card className="flex flex-wrap gap-3 !py-3 border border-gray-100 shadow-sm">
+        {isAdmin && !isEmployeeRoute && (
           <div className="flex items-center gap-2">
             <input type="checkbox" id="mine" checked={filters.mine === 'true'} onChange={e => setFilters((f: any) => ({ ...f, mine: e.target.checked ? 'true' : '' }))} className="rounded" />
             <label htmlFor="mine" className="text-sm font-semibold text-gray-700">My Requisitions Only</label>
@@ -243,14 +288,26 @@ const RequisitionsPage: React.FC = () => {
           <SearchableSelect options={priorities.map((p: string) => ({ value: p, label: p }))} value={filters.priority || ''} onChange={v => setFilters((f: any) => ({ ...f, priority: v }))} placeholder="Priority" className="h-9 !rounded-xl" />
         </div>
         {(filters.category || filters.priority || filters.status) && (
-          <Button variant="outline" size="sm" animation="none" rounded={false} className="rounded-xl" onClick={() => setFilters(isAdmin ? {} : { mine: 'true' })}>
+          <Button variant="outline" size="sm" animation="none" rounded={false} className="rounded-xl" onClick={() => setFilters(isAdmin && !isEmployeeRoute ? {} : { mine: 'true' })}>
             <Filter size={13} className="mr-1" />Clear
           </Button>
         )}
       </Card>
 
-      <Card className="!p-0 overflow-hidden">
-        <Table columns={columns} data={records} loading={isLoading} emptyMessage="No requisitions found" className="border-0 shadow-none" />
+      <Card className="!p-0 overflow-hidden border border-gray-100 shadow-sm">
+        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
+          <div className="h-9 w-9 rounded-xl bg-[#E8F1FF] text-[#005CDA] flex items-center justify-center">
+            <Package size={16} />
+          </div>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">All Requisitions</h2>
+        </div>
+        <Table
+          columns={columns}
+          data={records}
+          loading={isLoading}
+          emptyMessage="No requisitions yet. Create one to get started."
+          className="border-0 shadow-none"
+        />
       </Card>
 
       <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="New Requisition" size="lg">
