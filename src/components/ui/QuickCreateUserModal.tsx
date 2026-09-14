@@ -187,10 +187,18 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
 
         setFetchingEmployeeId(true);
         try {
-          const detail = await apiRequest<any>(API_ENDPOINTS.EMPLOYEE.DETAIL(newUser.id));
+          const customId = formData.employee_id.trim();
+          if (customId) {
+            await changeEmployeeId.mutateAsync({ id: newUser.id, employee_id: customId });
+            setCreated({ employeeId: customId, name });
+          } else {
+            const detail = await apiRequest<any>(API_ENDPOINTS.EMPLOYEE.DETAIL(newUser.id));
+            setCreated({ employeeId: detail?.payload?.employee_id || null, name });
+          }
+        } catch (err: any) {
+          toast.error(err?.message || err?.response?.data?.message || 'User created, but setting the custom Employee ID failed');
+          const detail = await apiRequest<any>(API_ENDPOINTS.EMPLOYEE.DETAIL(newUser.id)).catch(() => null);
           setCreated({ employeeId: detail?.payload?.employee_id || null, name });
-        } catch {
-          setCreated({ employeeId: null, name });
         } finally {
           setFetchingEmployeeId(false);
         }
@@ -253,10 +261,12 @@ const QuickCreateUserModal: React.FC<QuickCreateUserModalProps> = ({ isOpen, onC
         ) : (
           <Input
             label="Employee ID"
-            value="Auto-generated on save"
-            disabled
-            readOnly
-            className="h-12 rounded-xl bg-gray-50 text-gray-400"
+            name="employee_id"
+            value={formData.employee_id}
+            onChange={handleChange}
+            error={errors.employee_id}
+            placeholder="Leave blank to auto-generate on save"
+            className="h-12 rounded-xl font-mono"
           />
         )}
 
