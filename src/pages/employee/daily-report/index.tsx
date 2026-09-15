@@ -520,7 +520,7 @@ export default function DailyReportPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-(--color-card-border) bg-(--color-elevated)">
-                  {['Date', 'Notes', 'Hours', ...(showCodeDeployed ? ['Deployed'] : [])].map(h => (
+                  {['Date', 'Employee', 'Notes', 'Hours', ...(showCodeDeployed ? ['Deployed'] : [])].map(h => (
                     <th key={h} className="text-left text-xs font-semibold text-(--color-text-secondary) uppercase tracking-wide py-3 px-3 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -530,6 +530,9 @@ export default function DailyReportPage() {
                   <tr key={r.id} className="hover:bg-gray-50/80 transition-colors">
                     <td className="py-3 px-3 font-semibold text-(--color-text-primary) whitespace-nowrap">
                       {r.date ? new Date(r.date).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }) : '—'}
+                    </td>
+                    <td className="py-3 px-3 text-gray-700 font-medium whitespace-nowrap">
+                      {r.user ? `${r.user.first_name || ''} ${r.user.last_name || ''}`.trim() || '—' : '—'}
                     </td>
                     <td className="py-3 px-3 text-gray-600 max-w-[320px]">
                       {r.items?.length ? (
