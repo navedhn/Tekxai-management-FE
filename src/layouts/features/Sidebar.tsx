@@ -190,6 +190,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
     const isSuperAdmin = !!myPerms?.is_super_admin;
     const canSeeEmployeeProjects = isSuperAdmin || !!myPerms?.permissions?.includes('erp.employee_projects.view');
     const canSeeStarredQueries = isSuperAdmin || !!myPerms?.permissions?.includes('erp.starred_queries.view');
+    const canSeeMyDocuments = isSuperAdmin || !!myPerms?.permissions?.includes('erp.my_documents.view');
 
     const work: SidebarLink[] = [
       { to: '/employee', label: 'Home', icon: <Home size={18} strokeWidth={SW} />, end: true },
@@ -207,7 +208,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
     const support: SidebarLink[] = [
       { to: '/employee/tickets', label: 'Support Tickets', icon: <Ticket size={18} strokeWidth={SW} /> },
       { to: '/chat', label: 'Messages', icon: <MessageSquare size={18} strokeWidth={SW} />, badge: chatUnreadCount },
-      ...(isSuperAdmin
+      ...(canSeeMyDocuments
         ? [{ to: '/employee/documents', label: 'My Documents', icon: <FileText size={18} strokeWidth={SW} /> }]
         : []),
       ...(isSuperAdmin
