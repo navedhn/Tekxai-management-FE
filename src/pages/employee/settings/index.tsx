@@ -1,33 +1,23 @@
 import React, { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import FormInput from '@/components/form/FormInput';
-import { Lock, User, Camera, Bell } from 'lucide-react';
+import { User, Camera, Bell } from 'lucide-react';
 import { useToastContext } from '@/components/toast/ToastProvider';
-import { useGetMySettingsQuery, useUpdatePreferencesMutation, useChangePasswordMutation } from '@/services/settingsService';
-import { useLogoutMutation } from '@/services/authService';
+import { useGetMySettingsQuery, useUpdatePreferencesMutation } from '@/services/settingsService';
 import { useUploadAvatarMutation } from '@/services/userService';
 import { useAuthStore } from '@/stores/authStore';
-import { clearAuthTokens } from '@/utils/tokenMemory';
 import ThemeSwitcher from '@/components/settings/ThemeSwitcher';
 import { getStoredTheme } from '@/lib/theme';
 
 const EmployeeSetting: React.FC = () => {
     const toast = useToastContext();
-    const navigate = useNavigate();
-    const { userLogout, user, updateUserProfile } = useAuthStore();
-    const logoutMutation = useLogoutMutation();
+    const { user, updateUserProfile } = useAuthStore();
     const [notifications, setNotifications] = useState(true);
-    const [oldPassword, setOldPassword] = useState('');
-    const [newPassword, setNewPassword] = useState('');
-    const [confirmNewPassword, setConfirmNewPassword] = useState('');
     const [avatarUploading, setAvatarUploading] = useState(false);
     const avatarInputRef = useRef<HTMLInputElement>(null);
 
     const { data: settingsData } = useGetMySettingsQuery();
     const updatePreferences = useUpdatePreferencesMutation();
-    const changePassword = useChangePasswordMutation();
     const uploadAvatar = useUploadAvatarMutation();
 
     const initials = `${user?.first_name?.[0] || ''}${user?.last_name?.[0] || ''}`.toUpperCase();
@@ -84,34 +74,6 @@ const EmployeeSetting: React.FC = () => {
         });
     };
 
-    const handleSave = () => {
-        if (!oldPassword || !newPassword || !confirmNewPassword) {
-            return toast.error('Please fill all password fields');
-        }
-        if (newPassword !== confirmNewPassword) {
-            return toast.error('New passwords do not match');
-        }
-        changePassword.mutate({
-            old_password: oldPassword,
-            new_password: newPassword,
-            confirm_new_password: confirmNewPassword
-        }, {
-            onSuccess: async () => {
-                toast.success('Password updated. Please sign in again with your new password.');
-                setOldPassword('');
-                setNewPassword('');
-                setConfirmNewPassword('');
-
-                try { await logoutMutation.mutateAsync(); } catch { /* ignore */ }
-                clearAuthTokens();
-                userLogout();
-                navigate('/login');
-            },
-            onError: (err: any) => {
-                toast.error(err.message || 'Failed to update password');
-            }
-        });
-    };
 
     return (
         <div className="flex flex-col gap-6">
@@ -189,70 +151,6 @@ const EmployeeSetting: React.FC = () => {
                             }`}
                         />
                     </button>
-                </div>
-            </Card>
-
-            <Card className="bg-white border border-(--color-card-border) shadow-sm !p-0 overflow-hidden">
-                <div className="flex items-center gap-2.5 px-5 py-4 border-b border-(--color-card-border)">
-                    <div className="h-9 w-9 rounded-xl bg-(--color-info-bg) text-(--color-brand-primary) flex items-center justify-center">
-                        <Lock size={16} />
-                    </div>
-                    <h2 className="text-lg font-black text-(--color-text-primary) tracking-tight">Update Password</h2>
-                </div>
-                <div className="flex flex-col gap-6 p-5">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="flex flex-col gap-1">
-                            <span className="text-[14px] font-black text-(--color-text-primary) tracking-tight">Old Password</span>
-                            <FormInput
-                                name="old_password"
-                                type="password"
-                                placeholder="Enter your old password"
-                                value={oldPassword}
-                                onChange={(e) => setOldPassword(e.target.value)}
-                                autoComplete="current-password"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="flex flex-col gap-1">
-                            <span className="text-[14px] font-black text-(--color-text-primary) tracking-tight">Enter New Password</span>
-                            <FormInput
-                                name="new_password"
-                                type="password"
-                                placeholder="Enter new password"
-                                value={newPassword}
-                                onChange={(e) => setNewPassword(e.target.value)}
-                                autoComplete="new-password"
-                            />
-                            <span className="text-xs text-(--color-text-secondary) font-medium mt-1">
-                                Min 8 characters, 1 Digit & 1 special character
-                            </span>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <span className="text-[14px] font-black text-(--color-text-primary) tracking-tight">Confirm New Password</span>
-                            <FormInput
-                                name="confirm_new_password"
-                                type="password"
-                                placeholder="Confirm new password"
-                                value={confirmNewPassword}
-                                onChange={(e) => setConfirmNewPassword(e.target.value)}
-                                autoComplete="new-password"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex justify-end">
-                        <Button
-                            variant="primary"
-                            size="md"
-                            className="rounded-xl px-8 font-black"
-                            onClick={handleSave}
-                            disabled={changePassword.isPending}
-                        >
-                            {changePassword.isPending ? 'Updating...' : 'Update Password'}
-                        </Button>
-                    </div>
                 </div>
             </Card>
         </div>
