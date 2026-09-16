@@ -160,7 +160,7 @@ const EmployeeTimesheet: React.FC = () => {
   const isTimesheetTab = activeTab !== 'My Requests';
   const isCustomTab = activeTab === 'Custom';
   const { data: weeklyTimesheet, isLoading: isWeeklyLoading } = useGetWeeklyTimesheet(
-    queryDate ? { date: queryDate } : undefined,
+    { date: queryDate, self: 'true' },
     isTimesheetTab && !isCustomTab
   );
   const { data: rangeTimesheet, isLoading: isRangeLoading } = useGetRangeTimesheet(
@@ -582,7 +582,7 @@ const WeekBlock: React.FC<{
   columns: Column<TimesheetEntry>[];
   onReady: () => void;
 }> = ({ weekStart, columns, onReady }) => {
-  const { data: timesheet, isLoading } = useGetWeeklyTimesheet({ date: toDateStr(weekStart) }, true);
+  const { data: timesheet, isLoading } = useGetWeeklyTimesheet({ date: toDateStr(weekStart), self: 'true' }, true);
 
   useEffect(() => {
     if (!isLoading) onReady();

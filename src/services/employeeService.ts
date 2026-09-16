@@ -67,7 +67,7 @@ async function fetchDashboardStats(): Promise<DashboardStats> {
   try {
     const [projectsRes, timesheetRes] = await Promise.all([
       apiRequest<any>(API_ENDPOINTS.PROJECT.LIST + '?limit=200'),
-      apiRequest<any>(API_ENDPOINTS.TIMESHEET.WEEKLY),
+      apiRequest<any>(`${API_ENDPOINTS.TIMESHEET.WEEKLY}?self=true`),
     ]);
 
     const projects = projectsRes?.payload?.records || projectsRes?.payload || [];
@@ -109,7 +109,7 @@ async function fetchRecentActivity(): Promise<Activity[]> {
 
 async function fetchTimesheet(): Promise<TimesheetEntry[]> {
   try {
-    const res = await apiRequest<any>(API_ENDPOINTS.TIMESHEET.WEEKLY);
+    const res = await apiRequest<any>(`${API_ENDPOINTS.TIMESHEET.WEEKLY}?self=true`);
     const rows: any[] = res?.payload?.rows || res?.rows || [];
     return rows
       .filter((r: any) => r.has_entry)
