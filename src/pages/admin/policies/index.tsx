@@ -39,6 +39,7 @@ const PoliciesPage: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [file, setFile] = useState<File | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
 
   const closeModal = () => { setShowModal(false); setEditingId(null); setForm(EMPTY_FORM); setFile(null); setMode('create'); };
 
@@ -85,10 +86,10 @@ const PoliciesPage: React.FC = () => {
     } catch { toast.error('Failed to open document'); }
   };
 
-  const handleDelete = (p: any) => {
-    if (!window.confirm(`Delete "${p.title}"? This cannot be undone.`)) return;
-    deletePolicy.mutate(p.id, {
-      onSuccess: () => toast.success('Policy deleted'),
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    deletePolicy.mutate(deleteTarget.id, {
+      onSuccess: () => { toast.success('Policy deleted'); setDeleteTarget(null); },
       onError: () => toast.error('Failed to delete policy'),
     });
   };
@@ -134,7 +135,7 @@ const PoliciesPage: React.FC = () => {
         )}
         {isSuperAdmin && (
           <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs text-red-500 border-red-200 hover:bg-red-50"
-            onClick={() => handleDelete(p)} loading={deletePolicy.isPending}>
+            onClick={() => setDeleteTarget(p)}>
             <Trash2 size={12} /> Delete
           </Button>
         )}
@@ -228,6 +229,21 @@ const PoliciesPage: React.FC = () => {
             )}
           </div>
         </form>
+      </Modal>
+
+      <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Policy" size="sm">
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-gray-600">
+            Delete <span className="font-bold text-gray-900">"{deleteTarget?.title}"</span>? This cannot be undone.
+          </p>
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="outline" fullWidth onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button type="button" variant="primary" fullWidth className="bg-red-500 hover:bg-red-600 border-red-500"
+              onClick={confirmDelete} loading={deletePolicy.isPending}>
+              <Trash2 size={14} /> Delete
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
