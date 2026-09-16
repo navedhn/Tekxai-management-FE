@@ -33,3 +33,14 @@ export const useUpdatePolicy = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['policies'] }),
   });
 };
+// Backend enforces this as SUPER_ADMIN-only (bare role gate, not a
+// grantable Access Control permission) — see policies.routes.js's DELETE
+// gate. The frontend button is hidden the same way as a UX nicety, but the
+// real enforcement is server-side.
+export const useDeletePolicy = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiRequest(`${v1}/policy/${id}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['policies'] }),
+  });
+};

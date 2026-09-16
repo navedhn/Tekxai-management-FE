@@ -4,10 +4,10 @@ import Table, { Column } from '@/components/ui/Table';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
-import { Plus, Send, Upload, FileText as FileIcon, X as XIcon, Pencil, Eye } from 'lucide-react';
+import { Plus, Send, Upload, FileText as FileIcon, X as XIcon, Pencil, Eye, Trash2 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
-import { useGetPolicies, useCreatePolicy, useUpdatePolicy, usePublishPolicy, useGetPolicyFile } from '@/services/policyService';
+import { useGetPolicies, useCreatePolicy, useUpdatePolicy, usePublishPolicy, useGetPolicyFile, useDeletePolicy } from '@/services/policyService';
 import { useMyPermissions } from '@/services/permissionsService';
 
 const EMPTY_FORM = { title: '', category: 'GENERAL', content: '', version: '1.0', is_mandatory: true };
@@ -29,6 +29,7 @@ const PoliciesPage: React.FC = () => {
   const updatePolicy = useUpdatePolicy();
   const publishPolicy = usePublishPolicy();
   const getPolicyFile = useGetPolicyFile();
+  const deletePolicy = useDeletePolicy();
   const [showModal, setShowModal] = useState(false);
   // 'create' | 'edit' | 'view' — 'view' is read-only (Content card row's
   // View action) and never submits, distinct from 'edit' even when the
@@ -84,6 +85,14 @@ const PoliciesPage: React.FC = () => {
     } catch { toast.error('Failed to open document'); }
   };
 
+  const handleDelete = (p: any) => {
+    if (!window.confirm(`Delete "${p.title}"? This cannot be undone.`)) return;
+    deletePolicy.mutate(p.id, {
+      onSuccess: () => toast.success('Policy deleted'),
+      onError: () => toast.error('Failed to delete policy'),
+    });
+  };
+
   const columns: Column<any>[] = [
     { header: 'Policy', key: 'title', render: (p) => <span className="font-black">{p.title}</span> },
     { header: 'Category', key: 'category', render: (p) => <span className="text-gray-600">{p.category}</span> },
@@ -121,6 +130,12 @@ const PoliciesPage: React.FC = () => {
           <Button size="sm" variant="primary" className="rounded-xl gap-1 h-8 text-xs"
             onClick={() => publishPolicy.mutate(p.id, { onSuccess: () => toast.success('Policy published') })}>
             <Send size={12} /> Publish
+          </Button>
+        )}
+        {isSuperAdmin && (
+          <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs text-red-500 border-red-200 hover:bg-red-50"
+            onClick={() => handleDelete(p)} loading={deletePolicy.isPending}>
+            <Trash2 size={12} /> Delete
           </Button>
         )}
       </div>
