@@ -4,7 +4,7 @@ import Table, { Column } from '@/components/ui/Table';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
-import { Plus, Send, Upload, FileText as FileIcon, X as XIcon, Download, Pencil, Eye } from 'lucide-react';
+import { Plus, Send, Upload, FileText as FileIcon, X as XIcon, Pencil, Eye } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useGetPolicies, useCreatePolicy, useUpdatePolicy, usePublishPolicy, useGetPolicyFile } from '@/services/policyService';
@@ -74,6 +74,9 @@ const PoliciesPage: React.FC = () => {
     } catch { toast.error('Failed'); }
   };
 
+  // Opens the policy's uploaded document for viewing only — the backend
+  // now returns an inline (non-attachment) presigned URL, so the browser
+  // renders it in the new tab rather than prompting a download.
   const handleViewFile = async (id: string) => {
     try {
       const { url } = await getPolicyFile.mutateAsync(id);
@@ -87,9 +90,9 @@ const PoliciesPage: React.FC = () => {
     { header: 'Version', key: 'version', render: (p) => <span className="font-mono text-xs">{p.version}</span> },
     { header: 'Mandatory', key: 'is_mandatory', render: (p) => p.is_mandatory ? <span className="text-red-500 font-bold text-xs">Yes</span> : <span className="text-gray-300 text-xs">No</span> },
     { header: 'Document', key: 'file_key', render: (p) => p.file_key ? (
-      <button type="button" onClick={() => handleViewFile(p.id)} className="inline-flex items-center gap-1 text-primary-600 hover:text-primary-700 text-xs font-bold">
-        <Download size={12} /> {p.file_name || 'View'}
-      </button>
+      <span className="inline-flex items-center gap-1 text-gray-600 text-xs font-medium truncate max-w-[160px]">
+        <FileIcon size={12} className="shrink-0" /> {p.file_name || 'Document'}
+      </span>
     ) : <span className="text-gray-300 text-xs">—</span> },
     { header: 'Status', key: 'is_published', render: (p) => (
       <Badge variant="info" className={cn('text-[10px] font-bold border rounded-lg px-2 py-0.5',
@@ -102,6 +105,11 @@ const PoliciesPage: React.FC = () => {
         {p.content && (
           <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs" onClick={() => openView(p)}>
             <Eye size={12} /> View
+          </Button>
+        )}
+        {p.file_key && (
+          <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs" onClick={() => handleViewFile(p.id)}>
+            <Eye size={12} /> Document
           </Button>
         )}
         {canEdit && (

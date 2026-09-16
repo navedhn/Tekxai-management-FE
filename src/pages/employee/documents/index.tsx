@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import { FileText, ShieldCheck, Briefcase, Star, Download, CheckCircle, PenLine } from 'lucide-react';
+import { FileText, ShieldCheck, Briefcase, Eye, CheckCircle, PenLine } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useGetContracts } from '@/services/contractService';
 import { useGetPolicies, useGetMyAcks, useAcknowledgePolicy, useGetPolicyFile } from '@/services/policyService';
@@ -53,7 +53,7 @@ const EmployeeDocuments: React.FC = () => {
             window.open(url, '_blank', 'noopener,noreferrer');
           } catch { toast.error('Failed to open document'); }
         }}>
-        <Download size={12} /> Document
+        <Eye size={12} /> Document
       </Button>
     );
   };
