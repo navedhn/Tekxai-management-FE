@@ -59,6 +59,8 @@ interface DesktopInstallation {
   disk_total_gb: number | null;
   memory_total_gb: number | null;
   memory_free_gb: number | null;
+  monitoring_permission_status: string | null;
+  monitoring_capture_error: string | null;
   user: { id: string; first_name: string; last_name: string; email: string };
 }
 
@@ -128,6 +130,36 @@ function CrashStatusBadge({ status }: { status: CrashStatus }) {
     IGNORED: 'bg-gray-100 text-gray-500',
   };
   return <span className={cn('px-2 py-0.5 rounded-md text-[10px] font-bold', map[status])}>{status[0] + status.slice(1).toLowerCase()}</span>;
+}
+
+// null/undefined covers both legacy installs that predate this feature and
+// installs that simply haven't reported since last clock-in — neither is
+// "blocked", so both render as a neutral dash rather than implying a
+// problem. CAPTURE_FAILED is the one status that actually blocks clock-in
+// (see be-work timesheets.controller.js's clock_in) — its error tooltip is
+// the real diagnostic value here, not just the status label.
+function MonitoringStatusBadge({ status, error }: { status: string | null; error: string | null }) {
+  if (!status || status === 'NOT_APPLICABLE') return <span className="text-gray-300 text-xs">—</span>;
+  const map: Record<string, string> = {
+    GRANTED: 'bg-emerald-50 text-emerald-700',
+    DENIED: 'bg-red-50 text-red-700',
+    UNKNOWN: 'bg-amber-50 text-amber-700',
+    CAPTURE_FAILED: 'bg-red-50 text-red-700',
+  };
+  const label: Record<string, string> = {
+    GRANTED: 'Granted',
+    DENIED: 'Denied',
+    UNKNOWN: 'Unknown',
+    CAPTURE_FAILED: 'Capture Failed',
+  };
+  return (
+    <span
+      className={cn('px-2 py-0.5 rounded-md text-[10px] font-bold', map[status] || 'bg-gray-100 text-gray-500')}
+      title={status === 'CAPTURE_FAILED' ? (error || 'Screenshot capture is failing on this device') : undefined}
+    >
+      {label[status] || status}
+    </span>
+  );
 }
 
 function ManageTargetsModal({ release, onClose }: { release: DesktopRelease; onClose: () => void }) {
@@ -636,16 +668,16 @@ export default function DesktopManagementPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
-                {['Employee', 'Version', 'OS / Arch', 'Update Status', 'Last Sync', 'Disk Free', 'Memory Free'].map((h) => (
+                {['Employee', 'Version', 'OS / Arch', 'Update Status', 'Monitoring', 'Last Sync', 'Disk Free', 'Memory Free'].map((h) => (
                   <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {installLoading ? (
-                <tr><td colSpan={7} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                <tr><td colSpan={8} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
               ) : installations.length === 0 ? (
-                <tr><td colSpan={7} className="py-8 text-center text-gray-400 text-sm">No desktop installs have reported in yet.</td></tr>
+                <tr><td colSpan={8} className="py-8 text-center text-gray-400 text-sm">No desktop installs have reported in yet.</td></tr>
               ) : installations.map((i) => (
                 <tr key={i.id} className="hover:bg-gray-50 transition-colors">
                   <td className="py-3 px-2 font-semibold text-gray-900">{i.user.first_name} {i.user.last_name}</td>
@@ -657,6 +689,9 @@ export default function DesktopManagementPage() {
                     ) : (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700">Up to date</span>
                     )}
+                  </td>
+                  <td className="py-3 px-2">
+                    <MonitoringStatusBadge status={i.monitoring_permission_status} error={i.monitoring_capture_error} />
                   </td>
                   <td className="py-3 px-2 text-gray-500 text-xs flex items-center gap-1"><Clock size={12} />{fmtDate(i.last_seen_at)}</td>
                   <td className="py-3 px-2 text-gray-600 text-xs">{fmtGb(i.disk_free_gb)}{i.disk_total_gb ? ` / ${fmtGb(i.disk_total_gb)}` : ''}</td>

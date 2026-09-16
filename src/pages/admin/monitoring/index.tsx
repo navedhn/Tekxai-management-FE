@@ -8,6 +8,7 @@ import ActionModal from '@/components/ui/ActionModal';
 import { Activity, Camera, Clock, Cpu } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { apiRequest } from '@/lib/queryClient';
+import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useFetchUsersQuery } from '@/services/userService';
 import { useGetProductivity, useGetAppUsage, useDeleteScreenshot, type Screenshot } from '@/services/monitoringService';
 import { useMyPermissions } from '@/services/permissionsService';
@@ -15,7 +16,94 @@ import { PageSkeleton, TableSkeleton } from '@/components/skeletons';
 import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 import ScreenshotHistoryPanel from './ScreenshotHistoryPanel';
 
-const TABS = ['Productivity Overview', 'Screenshot History', 'Reports'];
+const TABS = ['Productivity Overview', 'Screenshot History', 'Reports', 'Permissions'];
+
+// GET /desktop/installations is SUPER_ADMIN-only server-side (desktop.routes.js's
+// MANAGE = authorize('SUPER_ADMIN')) — this tab surfaces the same data the
+// existing Desktop Management page's diagnostics table does, just filtered
+// down to the one thing a super admin actually needs at a glance here: who
+// can currently clock in (screenshot capture verified working) and who is
+// blocked, with the real error for whoever isn't. Only rendered when
+// isSuperAdmin, matching the backend gate — a non-super-admin would just
+// get a 403 from the query anyway.
+function MonitoringPermissionsTab() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['desktop-installations-permissions'],
+    queryFn: async () => {
+      const r = await apiRequest<any>(API_ENDPOINTS.DESKTOP.INSTALLATIONS);
+      return r?.payload?.records || r?.payload || [];
+    },
+  });
+  const installations: any[] = data || [];
+
+  const STATUS_STYLE: Record<string, string> = {
+    GRANTED: 'bg-emerald-50 text-emerald-700',
+    DENIED: 'bg-red-50 text-red-700',
+    UNKNOWN: 'bg-amber-50 text-amber-700',
+    CAPTURE_FAILED: 'bg-red-50 text-red-700',
+    NOT_APPLICABLE: 'bg-gray-100 text-gray-500',
+  };
+  const STATUS_LABEL: Record<string, string> = {
+    GRANTED: 'Granted',
+    DENIED: 'Denied',
+    UNKNOWN: 'Unknown',
+    CAPTURE_FAILED: 'Capture Failed',
+    NOT_APPLICABLE: 'N/A (no OS gate)',
+  };
+  const can_check_in = (status: string | null) => status !== 'DENIED' && status !== 'CAPTURE_FAILED';
+
+  return (
+    <Card className="border-none shadow-sm">
+      <h2 className="text-sm font-black text-gray-700 mb-4">Screenshot Monitoring Permission — by Employee</h2>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-100">
+              {['Employee', 'Device', 'OS', 'Status', 'Can Clock In', 'Details'].map((h) => (
+                <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {isLoading ? (
+              <tr><td colSpan={6} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+            ) : installations.length === 0 ? (
+              <tr><td colSpan={6} className="py-8 text-center text-gray-400 text-sm">No desktop installs have reported in yet.</td></tr>
+            ) : installations.map((i) => {
+              const status = i.monitoring_permission_status || null;
+              return (
+                <tr key={i.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="py-3 px-2 font-semibold text-gray-900">{i.user?.first_name} {i.user?.last_name}</td>
+                  <td className="py-3 px-2 text-gray-600">{i.device || '—'}</td>
+                  <td className="py-3 px-2 text-gray-600">{i.os || '—'}</td>
+                  <td className="py-3 px-2">
+                    {status ? (
+                      <span className={cn('px-2 py-0.5 rounded-md text-[10px] font-bold', STATUS_STYLE[status] || 'bg-gray-100 text-gray-500')}>
+                        {STATUS_LABEL[status] || status}
+                      </span>
+                    ) : (
+                      <span className="text-gray-300 text-xs">Not reported yet</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-2">
+                    {status ? (
+                      <span className={cn('text-xs font-bold', can_check_in(status) ? 'text-emerald-600' : 'text-red-600')}>
+                        {can_check_in(status) ? 'Yes' : 'No'}
+                      </span>
+                    ) : <span className="text-gray-300 text-xs">—</span>}
+                  </td>
+                  <td className="py-3 px-2 text-gray-500 text-xs max-w-xs truncate" title={i.monitoring_capture_error || ''}>
+                    {status === 'CAPTURE_FAILED' ? (i.monitoring_capture_error || 'Screenshot capture is failing') : '—'}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
 const v1 = 'api/v1';
 const BUILDER = `${v1}/report/builder`;
 const SS_EMPLOYEE_STORAGE_KEY = 'monitoring.screenshotHistory.employeeId';
@@ -293,7 +381,11 @@ const MonitoringPage: React.FC = () => {
         </div>
       </div>
 
-      <Tabs options={TABS} value={activeTab} onChange={setActiveTab} />
+      <Tabs
+        options={myPerms?.is_super_admin ? TABS : TABS.filter((t) => t !== 'Permissions')}
+        value={activeTab}
+        onChange={setActiveTab}
+      />
 
       {activeTab === 'Productivity Overview' && (
         overviewLoading ? (
@@ -410,6 +502,8 @@ const MonitoringPage: React.FC = () => {
       )}
 
       {activeTab === 'Reports' && <MonitoringReportsTab />}
+
+      {activeTab === 'Permissions' && myPerms?.is_super_admin && <MonitoringPermissionsTab />}
 
       <ActionModal
         isOpen={!!screenshotToDelete}
