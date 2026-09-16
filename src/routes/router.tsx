@@ -121,6 +121,7 @@ const EmployeeTickets        = lazy(() => import('@/pages/employee/tickets'));
 const StarredQueries         = lazy(() => import('@/pages/employee/starred'));
 const DailyReport            = lazy(() => import('@/pages/employee/daily-report'));
 const EmployeeDocuments      = lazy(() => import('@/pages/employee/documents'));
+const EmployeePolicies       = lazy(() => import('@/pages/employee/policies'));
 const EmployeeOnboarding     = lazy(() => import('@/pages/employee/onboarding'));
 const DownloadApp            = lazy(() => import('@/pages/employee/download-app'));
 
@@ -322,6 +323,12 @@ const routes: RouteObject[] = [
             children: [
               { path: '/employee/documents',     element: <EmployeeDocuments /> },
               { path: '/employee/documents/:id', element: <AdminHrDocumentDetail /> },
+            ],
+          },
+          {
+            element: <ProtectedRoute permission={['hr.policies.view', 'hr.policies.manage']} />,
+            children: [
+              { path: '/employee/policies', element: <EmployeePolicies /> },
             ],
           },
           { path: '/employee/nda/:id', element: <EmployeeNda /> },

@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import { FileText, ShieldCheck, Briefcase, Eye, CheckCircle, PenLine } from 'lucide-react';
+import { FileText, ShieldCheck, Briefcase, PenLine } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useGetContracts } from '@/services/contractService';
-import { useGetPolicies, useGetMyAcks, useAcknowledgePolicy, useGetPolicyFile } from '@/services/policyService';
+import { useGetPolicies, useGetMyAcks } from '@/services/policyService';
+import { PolicyList } from '@/components/policies/PolicyList';
 import { useGetMyJD } from '@/services/jdService';
 import { useGetDocuments, type DocumentStatus } from '@/services/hrDocumentsService';
 import { useMyPermissions } from '@/services/permissionsService';
-import { useToastContext } from '@/components/toast/ToastProvider';
 import { PageSkeleton } from '@/components/skeletons';
 import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 
@@ -28,49 +28,17 @@ const HR_DOC_STATUS_STYLE: Record<DocumentStatus, string> = {
 
 const EmployeeDocuments: React.FC = () => {
   const navigate = useNavigate();
-  const toast = useToastContext();
   const { data: myPerms } = useMyPermissions();
   const canViewPolicies = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('hr.policies.view') || !!myPerms?.permissions?.includes('hr.policies.manage');
   const { data: contracts = [], isLoading: cLoading } = useGetContracts();
-  const { data: policies = [], isLoading: pLoading } = useGetPolicies({ enabled: canViewPolicies });
-  const { data: acks = [], isLoading: acksLoading } = useGetMyAcks({ enabled: canViewPolicies });
+  const { isLoading: pLoading } = useGetPolicies({ enabled: canViewPolicies });
+  const { isLoading: acksLoading } = useGetMyAcks({ enabled: canViewPolicies });
   const { data: jd, isLoading: jdLoading } = useGetMyJD();
   const { data: hrDocsData, isLoading: hrDocsLoading } = useGetDocuments();
   const hrDocs = hrDocsData?.records || [];
   const showPageSkeleton = useShowPageSkeleton(cLoading, canViewPolicies && pLoading, canViewPolicies && acksLoading, jdLoading, hrDocsLoading);
 
-  const acknowledged_ids = new Set((acks as any[]).map((a: any) => a.policy_id));
-
   if (showPageSkeleton) return <PageSkeleton variant="documents" />;
-
-  const PolicyFileLink: React.FC<{ policyId: string; fileName?: string }> = ({ policyId }) => {
-    const getFile = useGetPolicyFile();
-    return (
-      <Button size="sm" variant="outline" className="rounded-xl h-7 text-xs gap-1"
-        onClick={async () => {
-          try {
-            const { url } = await getFile.mutateAsync(policyId);
-            window.open(url, '_blank', 'noopener,noreferrer');
-          } catch { toast.error('Failed to open document'); }
-        }}>
-        <Eye size={12} /> Document
-      </Button>
-    );
-  };
-
-  const AckButton: React.FC<{ policyId: string }> = ({ policyId }) => {
-    const ack = useAcknowledgePolicy(policyId);
-    if (acknowledged_ids.has(policyId)) {
-      return <span className="flex items-center gap-1 text-green-500 text-xs font-bold"><CheckCircle size={12} /> Acknowledged</span>;
-    }
-    return (
-      <Button size="sm" variant="outline" className="rounded-xl h-7 text-xs gap-1"
-        onClick={() => ack.mutate(undefined, { onSuccess: () => toast.success('Policy acknowledged') })}
-        loading={ack.isPending}>
-        Acknowledge
-      </Button>
-    );
-  };
 
   return (
     <div className="flex flex-col gap-8 pb-10">
@@ -149,20 +117,7 @@ const EmployeeDocuments: React.FC = () => {
             <div className="h-10 w-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600"><ShieldCheck size={18} /></div>
             <h2 className="text-lg font-black text-gray-900">Company Policies</h2>
           </div>
-          {(policies as any[]).length === 0 ? <p className="text-sm text-gray-400 italic">No policies published yet.</p> :
-           (policies as any[]).map((p: any) => (
-            <div key={p.id} className="flex items-start justify-between py-3 border-b border-gray-100 last:border-0 gap-4">
-              <div className="flex-1">
-                <p className="font-black text-gray-900">{p.title}</p>
-                <p className="text-xs text-gray-400">{p.category} · v{p.version}</p>
-                {p.is_mandatory && <span className="text-[10px] font-bold text-red-500">* Required</span>}
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {p.file_key && <PolicyFileLink policyId={p.id} fileName={p.file_name} />}
-                <AckButton policyId={p.id} />
-              </div>
-            </div>
-          ))}
+          <PolicyList />
         </Card>
       )}
     </div>

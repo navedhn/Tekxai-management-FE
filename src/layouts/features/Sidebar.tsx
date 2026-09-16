@@ -191,6 +191,13 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
     const canSeeEmployeeProjects = isSuperAdmin || !!myPerms?.permissions?.includes('erp.employee_projects.view');
     const canSeeStarredQueries = isSuperAdmin || !!myPerms?.permissions?.includes('erp.starred_queries.view');
     const canSeeMyDocuments = isSuperAdmin || !!myPerms?.permissions?.includes('erp.my_documents.view');
+    // A separate "Policies" link only for someone who can view Policies but
+    // was NOT also granted My Documents — that page already has a Company
+    // Policies section covering the same data, so showing both would be a
+    // duplicate route to the same content for anyone with both permissions.
+    const canSeePoliciesStandalone = !canSeeMyDocuments && (isSuperAdmin
+      || !!myPerms?.permissions?.includes('hr.policies.view')
+      || !!myPerms?.permissions?.includes('hr.policies.manage'));
 
     const work: SidebarLink[] = [
       { to: '/employee', label: 'Home', icon: <Home size={18} strokeWidth={SW} />, end: true },
@@ -210,6 +217,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { to: '/chat', label: 'Messages', icon: <MessageSquare size={18} strokeWidth={SW} />, badge: chatUnreadCount },
       ...(canSeeMyDocuments
         ? [{ to: '/employee/documents', label: 'My Documents', icon: <FileText size={18} strokeWidth={SW} /> }]
+        : []),
+      ...(canSeePoliciesStandalone
+        ? [{ to: '/employee/policies', label: 'Policies', icon: <ShieldCheck size={18} strokeWidth={SW} /> }]
         : []),
       ...(isSuperAdmin
         ? [{ to: '/employee/onboarding', label: 'My Onboarding', icon: <ListChecks size={18} strokeWidth={SW} /> }]
