@@ -696,6 +696,18 @@ export const API_ENDPOINTS = {
     SET_TASK_STATUS: (id: string) => `${v1}/offboarding/tasks/${id}/status`,
     EXIT_DETAIL:     (userId: string) => `${v1}/offboarding/exit/${userId}`,
   },
+  PORTAL: {
+    PROJECTS:          `${v1}/portal/projects`,
+    PROJECT:           (id: string) => `${v1}/portal/projects/${id}`,
+    MILESTONES:        (id: string) => `${v1}/portal/projects/${id}/milestones`,
+    UPDATES:           (id: string) => `${v1}/portal/projects/${id}/updates`,
+    MESSAGES:          (id: string) => `${v1}/portal/projects/${id}/messages`,
+    FILES:             (id: string) => `${v1}/portal/projects/${id}/files`,
+    FILE_VIEW_URL:     (id: string, fileId: string) => `${v1}/portal/projects/${id}/files/${fileId}/view-url`,
+    APPROVALS:         (id: string) => `${v1}/portal/projects/${id}/approvals`,
+    APPROVAL_RESPOND:  (id: string, approvalId: string) => `${v1}/portal/projects/${id}/approvals/${approvalId}/respond`,
+    NOTIFICATIONS:     `${v1}/portal/notifications`,
+  },
   JOB_REQUISITIONS: {
     LIST:        `${v1}/job-requisitions`,
     CREATE:      `${v1}/job-requisitions`,

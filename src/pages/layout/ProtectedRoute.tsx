@@ -4,13 +4,19 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/services/permissionsService';
 import { RoutePageSkeleton } from '@/components/skeletons';
 
-const ProtectedRoute: React.FC<{ permission?: string | string[]; superAdminOnly?: boolean }> = ({ permission, superAdminOnly }) => {
-  const { isLoggedIn } = useAuth();
+const ProtectedRoute: React.FC<{ permission?: string | string[]; superAdminOnly?: boolean; clientOnly?: boolean }> = ({ permission, superAdminOnly, clientOnly }) => {
+  const { isLoggedIn, user } = useAuth();
   const { data: myPerms, isLoading } = useMyPermissions();
 
   if (!isLoggedIn) return <Navigate to="/login" replace />;
 
   if (isLoading) return <RoutePageSkeleton />;
+
+  const isClientUser = user?.user_type === 'CLIENT';
+
+  if (clientOnly && !isClientUser) return <Navigate to="/403" replace />;
+
+  if (!clientOnly && isClientUser) return <Navigate to="/portal" replace />;
 
   if (!permission && !superAdminOnly) return <Outlet />;
 

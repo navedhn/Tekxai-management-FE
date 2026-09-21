@@ -8,6 +8,7 @@ import PublicRoute from '@/pages/layout/PublicRoute';
 import AuthLayout from '@/layouts/authLayout';
 import MarketingLayout from '@/layouts/marketingLayout';
 import ChatLayout from '@/layouts/chatLayout';
+import ClientPortalLayout from '@/layouts/clientPortalLayout';
 
 const ParamRedirect: React.FC<{ build: (params: Record<string, string | undefined>) => string }> = ({ build }) => {
   const params = useParams();
@@ -129,6 +130,10 @@ const SharedNotifications    = lazy(() => import('@/pages/shared/notifications')
 const ProfilePage            = lazy(() => import('@/pages/shared/profile'));
 
 const ChatPage               = lazy(() => import('@/pages/chat'));
+
+const PortalDashboard        = lazy(() => import('@/pages/portal/dashboard'));
+const PortalProjects         = lazy(() => import('@/pages/portal/projects'));
+const PortalProjectDetail    = lazy(() => import('@/pages/portal/projects/detail'));
 
 const routes: RouteObject[] = [
   {
@@ -364,6 +369,25 @@ const routes: RouteObject[] = [
         element: <ChatLayout />,
         children: [{ path: '/chat', element: <ChatPage /> }],
       },
+    ],
+  },
+  {
+    element: <ProtectedRoute clientOnly />,
+    children: [
+      {
+        element: <ClientPortalLayout />,
+        children: [
+          { path: '/portal',                                element: <PortalDashboard /> },
+          { path: '/portal/projects',                        element: <PortalProjects /> },
+          { path: '/portal/projects/:id',                    element: <PortalProjectDetail /> },
+          { path: '/portal/projects/:id/milestones',         element: <PortalProjectDetail /> },
+          { path: '/portal/projects/:id/updates',            element: <PortalProjectDetail /> },
+          { path: '/portal/projects/:id/communication',      element: <PortalProjectDetail /> },
+          { path: '/portal/projects/:id/files',              element: <PortalProjectDetail /> },
+          { path: '/portal/projects/:id/approvals',           element: <PortalProjectDetail /> },
+        ],
+      },
+      { path: '/portal/*', element: <NotFound /> },
     ],
   },
 ];

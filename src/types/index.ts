@@ -21,6 +21,8 @@ export type User = {
     role?: { id: string; name: string } | string;
     roles?: { name: string };
     team_memberships?: any[];
+    user_type?: 'INTERNAL' | 'CLIENT';
+    client_account_id?: string | null;
 } | null;
 
 export type AuthState = {
