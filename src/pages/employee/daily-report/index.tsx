@@ -24,6 +24,70 @@ function isDeveloper(designation?: string | null) {
   return DEV_KEYWORDS.some(k => d.includes(k));
 }
 
+// Engineering Sales Activities checklist — visibility is NOT derived from
+// designation/name like isDeveloper() above. There is no reliable
+// "Engineering Sales Person" designation in the system; the only real
+// classification is the logged-in user's team -> Business Unit
+// (ENGINEERING_SALES), resolved server-side (see
+// GET /daily-planning/engineering-sales-status). This hook is purely a thin
+// query wrapper — the actual gate is whatever the backend returns.
+function useIsEngineeringSales() {
+  const { data } = useQuery({
+    queryKey: ['engineering-sales-status'],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.DAILY_PLANNING.ENGINEERING_SALES_STATUS),
+    select: (r: any) => !!r?.payload?.is_engineering_sales,
+    staleTime: 5 * 60 * 1000,
+  });
+  return !!data;
+}
+
+const TL_DUTIES: Array<[string, string]> = [
+  ['followup_calling', 'Followup on Calling'],
+  ['followup_email', 'Followup on Email'],
+  ['collection_emails_numbers', 'Collection of Emails and Numbers'],
+  ['sms_sending', 'SMS Sending'],
+  ['email_sending', 'Email Sending'],
+  ['instagram_sending', 'Instagram Sending'],
+  ['closing', 'Closing'],
+  ['quotes_invoices_sending', 'Quotes/Invoices sending'],
+];
+const TEAM_MEMBER_DUTIES: Array<[string, string]> = [
+  ['collection_emails_numbers', 'Collection of Emails and Numbers'],
+  ['sms_sending', 'SMS Sending'],
+  ['email_sending', 'Email Sending'],
+  ['instagram_sending', 'Instagram Sending'],
+  ['whatsapp_sending', 'Whatsapp Sending'],
+  ['linkedin', 'Linkedin'],
+  ['facebook', 'Facebook'],
+  ['leads', 'Leads'],
+];
+
+const ACTIVITY_LABELS: Record<string, string> = Object.fromEntries([...TL_DUTIES, ...TEAM_MEMBER_DUTIES]);
+
+function ActivityChecklist({ title, items, selected, onToggle }: { title: string; items: Array<[string, string]>; selected: Set<string>; onToggle: (key: string) => void }) {
+  return (
+    <div>
+      <label className="text-xs font-semibold text-(--color-text-secondary) block mb-1.5">{title}</label>
+      <div className="flex flex-wrap gap-2">
+        {items.map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onToggle(key)}
+            className={cn(
+              'flex items-center gap-2 px-3 h-9 rounded-xl border text-xs font-semibold transition-colors',
+              selected.has(key) ? 'bg-green-50 border-green-400 text-green-700' : 'bg-white border-gray-200 text-(--color-text-secondary) hover:bg-gray-50'
+            )}
+          >
+            {selected.has(key) ? <CheckCircle size={13} /> : <span className="w-[13px] h-[13px] rounded border border-gray-300 inline-block" />}
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 type ProjectItem = {
   project_id: string;
   project_name_freeform: string;
@@ -207,6 +271,7 @@ function ReportModal({ isOpen, onClose, agendaItems }: { isOpen: boolean; onClos
   const toast = useToastContext();
   const user = useAuthStore(s => s.user);
   const showCodeDeployed = isDeveloper(user?.designation);
+  const showEngineeringSales = useIsEngineeringSales();
   const { data: myProjects = [] } = useMyProjects();
 
   const seeded = agendaItems.length
@@ -222,7 +287,16 @@ function ReportModal({ isOpen, onClose, agendaItems }: { isOpen: boolean; onClos
   const [blockers, setBlockers] = useState('');
   const [tomorrowPlan, setTomorrowPlan] = useState('');
   const [codeDeployed, setCodeDeployed] = useState<boolean | null>(null);
+  const [engineeringSalesActivities, setEngineeringSalesActivities] = useState<Set<string>>(new Set());
   const [err, setErr] = useState('');
+
+  const toggleEngineeringSalesActivity = (key: string) => {
+    setEngineeringSalesActivities((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
 
   const mutation = useMutation({
     mutationFn: () => apiRequest<any>(API_ENDPOINTS.DAILY_PLANNING.REPORT, {
@@ -239,6 +313,9 @@ function ReportModal({ isOpen, onClose, agendaItems }: { isOpen: boolean; onClos
         blockers: blockers || undefined,
         tomorrow_plan: tomorrowPlan || undefined,
         ...(showCodeDeployed && codeDeployed !== null ? { code_deployed: codeDeployed } : {}),
+        ...(showEngineeringSales && engineeringSalesActivities.size
+          ? { engineering_sales_activities: Array.from(engineeringSalesActivities) }
+          : {}),
       }),
     }),
     onSuccess: () => {
@@ -367,6 +444,14 @@ function ReportModal({ isOpen, onClose, agendaItems }: { isOpen: boolean; onClos
             </div>
           </div>
         )}
+
+        {showEngineeringSales && (
+          <div className="p-3 bg-gray-50 rounded-xl border border-(--color-card-border) space-y-4">
+            <label className="text-xs font-black text-(--color-text-secondary) uppercase tracking-wide block">Engineering Sales Activities</label>
+            <ActivityChecklist title="TL's Duties" items={TL_DUTIES} selected={engineeringSalesActivities} onToggle={toggleEngineeringSalesActivity} />
+            <ActivityChecklist title="Team Members" items={TEAM_MEMBER_DUTIES} selected={engineeringSalesActivities} onToggle={toggleEngineeringSalesActivity} />
+          </div>
+        )}
         {err && <p className="text-red-500 text-xs">{err}</p>}
       </div>
     </Modal>
@@ -378,6 +463,7 @@ export default function DailyReportPage() {
   const [showReportModal, setShowReportModal] = useState(false);
   const user = useAuthStore(s => s.user);
   const showCodeDeployed = isDeveloper(user?.designation);
+  const showEngineeringSales = useIsEngineeringSales();
 
   const qc = useQueryClient();
 
@@ -520,7 +606,7 @@ export default function DailyReportPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-(--color-card-border) bg-(--color-elevated)">
-                  {['Date', 'Employee', 'Notes', 'Hours', ...(showCodeDeployed ? ['Deployed'] : [])].map(h => (
+                  {['Date', 'Employee', 'Notes', 'Hours', ...(showCodeDeployed ? ['Deployed'] : []), ...(showEngineeringSales ? ['Sales Activities'] : [])].map(h => (
                     <th key={h} className="text-left text-xs font-semibold text-(--color-text-secondary) uppercase tracking-wide py-3 px-3 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -561,6 +647,21 @@ export default function DailyReportPage() {
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-(--color-text-secondary) rounded-lg text-xs font-semibold">
                             <XCircle size={11} />No
                           </span>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </td>
+                    )}
+                    {showEngineeringSales && (
+                      <td className="py-3 px-3 text-gray-600 max-w-[260px]">
+                        {Array.isArray(r.engineering_sales_activities) && r.engineering_sales_activities.length ? (
+                          <div className="flex flex-wrap gap-1">
+                            {r.engineering_sales_activities.map((key: string) => (
+                              <span key={key} className="inline-block px-1.5 py-0.5 bg-green-50 text-green-700 rounded text-[10px] font-semibold">
+                                {ACTIVITY_LABELS[key] || key}
+                              </span>
+                            ))}
+                          </div>
                         ) : (
                           <span className="text-xs text-gray-300">—</span>
                         )}

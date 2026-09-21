@@ -501,6 +501,7 @@ export const API_ENDPOINTS = {
     REPORT:         `${v1}/daily-planning/report`,
     REPORT_TODAY:   `${v1}/daily-planning/report/today`,
     REPORT_FOR:     (userId: string, date: string) => `${v1}/daily-planning/report?user_id=${userId}&date=${date}`,
+    ENGINEERING_SALES_STATUS: `${v1}/daily-planning/engineering-sales-status`,
   },
   COMPLIANCE_VIOLATIONS: {
     LIST:   `${v1}/compliance/violations`,
