@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Paperclip, FileText, X, Smile } from 'lucide-react';
+import { Send, Paperclip, FileText, X, Smile, Reply } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useMyPermissions } from '@/services/permissionsService';
@@ -9,6 +9,7 @@ import { useToastContext } from '@/components/toast/ToastProvider';
 import { cn } from '@/utils/cn';
 import { TableSkeleton } from '@/components/skeletons';
 import EmojiPicker from '@/pages/chat/EmojiPicker';
+import { getSocket } from '@/lib/socket';
 import { PortalMessage } from '../types';
 
 // Small curated set for the one-click "quick react" row — the full picker
@@ -58,6 +59,7 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   const [uploading, setUploading] = useState(false);
   const [showComposeEmojiPicker, setShowComposeEmojiPicker] = useState(false);
   const [reactionPickerFor, setReactionPickerFor] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<PortalMessage | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { data: myPerms } = useMyPermissions();
   const { user } = useAuth();
@@ -80,6 +82,28 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
       .catch(() => {});
   }, [projectId, qc]);
 
+  // Real-time — the socket auto-joins every project room this user has
+  // access to on connect (see be-work's shared/socket/index.js), so no
+  // explicit room:join call is needed here, just the listener. New messages
+  // (from either side) refresh the thread instantly instead of waiting for
+  // some other action to trigger a refetch. Since this tab is open while
+  // listening, re-mark the thread read too — otherwise a message that
+  // arrives while you're already looking at it would inflate the unread
+  // badge until you left and came back.
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const handleNewMessage = (message: PortalMessage & { project_id?: string }) => {
+      if (message.project_id && message.project_id !== projectId) return;
+      qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] });
+      apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES_READ(projectId), { method: 'POST' })
+        .then(() => qc.invalidateQueries({ queryKey: ['portal', 'unread-counts'] }))
+        .catch(() => {});
+    };
+    socket.on('project:message:new', handleNewMessage);
+    return () => { socket.off('project:message:new', handleNewMessage); };
+  }, [projectId, qc]);
+
   const sendMessage = useMutation({
     mutationFn: (body: Record<string, unknown>) =>
       apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES(projectId), {
@@ -89,6 +113,7 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
     onSuccess: () => {
       setContent('');
       setPendingAttachment(null);
+      setReplyingTo(null);
       qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] });
     },
     onError: () => toast?.error?.('Failed to send message'),
@@ -114,8 +139,14 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
 
   const handleSend = () => {
     if (!content.trim() && !pendingAttachment) return;
-    sendMessage.mutate({ content: content.trim(), ...(pendingAttachment || {}) });
+    sendMessage.mutate({
+      content: content.trim(),
+      ...(replyingTo ? { parent_id: replyingTo.id } : {}),
+      ...(pendingAttachment || {}),
+    });
   };
+
+  const findMessage = (id: string | null) => (id ? data?.find((msg) => msg.id === id) : undefined);
 
   const handleViewAttachment = async (message: PortalMessage) => {
     try {
@@ -166,6 +197,16 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
               <span className="text-xs font-bold text-(--color-text-primary)">{senderName(m)}</span>
               <span className="text-[11px] text-(--color-text-secondary)">{new Date(m.created_at).toLocaleString()}</span>
             </div>
+            {m.parent_id && (
+              <div className="flex items-start gap-1.5 mb-1.5 pl-2 border-l-2 border-(--color-border) text-xs text-(--color-text-secondary)">
+                <Reply size={11} className="mt-0.5 shrink-0" />
+                <span className="truncate">
+                  {findMessage(m.parent_id)
+                    ? `${senderName(findMessage(m.parent_id)!)}: ${findMessage(m.parent_id)!.content || '(attachment)'}`
+                    : 'Original message'}
+                </span>
+              </div>
+            )}
             {m.content && <p className="text-sm text-(--color-text-primary) whitespace-pre-wrap">{m.content}</p>}
             {m.attachment_file_key && (
               <button
@@ -204,6 +245,14 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
                 >
                   <Smile size={13} />
                 </button>
+                <button
+                  onClick={() => setReplyingTo(m)}
+                  className="flex items-center gap-1 px-2 h-6 rounded-full text-xs text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+                  title="Reply"
+                >
+                  <Reply size={12} />
+                  Reply
+                </button>
                 {reactionPickerFor === m.id && (
                   <div className="absolute top-full left-0 mt-1 z-20 flex items-center gap-1 p-1.5 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg">
                     {QUICK_REACTIONS.map((e) => (
@@ -225,6 +274,18 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
 
       {canCompose && (
         <div className="flex flex-col gap-2 pt-4 border-t border-(--color-card-border)">
+          {replyingTo && (
+            <div className="flex items-center justify-between gap-2 px-3 h-9 rounded-xl border border-(--color-border) bg-(--color-elevated) text-xs">
+              <div className="flex items-center gap-1.5 min-w-0 text-(--color-text-secondary)">
+                <Reply size={13} className="shrink-0" />
+                <span className="font-semibold text-(--color-text-primary) shrink-0">{senderName(replyingTo)}</span>
+                <span className="truncate">{replyingTo.content || '(attachment)'}</span>
+              </div>
+              <button onClick={() => setReplyingTo(null)} className="text-(--color-text-secondary) hover:text-red-500 shrink-0">
+                <X size={14} />
+              </button>
+            </div>
+          )}
           {pendingAttachment && (
             <div className="flex items-center gap-2 px-3 h-9 rounded-xl border border-(--color-border) bg-(--color-elevated) text-xs font-semibold w-fit">
               <FileText size={14} />

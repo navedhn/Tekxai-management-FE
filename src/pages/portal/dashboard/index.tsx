@@ -80,16 +80,15 @@ const PortalDashboard: React.FC = () => {
     })),
   });
 
-  const { data: messagesUnread } = useQuery({
-    queryKey: ['portal', 'messages-unread', activeProjectIds.join(',')],
-    queryFn: async () => {
-      const results = await Promise.all(
-        activeProjectIds.map((id) => apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES(id)))
-      );
-      return results.reduce((sum, r) => sum + ((r?.payload?.records || []).length || 0), 0);
-    },
-    enabled: activeProjectIds.length > 0,
+  // Genuinely-unread messages (authored by someone else, since this user's
+  // last visit to that project's Communication tab) — not a total message
+  // count. See GET /portal/unread-counts / portal_message_reads.
+  const { data: unreadCounts } = useQuery({
+    queryKey: ['portal', 'unread-counts'],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.UNREAD_COUNTS),
+    select: (r: any) => (r?.payload || {}) as Record<string, number>,
   });
+  const messagesUnread = Object.values(unreadCounts || {}).reduce((sum, n) => sum + (n || 0), 0);
 
   const isLoading = projectsLoading || milestoneQueries.some((q) => q.isLoading) || approvalQueries.some((q) => q.isLoading);
 
