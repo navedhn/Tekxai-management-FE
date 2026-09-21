@@ -71,6 +71,10 @@ export function resolveHomePath(perms: MyPermissions | undefined | null): string
   if (perms.is_super_admin) return '/admin';
   if (perms.permissions?.includes('erp.workspace.access')) return '/admin';
   if (perms.permissions?.includes('erp.employee_workspace.access')) return '/employee';
+  // Client Portal Foundation — a CLIENT user has none of the ERP/employee
+  // workspace permissions above (they're not applicable), only client.*
+  // ones. Any granted client.* permission is enough to route them home.
+  if (perms.permissions?.some((p) => p.startsWith('client.'))) return '/portal';
   return null;
 }
 
