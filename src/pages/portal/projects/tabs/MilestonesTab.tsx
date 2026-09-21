@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { FileText, List, KanbanSquare, GanttChartSquare, Table2, UsersRound, Gauge } from 'lucide-react';
+import { FileText, LayoutDashboard, List, KanbanSquare, GanttChartSquare, Table2, UsersRound, Gauge } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import Card from '@/components/ui/Card';
@@ -11,6 +11,7 @@ import PortalMilestoneTimelineView from '../PortalMilestoneTimelineView';
 import PortalMilestoneTableView from '../PortalMilestoneTableView';
 import PortalMilestoneTeamView from '../PortalMilestoneTeamView';
 import PortalMilestoneWorkloadView from '../PortalMilestoneWorkloadView';
+import PortalMilestoneDashboardView from '../PortalMilestoneDashboardView';
 import { cn } from '@/utils/cn';
 
 const statusStyles: Record<string, string> = {
@@ -20,6 +21,7 @@ const statusStyles: Record<string, string> = {
 };
 
 const VIEW_OPTIONS = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'list', label: 'List', icon: List },
   { id: 'board', label: 'Board', icon: KanbanSquare },
   { id: 'timeline', label: 'Timeline', icon: GanttChartSquare },
@@ -29,7 +31,7 @@ const VIEW_OPTIONS = [
 ] as const;
 
 const MilestonesTab: React.FC<{ projectId: string }> = ({ projectId }) => {
-  const [view, setView] = useState<'list' | 'board' | 'timeline' | 'table' | 'workload' | 'team'>('list');
+  const [view, setView] = useState<'dashboard' | 'list' | 'board' | 'timeline' | 'table' | 'workload' | 'team'>('dashboard');
   const { data, isLoading } = useQuery<PortalMilestone[]>({
     queryKey: ['portal', 'milestones', projectId],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.MILESTONES(projectId)),
@@ -44,14 +46,12 @@ const MilestonesTab: React.FC<{ projectId: string }> = ({ projectId }) => {
 
   if (isLoading) return <TableSkeleton columns={4} rows={4} />;
 
-  if (!data || data.length === 0) {
-    return <p className="text-sm text-(--color-text-secondary) py-10 text-center">No milestones yet.</p>;
-  }
+  const milestones = data || [];
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-end">
-        <div className="flex items-center gap-1 bg-(--color-elevated) rounded-xl p-1">
+        <div className="flex items-center gap-1 bg-(--color-elevated) rounded-xl p-1 flex-wrap">
           {VIEW_OPTIONS.map((v) => (
             <button
               key={v.id}
@@ -68,13 +68,18 @@ const MilestonesTab: React.FC<{ projectId: string }> = ({ projectId }) => {
         </div>
       </div>
 
-      {view === 'board' && <PortalMilestoneBoardView milestones={data} />}
-      {view === 'timeline' && <PortalMilestoneTimelineView milestones={data} />}
-      {view === 'table' && <PortalMilestoneTableView milestones={data} />}
-      {view === 'workload' && <PortalMilestoneWorkloadView milestones={data} />}
-      {view === 'team' && <PortalMilestoneTeamView milestones={data} />}
+      {milestones.length === 0 && view !== 'dashboard' && (
+        <p className="text-sm text-(--color-text-secondary) py-10 text-center">No milestones yet.</p>
+      )}
 
-      {view === 'list' && data.map((m) => (
+      {view === 'dashboard' && <PortalMilestoneDashboardView milestones={milestones} />}
+      {view === 'board' && milestones.length > 0 && <PortalMilestoneBoardView milestones={milestones} />}
+      {view === 'timeline' && milestones.length > 0 && <PortalMilestoneTimelineView milestones={milestones} />}
+      {view === 'table' && milestones.length > 0 && <PortalMilestoneTableView milestones={milestones} />}
+      {view === 'workload' && milestones.length > 0 && <PortalMilestoneWorkloadView milestones={milestones} />}
+      {view === 'team' && milestones.length > 0 && <PortalMilestoneTeamView milestones={milestones} />}
+
+      {view === 'list' && milestones.map((m) => (
         <Card key={m.id} className="p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
