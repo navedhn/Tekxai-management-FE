@@ -1,11 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { FileText } from 'lucide-react';
+import { FileText, List, KanbanSquare, GanttChartSquare, Table2, UsersRound } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import Card from '@/components/ui/Card';
 import { TableSkeleton } from '@/components/skeletons';
 import { PortalMilestone } from '../types';
+import PortalMilestoneBoardView from '../PortalMilestoneBoardView';
+import PortalMilestoneTimelineView from '../PortalMilestoneTimelineView';
+import PortalMilestoneTableView from '../PortalMilestoneTableView';
+import PortalMilestoneTeamView from '../PortalMilestoneTeamView';
+import { cn } from '@/utils/cn';
 
 const statusStyles: Record<string, string> = {
   COMPLETED: 'bg-green-100 text-green-700',
@@ -13,7 +18,16 @@ const statusStyles: Record<string, string> = {
   PENDING: 'bg-(--color-elevated) text-(--color-text-secondary)',
 };
 
+const VIEW_OPTIONS = [
+  { id: 'list', label: 'List', icon: List },
+  { id: 'board', label: 'Board', icon: KanbanSquare },
+  { id: 'timeline', label: 'Timeline', icon: GanttChartSquare },
+  { id: 'table', label: 'Table', icon: Table2 },
+  { id: 'team', label: 'Team', icon: UsersRound },
+] as const;
+
 const MilestonesTab: React.FC<{ projectId: string }> = ({ projectId }) => {
+  const [view, setView] = useState<'list' | 'board' | 'timeline' | 'table' | 'team'>('list');
   const { data, isLoading } = useQuery<PortalMilestone[]>({
     queryKey: ['portal', 'milestones', projectId],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.MILESTONES(projectId)),
@@ -34,7 +48,30 @@ const MilestonesTab: React.FC<{ projectId: string }> = ({ projectId }) => {
 
   return (
     <div className="flex flex-col gap-4">
-      {data.map((m) => (
+      <div className="flex items-center justify-end">
+        <div className="flex items-center gap-1 bg-(--color-elevated) rounded-xl p-1">
+          {VIEW_OPTIONS.map((v) => (
+            <button
+              key={v.id}
+              onClick={() => setView(v.id)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 h-8 rounded-lg text-[11px] font-black transition-colors',
+                view === v.id ? 'bg-(--color-card) text-primary-600 shadow-sm' : 'text-(--color-text-secondary) hover:text-(--color-text-primary)'
+              )}
+            >
+              <v.icon size={13} />
+              {v.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {view === 'board' && <PortalMilestoneBoardView milestones={data} />}
+      {view === 'timeline' && <PortalMilestoneTimelineView milestones={data} />}
+      {view === 'table' && <PortalMilestoneTableView milestones={data} />}
+      {view === 'team' && <PortalMilestoneTeamView milestones={data} />}
+
+      {view === 'list' && data.map((m) => (
         <Card key={m.id} className="p-5">
           <div className="flex items-start justify-between gap-4">
             <div>

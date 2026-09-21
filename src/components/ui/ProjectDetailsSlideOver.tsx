@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ChevronDown, CheckCircle2, Circle, MessageSquare, Plus, Trash2, ArrowRight as ArrowRightIcon, ArrowLeft, Calendar as CalendarIcon, Clock, LayoutDashboard, ListChecks, KanbanSquare, FileText, Activity as ActivityIcon, MessagesSquare, Server, Link2, Users, Wallet, Settings as SettingsIcon, GripVertical, List, GanttChartSquare } from 'lucide-react';
+import { ArrowRight, ChevronDown, CheckCircle2, Circle, MessageSquare, Plus, Trash2, ArrowRight as ArrowRightIcon, ArrowLeft, Calendar as CalendarIcon, Clock, LayoutDashboard, ListChecks, KanbanSquare, FileText, Activity as ActivityIcon, MessagesSquare, Server, Link2, Users, Wallet, Settings as SettingsIcon, GripVertical, List, GanttChartSquare, Table2, Gauge, UsersRound } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useMyPermissions } from '@/services/permissionsService';
 import Badge from './Badge';
@@ -27,6 +27,9 @@ import { useGetProjectDetails, useUpdateProjectMutation, useUpdateBudgetMutation
 import { useMilestones, useDeleteMilestone, useArchiveMilestone, useReorderMilestones, useUpdateMilestone, Milestone, MilestoneStatus } from '@/services/milestonesService';
 import MilestoneBoardView from './MilestoneBoardView';
 import MilestoneTimelineView from './MilestoneTimelineView';
+import MilestoneTableView from './MilestoneTableView';
+import MilestoneWorkloadView from './MilestoneWorkloadView';
+import MilestoneTeamView from './MilestoneTeamView';
 import { useUpdateTask, useDeleteTask } from '@/services/tasksService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useAuth } from '@/hooks/useAuth';
@@ -70,7 +73,7 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
   const archiveMilestoneMutation = useArchiveMilestone(projectId);
   const reorderMilestonesMutation = useReorderMilestones(projectId);
   const updateMilestoneMutation = useUpdateMilestone(projectId);
-  const [milestoneView, setMilestoneView] = useState<'list' | 'board' | 'timeline'>('list');
+  const [milestoneView, setMilestoneView] = useState<'list' | 'board' | 'timeline' | 'table' | 'workload' | 'team'>('list');
   const [dragMilestoneId, setDragMilestoneId] = useState<string | null>(null);
   const [dragOverMilestoneId, setDragOverMilestoneId] = useState<string | null>(null);
   const updateTaskMutation = useUpdateTask(projectId);
@@ -364,6 +367,9 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                             { id: 'list', label: 'List', icon: List },
                             { id: 'board', label: 'Board', icon: KanbanSquare },
                             { id: 'timeline', label: 'Timeline', icon: GanttChartSquare },
+                            { id: 'table', label: 'Table', icon: Table2 },
+                            { id: 'workload', label: 'Workload', icon: Gauge },
+                            { id: 'team', label: 'Team', icon: UsersRound },
                           ] as const).map((v) => (
                             <button
                               key={v.id}
@@ -416,6 +422,28 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
 
                     {!milestonesLoading && milestones.length > 0 && milestoneView === 'timeline' && (
                       <MilestoneTimelineView
+                        milestones={milestones}
+                        onOpenMilestone={(m) => { setMilestoneView('list'); toggleExpand(m.id); }}
+                      />
+                    )}
+
+                    {!milestonesLoading && milestones.length > 0 && milestoneView === 'table' && (
+                      <MilestoneTableView
+                        milestones={milestones}
+                        currency={project?.budget_currency || 'PKR'}
+                        onOpenMilestone={(m) => { setMilestoneView('list'); toggleExpand(m.id); }}
+                      />
+                    )}
+
+                    {!milestonesLoading && milestones.length > 0 && milestoneView === 'workload' && (
+                      <MilestoneWorkloadView
+                        milestones={milestones}
+                        onOpenMilestone={(m) => { setMilestoneView('list'); toggleExpand(m.id); }}
+                      />
+                    )}
+
+                    {!milestonesLoading && milestones.length > 0 && milestoneView === 'team' && (
+                      <MilestoneTeamView
                         milestones={milestones}
                         onOpenMilestone={(m) => { setMilestoneView('list'); toggleExpand(m.id); }}
                       />

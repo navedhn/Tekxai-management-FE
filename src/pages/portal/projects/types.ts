@@ -20,6 +20,10 @@ export type PortalMilestone = {
   status: string;
   progress_percent: number;
   completed_date: string | null;
+  sequence: number | null;
+  estimated_start: string | null;
+  estimated_end: string | null;
+  members: { id: string; first_name: string | null; last_name: string | null; avatar: string | null }[];
   deliverables: PortalDeliverable[];
 };
 
