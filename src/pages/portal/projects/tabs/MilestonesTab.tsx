@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { FileText, List, KanbanSquare, GanttChartSquare, Table2, UsersRound } from 'lucide-react';
+import { FileText, List, KanbanSquare, GanttChartSquare, Table2, UsersRound, Gauge } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import Card from '@/components/ui/Card';
@@ -10,6 +10,7 @@ import PortalMilestoneBoardView from '../PortalMilestoneBoardView';
 import PortalMilestoneTimelineView from '../PortalMilestoneTimelineView';
 import PortalMilestoneTableView from '../PortalMilestoneTableView';
 import PortalMilestoneTeamView from '../PortalMilestoneTeamView';
+import PortalMilestoneWorkloadView from '../PortalMilestoneWorkloadView';
 import { cn } from '@/utils/cn';
 
 const statusStyles: Record<string, string> = {
@@ -23,11 +24,12 @@ const VIEW_OPTIONS = [
   { id: 'board', label: 'Board', icon: KanbanSquare },
   { id: 'timeline', label: 'Timeline', icon: GanttChartSquare },
   { id: 'table', label: 'Table', icon: Table2 },
+  { id: 'workload', label: 'Workload', icon: Gauge },
   { id: 'team', label: 'Team', icon: UsersRound },
 ] as const;
 
 const MilestonesTab: React.FC<{ projectId: string }> = ({ projectId }) => {
-  const [view, setView] = useState<'list' | 'board' | 'timeline' | 'table' | 'team'>('list');
+  const [view, setView] = useState<'list' | 'board' | 'timeline' | 'table' | 'workload' | 'team'>('list');
   const { data, isLoading } = useQuery<PortalMilestone[]>({
     queryKey: ['portal', 'milestones', projectId],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.MILESTONES(projectId)),
@@ -69,6 +71,7 @@ const MilestonesTab: React.FC<{ projectId: string }> = ({ projectId }) => {
       {view === 'board' && <PortalMilestoneBoardView milestones={data} />}
       {view === 'timeline' && <PortalMilestoneTimelineView milestones={data} />}
       {view === 'table' && <PortalMilestoneTableView milestones={data} />}
+      {view === 'workload' && <PortalMilestoneWorkloadView milestones={data} />}
       {view === 'team' && <PortalMilestoneTeamView milestones={data} />}
 
       {view === 'list' && data.map((m) => (
