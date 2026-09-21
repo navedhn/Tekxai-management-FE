@@ -4,7 +4,7 @@ import Table, { Column } from '@/components/ui/Table';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
-import { Building2, Plus, Link2, FolderOpen } from 'lucide-react';
+import { Building2, Plus, Link2, FolderOpen, Mail, X } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -75,6 +75,51 @@ function useGrantAccess(clientId: string) {
   });
 }
 
+// Roles for the invite form's role picker. Gated server-side by
+// erp.permissions.view — a CRM-only manager without that permission will
+// see an empty list rather than a 403 breaking the whole page (the invite
+// form still submits fine once a role_id is picked some other way, but in
+// practice this endpoint is reachable for the admins who manage clients).
+function useRoles() {
+  return useQuery({
+    queryKey: ['roles-list'],
+    queryFn: async () => {
+      const r = await apiRequest<any>(`${v1}/permission/roles`);
+      return r?.payload || [];
+    },
+    retry: false,
+  });
+}
+
+function useClientPortalInvites(clientId: string) {
+  return useQuery({
+    queryKey: ['crm-client-portal-invites', clientId],
+    enabled: !!clientId,
+    queryFn: async () => {
+      const r = await apiRequest<any>(`${v1}/crm/${clientId}/portal-invites`);
+      return r?.payload?.records || [];
+    },
+  });
+}
+
+function useCreateInvite(clientId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { email: string; first_name: string; last_name: string; role_id: string; project_id?: string }) =>
+      apiRequest(`${v1}/crm/${clientId}/portal-invites`, { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-client-portal-invites', clientId] }),
+  });
+}
+
+function useRevokeInvite(clientId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (inviteId: string) =>
+      apiRequest(`${v1}/crm/${clientId}/portal-invites/${inviteId}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-client-portal-invites', clientId] }),
+  });
+}
+
 function useRevokeAccess() {
   const qc = useQueryClient();
   return useMutation({
@@ -97,13 +142,20 @@ const CRMPage: React.FC = () => {
 
   const [showNewClient, setShowNewClient] = useState(false);
   const [showGrant, setShowGrant] = useState<string | null>(null);
+  const [showInvite, setShowInvite] = useState<string | null>(null);
   const [clientForm, setClientForm] = useState({ name: '', email: '', phone: '', company: '' });
   const [grantForm, setGrantForm] = useState({ project_id: '', user_id: '' });
+  const [inviteForm, setInviteForm] = useState({ email: '', first_name: '', last_name: '', role_id: '', project_id: '' });
 
   const { data: portalUsers = [], isLoading: portalUsersLoading } = usePortalUsers(showGrant || '');
   const { data: clientProjectAccess = [] } = useClientProjectAccess(showGrant || '');
   const grant = useGrantAccess(showGrant || '');
   const revoke = useRevokeAccess();
+
+  const { data: roles = [] } = useRoles();
+  const { data: invites = [], isLoading: invitesLoading } = useClientPortalInvites(showInvite || '');
+  const createInvite = useCreateInvite(showInvite || '');
+  const revokeInvite = useRevokeInvite(showInvite || '');
 
   const existingUsersForSelectedProject: any[] =
     clientProjectAccess.find((p: any) => p.id === grantForm.project_id)?.users || [];
@@ -128,6 +180,29 @@ const CRMPage: React.FC = () => {
       toast.success('Project access granted');
       setGrantForm((p) => ({ ...p, user_id: '' }));
     } catch { toast.error('Failed to grant access'); }
+  };
+
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteForm.email) { toast.error('Email is required'); return; }
+    if (!inviteForm.role_id) { toast.error('Select a role'); return; }
+    try {
+      await createInvite.mutateAsync({
+        email: inviteForm.email, first_name: inviteForm.first_name, last_name: inviteForm.last_name,
+        role_id: inviteForm.role_id, project_id: inviteForm.project_id || undefined,
+      });
+      toast.success('Invitation sent');
+      setInviteForm({ email: '', first_name: '', last_name: '', role_id: '', project_id: '' });
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to send invitation');
+    }
+  };
+
+  const handleRevokeInvite = async (inviteId: string) => {
+    try {
+      await revokeInvite.mutateAsync(inviteId);
+      toast.success('Invitation revoked');
+    } catch { toast.error('Failed to revoke invitation'); }
   };
 
   const handleRevoke = async (project_id: string, user_id: string) => {
@@ -176,14 +251,24 @@ const CRMPage: React.FC = () => {
       key: 'id',
       align: 'right',
       render: (c) => (
-        <Button
-          size="sm"
-          variant="outline"
-          className="rounded-xl gap-1.5 h-8 text-xs"
-          onClick={() => { setShowGrant(c.id); setGrantForm({ project_id: '', user_id: '' }); }}
-        >
-          <Link2 size={12} /> Grant Access
-        </Button>
+        <div className="flex items-center gap-2 justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-xl gap-1.5 h-8 text-xs"
+            onClick={() => { setShowInvite(c.id); setInviteForm({ email: '', first_name: '', last_name: '', role_id: '', project_id: '' }); }}
+          >
+            <Mail size={12} /> Invite User
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-xl gap-1.5 h-8 text-xs"
+            onClick={() => { setShowGrant(c.id); setGrantForm({ project_id: '', user_id: '' }); }}
+          >
+            <Link2 size={12} /> Grant Access
+          </Button>
+        </div>
       ),
     },
   ];
@@ -299,6 +384,111 @@ const CRMPage: React.FC = () => {
             <Button type="button" variant="outline" fullWidth onClick={() => setShowGrant(null)}>Cancel</Button>
             <Button type="submit" variant="primary" fullWidth loading={grant.isPending}>Grant Access</Button>
           </div>
+        </form>
+      </Modal>
+
+      <Modal isOpen={!!showInvite} onClose={() => setShowInvite(null)} title="Invite Client Portal User">
+        <form onSubmit={handleInvite} className="flex flex-col gap-4 mt-4">
+          <p className="text-xs text-gray-500 font-medium -mt-1">
+            Emails an invite link — the client sets their own password and creates their account when they accept it.
+          </p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">First Name</label>
+              <input
+                value={inviteForm.first_name}
+                onChange={(e) => setInviteForm((p) => ({ ...p, first_name: e.target.value }))}
+                placeholder="Jane"
+                className="h-11 px-4 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Last Name</label>
+              <input
+                value={inviteForm.last_name}
+                onChange={(e) => setInviteForm((p) => ({ ...p, last_name: e.target.value }))}
+                placeholder="Client"
+                className="h-11 px-4 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Email *</label>
+            <input
+              type="email"
+              value={inviteForm.email}
+              onChange={(e) => setInviteForm((p) => ({ ...p, email: e.target.value }))}
+              placeholder="client@company.com"
+              className="h-11 px-4 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Role *</label>
+            <select
+              value={inviteForm.role_id}
+              onChange={(e) => setInviteForm((p) => ({ ...p, role_id: e.target.value }))}
+              className="h-11 px-4 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
+            >
+              <option value="">Select role</option>
+              {(roles as any[]).map((r: any) => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Project (optional)</label>
+            <select
+              value={inviteForm.project_id}
+              onChange={(e) => setInviteForm((p) => ({ ...p, project_id: e.target.value }))}
+              className="h-11 px-4 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
+            >
+              <option value="">No project yet — invite to the client account only</option>
+              {(projects as any[]).map((p: any) => (
+                <option key={p.id} value={p.id}>{p.title}</option>
+              ))}
+            </select>
+            <p className="text-[11px] text-gray-400 font-medium">
+              If set, accepting the invite also grants access to this project — otherwise grant it afterward.
+            </p>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="outline" fullWidth onClick={() => setShowInvite(null)}>Cancel</Button>
+            <Button type="submit" variant="primary" fullWidth loading={createInvite.isPending}>Send Invitation</Button>
+          </div>
+
+          {(invites as any[]).length > 0 && (
+            <div className="flex flex-col gap-1.5 pt-2 border-t border-gray-100 mt-2">
+              <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase pt-3">Sent Invitations</label>
+              <div className="flex flex-col gap-1.5">
+                {(invites as any[]).map((inv: any) => (
+                  <div key={inv.id} className="flex items-center justify-between px-3 h-11 rounded-xl bg-gray-50 border border-gray-100">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-gray-700 truncate">{inv.email}</p>
+                      <p className="text-[10px] text-gray-400">
+                        {inv.status}{inv.project ? ` · ${inv.project.title}` : ''}
+                      </p>
+                    </div>
+                    {inv.status === 'PENDING' && (
+                      <button
+                        type="button"
+                        onClick={() => handleRevokeInvite(inv.id)}
+                        disabled={revokeInvite.isPending}
+                        className="text-[11px] font-bold text-red-500 hover:text-red-600 disabled:opacity-50 shrink-0 flex items-center gap-1"
+                      >
+                        <X size={11} /> Revoke
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {invitesLoading && <p className="text-xs text-gray-400 text-center pt-2">Loading invitations…</p>}
         </form>
       </Modal>
     </div>

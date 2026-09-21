@@ -27,6 +27,7 @@ const ForgetPassword         = lazy(() => import('@/pages/auth/ForgetPassword'))
 const VerifyOTP              = lazy(() => import('@/pages/auth/VerifyOTP'));
 const ResetPassword          = lazy(() => import('@/pages/auth/ResetPassword'));
 const AcceptInvite           = lazy(() => import('@/pages/auth/AcceptInvite'));
+const AcceptPortalInvite     = lazy(() => import('@/pages/portal/AcceptPortalInvite'));
 
 const AdminDashboard         = lazy(() => import('@/pages/admin/dashboard'));
 const AdminProjects          = lazy(() => import('@/pages/admin/projects'));
@@ -159,6 +160,7 @@ const routes: RouteObject[] = [
           { path: '/verify-otp',      element: <VerifyOTP /> },
           { path: '/reset-password',  element: <ResetPassword /> },
           { path: '/invite/:token',   element: <AcceptInvite /> },
+          { path: '/portal/accept-invite/:token', element: <AcceptPortalInvite /> },
         ],
       },
     ],
