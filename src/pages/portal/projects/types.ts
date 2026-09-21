@@ -44,6 +44,7 @@ export type PortalMessage = {
   attachment_mime_type: string | null;
   attachment_size_bytes: number | null;
   reactions: Array<{ id: string; user_id: string; emoji: string }>;
+  mentions: string[];
 };
 
 export type PortalFile = {

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Paperclip, FileText, X, Smile, Reply } from 'lucide-react';
+import { Send, Paperclip, FileText, X, Smile, Reply, Bold, Italic, Code, ChevronDown, ChevronRight, AtSign } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useMyPermissions } from '@/services/permissionsService';
@@ -10,6 +10,7 @@ import { cn } from '@/utils/cn';
 import { TableSkeleton } from '@/components/skeletons';
 import EmojiPicker from '@/pages/chat/EmojiPicker';
 import { getSocket } from '@/lib/socket';
+import { RichText } from '../richText';
 import { PortalMessage } from '../types';
 
 // Small curated set for the one-click "quick react" row — the full picker
@@ -29,7 +30,7 @@ function aggregateReactions(reactions: PortalMessage['reactions'], myUserId?: st
 }
 
 const inputCls =
-  'w-full min-h-[80px] px-3 py-2 border border-(--color-border) rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none bg-(--color-surface)';
+  'w-full min-h-[70px] px-3 py-2 border border-(--color-border) rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none bg-(--color-surface)';
 
 // Kept broad on purpose — project materials can legitimately be almost any
 // common file type, including installers/disk images (an explicit product
@@ -53,19 +54,406 @@ type PendingAttachment = {
   attachment_size_bytes: number;
 };
 
-const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
+type MentionableUser = { id: string; first_name: string; last_name: string };
+
+function senderName(msg: Pick<PortalMessage, 'user'>) {
+  return msg.user?.user_type === 'INTERNAL' ? 'TekXAI Team' : `${msg.user?.first_name ?? ''} ${msg.user?.last_name ?? ''}`.trim();
+}
+
+// Wraps (or, with no selection, inserts markers around the cursor for) the
+// textarea's current selection with a markdown-lite pair — same convention
+// RichText.tsx renders back out.
+function wrapSelection(el: HTMLTextAreaElement, before: string, after: string, value: string, setValue: (v: string) => void) {
+  const start = el.selectionStart ?? value.length;
+  const end = el.selectionEnd ?? value.length;
+  const selected = value.slice(start, end) || 'text';
+  const next = value.slice(0, start) + before + selected + after + value.slice(end);
+  setValue(next);
+  requestAnimationFrame(() => {
+    el.focus();
+    el.selectionStart = start + before.length;
+    el.selectionEnd = start + before.length + selected.length;
+  });
+}
+
+// ── Reusable composer — the main box and each thread's inline reply box ────
+
+const Composer: React.FC<{
+  projectId: string;
+  parentId?: string;
+  autoFocus?: boolean;
+  onSent: () => void;
+  onCancel?: () => void;
+  replyingToPreview?: { name: string; text: string } | null;
+}> = ({ projectId, parentId, autoFocus, onSent, onCancel, replyingToPreview }) => {
   const [content, setContent] = useState('');
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [showComposeEmojiPicker, setShowComposeEmojiPicker] = useState(false);
-  const [reactionPickerFor, setReactionPickerFor] = useState<string | null>(null);
-  const [replyingTo, setReplyingTo] = useState<PortalMessage | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionedIds, setMentionedIds] = useState<Set<string>>(new Set());
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const qc = useQueryClient();
+  const toast = useToastContext();
+
+  const { data: mentionable = [] } = useQuery<MentionableUser[]>({
+    queryKey: ['portal', 'mentionable-users', projectId],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.MENTIONABLE_USERS(projectId)),
+    select: (r: any) => r?.payload || [],
+  });
+
+  const sendMessage = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES(projectId), { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: () => {
+      setContent('');
+      setPendingAttachment(null);
+      setMentionedIds(new Set());
+      qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] });
+      onSent();
+    },
+    onError: () => toast?.error?.('Failed to send message'),
+  });
+
+  const handleFileChosen = async (file: File) => {
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_ATTACHMENT_UPLOAD(projectId), { method: 'POST', body: form });
+      setPendingAttachment(res?.payload);
+    } catch {
+      toast?.error?.('Failed to upload file');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleSend = () => {
+    if (!content.trim() && !pendingAttachment) return;
+    sendMessage.mutate({
+      content: content.trim(),
+      ...(parentId ? { parent_id: parentId } : {}),
+      ...(mentionedIds.size ? { mentions: Array.from(mentionedIds) } : {}),
+      ...(pendingAttachment || {}),
+    });
+  };
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setContent(value);
+    const upToCursor = value.slice(0, e.target.selectionStart ?? value.length);
+    const match = /(?:^|\s)@([a-zA-Z]*)$/.exec(upToCursor);
+    setMentionQuery(match ? match[1] : null);
+  };
+
+  const insertMention = (u: MentionableUser) => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const cursor = el.selectionStart ?? content.length;
+    const upToCursor = content.slice(0, cursor);
+    const replaced = upToCursor.replace(/@([a-zA-Z]*)$/, `@${u.first_name} ${u.last_name} `);
+    const next = replaced + content.slice(cursor);
+    setContent(next);
+    setMentionedIds((prev) => new Set(prev).add(u.id));
+    setMentionQuery(null);
+    requestAnimationFrame(() => el.focus());
+  };
+
+  const filteredMentionable = mentionQuery !== null
+    ? mentionable.filter((u) => `${u.first_name} ${u.last_name}`.toLowerCase().includes(mentionQuery.toLowerCase()))
+    : [];
+
+  const toolbarBtn = (icon: React.ReactNode, title: string, onClick: () => void) => (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className="flex items-center justify-center h-7 w-7 rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+    >
+      {icon}
+    </button>
+  );
+
+  return (
+    <div className="flex flex-col gap-2">
+      {replyingToPreview && (
+        <div className="flex items-center justify-between gap-2 px-3 h-9 rounded-xl border border-(--color-border) bg-(--color-elevated) text-xs">
+          <div className="flex items-center gap-1.5 min-w-0 text-(--color-text-secondary)">
+            <Reply size={13} className="shrink-0" />
+            <span className="font-semibold text-(--color-text-primary) shrink-0">{replyingToPreview.name}</span>
+            <span className="truncate">{replyingToPreview.text}</span>
+          </div>
+          {onCancel && (
+            <button onClick={onCancel} className="text-(--color-text-secondary) hover:text-red-500 shrink-0">
+              <X size={14} />
+            </button>
+          )}
+        </div>
+      )}
+      {pendingAttachment && (
+        <div className="flex items-center gap-2 px-3 h-9 rounded-xl border border-(--color-border) bg-(--color-elevated) text-xs font-semibold w-fit">
+          <FileText size={14} />
+          <span className="truncate max-w-[220px]">{pendingAttachment.attachment_file_name}</span>
+          <span className="text-(--color-text-secondary)">{formatBytes(pendingAttachment.attachment_size_bytes)}</span>
+          <button onClick={() => setPendingAttachment(null)} className="text-(--color-text-secondary) hover:text-red-500">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      <div className="flex items-center gap-1 px-1">
+        {toolbarBtn(<Bold size={14} />, 'Bold', () => textareaRef.current && wrapSelection(textareaRef.current, '**', '**', content, setContent))}
+        {toolbarBtn(<Italic size={14} />, 'Italic', () => textareaRef.current && wrapSelection(textareaRef.current, '*', '*', content, setContent))}
+        {toolbarBtn(<Code size={14} />, 'Code', () => textareaRef.current && wrapSelection(textareaRef.current, '`', '`', content, setContent))}
+        {toolbarBtn(<AtSign size={14} />, 'Mention someone', () => setContent((c) => c + (c.endsWith(' ') || !c ? '@' : ' @')))}
+      </div>
+
+      <div className="relative">
+        <textarea
+          ref={textareaRef}
+          className={inputCls}
+          placeholder="Write a message... (type @ to mention someone)"
+          value={content}
+          onChange={handleTextareaChange}
+          autoFocus={autoFocus}
+        />
+        {mentionQuery !== null && filteredMentionable.length > 0 && (
+          <div className="absolute bottom-full left-0 mb-1 z-20 w-64 max-h-48 overflow-y-auto rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg">
+            {filteredMentionable.map((u) => (
+              <button
+                key={u.id}
+                onClick={() => insertMention(u)}
+                className="w-full flex items-center gap-2 px-3 h-9 text-sm text-left hover:bg-(--color-state-hover)"
+              >
+                <span className="h-6 w-6 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-xs font-bold shrink-0">
+                  {u.first_name?.[0]?.toUpperCase() ?? '?'}
+                </span>
+                {u.first_name} {u.last_name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={ATTACHMENT_ACCEPT}
+          className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileChosen(f); }}
+        />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="flex items-center gap-2 px-3 h-9 rounded-xl border border-(--color-border) text-xs font-semibold text-(--color-text-secondary) hover:bg-(--color-state-hover) disabled:opacity-50"
+          >
+            <Paperclip size={14} />
+            {uploading ? 'Uploading…' : 'Attach'}
+          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowEmojiPicker((v) => !v)}
+              className="flex items-center justify-center h-9 w-9 rounded-xl border border-(--color-border) text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+              title="Insert emoji"
+            >
+              <Smile size={15} />
+            </button>
+            {showEmojiPicker && (
+              <EmojiPicker onSelect={(emoji) => setContent((c) => c + emoji)} onClose={() => setShowEmojiPicker(false)} />
+            )}
+          </div>
+        </div>
+        <button
+          onClick={handleSend}
+          disabled={(!content.trim() && !pendingAttachment) || sendMessage.isPending || uploading}
+          className="flex items-center gap-2 px-4 h-9 rounded-xl bg-primary-600 text-white text-sm font-semibold disabled:opacity-50"
+        >
+          <Send size={14} />
+          Send
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ── One message bubble (used for both root messages and thread replies) ────
+
+const MessageBubble: React.FC<{
+  message: PortalMessage;
+  projectId: string;
+  canCompose: boolean;
+  myUserId?: string;
+  onReply: () => void;
+}> = ({ message: m, projectId, canCompose, myUserId, onReply }) => {
+  const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
+  const qc = useQueryClient();
+  const toast = useToastContext();
+
+  const toggleReaction = useMutation({
+    mutationFn: ({ emoji, remove }: { emoji: string; remove: boolean }) =>
+      apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_REACTIONS(projectId, m.id), {
+        method: remove ? 'DELETE' : 'POST',
+        body: JSON.stringify({ emoji }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] }),
+    onError: () => toast?.error?.('Failed to update reaction'),
+  });
+
+  const handleToggleReaction = (emoji: string) => {
+    const alreadyReacted = (m.reactions || []).some((r) => r.emoji === emoji && r.user_id === myUserId);
+    toggleReaction.mutate({ emoji, remove: alreadyReacted });
+    setReactionPickerOpen(false);
+  };
+
+  const handleViewAttachment = async () => {
+    try {
+      const res = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_ATTACHMENT_VIEW_URL(projectId, m.id));
+      const url = res?.payload?.view_url;
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      toast?.error?.('Failed to open attachment');
+    }
+  };
+
+  return (
+    <div
+      className={cn(
+        'max-w-[80%] rounded-2xl px-4 py-3',
+        m.user?.user_type === 'CLIENT' ? 'self-end bg-primary-50' : 'self-start bg-(--color-elevated)'
+      )}
+    >
+      <div className="flex items-center justify-between gap-4 mb-1">
+        <span className="text-xs font-bold text-(--color-text-primary)">{senderName(m)}</span>
+        <span className="text-[11px] text-(--color-text-secondary)">{new Date(m.created_at).toLocaleString()}</span>
+      </div>
+      {m.content && <RichText content={m.content} className="text-sm text-(--color-text-primary)" />}
+      {m.attachment_file_key && (
+        <button
+          onClick={handleViewAttachment}
+          className="mt-2 flex items-center gap-2 px-3 h-9 rounded-xl border border-(--color-border) bg-(--color-surface) text-xs font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover)"
+        >
+          <FileText size={14} className="shrink-0" />
+          <span className="truncate max-w-[220px]">{m.attachment_file_name}</span>
+          {!!m.attachment_size_bytes && <span className="text-(--color-text-secondary) shrink-0">{formatBytes(m.attachment_size_bytes)}</span>}
+        </button>
+      )}
+
+      {canCompose && (
+        <div className="flex flex-wrap items-center gap-1 mt-2 relative">
+          {aggregateReactions(m.reactions, myUserId).map((r) => (
+            <button
+              key={r.emoji}
+              onClick={() => handleToggleReaction(r.emoji)}
+              className={cn(
+                'flex items-center gap-1 px-2 h-6 rounded-full text-xs border',
+                r.reactedByMe
+                  ? 'bg-primary-100 border-primary-300 text-primary-700'
+                  : 'bg-(--color-surface) border-(--color-border) text-(--color-text-secondary) hover:bg-(--color-state-hover)'
+              )}
+            >
+              <span>{r.emoji}</span>
+              <span className="font-semibold">{r.count}</span>
+            </button>
+          ))}
+          <button
+            onClick={() => setReactionPickerOpen((v) => !v)}
+            className="flex items-center justify-center h-6 w-6 rounded-full border border-dashed border-(--color-border) text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+            title="Add reaction"
+          >
+            <Smile size={13} />
+          </button>
+          <button
+            onClick={onReply}
+            className="flex items-center gap-1 px-2 h-6 rounded-full text-xs text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+            title="Reply"
+          >
+            <Reply size={12} />
+            Reply
+          </button>
+          {reactionPickerOpen && (
+            <div className="absolute top-full left-0 mt-1 z-20 flex items-center gap-1 p-1.5 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg">
+              {QUICK_REACTIONS.map((e) => (
+                <button key={e} onClick={() => handleToggleReaction(e)} className="text-lg h-8 w-8 flex items-center justify-center rounded-lg hover:bg-(--color-state-hover)">
+                  {e}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── One root message + its (one level of) replies ──────────────────────────
+
+const Thread: React.FC<{
+  root: PortalMessage;
+  replies: PortalMessage[];
+  projectId: string;
+  canCompose: boolean;
+  myUserId?: string;
+}> = ({ root, replies, projectId, canCompose, myUserId }) => {
+  const [expanded, setExpanded] = useState(false);
+  const [replying, setReplying] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <MessageBubble message={root} projectId={projectId} canCompose={canCompose} myUserId={myUserId} onReply={() => { setExpanded(true); setReplying(true); }} />
+
+      {replies.length > 0 && (
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className={cn(
+            'flex items-center gap-1.5 text-xs font-semibold text-(--color-text-secondary) hover:text-primary-600',
+            root.user?.user_type === 'CLIENT' ? 'self-end mr-2' : 'self-start ml-2'
+          )}
+        >
+          {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+          {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
+        </button>
+      )}
+
+      {expanded && (
+        <div className={cn('flex flex-col gap-2 pl-4 border-l-2 border-(--color-border)', root.user?.user_type === 'CLIENT' ? 'self-end mr-4' : 'self-start ml-4')}>
+          {replies.map((r) => (
+            <MessageBubble key={r.id} message={r} projectId={projectId} canCompose={canCompose} myUserId={myUserId} onReply={() => setReplying(true)} />
+          ))}
+          {canCompose && replying && (
+            <Composer
+              projectId={projectId}
+              parentId={root.id}
+              autoFocus
+              onSent={() => setReplying(false)}
+              onCancel={() => setReplying(false)}
+              replyingToPreview={{ name: senderName(root), text: root.content || '(attachment)' }}
+            />
+          )}
+          {canCompose && !replying && (
+            <button onClick={() => setReplying(true)} className="self-start text-xs font-semibold text-primary-600 hover:text-primary-700">
+              Reply in thread
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── Tab root ─────────────────────────────────────────────────────────────
+
+const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   const { data: myPerms } = useMyPermissions();
   const { user } = useAuth();
   const canCompose = !!myPerms?.permissions?.includes('client.communication.create');
   const qc = useQueryClient();
-  const toast = useToastContext();
 
   const { data, isLoading } = useQuery<PortalMessage[]>({
     queryKey: ['portal', 'messages', projectId],
@@ -104,248 +492,37 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
     return () => { socket.off('project:message:new', handleNewMessage); };
   }, [projectId, qc]);
 
-  const sendMessage = useMutation({
-    mutationFn: (body: Record<string, unknown>) =>
-      apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES(projectId), {
-        method: 'POST',
-        body: JSON.stringify(body),
-      }),
-    onSuccess: () => {
-      setContent('');
-      setPendingAttachment(null);
-      setReplyingTo(null);
-      qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] });
-    },
-    onError: () => toast?.error?.('Failed to send message'),
-  });
-
-  const handleFileChosen = async (file: File) => {
-    setUploading(true);
-    try {
-      const form = new FormData();
-      form.append('file', file);
-      const res = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_ATTACHMENT_UPLOAD(projectId), {
-        method: 'POST',
-        body: form,
-      });
-      setPendingAttachment(res?.payload);
-    } catch {
-      toast?.error?.('Failed to upload file');
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
-  const handleSend = () => {
-    if (!content.trim() && !pendingAttachment) return;
-    sendMessage.mutate({
-      content: content.trim(),
-      ...(replyingTo ? { parent_id: replyingTo.id } : {}),
-      ...(pendingAttachment || {}),
-    });
-  };
-
-  const findMessage = (id: string | null) => (id ? data?.find((msg) => msg.id === id) : undefined);
-
-  const handleViewAttachment = async (message: PortalMessage) => {
-    try {
-      const res = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_ATTACHMENT_VIEW_URL(projectId, message.id));
-      const url = res?.payload?.view_url;
-      if (url) window.open(url, '_blank', 'noopener,noreferrer');
-    } catch {
-      toast?.error?.('Failed to open attachment');
-    }
-  };
-
-  const toggleReaction = useMutation({
-    mutationFn: ({ messageId, emoji, remove }: { messageId: string; emoji: string; remove: boolean }) =>
-      apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_REACTIONS(projectId, messageId), {
-        method: remove ? 'DELETE' : 'POST',
-        body: JSON.stringify({ emoji }),
-      }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] }),
-    onError: () => toast?.error?.('Failed to update reaction'),
-  });
-
-  const handleToggleReaction = (message: PortalMessage, emoji: string) => {
-    const alreadyReacted = (message.reactions || []).some((r) => r.emoji === emoji && r.user_id === user?.id);
-    toggleReaction.mutate({ messageId: message.id, emoji, remove: alreadyReacted });
-    setReactionPickerFor(null);
-  };
-
-  const senderName = (msg: PortalMessage) =>
-    msg.user?.user_type === 'INTERNAL' ? 'TekXAI Team' : `${msg.user?.first_name ?? ''} ${msg.user?.last_name ?? ''}`.trim();
-
   if (isLoading) return <TableSkeleton columns={1} rows={5} />;
+
+  const roots = (data || []).filter((m) => !m.parent_id);
+  const repliesByRoot = new Map<string, PortalMessage[]>();
+  (data || []).filter((m) => m.parent_id).forEach((m) => {
+    const list = repliesByRoot.get(m.parent_id!) || [];
+    list.push(m);
+    repliesByRoot.set(m.parent_id!, list);
+  });
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 max-h-[500px] overflow-y-auto">
-        {(!data || data.length === 0) && (
+      <div className="flex flex-col gap-4 max-h-[560px] overflow-y-auto">
+        {roots.length === 0 && (
           <p className="text-sm text-(--color-text-secondary) py-10 text-center">No messages yet.</p>
         )}
-        {data?.map((m) => (
-          <div
-            key={m.id}
-            className={cn(
-              'max-w-[80%] rounded-2xl px-4 py-3',
-              m.user?.user_type === 'CLIENT' ? 'self-end bg-primary-50' : 'self-start bg-(--color-elevated)'
-            )}
-          >
-            <div className="flex items-center justify-between gap-4 mb-1">
-              <span className="text-xs font-bold text-(--color-text-primary)">{senderName(m)}</span>
-              <span className="text-[11px] text-(--color-text-secondary)">{new Date(m.created_at).toLocaleString()}</span>
-            </div>
-            {m.parent_id && (
-              <div className="flex items-start gap-1.5 mb-1.5 pl-2 border-l-2 border-(--color-border) text-xs text-(--color-text-secondary)">
-                <Reply size={11} className="mt-0.5 shrink-0" />
-                <span className="truncate">
-                  {findMessage(m.parent_id)
-                    ? `${senderName(findMessage(m.parent_id)!)}: ${findMessage(m.parent_id)!.content || '(attachment)'}`
-                    : 'Original message'}
-                </span>
-              </div>
-            )}
-            {m.content && <p className="text-sm text-(--color-text-primary) whitespace-pre-wrap">{m.content}</p>}
-            {m.attachment_file_key && (
-              <button
-                onClick={() => handleViewAttachment(m)}
-                className="mt-2 flex items-center gap-2 px-3 h-9 rounded-xl border border-(--color-border) bg-(--color-surface) text-xs font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover)"
-              >
-                <FileText size={14} className="shrink-0" />
-                <span className="truncate max-w-[220px]">{m.attachment_file_name}</span>
-                {!!m.attachment_size_bytes && (
-                  <span className="text-(--color-text-secondary) shrink-0">{formatBytes(m.attachment_size_bytes)}</span>
-                )}
-              </button>
-            )}
-
-            {canCompose && (
-              <div className="flex flex-wrap items-center gap-1 mt-2 relative">
-                {aggregateReactions(m.reactions, user?.id).map((r) => (
-                  <button
-                    key={r.emoji}
-                    onClick={() => handleToggleReaction(m, r.emoji)}
-                    className={cn(
-                      'flex items-center gap-1 px-2 h-6 rounded-full text-xs border',
-                      r.reactedByMe
-                        ? 'bg-primary-100 border-primary-300 text-primary-700'
-                        : 'bg-(--color-surface) border-(--color-border) text-(--color-text-secondary) hover:bg-(--color-state-hover)'
-                    )}
-                  >
-                    <span>{r.emoji}</span>
-                    <span className="font-semibold">{r.count}</span>
-                  </button>
-                ))}
-                <button
-                  onClick={() => setReactionPickerFor(reactionPickerFor === m.id ? null : m.id)}
-                  className="flex items-center justify-center h-6 w-6 rounded-full border border-dashed border-(--color-border) text-(--color-text-secondary) hover:bg-(--color-state-hover)"
-                  title="Add reaction"
-                >
-                  <Smile size={13} />
-                </button>
-                <button
-                  onClick={() => setReplyingTo(m)}
-                  className="flex items-center gap-1 px-2 h-6 rounded-full text-xs text-(--color-text-secondary) hover:bg-(--color-state-hover)"
-                  title="Reply"
-                >
-                  <Reply size={12} />
-                  Reply
-                </button>
-                {reactionPickerFor === m.id && (
-                  <div className="absolute top-full left-0 mt-1 z-20 flex items-center gap-1 p-1.5 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg">
-                    {QUICK_REACTIONS.map((e) => (
-                      <button
-                        key={e}
-                        onClick={() => handleToggleReaction(m, e)}
-                        className="text-lg h-8 w-8 flex items-center justify-center rounded-lg hover:bg-(--color-state-hover)"
-                      >
-                        {e}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+        {roots.map((root) => (
+          <Thread
+            key={root.id}
+            root={root}
+            replies={repliesByRoot.get(root.id) || []}
+            projectId={projectId}
+            canCompose={canCompose}
+            myUserId={user?.id}
+          />
         ))}
       </div>
 
       {canCompose && (
-        <div className="flex flex-col gap-2 pt-4 border-t border-(--color-card-border)">
-          {replyingTo && (
-            <div className="flex items-center justify-between gap-2 px-3 h-9 rounded-xl border border-(--color-border) bg-(--color-elevated) text-xs">
-              <div className="flex items-center gap-1.5 min-w-0 text-(--color-text-secondary)">
-                <Reply size={13} className="shrink-0" />
-                <span className="font-semibold text-(--color-text-primary) shrink-0">{senderName(replyingTo)}</span>
-                <span className="truncate">{replyingTo.content || '(attachment)'}</span>
-              </div>
-              <button onClick={() => setReplyingTo(null)} className="text-(--color-text-secondary) hover:text-red-500 shrink-0">
-                <X size={14} />
-              </button>
-            </div>
-          )}
-          {pendingAttachment && (
-            <div className="flex items-center gap-2 px-3 h-9 rounded-xl border border-(--color-border) bg-(--color-elevated) text-xs font-semibold w-fit">
-              <FileText size={14} />
-              <span className="truncate max-w-[220px]">{pendingAttachment.attachment_file_name}</span>
-              <span className="text-(--color-text-secondary)">{formatBytes(pendingAttachment.attachment_size_bytes)}</span>
-              <button onClick={() => setPendingAttachment(null)} className="text-(--color-text-secondary) hover:text-red-500">
-                <X size={14} />
-              </button>
-            </div>
-          )}
-          <textarea
-            className={inputCls}
-            placeholder="Write a message..."
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-          />
-          <div className="flex items-center justify-between gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={ATTACHMENT_ACCEPT}
-              className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileChosen(f); }}
-            />
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="flex items-center gap-2 px-3 h-10 rounded-xl border border-(--color-border) text-sm font-semibold text-(--color-text-secondary) hover:bg-(--color-state-hover) disabled:opacity-50"
-              >
-                <Paperclip size={15} />
-                {uploading ? 'Uploading…' : 'Attach file'}
-              </button>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowComposeEmojiPicker((v) => !v)}
-                  className="flex items-center justify-center h-10 w-10 rounded-xl border border-(--color-border) text-(--color-text-secondary) hover:bg-(--color-state-hover)"
-                  title="Insert emoji"
-                >
-                  <Smile size={16} />
-                </button>
-                {showComposeEmojiPicker && (
-                  <EmojiPicker
-                    onSelect={(emoji) => { setContent((c) => c + emoji); }}
-                    onClose={() => setShowComposeEmojiPicker(false)}
-                  />
-                )}
-              </div>
-            </div>
-            <button
-              onClick={handleSend}
-              disabled={(!content.trim() && !pendingAttachment) || sendMessage.isPending || uploading}
-              className="flex items-center gap-2 px-4 h-10 rounded-xl bg-primary-600 text-white text-sm font-semibold disabled:opacity-50"
-            >
-              <Send size={15} />
-              Send
-            </button>
-          </div>
+        <div className="pt-4 border-t border-(--color-card-border)">
+          <Composer projectId={projectId} onSent={() => {}} />
         </div>
       )}
     </div>
