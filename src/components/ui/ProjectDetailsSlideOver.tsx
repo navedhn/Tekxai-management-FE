@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ChevronDown, CheckCircle2, Circle, MessageSquare, Plus, Trash2, ArrowRight as ArrowRightIcon, ArrowLeft, Calendar as CalendarIcon, Clock, LayoutDashboard, ListChecks, KanbanSquare, FileText, Activity as ActivityIcon, MessagesSquare, Server, Link2, Users, Wallet, Settings as SettingsIcon, GripVertical } from 'lucide-react';
+import { ArrowRight, ChevronDown, CheckCircle2, Circle, MessageSquare, Plus, Trash2, ArrowRight as ArrowRightIcon, ArrowLeft, Calendar as CalendarIcon, Clock, LayoutDashboard, ListChecks, KanbanSquare, FileText, Activity as ActivityIcon, MessagesSquare, Server, Link2, Users, Wallet, Settings as SettingsIcon, GripVertical, List, GanttChartSquare } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useMyPermissions } from '@/services/permissionsService';
 import Badge from './Badge';
@@ -24,7 +24,9 @@ import ProjectCalendarPanel from './ProjectCalendarPanel';
 import ActionModal from './ActionModal';
 import StatusDropdown from './StatusDropdown';
 import { useGetProjectDetails, useUpdateProjectMutation, useUpdateBudgetMutation } from '@/services/projectService';
-import { useMilestones, useDeleteMilestone, useArchiveMilestone, useReorderMilestones, Milestone } from '@/services/milestonesService';
+import { useMilestones, useDeleteMilestone, useArchiveMilestone, useReorderMilestones, useUpdateMilestone, Milestone, MilestoneStatus } from '@/services/milestonesService';
+import MilestoneBoardView from './MilestoneBoardView';
+import MilestoneTimelineView from './MilestoneTimelineView';
 import { useUpdateTask, useDeleteTask } from '@/services/tasksService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useAuth } from '@/hooks/useAuth';
@@ -67,6 +69,8 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
   const deleteMilestoneMutation = useDeleteMilestone(projectId);
   const archiveMilestoneMutation = useArchiveMilestone(projectId);
   const reorderMilestonesMutation = useReorderMilestones(projectId);
+  const updateMilestoneMutation = useUpdateMilestone(projectId);
+  const [milestoneView, setMilestoneView] = useState<'list' | 'board' | 'timeline'>('list');
   const [dragMilestoneId, setDragMilestoneId] = useState<string | null>(null);
   const [dragOverMilestoneId, setDragOverMilestoneId] = useState<string | null>(null);
   const updateTaskMutation = useUpdateTask(projectId);
@@ -352,15 +356,36 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
 
                   {activeTab === 'milestones' && (
                   <div className="flex flex-col gap-6 w-full">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-3">
                       <h3 className="text-lg font-black text-gray-900 tracking-tight">Project Milestones</h3>
-                      <Button
-                        leftIcon={Plus}
-                        onClick={() => setShowCreateMilestone(true)}
-                        className="bg-[#005CDA11] hover:bg-[#005CDA22] border-none font-black text-[11px] h-9 rounded-xl py-0 px-4"
-                      >
-                        Create Milestone
-                      </Button>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1 bg-gray-50 rounded-xl p-1">
+                          {([
+                            { id: 'list', label: 'List', icon: List },
+                            { id: 'board', label: 'Board', icon: KanbanSquare },
+                            { id: 'timeline', label: 'Timeline', icon: GanttChartSquare },
+                          ] as const).map((v) => (
+                            <button
+                              key={v.id}
+                              onClick={() => setMilestoneView(v.id)}
+                              className={cn(
+                                'flex items-center gap-1.5 px-3 h-8 rounded-lg text-[11px] font-black transition-colors',
+                                milestoneView === v.id ? 'bg-white text-[#005CDA] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                              )}
+                            >
+                              <v.icon size={13} />
+                              {v.label}
+                            </button>
+                          ))}
+                        </div>
+                        <Button
+                          leftIcon={Plus}
+                          onClick={() => setShowCreateMilestone(true)}
+                          className="bg-[#005CDA11] hover:bg-[#005CDA22] border-none font-black text-[11px] h-9 rounded-xl py-0 px-4"
+                        >
+                          Create Milestone
+                        </Button>
+                      </div>
                     </div>
 
                     {milestonesLoading && (
@@ -375,7 +400,28 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                       </div>
                     )}
 
-                    {milestones.map((milestone) => {
+                    {!milestonesLoading && milestones.length > 0 && milestoneView === 'board' && (
+                      <MilestoneBoardView
+                        milestones={milestones}
+                        currency={project?.budget_currency || 'PKR'}
+                        canEdit={canEditProject}
+                        onChangeStatus={(milestoneId, status) => {
+                          updateMilestoneMutation.mutate({ milestoneId, updates: { status } }, {
+                            onError: (err: any) => toast.error(err?.message || 'Failed to update milestone status'),
+                          });
+                        }}
+                        onOpenMilestone={(m) => { setMilestoneView('list'); toggleExpand(m.id); }}
+                      />
+                    )}
+
+                    {!milestonesLoading && milestones.length > 0 && milestoneView === 'timeline' && (
+                      <MilestoneTimelineView
+                        milestones={milestones}
+                        onOpenMilestone={(m) => { setMilestoneView('list'); toggleExpand(m.id); }}
+                      />
+                    )}
+
+                    {milestoneView === 'list' && milestones.map((milestone) => {
                       const tasks = milestone.tasks || [];
                       const totalTasks = tasks.length;
                       const doneTasks = tasks.filter((t) => t.status === 'DONE').length;
