@@ -10,7 +10,7 @@ const UpdatesTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   const { data, isLoading } = useQuery<PortalUpdate[]>({
     queryKey: ['portal', 'updates', projectId],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.UPDATES(projectId)),
-    select: (r: any) => r?.payload || [],
+    select: (r: any) => r?.payload?.records || [],
   });
 
   if (isLoading) return <TableSkeleton columns={2} rows={4} />;

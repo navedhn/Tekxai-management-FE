@@ -35,7 +35,7 @@ function useProjects() {
   return useQuery<PortalProject[]>({
     queryKey: ['portal', 'projects'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.PROJECTS),
-    select: (r: any) => r?.payload || [],
+    select: (r: any) => r?.payload?.records || [],
   });
 }
 
@@ -66,7 +66,7 @@ const PortalDashboard: React.FC = () => {
     queries: activeProjectIds.map((id) => ({
       queryKey: ['portal', 'milestones', id],
       queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.MILESTONES(id)),
-      select: (r: any) => (r?.payload || []) as PortalMilestone[],
+      select: (r: any) => (r?.payload?.records || []) as PortalMilestone[],
       enabled: !!id,
     })),
   });
@@ -75,7 +75,7 @@ const PortalDashboard: React.FC = () => {
     queries: activeProjectIds.map((id) => ({
       queryKey: ['portal', 'approvals', id],
       queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.APPROVALS(id)),
-      select: (r: any) => (r?.payload || []) as PortalApproval[],
+      select: (r: any) => (r?.payload?.records || []) as PortalApproval[],
       enabled: !!id,
     })),
   });
@@ -86,7 +86,7 @@ const PortalDashboard: React.FC = () => {
       const results = await Promise.all(
         activeProjectIds.map((id) => apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES(id)))
       );
-      return results.reduce((sum, r) => sum + ((r?.payload || []).length || 0), 0);
+      return results.reduce((sum, r) => sum + ((r?.payload?.records || []).length || 0), 0);
     },
     enabled: activeProjectIds.length > 0,
   });

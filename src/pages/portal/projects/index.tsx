@@ -28,7 +28,7 @@ const PortalProjects: React.FC = () => {
   const { data, isLoading } = useQuery<PortalProject[]>({
     queryKey: ['portal', 'projects'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.PROJECTS),
-    select: (r: any) => r?.payload || [],
+    select: (r: any) => r?.payload?.records || [],
   });
 
   const columns: Column<PortalProject>[] = [

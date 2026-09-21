@@ -31,7 +31,7 @@ const ApprovalsTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   const { data, isLoading } = useQuery<PortalApproval[]>({
     queryKey: ['portal', 'approvals', projectId],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.APPROVALS(projectId)),
-    select: (r: any) => r?.payload || [],
+    select: (r: any) => r?.payload?.records || [],
   });
 
   const respond = useMutation({
