@@ -39,6 +39,10 @@ export type PortalMessage = {
   parent_id: string | null;
   created_at: string;
   user: { id: string; first_name: string; last_name: string; user_type: 'INTERNAL' | 'CLIENT' };
+  attachment_file_key: string | null;
+  attachment_file_name: string | null;
+  attachment_mime_type: string | null;
+  attachment_size_bytes: number | null;
 };
 
 export type PortalFile = {
