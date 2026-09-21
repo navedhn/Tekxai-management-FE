@@ -1,13 +1,31 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Paperclip, FileText, X } from 'lucide-react';
+import { Send, Paperclip, FileText, X, Smile } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useMyPermissions } from '@/services/permissionsService';
+import { useAuth } from '@/hooks/useAuth';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { cn } from '@/utils/cn';
 import { TableSkeleton } from '@/components/skeletons';
+import EmojiPicker from '@/pages/chat/EmojiPicker';
 import { PortalMessage } from '../types';
+
+// Small curated set for the one-click "quick react" row — the full picker
+// (search + categories) is still reachable via the "+" button for anything
+// else, same two-tier pattern the internal chat already uses.
+const QUICK_REACTIONS = ['👍', '❤️', '😂', '🙏', '👀'];
+
+function aggregateReactions(reactions: PortalMessage['reactions'], myUserId?: string) {
+  const byEmoji = new Map<string, { emoji: string; count: number; reactedByMe: boolean }>();
+  for (const r of reactions || []) {
+    const entry = byEmoji.get(r.emoji) || { emoji: r.emoji, count: 0, reactedByMe: false };
+    entry.count += 1;
+    if (r.user_id === myUserId) entry.reactedByMe = true;
+    byEmoji.set(r.emoji, entry);
+  }
+  return Array.from(byEmoji.values());
+}
 
 const inputCls =
   'w-full min-h-[80px] px-3 py-2 border border-(--color-border) rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none bg-(--color-surface)';
@@ -38,8 +56,11 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   const [content, setContent] = useState('');
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [showComposeEmojiPicker, setShowComposeEmojiPicker] = useState(false);
+  const [reactionPickerFor, setReactionPickerFor] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { data: myPerms } = useMyPermissions();
+  const { user } = useAuth();
   const canCompose = !!myPerms?.permissions?.includes('client.communication.create');
   const qc = useQueryClient();
   const toast = useToastContext();
@@ -49,6 +70,15 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES(projectId)),
     select: (r: any) => r?.payload?.records || [],
   });
+
+  // Opening this tab marks the thread read up to now; also refresh the
+  // dashboard's unread badge so it drops immediately rather than on next
+  // full reload.
+  useEffect(() => {
+    apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES_READ(projectId), { method: 'POST' })
+      .then(() => qc.invalidateQueries({ queryKey: ['portal', 'unread-counts'] }))
+      .catch(() => {});
+  }, [projectId, qc]);
 
   const sendMessage = useMutation({
     mutationFn: (body: Record<string, unknown>) =>
@@ -97,6 +127,22 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
     }
   };
 
+  const toggleReaction = useMutation({
+    mutationFn: ({ messageId, emoji, remove }: { messageId: string; emoji: string; remove: boolean }) =>
+      apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_REACTIONS(projectId, messageId), {
+        method: remove ? 'DELETE' : 'POST',
+        body: JSON.stringify({ emoji }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] }),
+    onError: () => toast?.error?.('Failed to update reaction'),
+  });
+
+  const handleToggleReaction = (message: PortalMessage, emoji: string) => {
+    const alreadyReacted = (message.reactions || []).some((r) => r.emoji === emoji && r.user_id === user?.id);
+    toggleReaction.mutate({ messageId: message.id, emoji, remove: alreadyReacted });
+    setReactionPickerFor(null);
+  };
+
   const senderName = (msg: PortalMessage) =>
     msg.user?.user_type === 'INTERNAL' ? 'TekXAI Team' : `${msg.user?.first_name ?? ''} ${msg.user?.last_name ?? ''}`.trim();
 
@@ -133,6 +179,46 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
                 )}
               </button>
             )}
+
+            {canCompose && (
+              <div className="flex flex-wrap items-center gap-1 mt-2 relative">
+                {aggregateReactions(m.reactions, user?.id).map((r) => (
+                  <button
+                    key={r.emoji}
+                    onClick={() => handleToggleReaction(m, r.emoji)}
+                    className={cn(
+                      'flex items-center gap-1 px-2 h-6 rounded-full text-xs border',
+                      r.reactedByMe
+                        ? 'bg-primary-100 border-primary-300 text-primary-700'
+                        : 'bg-(--color-surface) border-(--color-border) text-(--color-text-secondary) hover:bg-(--color-state-hover)'
+                    )}
+                  >
+                    <span>{r.emoji}</span>
+                    <span className="font-semibold">{r.count}</span>
+                  </button>
+                ))}
+                <button
+                  onClick={() => setReactionPickerFor(reactionPickerFor === m.id ? null : m.id)}
+                  className="flex items-center justify-center h-6 w-6 rounded-full border border-dashed border-(--color-border) text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+                  title="Add reaction"
+                >
+                  <Smile size={13} />
+                </button>
+                {reactionPickerFor === m.id && (
+                  <div className="absolute top-full left-0 mt-1 z-20 flex items-center gap-1 p-1.5 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg">
+                    {QUICK_REACTIONS.map((e) => (
+                      <button
+                        key={e}
+                        onClick={() => handleToggleReaction(m, e)}
+                        className="text-lg h-8 w-8 flex items-center justify-center rounded-lg hover:bg-(--color-state-hover)"
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -163,15 +249,33 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
               className="hidden"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileChosen(f); }}
             />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="flex items-center gap-2 px-3 h-10 rounded-xl border border-(--color-border) text-sm font-semibold text-(--color-text-secondary) hover:bg-(--color-state-hover) disabled:opacity-50"
-            >
-              <Paperclip size={15} />
-              {uploading ? 'Uploading…' : 'Attach file'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-2 px-3 h-10 rounded-xl border border-(--color-border) text-sm font-semibold text-(--color-text-secondary) hover:bg-(--color-state-hover) disabled:opacity-50"
+              >
+                <Paperclip size={15} />
+                {uploading ? 'Uploading…' : 'Attach file'}
+              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowComposeEmojiPicker((v) => !v)}
+                  className="flex items-center justify-center h-10 w-10 rounded-xl border border-(--color-border) text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+                  title="Insert emoji"
+                >
+                  <Smile size={16} />
+                </button>
+                {showComposeEmojiPicker && (
+                  <EmojiPicker
+                    onSelect={(emoji) => { setContent((c) => c + emoji); }}
+                    onClose={() => setShowComposeEmojiPicker(false)}
+                  />
+                )}
+              </div>
+            </div>
             <button
               onClick={handleSend}
               disabled={(!content.trim() && !pendingAttachment) || sendMessage.isPending || uploading}

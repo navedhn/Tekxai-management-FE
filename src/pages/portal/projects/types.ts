@@ -43,6 +43,7 @@ export type PortalMessage = {
   attachment_file_name: string | null;
   attachment_mime_type: string | null;
   attachment_size_bytes: number | null;
+  reactions: Array<{ id: string; user_id: string; emoji: string }>;
 };
 
 export type PortalFile = {
