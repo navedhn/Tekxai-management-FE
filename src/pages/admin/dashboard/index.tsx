@@ -137,14 +137,14 @@ const Dashboard: React.FC = () => {
     React.useEffect(() => {
         setTopbarExtra(
             <>
-                <div className="w-40">
+                <div className="w-56">
                     <SearchableSelect
                         options={[{ label: 'All Business Units', value: '' }, ...businessUnits.map((bu: any) => ({ label: bu.name, value: bu.id }))]}
                         value={businessUnitId}
                         onChange={(v) => { setBusinessUnitId(String(v)); setTeamId(''); }}
                     />
                 </div>
-                <div className="w-40">
+                <div className="w-56">
                     <SearchableSelect
                         options={[{ label: 'All Teams', value: '' }, ...visibleTeams.map((t: any) => ({ label: t.name, value: t.id }))]}
                         value={teamId}
