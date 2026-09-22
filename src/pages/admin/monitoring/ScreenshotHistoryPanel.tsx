@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { ChevronDown, ChevronRight, Clock, Camera, Activity, MonitorSmartphone, Globe, Trash2 } from 'lucide-react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import { ChevronDown, ChevronRight, Clock, Camera, Activity, MonitorSmartphone, Globe, Trash2, X, ChevronLeft } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import Badge from '@/components/ui/Badge';
@@ -129,6 +129,38 @@ const ScreenshotHistoryPanel: React.FC<Props> = ({ userOptions, selectedUser, on
 
   const hasMore = accumulated.length < total;
 
+  // Flat list in the exact order cards render (grouped.flatMap), so the
+  // lightbox's Prev/Next walks the same sequence the user sees, regardless
+  // of which hour sections are currently expanded/collapsed.
+  const flatShots = useMemo(() => grouped.flatMap(([, shots]) => shots), [grouped]);
+  const [lightboxId, setLightboxId] = useState<string | null>(null);
+  const lightboxIndex = lightboxId ? flatShots.findIndex((s) => s.id === lightboxId) : -1;
+
+  const closeLightbox = useCallback(() => setLightboxId(null), []);
+  const showPrev = useCallback(() => {
+    setLightboxId((id) => {
+      const i = id ? flatShots.findIndex((s) => s.id === id) : -1;
+      return i > 0 ? flatShots[i - 1].id : id;
+    });
+  }, [flatShots]);
+  const showNext = useCallback(() => {
+    setLightboxId((id) => {
+      const i = id ? flatShots.findIndex((s) => s.id === id) : -1;
+      return i >= 0 && i < flatShots.length - 1 ? flatShots[i + 1].id : id;
+    });
+  }, [flatShots]);
+
+  useEffect(() => {
+    if (lightboxIndex < 0) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeLightbox();
+      else if (e.key === 'ArrowLeft') showPrev();
+      else if (e.key === 'ArrowRight') showNext();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightboxIndex, closeLightbox, showPrev, showNext]);
+
   return (
     <div className="flex flex-col gap-5">
 
@@ -231,7 +263,7 @@ const ScreenshotHistoryPanel: React.FC<Props> = ({ userOptions, selectedUser, on
                   <div className="px-5 pb-5 pt-1 border-t border-gray-100">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-3">
                       {shots.map((s) => (
-                        <ScreenshotCard key={s.id} s={s} isSuperAdmin={isSuperAdmin} onDelete={() => onDeleteOne(s)} />
+                        <ScreenshotCard key={s.id} s={s} isSuperAdmin={isSuperAdmin} onDelete={() => onDeleteOne(s)} onOpen={() => setLightboxId(s.id)} />
                       ))}
                     </div>
                   </div>
@@ -251,11 +283,84 @@ const ScreenshotHistoryPanel: React.FC<Props> = ({ userOptions, selectedUser, on
           )}
         </div>
       )}
+
+      {lightboxIndex >= 0 && (
+        <ScreenshotLightbox
+          screenshot={flatShots[lightboxIndex]}
+          hasPrev={lightboxIndex > 0}
+          hasNext={lightboxIndex < flatShots.length - 1}
+          position={`${lightboxIndex + 1} of ${flatShots.length}`}
+          onClose={closeLightbox}
+          onPrev={showPrev}
+          onNext={showNext}
+        />
+      )}
     </div>
   );
 };
 
-const ScreenshotCard: React.FC<{ s: Screenshot; isSuperAdmin: boolean; onDelete: () => void }> = ({ s, isSuperAdmin, onDelete }) => {
+const ScreenshotLightbox: React.FC<{
+  screenshot: Screenshot;
+  hasPrev: boolean;
+  hasNext: boolean;
+  position: string;
+  onClose: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+}> = ({ screenshot: s, hasPrev, hasNext, position, onClose, onPrev, onNext }) => {
+  const time = new Date(s.captured_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' });
+  return (
+    <div
+      className="fixed inset-0 z-[200] bg-black/85 flex items-center justify-center p-4 sm:p-8"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Screenshot viewer"
+    >
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 p-2 rounded-xl bg-white/10 text-white hover:bg-white/20 transition-colors"
+        title="Close (Esc)"
+      >
+        <X size={20} />
+      </button>
+
+      <span className="absolute top-4 left-4 px-3 py-1.5 rounded-xl bg-white/10 text-white text-xs font-bold">{position}</span>
+
+      {hasPrev && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onPrev(); }}
+          className="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+          title="Previous (←)"
+        >
+          <ChevronLeft size={24} />
+        </button>
+      )}
+      {hasNext && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onNext(); }}
+          className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+          title="Next (→)"
+        >
+          <ChevronRight size={24} />
+        </button>
+      )}
+
+      <div className="max-w-5xl w-full flex flex-col items-center gap-3" onClick={(e) => e.stopPropagation()}>
+        {s.file_url ? (
+          <img src={s.file_url} alt="Screenshot" className="max-h-[80vh] w-auto max-w-full rounded-xl object-contain bg-black" />
+        ) : (
+          <div className="w-full h-64 flex items-center justify-center bg-gray-900 text-sm text-gray-400 rounded-xl">Image unavailable</div>
+        )}
+        <div className="text-white text-sm font-semibold text-center">
+          {time}{s.user ? ` · ${s.user.first_name} ${s.user.last_name}` : ''}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ScreenshotCard: React.FC<{ s: Screenshot; isSuperAdmin: boolean; onDelete: () => void; onOpen: () => void }> = ({ s, isSuperAdmin, onDelete, onOpen }) => {
   const time = new Date(s.captured_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
   return (
     <div className="rounded-2xl border border-gray-100 overflow-hidden bg-white hover:shadow-md transition-shadow group relative">
@@ -269,9 +374,9 @@ const ScreenshotCard: React.FC<{ s: Screenshot; isSuperAdmin: boolean; onDelete:
         </button>
       )}
       {s.file_url ? (
-        <a href={s.file_url} target="_blank" rel="noopener noreferrer">
+        <button type="button" onClick={onOpen} className="block w-full">
           <img src={s.file_url} alt="Screenshot" loading="lazy" className="w-full h-32 object-cover bg-gray-50" />
-        </a>
+        </button>
       ) : (
         <div className="w-full h-32 flex items-center justify-center bg-gray-50 text-xs text-gray-400 font-mono">{s.file_key.split('/').pop()}</div>
       )}
