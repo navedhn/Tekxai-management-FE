@@ -18,6 +18,11 @@ const App: React.FC = () => {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    // A successful mount means this tab is now running the current build —
+    // clear the guard from main.tsx's vite:preloadError handler so a LATER
+    // stale-chunk failure (a subsequent deploy, same long-lived tab) still
+    // gets one reload instead of being silently skipped.
+    sessionStorage.removeItem('tekxai:chunk-reload-attempted');
   }, []);
 
   return (

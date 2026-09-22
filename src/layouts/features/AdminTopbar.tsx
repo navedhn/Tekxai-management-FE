@@ -8,6 +8,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { getPageTitle } from './pageTitles';
 import { useMyPermissions } from '@/services/permissionsService';
 import { useColorMode } from '@/hooks/useColorMode';
+import { useTopbarExtraStore } from '@/stores/topbarExtraStore';
 import { cn } from '@/utils/cn';
 
 import ActionModal from '@/components/ui/ActionModal';
@@ -36,6 +37,7 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
     const notifBtnRef = useRef<HTMLButtonElement>(null);
     const profileRef = useRef<HTMLDivElement>(null);
     const { isDark, toggleColorMode } = useColorMode();
+    const topbarExtra = useTopbarExtraStore((s) => s.extra);
 
     const { data: myPerms } = useMyPermissions();
     const canAccessCrm = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('crm.workspace.access');
@@ -108,6 +110,11 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
                         {title}
                     </h1>
                 </div>
+                {topbarExtra && (
+                    <div className="hidden sm:flex items-center gap-2 ml-2 min-w-0">
+                        {topbarExtra}
+                    </div>
+                )}
             </div>
 
             <div className="flex items-center gap-2 sm:gap-2.5 relative shrink-0 ml-auto">

@@ -5,9 +5,11 @@ import { useMyPermissions, resolveHomePath } from '@/services/permissionsService
 import { RoutePageSkeleton } from '@/components/skeletons';
 
 const PublicRoute: React.FC = () => {
-    const { isLoggedIn } = useAuth();
+    const { isLoggedIn, hasHydrated } = useAuth();
 
     const { data: myPerms, isLoading } = useMyPermissions();
+
+    if (!hasHydrated) return <RoutePageSkeleton />;
 
     if (isLoggedIn) {
         if (isLoading) return <RoutePageSkeleton />;

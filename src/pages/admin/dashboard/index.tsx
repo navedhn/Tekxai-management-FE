@@ -13,6 +13,9 @@ import DashboardStatCard from '@/components/ui/DashboardStatCard';
 import Button from '@/components/ui/Button';
 import { PageSkeleton } from '@/components/skeletons';
 import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
+import { useTopbarExtraStore } from '@/stores/topbarExtraStore';
+import { useGetBusinessUnitsQuery } from '@/services/businessUnitService';
+import { useGetTeamsQuery } from '@/services/adminService';
 import {
     Users, UserCheck, CalendarClock, UserPlus, Ticket,
     Cake, PlusCircle, FileWarning, Banknote, PackagePlus, Upload,
@@ -98,16 +101,61 @@ const QUICK_ACTIONS = [
 const Dashboard: React.FC = () => {
     const navigate = useNavigate();
     const [attendancePeriod, setAttendancePeriod] = React.useState<string>('week');
+    const [businessUnitId, setBusinessUnitId] = React.useState<string>('');
+    const [teamId, setTeamId] = React.useState<string>('');
+
+    const { data: businessUnitsData } = useGetBusinessUnitsQuery();
+    const businessUnits = (businessUnitsData as any[]) || [];
+    const { data: teamsData } = useGetTeamsQuery();
+    const teams = (teamsData as any)?.payload?.records || (teamsData as any)?.payload || [];
+    // A team can optionally belong to one Business Unit (teams.business_unit_id)
+    // — once a BU is picked, only show teams that actually belong to it (plus
+    // BU-less teams, which apply everywhere) so the two filters never produce
+    // a combination with zero possible members.
+    const visibleTeams = businessUnitId
+        ? teams.filter((t: any) => !t.business_unit_id || t.business_unit_id === businessUnitId)
+        : teams;
+
     const { data, isLoading } = useQuery({
-        queryKey: ['dashboard-summary', attendancePeriod],
+        queryKey: ['dashboard-summary', attendancePeriod, businessUnitId, teamId],
         queryFn: async () => {
-            const r = await apiRequest<any>(`${API_ENDPOINTS.HR_REPORT.DASHBOARD_SUMMARY}?period=${attendancePeriod}`);
+            const params = new URLSearchParams({ period: attendancePeriod });
+            if (businessUnitId) params.set('business_unit_id', businessUnitId);
+            if (teamId) params.set('team_id', teamId);
+            const r = await apiRequest<any>(`${API_ENDPOINTS.HR_REPORT.DASHBOARD_SUMMARY}?${params.toString()}`);
             return r?.payload as DashboardSummary;
         },
         staleTime: 60000,
         placeholderData: keepPreviousData,
         refetchOnWindowFocus: true,
     });
+
+    // Render the Business Unit / Team filters into the shared topbar, next
+    // to the "Dashboard" title — cleared on unmount so leaving this page
+    // never leaks the dropdowns onto an unrelated page's topbar.
+    const setTopbarExtra = useTopbarExtraStore((s) => s.setTopbarExtra);
+    React.useEffect(() => {
+        setTopbarExtra(
+            <>
+                <div className="w-40">
+                    <SearchableSelect
+                        options={[{ label: 'All Business Units', value: '' }, ...businessUnits.map((bu: any) => ({ label: bu.name, value: bu.id }))]}
+                        value={businessUnitId}
+                        onChange={(v) => { setBusinessUnitId(String(v)); setTeamId(''); }}
+                    />
+                </div>
+                <div className="w-40">
+                    <SearchableSelect
+                        options={[{ label: 'All Teams', value: '' }, ...visibleTeams.map((t: any) => ({ label: t.name, value: t.id }))]}
+                        value={teamId}
+                        onChange={(v) => setTeamId(String(v))}
+                    />
+                </div>
+            </>
+        );
+        return () => setTopbarExtra(null);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [businessUnitId, teamId, businessUnits.length, visibleTeams.length]);
 
     const { data: announcements, isLoading: announcementsLoading } = useQuery({
         queryKey: ['announcements'],

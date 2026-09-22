@@ -5,8 +5,14 @@ import { useMyPermissions } from '@/services/permissionsService';
 import { RoutePageSkeleton } from '@/components/skeletons';
 
 const ProtectedRoute: React.FC<{ permission?: string | string[]; superAdminOnly?: boolean; clientOnly?: boolean }> = ({ permission, superAdminOnly, clientOnly }) => {
-  const { isLoggedIn, user } = useAuth();
+  const { isLoggedIn, user, hasHydrated } = useAuth();
   const { data: myPerms, isLoading } = useMyPermissions();
+
+  // Before the persisted auth store has rehydrated from localStorage,
+  // isLoggedIn still holds its initial `false` value — deciding on it here
+  // would redirect an actually-logged-in user to /login on every hard page
+  // load/reload (e.g. after a stale-chunk auto-reload), a false "logout".
+  if (!hasHydrated) return <RoutePageSkeleton />;
 
   if (!isLoggedIn) return <Navigate to="/login" replace />;
 
