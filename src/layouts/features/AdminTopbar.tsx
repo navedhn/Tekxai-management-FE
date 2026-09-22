@@ -38,6 +38,7 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
     const profileRef = useRef<HTMLDivElement>(null);
     const { isDark, toggleColorMode } = useColorMode();
     const topbarExtra = useTopbarExtraStore((s) => s.extra);
+    const hideTopbarTitle = useTopbarExtraStore((s) => s.hideTitle);
 
     const { data: myPerms } = useMyPermissions();
     const canAccessCrm = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('crm.workspace.access');
@@ -105,11 +106,13 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
                         <Menu size={20} className="text-(--color-text-secondary)" />
                     </button>
                 )}
-                <div className="flex flex-col min-w-0">
-                    <h1 className="text-lg sm:text-xl md:text-[1.35rem] font-poppins font-semibold text-(--color-text-primary) tracking-tight truncate leading-tight">
-                        {title}
-                    </h1>
-                </div>
+                {!hideTopbarTitle && (
+                    <div className="flex flex-col min-w-0">
+                        <h1 className="text-lg sm:text-xl md:text-[1.35rem] font-poppins font-semibold text-(--color-text-primary) tracking-tight truncate leading-tight">
+                            {title}
+                        </h1>
+                    </div>
+                )}
                 {topbarExtra && (
                     <div className="hidden sm:flex items-center gap-2 ml-2 min-w-0">
                         {topbarExtra}

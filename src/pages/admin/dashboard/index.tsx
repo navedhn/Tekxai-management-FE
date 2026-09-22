@@ -151,7 +151,8 @@ const Dashboard: React.FC = () => {
                         onChange={(v) => setTeamId(String(v))}
                     />
                 </div>
-            </>
+            </>,
+            true, // hideTitle — the "Dashboard" heading is redundant once these filters render in its place
         );
         return () => setTopbarExtra(null);
         // eslint-disable-next-line react-hooks/exhaustive-deps

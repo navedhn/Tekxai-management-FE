@@ -8,10 +8,12 @@ import type { ReactNode } from 'react';
 // layout, a different subtree than the page — no provider to wire up.
 interface TopbarExtraState {
   extra: ReactNode;
-  setTopbarExtra: (node: ReactNode) => void;
+  hideTitle: boolean;
+  setTopbarExtra: (node: ReactNode, hideTitle?: boolean) => void;
 }
 
 export const useTopbarExtraStore = create<TopbarExtraState>((set) => ({
   extra: null,
-  setTopbarExtra: (node) => set({ extra: node }),
+  hideTitle: false,
+  setTopbarExtra: (node, hideTitle = false) => set({ extra: node, hideTitle }),
 }));
