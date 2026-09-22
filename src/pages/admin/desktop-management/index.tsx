@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Monitor, Rocket, RotateCcw, X, Clock, AlertTriangle, CheckCircle2, Ban, TrendingUp, XCircle, Target, Trash2, Bug } from 'lucide-react';
+import { Monitor, Rocket, RotateCcw, X, Clock, AlertTriangle, CheckCircle2, Ban, TrendingUp, XCircle, Target, Trash2, Bug, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import ActionModal from '@/components/ui/ActionModal';
 
 type ReleaseChannel = 'stable' | 'beta' | 'internal' | 'development';
 type ReleaseStatus = 'ACTIVE' | 'ROLLED_BACK' | 'DISABLED';
@@ -61,6 +62,17 @@ interface DesktopInstallation {
   memory_free_gb: number | null;
   monitoring_permission_status: string | null;
   monitoring_capture_error: string | null;
+  // The REAL screenshot-visibility gate — a separate, new concept from
+  // monitoring_permission_status above (that field is self-reported OS
+  // telemetry only; see be-work's monitoring_access_grants schema comment).
+  // 'NOT_GRANTED' means no grant row exists for this employee at all.
+  monitoring_access_status: 'GRANTED' | 'FORCE_GRANTED' | 'NOT_GRANTED';
+  // Real evidence — at least one screenshot row exists for this employee.
+  // Distinct from monitoring_access_status (permission to be captured) and
+  // monitoring_permission_status (self-reported OS telemetry): this is
+  // proof it has actually happened at least once.
+  has_screenshots: boolean;
+  monitoring_access_granted_by: string | null;
   user: { id: string; first_name: string; last_name: string; email: string };
 }
 
@@ -132,34 +144,37 @@ function CrashStatusBadge({ status }: { status: CrashStatus }) {
   return <span className={cn('px-2 py-0.5 rounded-md text-[10px] font-bold', map[status])}>{status[0] + status.slice(1).toLowerCase()}</span>;
 }
 
-// null/undefined covers both legacy installs that predate this feature and
-// installs that simply haven't reported since last clock-in — neither is
-// "blocked", so both render as a neutral dash rather than implying a
-// problem. CAPTURE_FAILED is the one status that actually blocks clock-in
-// (see be-work timesheets.controller.js's clock_in) — its error tooltip is
-// the real diagnostic value here, not just the status label.
-function MonitoringStatusBadge({ status, error }: { status: string | null; error: string | null }) {
-  if (!status || status === 'NOT_APPLICABLE') return <span className="text-gray-300 text-xs">—</span>;
-  const map: Record<string, string> = {
-    GRANTED: 'bg-emerald-50 text-emerald-700',
-    DENIED: 'bg-red-50 text-red-700',
-    UNKNOWN: 'bg-amber-50 text-amber-700',
-    CAPTURE_FAILED: 'bg-red-50 text-red-700',
-  };
-  const label: Record<string, string> = {
-    GRANTED: 'Granted',
-    DENIED: 'Denied',
-    UNKNOWN: 'Unknown',
-    CAPTURE_FAILED: 'Capture Failed',
-  };
-  return (
-    <span
-      className={cn('px-2 py-0.5 rounded-md text-[10px] font-bold', map[status] || 'bg-gray-100 text-gray-500')}
-      title={status === 'CAPTURE_FAILED' ? (error || 'Screenshot capture is failing on this device') : undefined}
-    >
-      {label[status] || status}
-    </span>
-  );
+// "Granted" here means real evidence — at least one screenshot has actually
+// been captured for this employee (hasScreenshots) — not the self-reported
+// monitoring_permission_status alone, which a client can claim GRANTED for
+// while zero screenshots ever arrive (see be-work's own schema comment:
+// that field is "never read by any authorization logic"). The self-reported
+// status is still surfaced for CAPTURE_FAILED/DENIED, since those are real
+// diagnostic signals (CAPTURE_FAILED specifically blocks clock-in — see
+// be-work timesheets.controller.js's clock_in) even before any screenshot
+// has landed. null/undefined/no-screenshots-yet all render as a neutral
+// dash rather than implying a problem.
+function MonitoringStatusBadge({ status, error, hasScreenshots }: { status: string | null; error: string | null; hasScreenshots: boolean }) {
+  if (hasScreenshots) return <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700">Granted</span>;
+  if (status === 'CAPTURE_FAILED') {
+    return (
+      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-50 text-red-700" title={error || 'Screenshot capture is failing on this device'}>
+        Capture Failed
+      </span>
+    );
+  }
+  if (status === 'DENIED') return <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-50 text-red-700">Denied</span>;
+  return <span className="text-gray-300 text-xs">—</span>;
+}
+
+// The real screenshot-visibility gate (monitoring_access_grants), distinct
+// from MonitoringStatusBadge above (which is only ever self-reported OS
+// telemetry — see that badge's own comment). This is what Screenshot
+// History's server-side enforcement actually reads.
+function AccessBadge({ status }: { status: DesktopInstallation['monitoring_access_status'] }) {
+  if (status === 'GRANTED') return <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700">Granted</span>;
+  if (status === 'FORCE_GRANTED') return <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-50 text-purple-700">Force Granted</span>;
+  return <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-gray-100 text-gray-500">Not Granted</span>;
 }
 
 function ManageTargetsModal({ release, onClose }: { release: DesktopRelease; onClose: () => void }) {
@@ -440,6 +455,8 @@ export default function DesktopManagementPage() {
   const [disableTarget, setDisableTarget] = useState<DesktopRelease | null>(null);
 
   const [manageTargetsForId, setManageTargetsForId] = useState<string | null>(null);
+  const [forceAccessTarget, setForceAccessTarget] = useState<DesktopInstallation | null>(null);
+  const [showBulkForceConfirm, setShowBulkForceConfirm] = useState(false);
 
   const { data: releases = [], isLoading: releasesLoading } = useQuery<DesktopRelease[]>({
     queryKey: ['desktop-releases'],
@@ -491,6 +508,42 @@ export default function DesktopManagementPage() {
       qc.invalidateQueries({ queryKey: ['desktop-installations'] });
     },
     onError: (err: any) => toast.error(err?.data?.message || err?.message || 'Failed to request force update'),
+  });
+
+  const grantAccessMutation = useMutation({
+    mutationFn: (userId: string) => apiRequest<any>(API_ENDPOINTS.DESKTOP.MONITORING_GRANT(userId), { method: 'POST' }),
+    onSuccess: (r: any) => {
+      toast.success(r?.message || 'Monitoring access granted');
+      qc.invalidateQueries({ queryKey: ['desktop-installations'] });
+    },
+    onError: (err: any) => toast.error(err?.data?.message || err?.message || 'Failed to grant access'),
+  });
+
+  const forceAccessMutation = useMutation({
+    mutationFn: (userId: string) => apiRequest<any>(API_ENDPOINTS.DESKTOP.MONITORING_FORCE(userId), { method: 'POST' }),
+    onSuccess: (r: any) => {
+      toast.success(r?.message || 'Monitoring access force-granted');
+      qc.invalidateQueries({ queryKey: ['desktop-installations'] });
+      setForceAccessTarget(null);
+    },
+    onError: (err: any) => {
+      toast.error(err?.data?.message || err?.message || 'Failed to force access');
+      setForceAccessTarget(null);
+    },
+  });
+
+  const bulkForceAccessMutation = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.DESKTOP.MONITORING_BULK_FORCE, { method: 'POST' }),
+    onSuccess: (r: any) => {
+      const p = r?.payload || {};
+      toast.success(`Bulk force access complete — ${p.newly_granted} newly granted, ${p.already_had_access} already had access, ${p.failed} failed (of ${p.total_checked} checked)`);
+      qc.invalidateQueries({ queryKey: ['desktop-installations'] });
+      setShowBulkForceConfirm(false);
+    },
+    onError: (err: any) => {
+      toast.error(err?.data?.message || err?.message || 'Bulk force access failed');
+      setShowBulkForceConfirm(false);
+    },
   });
 
   const rolloutMutation = useMutation({
@@ -663,21 +716,31 @@ export default function DesktopManagementPage() {
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <h2 className="text-sm font-black text-gray-700 mb-4">Desktop Diagnostics</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-black text-gray-700">Desktop Diagnostics</h2>
+          <button
+            onClick={() => setShowBulkForceConfirm(true)}
+            disabled={bulkForceAccessMutation.isPending}
+            className="flex items-center gap-1.5 px-3 h-8 rounded-lg bg-purple-50 text-purple-700 text-xs font-bold hover:bg-purple-100 disabled:opacity-50"
+          >
+            <ShieldAlert size={13} />
+            Force Access to All Employees Without Access
+          </button>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
-                {['Employee', 'Version', 'OS / Arch', 'Update Status', 'Monitoring', 'Last Sync', 'Disk Free', 'Memory Free'].map((h) => (
+                {['Employee', 'Version', 'OS / Arch', 'Update Status', 'Monitoring', 'Access', 'Last Sync', 'Disk Free', 'Memory Free'].map((h) => (
                   <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide py-3 px-2 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {installLoading ? (
-                <tr><td colSpan={8} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                <tr><td colSpan={9} className="py-4 px-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
               ) : installations.length === 0 ? (
-                <tr><td colSpan={8} className="py-8 text-center text-gray-400 text-sm">No desktop installs have reported in yet.</td></tr>
+                <tr><td colSpan={9} className="py-8 text-center text-gray-400 text-sm">No desktop installs have reported in yet.</td></tr>
               ) : installations.map((i) => (
                 <tr key={i.id} className="hover:bg-gray-50 transition-colors">
                   <td className="py-3 px-2 font-semibold text-gray-900">{i.user.first_name} {i.user.last_name}</td>
@@ -691,7 +754,32 @@ export default function DesktopManagementPage() {
                     )}
                   </td>
                   <td className="py-3 px-2">
-                    <MonitoringStatusBadge status={i.monitoring_permission_status} error={i.monitoring_capture_error} />
+                    <MonitoringStatusBadge status={i.monitoring_permission_status} error={i.monitoring_capture_error} hasScreenshots={i.has_screenshots} />
+                  </td>
+                  <td className="py-3 px-2">
+                    <div className="flex flex-col gap-1.5 items-start">
+                      <span title={i.monitoring_access_granted_by ? `Granted by ${i.monitoring_access_granted_by}` : undefined}>
+                        <AccessBadge status={i.monitoring_access_status} />
+                      </span>
+                      {i.monitoring_access_status === 'NOT_GRANTED' && (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => grantAccessMutation.mutate(i.user_id)}
+                            disabled={grantAccessMutation.isPending}
+                            className="px-2 h-6 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold hover:bg-emerald-100 disabled:opacity-50"
+                          >
+                            Grant Access
+                          </button>
+                          <button
+                            onClick={() => setForceAccessTarget(i)}
+                            disabled={forceAccessMutation.isPending}
+                            className="px-2 h-6 rounded-md bg-purple-50 text-purple-700 text-[10px] font-bold hover:bg-purple-100 disabled:opacity-50"
+                          >
+                            Force Access
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="py-3 px-2 text-gray-500 text-xs flex items-center gap-1"><Clock size={12} />{fmtDate(i.last_seen_at)}</td>
                   <td className="py-3 px-2 text-gray-600 text-xs">{fmtGb(i.disk_free_gb)}{i.disk_total_gb ? ` / ${fmtGb(i.disk_total_gb)}` : ''}</td>
@@ -850,6 +938,30 @@ export default function DesktopManagementPage() {
       {manageTargetsRelease && (
         <ManageTargetsModal release={manageTargetsRelease} onClose={() => setManageTargetsForId(null)} />
       )}
+
+      <ActionModal
+        isOpen={!!forceAccessTarget}
+        onClose={() => setForceAccessTarget(null)}
+        onConfirm={() => forceAccessTarget && forceAccessMutation.mutate(forceAccessTarget.user_id)}
+        title="Force Monitoring Access?"
+        description={`This grants ${forceAccessTarget ? `${forceAccessTarget.user.first_name} ${forceAccessTarget.user.last_name}` : 'this employee'} monitoring/screenshot access even though they have not granted/approved it themselves. This is a deliberate override — it will be recorded as force-granted, distinct from a normal grant.`}
+        confirmText="Yes, Force Access"
+        confirmVariant="warning"
+        icon="warning"
+        loading={forceAccessMutation.isPending}
+      />
+
+      <ActionModal
+        isOpen={showBulkForceConfirm}
+        onClose={() => setShowBulkForceConfirm(false)}
+        onConfirm={() => bulkForceAccessMutation.mutate()}
+        title="Force Access to All Employees Without Access?"
+        description={`This will force-grant monitoring/screenshot access to every active employee who does not already have it (at least ${installations.filter((i) => i.monitoring_access_status === 'NOT_GRANTED').length} of the employees shown here, plus any active employee without a desktop install on record yet). Employees who already have access — granted or force-granted — are left untouched.`}
+        confirmText="Force Access to All"
+        confirmVariant="warning"
+        icon="warning"
+        loading={bulkForceAccessMutation.isPending}
+      />
     </div>
   );
 }
