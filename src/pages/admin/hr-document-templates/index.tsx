@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { FileStack, Plus, X, History, Copy, Archive, RotateCcw, Trash2 } from 'lucide-react';
 import {
   useGetDocumentCategories, useGetDocumentTypes, useGetTemplates,
@@ -26,6 +26,9 @@ function TemplateModal({ template, onClose }: { template?: DocumentTemplate; onC
   const { data: versions } = useGetTemplateVersions(template?.id);
   const [showVersions, setShowVersions] = useState(false);
   const [err, setErr] = useState('');
+  const contentRef = useRef<HTMLTextAreaElement>(null);
+  const lastSelection = useRef<{ start: number; end: number }>({ start: content.length, end: content.length });
+  const pendingCaret = useRef<number | null>(null);
 
   const createMutation = useCreateTemplate();
   const updateMutation = useUpdateTemplate();
@@ -38,7 +41,7 @@ function TemplateModal({ template, onClose }: { template?: DocumentTemplate; onC
       return;
     }
     const payload = isEdit
-      ? { id: template!.id, name, content, requires_approval: requiresApproval }
+      ? { id: template!.id, name, content, requires_approval: requiresApproval, category_id: categoryId, type_id: typeId }
       : { category_id: categoryId, type_id: typeId, name, content, requires_approval: requiresApproval };
     mutation.mutate(payload as any, {
       onSuccess: () => { toast.success(isEdit ? 'New version saved' : 'Template created'); onClose(); },
@@ -46,7 +49,41 @@ function TemplateModal({ template, onClose }: { template?: DocumentTemplate; onC
     });
   };
 
-  const insertToken = (token: string) => setContent((c) => `${c}{{${token}}}`);
+  // The placeholder panel steals focus from the textarea when clicked, so the
+  // browser's own selectionStart/selectionEnd would already be reset to 0 by
+  // the time the click handler runs — track the caret/selection ourselves on
+  // every interaction that could move it, and insert at that remembered spot.
+  const captureSelection = () => {
+    const el = contentRef.current;
+    if (el) lastSelection.current = { start: el.selectionStart ?? content.length, end: el.selectionEnd ?? content.length };
+  };
+
+  const insertToken = (token: string) => {
+    const { start, end } = lastSelection.current;
+    const tokenText = `{{${token}}}`;
+    setContent((c) => {
+      const safeStart = Math.min(start, c.length);
+      const safeEnd = Math.min(Math.max(end, safeStart), c.length);
+      return c.slice(0, safeStart) + tokenText + c.slice(safeEnd);
+    });
+    // Applied in a layout effect, synchronously after the DOM reflects the
+    // new value — a requestAnimationFrame here would race the *next*
+    // placeholder click's onBlur, which reads the textarea's real (still
+    // stale) selection and would clobber the caret we just computed.
+    pendingCaret.current = start + tokenText.length;
+  };
+
+  useLayoutEffect(() => {
+    if (pendingCaret.current == null) return;
+    const caret = pendingCaret.current;
+    pendingCaret.current = null;
+    const el = contentRef.current;
+    if (el) {
+      el.focus();
+      el.setSelectionRange(caret, caret);
+    }
+    lastSelection.current = { start: caret, end: caret };
+  }, [content]);
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
@@ -61,14 +98,14 @@ function TemplateModal({ template, onClose }: { template?: DocumentTemplate; onC
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Category <span className="text-red-500">*</span></label>
-                <select className={inputCls} value={categoryId} disabled={isEdit} onChange={(e) => { setCategoryId(e.target.value); setTypeId(''); }}>
+                <select className={inputCls} value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setTypeId(''); }}>
                   <option value="">Select category</option>
                   {(categories || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className={labelCls}>Document Type <span className="text-red-500">*</span></label>
-                <select className={inputCls} value={typeId} disabled={isEdit || !categoryId} onChange={(e) => setTypeId(e.target.value)}>
+                <select className={inputCls} value={typeId} disabled={!categoryId} onChange={(e) => setTypeId(e.target.value)}>
                   <option value="">Select type</option>
                   {(types || []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
@@ -88,9 +125,14 @@ function TemplateModal({ template, onClose }: { template?: DocumentTemplate; onC
                 {isEdit && <span className="ml-2 text-gray-400 font-normal normal-case">Saving creates a new version — the current one is preserved.</span>}
               </label>
               <textarea
+                ref={contentRef}
                 className={cn(inputCls, 'h-72 py-2 font-mono text-xs leading-relaxed resize-none')}
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
+                onChange={(e) => { setContent(e.target.value); captureSelection(); }}
+                onSelect={captureSelection}
+                onKeyUp={captureSelection}
+                onClick={captureSelection}
+                onBlur={captureSelection}
                 placeholder="Dear {{employee_name}}, you are appointed as {{designation}}..."
               />
             </div>

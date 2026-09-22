@@ -15,6 +15,7 @@ import {
   useGetOnboardingTasks, useCreateOnboardingTask, useCompleteOnboardingTask, useGetOnboardingReadiness, useMoveToProbation,
   useGetEmailTemplates,
 } from '@/services/onboardingService';
+import { useGetOfferLetterDocumentTemplates } from '@/services/hrDocumentsService';
 import { useCreateInterview, useUpdateInterview, useGenerateInterviewEmail, useEditInterviewEmail, useSendInterviewEmail } from '@/services/interviewsService';
 import { useMyPermissions } from '@/services/permissionsService';
 
@@ -481,7 +482,7 @@ function RescheduleInterviewModal({ interview, onClose }: { interview: any; onCl
 // different generate/edit/send hooks and entity fields, per the reuse
 // instruction. The content shown IS the entity's stored subject/body field
 // — the exact thing the send call transmits, never regenerated on send.
-function EmailWorkflowModal({
+export function EmailWorkflowModal({
   title, templateType, entity, subjectField, bodyField,
   useGenerate, useEdit, useSend, idFor,
   generateKey = 'id', editKey = 'id',
@@ -503,7 +504,15 @@ function EmailWorkflowModal({
   onClose: () => void;
 }) {
   const toast = useToastContext();
-  const { data: templates = [] } = useGetEmailTemplates(templateType);
+  const { data: recruitmentTemplates = [] } = useGetEmailTemplates(templateType);
+  // Document Templates (Employment / Offer Letter, active) is the canonical
+  // template source for offer emails — merged in alongside this module's own
+  // recruitment_email_templates rather than replacing them, so existing
+  // offer-email functionality (and every other templateType here) is unaffected.
+  const { data: offerDocTemplates = [] } = useGetOfferLetterDocumentTemplates(templateType === 'OFFER');
+  const templates = templateType === 'OFFER'
+    ? [...recruitmentTemplates, ...offerDocTemplates.map((t) => ({ id: t.id, name: `${t.name} (Document Template)` }))]
+    : recruitmentTemplates;
   const generate = useGenerate();
   const edit = useEdit();
   const send = useSend();

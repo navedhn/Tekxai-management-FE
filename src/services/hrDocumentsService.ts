@@ -197,6 +197,25 @@ export const useGetTemplateDetail = (id?: string) =>
     enabled: !!id,
   });
 
+// Document Templates is the canonical source for the onboarding Offer Email
+// selector (per product decision — no separate offer-template system).
+// Active "Employment / Offer Letter" templates only; matched by category/
+// type name rather than a hardcoded id, so it tracks whatever the category
+// and type are actually named in this environment's seed data.
+export const useGetOfferLetterDocumentTemplates = (enabled = true) =>
+  useQuery({
+    queryKey: ['hr-document-templates', 'offer-letter-active'],
+    queryFn: async () => {
+      const r = await apiRequest<any>(API_ENDPOINTS.HR_DOCUMENTS.TEMPLATES);
+      const all = (r?.payload || []) as DocumentTemplate[];
+      return all.filter(
+        (t) => t.is_active && t.category?.name === 'Employment' && t.type?.name === 'Offer Letter',
+      );
+    },
+    staleTime: 30000,
+    enabled,
+  });
+
 export const useGetTemplateVersions = (id?: string) =>
   useQuery({
     queryKey: ['hr-document-template-versions', id],
