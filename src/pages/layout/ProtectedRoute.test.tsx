@@ -19,7 +19,7 @@ const withQueryClient = (node: React.ReactNode, myPerms?: MyPermissions) => {
 };
 
 const renderProtectedRoute = (
-  props: { permission?: string | string[]; superAdminOnly?: boolean },
+  props: { permission?: string | string[]; superAdminOnly?: boolean; noPermissionRedirect?: string },
   myPerms?: MyPermissions,
 ) =>
   render(
@@ -28,6 +28,7 @@ const renderProtectedRoute = (
         <Routes>
           <Route path="/login" element={<div>Login Page</div>} />
           <Route path="/403" element={<div>Access Denied Page</div>} />
+          <Route path="/employee" element={<div>Employee Home Page</div>} />
           <Route element={<ProtectedRoute {...props} />}>
             <Route path="/private" element={<ProtectedContent />} />
           </Route>
@@ -119,6 +120,34 @@ describe('ProtectedRoute', () => {
     renderProtectedRoute(
       { permission: ['erp.users.create', 'hr.employees.edit'] },
       { roles: ['EMPLOYEE'], permissions: [], is_super_admin: false },
+    );
+    expect(screen.getByText('Access Denied Page')).toBeInTheDocument();
+  });
+
+  it('redirects to a custom noPermissionRedirect target instead of /403 when given one, on missing permission', () => {
+    useAuthStore.setState({ isLoggedIn: true, role: 'ENGINEER', user: { id: '11' } as never });
+    renderProtectedRoute(
+      { permission: 'erp.dashboard.view', noPermissionRedirect: '/employee' },
+      { roles: ['ENGINEER'], permissions: ['erp.workspace.access'], is_super_admin: false },
+    );
+    expect(screen.getByText('Employee Home Page')).toBeInTheDocument();
+    expect(screen.queryByText('Access Denied Page')).not.toBeInTheDocument();
+  });
+
+  it('with noPermissionRedirect set but the permission actually granted, still renders the outlet (redirect never fires)', () => {
+    useAuthStore.setState({ isLoggedIn: true, role: 'ADMIN', user: { id: '12' } as never });
+    renderProtectedRoute(
+      { permission: 'erp.dashboard.view', noPermissionRedirect: '/employee' },
+      { roles: ['ADMIN'], permissions: ['erp.dashboard.view'], is_super_admin: false },
+    );
+    expect(screen.getByText('Protected Content')).toBeInTheDocument();
+  });
+
+  it('falls back to /403 when noPermissionRedirect is not given (unchanged default behavior)', () => {
+    useAuthStore.setState({ isLoggedIn: true, role: 'ENGINEER', user: { id: '13' } as never });
+    renderProtectedRoute(
+      { permission: 'erp.dashboard.view' },
+      { roles: ['ENGINEER'], permissions: ['erp.workspace.access'], is_super_admin: false },
     );
     expect(screen.getByText('Access Denied Page')).toBeInTheDocument();
   });

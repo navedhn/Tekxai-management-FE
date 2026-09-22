@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMyPermissions } from '@/services/permissionsService';
 import { RoutePageSkeleton } from '@/components/skeletons';
 
-const ProtectedRoute: React.FC<{ permission?: string | string[]; superAdminOnly?: boolean; clientOnly?: boolean }> = ({ permission, superAdminOnly, clientOnly }) => {
+const ProtectedRoute: React.FC<{ permission?: string | string[]; superAdminOnly?: boolean; clientOnly?: boolean; noPermissionRedirect?: string }> = ({ permission, superAdminOnly, clientOnly, noPermissionRedirect = '/403' }) => {
   const { isLoggedIn, user, hasHydrated } = useAuth();
   const { data: myPerms, isLoading } = useMyPermissions();
 
@@ -32,7 +32,7 @@ const ProtectedRoute: React.FC<{ permission?: string | string[]; superAdminOnly?
 
     const required = Array.isArray(permission) ? permission : [permission];
     const hasPermission = myPerms?.is_super_admin || required.some((p) => myPerms?.permissions?.includes(p));
-    if (!hasPermission) return <Navigate to="/403" replace />;
+    if (!hasPermission) return <Navigate to={noPermissionRedirect} replace />;
   }
 
   return <Outlet />;

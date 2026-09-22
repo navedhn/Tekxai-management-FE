@@ -171,7 +171,7 @@ const routes: RouteObject[] = [
       {
         element: <ProtectedRoute permission="erp.workspace.access" />,
         children: [
-          { path: '/admin',                      element: <AdminDashboard /> },
+          { element: <ProtectedRoute permission="erp.dashboard.view" noPermissionRedirect="/employee" />, children: [{ path: '/admin', element: <AdminDashboard /> }] },
           { path: '/admin/settings',             element: <AdminSettings /> },
           { path: '/admin/notifications',        element: <SharedNotifications /> },
           { path: '/admin/profile/:memberId?',   element: <ProfilePage /> },
