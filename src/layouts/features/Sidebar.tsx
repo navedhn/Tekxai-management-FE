@@ -334,6 +334,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       // sidebar item on erp.projects.view would hide it from exactly the
       // project managers who need it. See router.tsx's /admin/projects
       // routes, which were relaxed to match for the same reason.
+      // CRM route itself has no permission gate beyond erp.workspace.access
+      // (see router.tsx `/admin/crm`), so tier:'admin' matches it exactly —
+      // this item was simply missing from the sidebar config entirely
+      // (the page was only reachable by typing the URL directly).
+      { module: 'Projects', tier: 'admin', to: '/admin/crm', label: 'Client CRM', icon: <Landmark size={18} strokeWidth={SW} /> },
       { module: 'Projects', tier: 'admin', to: '/admin/projects', label: 'Projects', icon: <FolderCheck size={18} strokeWidth={SW} /> },
       { module: 'Projects', tier: 'admin', to: '/admin/project-tracking', label: 'Project Tracking', icon: <Table2 size={18} strokeWidth={SW} /> },
       { module: 'Projects', tier: 'admin', to: '/admin/project-timeline', label: 'Timeline', icon: <CalendarDays size={18} strokeWidth={SW} /> },
