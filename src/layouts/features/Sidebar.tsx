@@ -67,6 +67,22 @@ const ERP_OPS_ROUTE_PERMISSIONS: Record<string, string> = {
   '/admin/client-nda': 'crm.client_documents.manage',
   '/admin/policies': 'hr.policies.view',
   '/admin/monitoring': 'erp.monitoring.view',
+  '/admin/team': 'erp.teams.view',
+  '/admin/compliance-violations': 'erp.compliance_violations.manage',
+  '/admin/payroll': 'erp.payroll.view',
+  '/admin/finance/expenses': 'erp.expenses.view',
+  '/admin/tickets': 'erp.tickets.view',
+  '/admin/ticket-categories': 'erp.ticket-categories.view',
+  '/admin/ticket-types': 'erp.ticket-types.view',
+  '/admin/approvals': 'erp.requisitions.approve',
+  '/admin/webhooks': 'erp.webhooks.manage',
+  '/admin/report-builder': 'erp.reports.view',
+  '/admin/projects': 'erp.projects.view',
+  '/admin/project-tracking': 'erp.projects.view',
+  '/admin/project-timeline': 'erp.projects.view',
+  '/admin/meetings': 'erp.meetings.view',
+  '/admin/projects-report': 'erp.reports.view',
+  '/admin/starred': 'erp.projects.view',
 };
 interface ModuleLink extends Omit<SidebarLink, 'section'> {
   module: ModuleName;
@@ -253,7 +269,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Workforce', tier: 'erpOps', to: '/admin/business-units', label: 'Business Units', icon: <Landmark size={18} strokeWidth={SW} /> },
       { module: 'Workforce', tier: 'erpOps', to: '/admin/departments', label: 'Departments', icon: <Building2 size={18} strokeWidth={SW} /> },
       { module: 'Workforce', tier: 'erpOps', to: '/admin/divisions', label: 'Divisions', icon: <Layers size={18} strokeWidth={SW} /> },
-      { module: 'Workforce', tier: 'admin', to: '/admin/team', label: 'Teams', icon: <Users2 size={18} strokeWidth={SW} /> },
+      { module: 'Workforce', tier: 'erpOps', to: '/admin/team', label: 'Teams', icon: <Users2 size={18} strokeWidth={SW} /> },
       { module: 'Workforce', tier: 'erpOps', to: '/admin/designations', label: 'Designations', icon: <Tag size={18} strokeWidth={SW} /> },
       { module: 'Workforce', tier: 'erpOps', to: '/admin/grades', label: 'Grades', icon: <TrendingUp size={18} strokeWidth={SW} /> },
       { module: 'Workforce', tier: 'erpOps', to: '/admin/org-chart', label: 'Org Chart', icon: <Network size={18} strokeWidth={SW} /> },
@@ -269,15 +285,15 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Attendance', tier: 'erpOps', to: '/admin/overtime', label: 'Overtime', icon: <AlarmClock size={18} strokeWidth={SW} /> },
       { module: 'Attendance', tier: 'erpOps', to: '/admin/employee-timesheets', label: 'Employee Timesheets', icon: <Clock size={18} strokeWidth={SW} /> },
       { module: 'Attendance', tier: 'erpOps', to: '/admin/manager-review', label: 'Manager Review', icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
-      { module: 'Attendance', tier: 'admin', to: '/admin/compliance-violations', label: 'Compliance Violations', icon: <AlarmClock size={18} strokeWidth={SW} /> },
+      { module: 'Attendance', tier: 'erpOps', to: '/admin/compliance-violations', label: 'Compliance Violations', icon: <AlarmClock size={18} strokeWidth={SW} /> },
 
       { module: 'Performance', tier: 'erpOps', to: '/admin/performance', label: 'Performance', icon: <TrendingUp size={18} strokeWidth={SW} /> },
       { module: 'Performance', tier: 'erpOps', to: '/admin/performance-scoring', label: 'Performance Scoring', icon: <TrendingUp size={18} strokeWidth={SW} /> },
 
       { module: 'Payroll', tier: 'erpOps', to: '/admin/increments', label: 'Increments', icon: <TrendingUp size={18} strokeWidth={SW} /> },
-      { module: 'Payroll', tier: 'admin', to: '/admin/payroll', label: 'Payroll', icon: <Banknote size={18} strokeWidth={SW} /> },
+      { module: 'Payroll', tier: 'erpOps', to: '/admin/payroll', label: 'Payroll', icon: <Banknote size={18} strokeWidth={SW} /> },
 
-      { module: 'Finance', tier: 'admin', to: '/admin/finance/expenses', label: 'Expense Claims', icon: <Receipt size={18} strokeWidth={SW} /> },
+      { module: 'Finance', tier: 'erpOps', to: '/admin/finance/expenses', label: 'Expense Claims', icon: <Receipt size={18} strokeWidth={SW} /> },
       { module: 'Finance', tier: 'superadmin', to: '/admin/finance/financial-reports', label: 'Financial Reports', icon: <BarChart3 size={18} strokeWidth={SW} /> },
 
       { module: 'Assets', tier: 'erpOps', to: '/admin/assets', label: 'Assets', icon: <Package size={18} strokeWidth={SW} /> },
@@ -292,10 +308,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
 
       { module: 'Policies', tier: 'erpOps', to: '/admin/policies', label: 'Policies', icon: <ShieldCheck size={18} strokeWidth={SW} /> },
 
-      { module: 'Ticketing', tier: 'admin', to: '/admin/tickets', label: 'Support Tickets', icon: <Ticket size={18} strokeWidth={SW} /> },
-      { module: 'Ticketing', tier: 'admin', to: '/admin/ticket-categories', label: 'Ticket Categories', icon: <Layers size={18} strokeWidth={SW} /> },
-      { module: 'Ticketing', tier: 'admin', to: '/admin/ticket-types', label: 'Ticket Types', icon: <Settings size={18} strokeWidth={SW} /> },
-      { module: 'Ticketing', tier: 'admin', to: '/admin/approvals', label: 'Approvals', icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
+      { module: 'Ticketing', tier: 'erpOps', to: '/admin/tickets', label: 'Support Tickets', icon: <Ticket size={18} strokeWidth={SW} /> },
+      { module: 'Ticketing', tier: 'erpOps', to: '/admin/ticket-categories', label: 'Ticket Categories', icon: <Layers size={18} strokeWidth={SW} /> },
+      { module: 'Ticketing', tier: 'erpOps', to: '/admin/ticket-types', label: 'Ticket Types', icon: <Settings size={18} strokeWidth={SW} /> },
+      { module: 'Ticketing', tier: 'erpOps', to: '/admin/approvals', label: 'Approvals', icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
 
       { module: 'Monitoring', tier: 'erpOps', to: '/admin/monitoring', label: 'Monitoring', icon: <Monitor size={18} strokeWidth={SW} /> },
       { module: 'Monitoring', tier: 'admin', to: '/admin/download-app', label: 'Desktop App', icon: <Monitor size={18} strokeWidth={SW} /> },
@@ -308,8 +324,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Administration', tier: 'superadmin', to: '/admin/permissions', label: 'Access Control', icon: <Shield size={18} strokeWidth={SW} /> },
       { module: 'Administration', tier: 'superadmin', to: '/admin/desktop-management', label: 'Desktop Management', icon: <Monitor size={18} strokeWidth={SW} /> },
       { module: 'Administration', tier: 'all', to: '/admin/notifications', label: 'Notifications', icon: <BellIcon size={18} strokeWidth={SW} /> },
-      { module: 'Administration', tier: 'admin', to: '/admin/webhooks', label: 'Webhooks', icon: <Webhook size={18} strokeWidth={SW} /> },
-      { module: 'Administration', tier: 'admin', to: '/admin/report-builder', label: 'Report Builder', icon: <BarChart3 size={18} strokeWidth={SW} /> },
+      { module: 'Administration', tier: 'erpOps', to: '/admin/webhooks', label: 'Webhooks', icon: <Webhook size={18} strokeWidth={SW} /> },
+      { module: 'Administration', tier: 'erpOps', to: '/admin/report-builder', label: 'Report Builder', icon: <BarChart3 size={18} strokeWidth={SW} /> },
       { module: 'Administration', tier: 'superadmin', to: '/admin/reports-analytics', label: 'Reports', icon: <BarChart3 size={18} strokeWidth={SW} /> },
       { module: 'Administration', tier: 'superadmin', to: '/admin/email-logs', label: 'Email Logs', icon: <Mail size={18} strokeWidth={SW} /> },
       { module: 'Administration', tier: 'superadmin', to: '/admin/system-settings', label: 'System Settings', icon: <Settings size={18} strokeWidth={SW} /> },
