@@ -77,12 +77,8 @@ const ERP_OPS_ROUTE_PERMISSIONS: Record<string, string> = {
   '/admin/approvals': 'erp.requisitions.approve',
   '/admin/webhooks': 'erp.webhooks.manage',
   '/admin/report-builder': 'erp.reports.view',
-  '/admin/projects': 'erp.projects.view',
-  '/admin/project-tracking': 'erp.projects.view',
-  '/admin/project-timeline': 'erp.projects.view',
   '/admin/meetings': 'erp.meetings.view',
   '/admin/projects-report': 'erp.reports.view',
-  '/admin/starred': 'erp.projects.view',
 };
 interface ModuleLink extends Omit<SidebarLink, 'section'> {
   module: ModuleName;
@@ -330,11 +326,19 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Administration', tier: 'superadmin', to: '/admin/email-logs', label: 'Email Logs', icon: <Mail size={18} strokeWidth={SW} /> },
       { module: 'Administration', tier: 'superadmin', to: '/admin/system-settings', label: 'System Settings', icon: <Settings size={18} strokeWidth={SW} /> },
 
+      // NOTE: deliberately tier:'admin' (broad workspace access), not
+      // 'erpOps'/ERP_OPS_ROUTE_PERMISSIONS — unlike the other items fixed
+      // alongside this one, project visibility is membership-based (a
+      // non-elevated owner/leader/member should still see their own
+      // projects), not gated by a single broad permission. Gating the
+      // sidebar item on erp.projects.view would hide it from exactly the
+      // project managers who need it. See router.tsx's /admin/projects
+      // routes, which were relaxed to match for the same reason.
       { module: 'Projects', tier: 'admin', to: '/admin/projects', label: 'Projects', icon: <FolderCheck size={18} strokeWidth={SW} /> },
       { module: 'Projects', tier: 'admin', to: '/admin/project-tracking', label: 'Project Tracking', icon: <Table2 size={18} strokeWidth={SW} /> },
       { module: 'Projects', tier: 'admin', to: '/admin/project-timeline', label: 'Timeline', icon: <CalendarDays size={18} strokeWidth={SW} /> },
-      { module: 'Projects', tier: 'admin', to: '/admin/meetings', label: 'Meetings', icon: <Video size={18} strokeWidth={SW} /> },
-      { module: 'Projects', tier: 'admin', to: '/admin/projects-report', label: 'Projects Report', icon: <FileBarChart size={18} strokeWidth={SW} /> },
+      { module: 'Projects', tier: 'erpOps', to: '/admin/meetings', label: 'Meetings', icon: <Video size={18} strokeWidth={SW} /> },
+      { module: 'Projects', tier: 'erpOps', to: '/admin/projects-report', label: 'Projects Report', icon: <FileBarChart size={18} strokeWidth={SW} /> },
       { module: 'Projects', tier: 'admin', to: '/admin/starred', label: 'Starred', icon: <Star size={18} strokeWidth={SW} /> },
     ];
 

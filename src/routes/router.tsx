@@ -182,11 +182,19 @@ const routes: RouteObject[] = [
           { path: '/admin/download-app',          element: <DownloadApp /> },
           { path: '/admin/crm',                 element: <AdminCRM /> },
           { path: '/admin/my-salaries',           element: <MarketingMySalaries /> },
-          { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/admin/projects', element: <AdminProjects /> }] },
-          { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/admin/project-tracking', element: <AdminProjectTracking /> }] },
-          { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/admin/project-timeline', element: <AdminProjectTimeline /> }] },
+          // Project visibility is membership-based, not a single broad
+          // permission (see be-work find_projects's member_only fallback:
+          // owner/leader/project_members rows scope the actual results
+          // server-side). A ProtectedRoute permission gate here would hide
+          // these pages from non-elevated project owners/leaders/members
+          // entirely, which is what caused a real bug — so these are
+          // intentionally left ungated beyond the parent erp.workspace.access
+          // wrapper, same as /admin/crm above.
+          { path: '/admin/projects',         element: <AdminProjects /> },
+          { path: '/admin/project-tracking', element: <AdminProjectTracking /> },
+          { path: '/admin/project-timeline', element: <AdminProjectTimeline /> },
           { element: <ProtectedRoute permission="erp.timesheet.view" />, children: [{ path: '/admin/timesheet', element: <AdminTimesheet /> }] },
-          { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/admin/starred', element: <AdminSaved /> }] },
+          { path: '/admin/starred', element: <AdminSaved /> },
           { element: <ProtectedRoute permission="erp.teams.view" />, children: [{ path: '/admin/team', element: <AdminTeam /> }] },
           { element: <ProtectedRoute permission="erp.users.view" />, children: [{ path: '/admin/users', element: <AdminUsers /> }] },
           { element: <ProtectedRoute permission="erp.monitoring.view" />, children: [{ path: '/admin/monitoring', element: <AdminMonitoring /> }] },
