@@ -195,7 +195,7 @@ const Dashboard: React.FC = () => {
                                 iconClassName="bg-green-50 text-green-600"
                                 value={data?.present_today ?? '—'}
                                 label="Present Today"
-                                subtext={`${data?.present_pct ?? 0}% of total`}
+                                subtext={<Button variant="link" size="sm" animation="none" rounded={false} className="!p-0 !shadow-none !hover:shadow-none h-auto text-blue-600 font-semibold" onClick={() => navigate('/admin/attendance?tab=no-check-in')}>View no check-ins →</Button>}
                             />
                             <DashboardStatCard
                                 className="bg-white border border-gray-100 rounded-xl shadow-sm"

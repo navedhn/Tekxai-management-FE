@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
@@ -172,7 +172,11 @@ function AttendanceReportsTab({ users, orgFilters }: { users: any[]; orgFilters:
 const AttendancePage: React.FC = () => {
   const toast = useToastContext();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('Overview');
+  const [searchParams] = useSearchParams();
+  // Deep-link support (e.g. the Dashboard's Present Today card links to
+  // ?tab=no-check-in) — read once on mount, same convention as
+  // admin/projects's ?tab= deep link.
+  const [activeTab, setActiveTab] = useState(() => (searchParams.get('tab') === 'no-check-in' ? 'No Check-in Today' : 'Overview'));
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [editingShift, setEditingShift] = useState<any>(null);
