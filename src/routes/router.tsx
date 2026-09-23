@@ -16,6 +16,8 @@ const ParamRedirect: React.FC<{ build: (params: Record<string, string | undefine
 };
 
 const HomePage               = lazy(() => import('@/pages/public/homePage'));
+const PrivacyPolicyPage      = lazy(() => import('@/pages/public/privacyPolicy'));
+const TermsOfUsePage         = lazy(() => import('@/pages/public/termsOfUse'));
 const CandidateSignPage      = lazy(() => import('@/pages/public/candidateSign'));
 const ClientNdaSignPage      = lazy(() => import('@/pages/public/clientNdaSign'));
 const OfferReviewPage        = lazy(() => import('@/pages/public/offerReview'));
@@ -141,6 +143,8 @@ const routes: RouteObject[] = [
     element: <PublicLayout />,
     children: [
       { path: '/',    element: <HomePage /> },
+      { path: '/privacy-policy', element: <PrivacyPolicyPage /> },
+      { path: '/terms-of-use', element: <TermsOfUsePage /> },
       { path: '/sign/:token', element: <CandidateSignPage /> },
       { path: '/client-sign/:token', element: <ClientNdaSignPage /> },
       { path: '/offer/:id', element: <OfferReviewPage /> },
