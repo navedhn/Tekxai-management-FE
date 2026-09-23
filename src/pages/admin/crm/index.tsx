@@ -95,6 +95,12 @@ function useClientPortalInvites(clientId: string) {
   return useQuery({
     queryKey: ['crm-client-portal-invites', clientId],
     enabled: !!clientId,
+    // Invite status (PENDING -> ACCEPTED) changes from a completely
+    // separate session (the client accepting their invite elsewhere), so
+    // this admin's own React Query cache has no way to know it's stale.
+    // Always refetch on mount/reopen rather than trusting a cached PENDING
+    // that may already be accepted.
+    refetchOnMount: 'always',
     queryFn: async () => {
       const r = await apiRequest<any>(`${v1}/crm/${clientId}/portal-invites`);
       return r?.payload?.records || [];

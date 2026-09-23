@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Send, Paperclip, FileText, X, Smile, Reply, Bold, Italic, Code, ChevronDown, ChevronRight, AtSign } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
@@ -324,6 +325,7 @@ const MessageBubble: React.FC<{
 
   return (
     <div
+      id={`portal-message-${m.id}`}
       className={cn(
         'max-w-[80%] rounded-2xl px-4 py-3',
         m.user?.user_type === 'CLIENT' ? 'self-end bg-primary-50' : 'self-start bg-(--color-elevated)'
@@ -400,8 +402,9 @@ const Thread: React.FC<{
   projectId: string;
   canCompose: boolean;
   myUserId?: string;
-}> = ({ root, replies, projectId, canCompose, myUserId }) => {
-  const [expanded, setExpanded] = useState(false);
+  initiallyExpanded?: boolean;
+}> = ({ root, replies, projectId, canCompose, myUserId, initiallyExpanded }) => {
+  const [expanded, setExpanded] = useState(!!initiallyExpanded);
   const [replying, setReplying] = useState(false);
 
   return (
@@ -454,6 +457,12 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   const { user } = useAuth();
   const canCompose = !!myPerms?.permissions?.includes('client.communication.create');
   const qc = useQueryClient();
+  // Mention/notification deep link: .../communication?message=:id — scroll
+  // to and briefly highlight the specific message once loaded. Read once;
+  // this is navigation only, unrelated to the authorization that already
+  // gated loading this project's Communication tab in the first place.
+  const location = useLocation();
+  const highlightMessageId = useRef<string | null>(new URLSearchParams(location.search).get('message')).current;
 
   const { data, isLoading } = useQuery<PortalMessage[]>({
     queryKey: ['portal', 'messages', projectId],
@@ -492,6 +501,19 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
     return () => { socket.off('project:message:new', handleNewMessage); };
   }, [projectId, qc]);
 
+  // Scroll to and briefly highlight the deep-linked message once the
+  // thread has rendered (after any auto-expand above has already run).
+  useEffect(() => {
+    if (!highlightMessageId || isLoading) return;
+    const el = document.getElementById(`portal-message-${highlightMessageId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('ring-2', 'ring-primary-400');
+    const timer = setTimeout(() => el.classList.remove('ring-2', 'ring-primary-400'), 3000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightMessageId, isLoading, data?.length]);
+
   if (isLoading) return <TableSkeleton columns={1} rows={5} />;
 
   const roots = (data || []).filter((m) => !m.parent_id);
@@ -508,16 +530,21 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
         {roots.length === 0 && (
           <p className="text-sm text-(--color-text-secondary) py-10 text-center">No messages yet.</p>
         )}
-        {roots.map((root) => (
-          <Thread
-            key={root.id}
-            root={root}
-            replies={repliesByRoot.get(root.id) || []}
-            projectId={projectId}
-            canCompose={canCompose}
-            myUserId={user?.id}
-          />
-        ))}
+        {roots.map((root) => {
+          const replies = repliesByRoot.get(root.id) || [];
+          const targetIsInThisThread = !!highlightMessageId && (root.id === highlightMessageId || replies.some((r) => r.id === highlightMessageId));
+          return (
+            <Thread
+              key={root.id}
+              root={root}
+              replies={replies}
+              projectId={projectId}
+              canCompose={canCompose}
+              myUserId={user?.id}
+              initiallyExpanded={targetIsInThisThread}
+            />
+          );
+        })}
       </div>
 
       {canCompose && (

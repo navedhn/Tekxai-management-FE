@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   MessageSquare, Video, Gavel, CheckSquare, Activity as ActivityIcon,
   Plus, ExternalLink,
@@ -14,6 +14,7 @@ import { useCreateDiscussion } from '@/services/projectDiscussionsService';
 import { useCreateWeeklyUpdate } from '@/services/weeklyUpdatesService';
 import type { CommChannel } from '@/types/devopsAccess';
 import { cn } from '@/utils/cn';
+import ClientCommunicationThread from './ClientCommunicationThread';
 
 const TYPE_META: Record<CommunicationEventType, { label: string; icon: React.ElementType; color: string }> = {
   WEEKLY_UPDATE:    { label: 'Weekly Update',    icon: MessageSquare, color: 'text-blue-500 bg-blue-50' },
@@ -48,11 +49,31 @@ const METHOD_OPTIONS: { label: string; value: CommChannel }[] = [
 interface ClientCommunicationPanelProps {
   projectId: string;
   canEdit: boolean;
+  // Project-membership-based authorization for the real, live Client
+  // Communication thread below — distinct from `canEdit` (owner/leader/
+  // erp.projects.edit only), which continues to gate the internal-only
+  // "Add Note"/"Log Update" timeline exactly as before. A plain assigned
+  // project member can participate in communication without being able to
+  // edit the project itself.
+  canParticipateInCommunication?: boolean;
+  // A discussion/message id to scroll to and highlight once loaded (from a
+  // mention/notification deep link). Timeline events prefix their own id
+  // as `discussion:<id>`, so this is matched against
+  // event.related_entity.id, the real underlying project_discussions id —
+  // the same id a mention notification's `message=` param carries. The
+  // live thread below matches the same id directly against its own
+  // message ids (no prefix).
+  highlightMessageId?: string | null;
 }
 
-const ClientCommunicationPanel: React.FC<ClientCommunicationPanelProps> = ({ projectId, canEdit }) => {
+const ClientCommunicationPanel: React.FC<ClientCommunicationPanelProps> = ({ projectId, canEdit, canParticipateInCommunication, highlightMessageId }) => {
   const toast = useToastContext();
   const { data: events = [], isLoading } = useCommunicationTimeline(projectId);
+  const highlightRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!highlightMessageId || isLoading || !highlightRef.current) return;
+    highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [highlightMessageId, isLoading, events.length]);
   const createDiscussion = useCreateDiscussion(projectId);
   const createWeeklyUpdate = useCreateWeeklyUpdate(projectId);
 
@@ -102,11 +123,26 @@ const ClientCommunicationPanel: React.FC<ClientCommunicationPanelProps> = ({ pro
   };
 
   return (
+    <div className="flex flex-col gap-6">
+      {/* The REAL, live, two-way Client Communication thread —
+          POST /project/:id/messages, always CLIENT_VISIBLE from this
+          composer. Deliberately a separate component/section from the
+          internal-only timeline below, so the two can never be confused:
+          this is what the client actually sees and can reply to. */}
+      <ClientCommunicationThread
+        projectId={projectId}
+        canParticipate={!!canParticipateInCommunication}
+        highlightMessageId={highlightMessageId}
+      />
+
     <div className="flex flex-col bg-white border border-gray-100 rounded-[2rem] shadow-sm overflow-hidden">
       <div className="w-full flex items-center justify-between gap-3 p-6 border-b border-gray-100">
         <div className="flex items-center gap-3">
           <MessageSquare size={18} strokeWidth={2.5} className="text-primary-500" />
-          <h3 className="font-black text-gray-900 tracking-tight text-[15px]">Client Communication</h3>
+          <div>
+            <h3 className="font-black text-gray-900 tracking-tight text-[15px]">Internal Timeline &amp; Notes</h3>
+            <p className="text-[11px] text-gray-400 font-semibold">Internal-only — logged updates and notes here are never visible to the client.</p>
+          </div>
         </div>
         {canEdit && (
           <div className="flex items-center gap-2">
@@ -174,20 +210,35 @@ const ClientCommunicationPanel: React.FC<ClientCommunicationPanelProps> = ({ pro
         )}
 
         <div className="flex flex-col gap-2">
-          {filtered.map((event) => (
-            <TimelineRow key={event.id} event={event} />
-          ))}
+          {filtered.map((event) => {
+            const isHighlighted = !!highlightMessageId && event.related_entity?.id === highlightMessageId;
+            return (
+              <TimelineRow
+                key={event.id}
+                event={event}
+                highlighted={isHighlighted}
+                highlightRef={isHighlighted ? highlightRef : undefined}
+              />
+            );
+          })}
         </div>
       </div>
+    </div>
     </div>
   );
 };
 
-const TimelineRow: React.FC<{ event: CommunicationEvent }> = ({ event }) => {
+const TimelineRow: React.FC<{ event: CommunicationEvent; highlighted?: boolean; highlightRef?: React.Ref<HTMLDivElement> }> = ({ event, highlighted, highlightRef }) => {
   const meta = TYPE_META[event.type];
   const Icon = meta.icon;
   return (
-    <div className="flex items-start gap-3 p-3 hover:bg-gray-50/60 rounded-2xl transition-colors">
+    <div
+      ref={highlightRef}
+      className={cn(
+        'flex items-start gap-3 p-3 hover:bg-gray-50/60 rounded-2xl transition-colors',
+        highlighted && 'bg-primary-50/70 ring-2 ring-primary-300',
+      )}
+    >
       <div className={cn('h-9 w-9 rounded-xl flex items-center justify-center shrink-0', meta.color)}>
         <Icon size={16} />
       </div>

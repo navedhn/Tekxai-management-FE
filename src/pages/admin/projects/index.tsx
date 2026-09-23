@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useGetProjects, ProjectDetail, useDeleteProjectMutation, useRestoreProjectMutation, useSaveProjectMutation, useUnsaveProjectMutation } from '@/services/projectService';
 import { useMyPermissions } from '@/services/permissionsService';
 import Card from '@/components/ui/Card';
@@ -51,6 +52,27 @@ const ProjectManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Mention/notification deep links: /admin/projects?project=:id&tab=communication&message=:messageId
+  // opens the right project's slide-over straight to the right tab (and
+  // message, once ClientCommunicationPanel can scroll to it). Read once on
+  // mount only — after that the slide-over's own open/close state is the
+  // source of truth, matching the existing local-state pattern (this is
+  // additive URL support, not a new routing architecture).
+  const [deepLinkTab] = useState<string | null>(() => searchParams.get('tab'));
+  const [deepLinkMessageId] = useState<string | null>(() => searchParams.get('message'));
+  useEffect(() => {
+    const projectParam = searchParams.get('project');
+    if (projectParam) {
+      setSelectedProjectId(projectParam);
+      // Clear the query params after consuming them so closing/reopening
+      // the slide-over later doesn't keep re-triggering the deep link.
+      const next = new URLSearchParams(searchParams);
+      next.delete('project'); next.delete('tab'); next.delete('message');
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<ProjectDetail | null>(null);
@@ -442,6 +464,8 @@ const ProjectManagement: React.FC = () => {
         onClose={() => setSelectedProjectId(null)}
         projectId={selectedProjectId}
         routePrefix="/admin"
+        initialTab={deepLinkTab as any}
+        highlightMessageId={deepLinkMessageId}
       />
 
       <CreateProjectSlideOver

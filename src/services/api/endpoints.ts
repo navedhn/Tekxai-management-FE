@@ -717,6 +717,14 @@ export const API_ENDPOINTS = {
     APPROVAL_RESPOND:  (id: string, approvalId: string) => `${v1}/portal/projects/${id}/approvals/${approvalId}/respond`,
     NOTIFICATIONS:     `${v1}/portal/notifications`,
   },
+  // Internal-side Client Communication — the real two-way message thread
+  // (visibility, reactions, mentions), distinct from PROJECT_DISCUSSIONS
+  // (the internal-only "Add Note" feature, which never touches this).
+  PROJECT_COMMUNICATIONS: {
+    MESSAGES:          (id: string) => `${v1}/project/${id}/messages`,
+    MESSAGE_REACTIONS: (id: string, messageId: string) => `${v1}/project/${id}/messages/${messageId}/reactions`,
+    MENTIONABLE_USERS: (id: string) => `${v1}/project/${id}/mentionable-users`,
+  },
   JOB_REQUISITIONS: {
     LIST:        `${v1}/job-requisitions`,
     CREATE:      `${v1}/job-requisitions`,

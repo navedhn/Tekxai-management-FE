@@ -41,6 +41,14 @@ interface SlideOverProps {
   onClose: () => void;
   projectId: string | null;
   routePrefix?: string;
+  // Mention/notification deep-link support — seeds the initial tab (and,
+  // for the Communication tab, which message to scroll to/highlight) when
+  // the slide-over is opened via /admin/projects?project=&tab=&message=.
+  // Navigation only: which tab renders is unrelated to authorization —
+  // ClientCommunicationPanel's own data fetch is still gated server-side
+  // exactly as it already was.
+  initialTab?: WorkspaceTab | null;
+  highlightMessageId?: string | null;
 }
 
 type WorkspaceTab =
@@ -62,13 +70,21 @@ const WORKSPACE_TABS: { id: WorkspaceTab; label: string; icon: React.ElementType
   { id: 'settings', label: 'Settings', icon: SettingsIcon },
 ];
 
-const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, projectId, routePrefix = '/admin' }) => {
+const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, projectId, routePrefix = '/admin', initialTab, highlightMessageId }) => {
   const navigate = useNavigate();
   const toast = useToastContext();
   const { user } = useAuth();
   const { data: project, isLoading } = useGetProjectDetails(projectId);
   const { data: milestones = [], isLoading: milestonesLoading } = useMilestones(projectId);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('overview');
+  // Seed the tab from a deep link exactly once per open — a plain click on
+  // a project row (no initialTab) must still land on Overview as before.
+  useEffect(() => {
+    if (isOpen && initialTab && WORKSPACE_TABS.some((t) => t.id === initialTab)) {
+      setActiveTab(initialTab);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, projectId]);
   const deleteMilestoneMutation = useDeleteMilestone(projectId);
   const archiveMilestoneMutation = useArchiveMilestone(projectId);
   const reorderMilestonesMutation = useReorderMilestones(projectId);
@@ -84,6 +100,14 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
   const projectLeaderId = project?.leader_id ? String(project.leader_id) : project?.team_leader?.id;
   const { data: myPerms } = useMyPermissions();
   const canEditProject = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.projects.edit') || user?.id === projectOwnerId || user?.id === projectLeaderId;
+  // Client Communication participation (view/send/reply/react/mention) is
+  // authorized by project membership alone — matching the backend's
+  // require_project_access, never by owner/leader/edit-permission status.
+  // This is deliberately a SEPARATE check from canEditProject above: a
+  // plain assigned team member must be able to send here even though they
+  // can't edit the project itself.
+  const projectMemberIds = (project?.all_members || project?.members || []).map((m: any) => m.id);
+  const canParticipateInCommunication = canEditProject || projectMemberIds.includes(user?.id);
   const [showRequestModel, setShowRequestModael] = useState(false);
   const [showCreateMilestone, setShowCreateMilestone] = useState(false);
   const [editingCurrency, setEditingCurrency] = useState(false);
@@ -805,7 +829,12 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                   )}
 
                   {activeTab === 'communication' && projectId && (
-                    <ClientCommunicationPanel projectId={projectId} canEdit={canEditProject} />
+                    <ClientCommunicationPanel
+                      projectId={projectId}
+                      canEdit={canEditProject}
+                      canParticipateInCommunication={canParticipateInCommunication}
+                      highlightMessageId={highlightMessageId}
+                    />
                   )}
 
                   {activeTab === 'infrastructure' && projectId && (

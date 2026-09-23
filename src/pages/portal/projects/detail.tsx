@@ -13,14 +13,16 @@ import CommunicationTab from './tabs/CommunicationTab';
 import FilesTab from './tabs/FilesTab';
 import ApprovalsTab from './tabs/ApprovalsTab';
 
-const TABS = ['Overview', 'Milestones', 'Updates', 'Communication', 'Files', 'Approvals'] as const;
+// Communication is the first/default tab — clients land straight on the
+// conversation with the TekXAI team rather than a static overview.
+const TABS = ['Communication', 'Overview', 'Milestones', 'Updates', 'Files', 'Approvals'] as const;
 type Tab = typeof TABS[number];
 
 const tabSlug: Record<Tab, string> = {
-  Overview: '',
+  Communication: '',
+  Overview: 'overview',
   Milestones: 'milestones',
   Updates: 'updates',
-  Communication: 'communication',
   Files: 'files',
   Approvals: 'approvals',
 };
@@ -31,7 +33,7 @@ const PortalProjectDetailPage: React.FC = () => {
   const location = useLocation();
 
   const activeSlug = location.pathname.split(`/portal/projects/${id}`)[1]?.replace(/^\//, '') ?? '';
-  const tab: Tab = (Object.keys(tabSlug) as Tab[]).find((t) => tabSlug[t] === activeSlug) ?? 'Overview';
+  const tab: Tab = (Object.keys(tabSlug) as Tab[]).find((t) => tabSlug[t] === activeSlug) ?? 'Communication';
 
   const goToTab = (t: Tab) => navigate(`/portal/projects/${id}${tabSlug[t] ? `/${tabSlug[t]}` : ''}`);
 

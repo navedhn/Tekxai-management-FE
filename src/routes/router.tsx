@@ -382,6 +382,7 @@ const routes: RouteObject[] = [
           { path: '/portal',                                element: <PortalDashboard /> },
           { path: '/portal/projects',                        element: <PortalProjects /> },
           { path: '/portal/projects/:id',                    element: <PortalProjectDetail /> },
+          { path: '/portal/projects/:id/overview',           element: <PortalProjectDetail /> },
           { path: '/portal/projects/:id/milestones',         element: <PortalProjectDetail /> },
           { path: '/portal/projects/:id/updates',            element: <PortalProjectDetail /> },
           { path: '/portal/projects/:id/communication',      element: <PortalProjectDetail /> },
