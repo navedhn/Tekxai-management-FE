@@ -56,6 +56,7 @@ const ERP_OPS_ROUTE_PERMISSIONS: Record<string, string> = {
   '/admin/employee-timesheets': 'erp.timesheet.view',
   '/admin/performance': 'erp.performance.view',
   '/admin/performance-scoring': 'erp.performance.view',
+  '/admin/manager-review': 'erp.performance.view',
   '/admin/increments': 'hr.increments.view',
   '/admin/assets': 'erp.assets.view',
   '/admin/requisitions': 'erp.requisitions.view',
@@ -267,7 +268,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Attendance', tier: 'erpOps', to: '/admin/attendance', label: 'Attendance', icon: <Clock size={18} strokeWidth={SW} /> },
       { module: 'Attendance', tier: 'erpOps', to: '/admin/overtime', label: 'Overtime', icon: <AlarmClock size={18} strokeWidth={SW} /> },
       { module: 'Attendance', tier: 'erpOps', to: '/admin/employee-timesheets', label: 'Employee Timesheets', icon: <Clock size={18} strokeWidth={SW} /> },
-      { module: 'Attendance', tier: 'admin', to: '/admin/manager-review', label: 'Manager Review', icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
+      { module: 'Attendance', tier: 'erpOps', to: '/admin/manager-review', label: 'Manager Review', icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
       { module: 'Attendance', tier: 'admin', to: '/admin/compliance-violations', label: 'Compliance Violations', icon: <AlarmClock size={18} strokeWidth={SW} /> },
 
       { module: 'Performance', tier: 'erpOps', to: '/admin/performance', label: 'Performance', icon: <TrendingUp size={18} strokeWidth={SW} /> },
