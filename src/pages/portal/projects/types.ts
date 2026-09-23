@@ -42,7 +42,7 @@ export type PortalMessage = {
   milestone_id: string | null;
   parent_id: string | null;
   created_at: string;
-  user: { id: string; first_name: string; last_name: string; user_type: 'INTERNAL' | 'CLIENT' };
+  user: { id: string; first_name: string; last_name: string; user_type: 'INTERNAL' | 'CLIENT'; avatar?: string | null };
   attachment_file_key: string | null;
   attachment_file_name: string | null;
   attachment_mime_type: string | null;

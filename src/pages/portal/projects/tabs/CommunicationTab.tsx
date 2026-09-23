@@ -13,6 +13,7 @@ import EmojiPicker from '@/pages/chat/EmojiPicker';
 import { getSocket } from '@/lib/socket';
 import { RichText } from '../richText';
 import { PortalMessage } from '../types';
+import ProfileSidePanel from '../ProfileSidePanel';
 
 // Small curated set for the one-click "quick react" row — the full picker
 // (search + categories) is still reachable via the "+" button for anything
@@ -292,7 +293,8 @@ const MessageBubble: React.FC<{
   canCompose: boolean;
   myUserId?: string;
   onReply: () => void;
-}> = ({ message: m, projectId, canCompose, myUserId, onReply }) => {
+  onOpenProfile: (userId: string) => void;
+}> = ({ message: m, projectId, canCompose, myUserId, onReply, onOpenProfile }) => {
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
   const qc = useQueryClient();
   const toast = useToastContext();
@@ -332,8 +334,21 @@ const MessageBubble: React.FC<{
       )}
     >
       <div className="flex items-center justify-between gap-4 mb-1">
-        <span className="text-xs font-bold text-(--color-text-primary)">{senderName(m)}</span>
-        <span className="text-[11px] text-(--color-text-secondary)">{new Date(m.created_at).toLocaleString()}</span>
+        <button
+          onClick={() => onOpenProfile(m.user.id)}
+          className="flex items-center gap-1.5 min-w-0 group"
+          title="View profile"
+        >
+          {m.user?.avatar ? (
+            <img src={m.user.avatar} alt="" className="h-5 w-5 rounded-full object-cover shrink-0" />
+          ) : (
+            <span className="h-5 w-5 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-[9px] font-black shrink-0">
+              {senderName(m).slice(0, 1).toUpperCase() || '?'}
+            </span>
+          )}
+          <span className="text-xs font-bold text-(--color-text-primary) group-hover:underline truncate">{senderName(m)}</span>
+        </button>
+        <span className="text-[11px] text-(--color-text-secondary) shrink-0">{new Date(m.created_at).toLocaleString()}</span>
       </div>
       {m.content && <RichText content={m.content} className="text-sm text-(--color-text-primary)" />}
       {m.attachment_file_key && (
@@ -403,13 +418,14 @@ const Thread: React.FC<{
   canCompose: boolean;
   myUserId?: string;
   initiallyExpanded?: boolean;
-}> = ({ root, replies, projectId, canCompose, myUserId, initiallyExpanded }) => {
+  onOpenProfile: (userId: string) => void;
+}> = ({ root, replies, projectId, canCompose, myUserId, initiallyExpanded, onOpenProfile }) => {
   const [expanded, setExpanded] = useState(!!initiallyExpanded);
   const [replying, setReplying] = useState(false);
 
   return (
     <div className="flex flex-col gap-2">
-      <MessageBubble message={root} projectId={projectId} canCompose={canCompose} myUserId={myUserId} onReply={() => { setExpanded(true); setReplying(true); }} />
+      <MessageBubble message={root} projectId={projectId} canCompose={canCompose} myUserId={myUserId} onReply={() => { setExpanded(true); setReplying(true); }} onOpenProfile={onOpenProfile} />
 
       {replies.length > 0 && (
         <button
@@ -427,7 +443,7 @@ const Thread: React.FC<{
       {expanded && (
         <div className={cn('flex flex-col gap-2 pl-4 border-l-2 border-(--color-border)', root.user?.user_type === 'CLIENT' ? 'self-end mr-4' : 'self-start ml-4')}>
           {replies.map((r) => (
-            <MessageBubble key={r.id} message={r} projectId={projectId} canCompose={canCompose} myUserId={myUserId} onReply={() => setReplying(true)} />
+            <MessageBubble key={r.id} message={r} projectId={projectId} canCompose={canCompose} myUserId={myUserId} onReply={() => setReplying(true)} onOpenProfile={onOpenProfile} />
           ))}
           {canCompose && replying && (
             <Composer
@@ -463,6 +479,7 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   // gated loading this project's Communication tab in the first place.
   const location = useLocation();
   const highlightMessageId = useRef<string | null>(new URLSearchParams(location.search).get('message')).current;
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery<PortalMessage[]>({
     queryKey: ['portal', 'messages', projectId],
@@ -542,6 +559,7 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
               canCompose={canCompose}
               myUserId={user?.id}
               initiallyExpanded={targetIsInThisThread}
+              onOpenProfile={setProfileUserId}
             />
           );
         })}
@@ -551,6 +569,10 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
         <div className="pt-4 border-t border-(--color-card-border)">
           <Composer projectId={projectId} onSent={() => {}} />
         </div>
+      )}
+
+      {profileUserId && (
+        <ProfileSidePanel projectId={projectId} userId={profileUserId} onClose={() => setProfileUserId(null)} />
       )}
     </div>
   );

@@ -711,6 +711,7 @@ export const API_ENDPOINTS = {
     MESSAGES_READ: (id: string) => `${v1}/portal/projects/${id}/messages/read`,
     UNREAD_COUNTS: `${v1}/portal/unread-counts`,
     MENTIONABLE_USERS: (id: string) => `${v1}/portal/projects/${id}/mentionable-users`,
+    PERSON:            (id: string, userId: string) => `${v1}/portal/projects/${id}/people/${userId}`,
     FILES:             (id: string) => `${v1}/portal/projects/${id}/files`,
     FILE_VIEW_URL:     (id: string, fileId: string) => `${v1}/portal/projects/${id}/files/${fileId}/view-url`,
     APPROVALS:         (id: string) => `${v1}/portal/projects/${id}/approvals`,
