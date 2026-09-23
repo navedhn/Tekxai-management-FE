@@ -725,6 +725,13 @@ export const API_ENDPOINTS = {
     MESSAGE_REACTIONS: (id: string, messageId: string) => `${v1}/project/${id}/messages/${messageId}/reactions`,
     MENTIONABLE_USERS: (id: string) => `${v1}/project/${id}/mentionable-users`,
   },
+  PROJECT_ACCESS: {
+    LIST:          (id: string) => `${v1}/project/${id}/access`,
+    ADDABLE:       (id: string) => `${v1}/project/${id}/access/addable`,
+    ADD:           (id: string) => `${v1}/project/${id}/access`,
+    INVITE_CLIENT: (id: string) => `${v1}/project/${id}/access/invite-client`,
+    REMOVE:        (id: string, userId: string) => `${v1}/project/${id}/access/${userId}`,
+  },
   JOB_REQUISITIONS: {
     LIST:        `${v1}/job-requisitions`,
     CREATE:      `${v1}/job-requisitions`,

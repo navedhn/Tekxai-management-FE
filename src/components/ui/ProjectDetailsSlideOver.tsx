@@ -20,6 +20,7 @@ import ExtensionRequestsPanel from './ExtensionRequestsPanel';
 import ProjectKanbanPanel from './ProjectKanbanPanel';
 import DependenciesPanel from './DependenciesPanel';
 import ResourceAllocationPanel from './ResourceAllocationPanel';
+import ProjectPeoplePanel from './ProjectPeoplePanel';
 import ProjectCalendarPanel from './ProjectCalendarPanel';
 import ActionModal from './ActionModal';
 import StatusDropdown from './StatusDropdown';
@@ -869,13 +870,6 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                     };
                     const ROLE_ORDER = ['TEAM_LEAD', 'FRONTEND', 'BACKEND', 'QA', 'DEVOPS', 'UI_UX', 'AI_ENGINEER', 'BUSINESS_ANALYST', 'SALES', 'ESTIMATOR', 'OTHER', 'MEMBER'];
                     const members: any[] = project.all_members || project.members || [];
-                    if (members.length === 0) {
-                      return (
-                        <div className="bg-white border border-gray-100 rounded-[2rem] p-10 text-center text-gray-400 font-semibold text-sm">
-                          No team members assigned to this project yet.
-                        </div>
-                      );
-                    }
                     const grouped = members.reduce((acc: Record<string, any[]>, m) => {
                       const role = m.role || 'MEMBER';
                       (acc[role] = acc[role] || []).push(m);
@@ -884,9 +878,15 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                     const roles = ROLE_ORDER.filter((r) => grouped[r]?.length);
                     return (
                       <div className="flex flex-col gap-8 w-full">
+                        {projectId && <ProjectPeoplePanel projectId={projectId} canManage={canEditProject} />}
                         {projectId && <ResourceAllocationPanel projectId={projectId} />}
                         <div className="flex flex-col gap-4 w-full">
                         <h3 className="text-lg font-black text-gray-900 tracking-tight">Team by Role</h3>
+                        {members.length === 0 ? (
+                          <div className="bg-white border border-gray-100 rounded-[2rem] p-10 text-center text-gray-400 font-semibold text-sm">
+                            No team members assigned to this project yet.
+                          </div>
+                        ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           {roles.map((role) => (
                             <div key={role} className="rounded-2xl border border-gray-100 bg-white p-4">
@@ -901,6 +901,7 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                             </div>
                           ))}
                         </div>
+                        )}
                         </div>
                       </div>
                     );
