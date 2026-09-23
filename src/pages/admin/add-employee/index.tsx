@@ -957,6 +957,7 @@ export default function AddEmployee() {
             designation:   employment.designation || undefined,
             designation_id: employment.designation_id || undefined,
             grade_id:      employment.grade_id || undefined,
+            business_unit_id: employment.business_unit_id || undefined,
             department_id: employment.department_id || undefined,
             supervisor_id: employment.supervisor_id || undefined,
             team_id:       employment.team_id || undefined,
@@ -975,9 +976,9 @@ export default function AddEmployee() {
             designation:   employment.designation || undefined,
             designation_id: employment.designation_id || undefined,
             grade_id:      employment.grade_id || undefined,
+            business_unit_id: employment.business_unit_id || undefined,
             department_id: employment.department_id || undefined,
             supervisor_id: employment.supervisor_id || undefined,
-            business_unit: 'ERP',
           }),
         });
         userId = userRes?.payload?.id || userRes?.id;
