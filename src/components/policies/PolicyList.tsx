@@ -55,7 +55,11 @@ export const PolicyList: React.FC<{ emptyMessage?: string }> = ({ emptyMessage =
         <div key={p.id} className="flex items-start justify-between py-3 border-b border-gray-100 last:border-0 gap-4">
           <div className="flex-1">
             <p className="font-black text-gray-900">{p.title}</p>
-            <p className="text-xs text-gray-400">{p.category} · v{p.version}</p>
+            <p className="text-xs text-gray-400">
+              {p.policy_number && <span className="font-mono">{p.policy_number}</span>}
+              {p.policy_number && ' · '}
+              {p.category} · v{p.version}
+            </p>
             {p.is_mandatory && <span className="text-[10px] font-bold text-red-500">* Required</span>}
           </div>
           <div className="flex items-center gap-2 shrink-0">

@@ -4,11 +4,13 @@ import Table, { Column } from '@/components/ui/Table';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
-import { Plus, Send, Upload, FileText as FileIcon, X as XIcon, Pencil, Eye, Trash2 } from 'lucide-react';
+import { Plus, Send, Upload, FileText as FileIcon, X as XIcon, Pencil, Eye, Trash2, Users2, BarChart3, Archive } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
-import { useGetPolicies, useCreatePolicy, useUpdatePolicy, usePublishPolicy, useGetPolicyFile, useDeletePolicy } from '@/services/policyService';
+import { useGetPolicies, useCreatePolicy, useUpdatePolicy, usePublishPolicy, useGetPolicyFile, useDeletePolicy, useArchivePolicy } from '@/services/policyService';
 import { useMyPermissions } from '@/services/permissionsService';
+import PolicyAudienceModal from '@/components/policies/PolicyAudienceModal';
+import PolicyAcknowledgementStatusModal from '@/components/policies/PolicyAcknowledgementStatusModal';
 
 const EMPTY_FORM = { title: '', category: 'GENERAL', content: '', version: '1.0', is_mandatory: true };
 
@@ -30,6 +32,9 @@ const PoliciesPage: React.FC = () => {
   const publishPolicy = usePublishPolicy();
   const getPolicyFile = useGetPolicyFile();
   const deletePolicy = useDeletePolicy();
+  const archivePolicy = useArchivePolicy();
+  const [audienceTarget, setAudienceTarget] = useState<any | null>(null);
+  const [statusTarget, setStatusTarget] = useState<any | null>(null);
   const [showModal, setShowModal] = useState(false);
   // 'create' | 'edit' | 'view' — 'view' is read-only (Content card row's
   // View action) and never submits, distinct from 'edit' even when the
@@ -95,6 +100,7 @@ const PoliciesPage: React.FC = () => {
   };
 
   const columns: Column<any>[] = [
+    { header: 'Policy #', key: 'policy_number', render: (p) => <span className="font-mono text-xs text-gray-500">{p.policy_number || '—'}</span> },
     { header: 'Policy', key: 'title', render: (p) => <span className="font-black">{p.title}</span> },
     { header: 'Category', key: 'category', render: (p) => <span className="text-gray-600">{p.category}</span> },
     { header: 'Version', key: 'version', render: (p) => <span className="font-mono text-xs">{p.version}</span> },
@@ -104,12 +110,13 @@ const PoliciesPage: React.FC = () => {
         <FileIcon size={12} className="shrink-0" /> {p.file_name || 'Document'}
       </span>
     ) : <span className="text-gray-300 text-xs">—</span> },
-    { header: 'Status', key: 'is_published', render: (p) => (
-      <Badge variant="info" className={cn('text-[10px] font-bold border rounded-lg px-2 py-0.5',
-        p.is_published ? 'bg-green-50 text-green-600 border-green-100' : 'bg-yellow-50 text-yellow-600 border-yellow-100')}>
-        {p.is_published ? 'Published' : 'Draft'}
-      </Badge>
-    )},
+    { header: 'Status', key: 'is_published', render: (p) => {
+      const label = p.status === 'ARCHIVED' ? 'Archived' : p.is_published ? 'Published' : 'Draft';
+      const cls = p.status === 'ARCHIVED'
+        ? 'bg-gray-100 text-gray-500 border-gray-200'
+        : p.is_published ? 'bg-green-50 text-green-600 border-green-100' : 'bg-yellow-50 text-yellow-600 border-yellow-100';
+      return <Badge variant="info" className={cn('text-[10px] font-bold border rounded-lg px-2 py-0.5', cls)}>{label}</Badge>;
+    }},
     { header: 'Actions', key: 'id', align: 'right', render: (p) => (
       <div className="flex items-center justify-end gap-1.5">
         {p.content && (
@@ -127,10 +134,29 @@ const PoliciesPage: React.FC = () => {
             <Pencil size={12} /> Edit
           </Button>
         )}
+        {canEdit && (
+          <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs" onClick={() => setAudienceTarget(p)}>
+            <Users2 size={12} /> Audience
+          </Button>
+        )}
+        {canEdit && (
+          <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs" onClick={() => setStatusTarget(p)}>
+            <BarChart3 size={12} /> Status
+          </Button>
+        )}
         {!p.is_published && canPublish && (
           <Button size="sm" variant="primary" className="rounded-xl gap-1 h-8 text-xs"
             onClick={() => publishPolicy.mutate(p.id, { onSuccess: () => toast.success('Policy published') })}>
             <Send size={12} /> Publish
+          </Button>
+        )}
+        {p.is_published && p.status !== 'ARCHIVED' && p.is_current !== false && canPublish && (
+          <Button size="sm" variant="outline" className="rounded-xl gap-1 h-8 text-xs text-amber-600 border-amber-200 hover:bg-amber-50"
+            onClick={() => archivePolicy.mutate(p.id, {
+              onSuccess: () => toast.success('Policy archived'),
+              onError: () => toast.error('Failed to archive policy'),
+            })}>
+            <Archive size={12} /> Archive
           </Button>
         )}
         {isSuperAdmin && (
@@ -245,6 +271,21 @@ const PoliciesPage: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {audienceTarget && (
+        <PolicyAudienceModal
+          policyId={audienceTarget.id}
+          policyTitle={audienceTarget.title}
+          onClose={() => setAudienceTarget(null)}
+        />
+      )}
+
+      {statusTarget && (
+        <PolicyAcknowledgementStatusModal
+          policyId={statusTarget.id}
+          onClose={() => setStatusTarget(null)}
+        />
+      )}
     </div>
   );
 };
