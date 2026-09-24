@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Paperclip, FileText, X, Smile, Reply, Bold, Italic, Code, ChevronDown, ChevronRight, AtSign, Pencil, Trash2, Check } from 'lucide-react';
+import { Send, Paperclip, FileText, X, Smile, Reply, Bold, Italic, Code, ChevronDown, ChevronRight, Pencil, Trash2, Check } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useMyPermissions } from '@/services/permissionsService';
@@ -248,6 +248,25 @@ const Composer: React.FC<{
         </div>
       )}
 
+      <div className="flex items-center gap-1 px-1">
+        {toolbarBtn(<Bold size={14} />, 'Bold', () => textareaRef.current && wrapSelection(textareaRef.current, '**', '**', content, setContent))}
+        {toolbarBtn(<Italic size={14} />, 'Italic', () => textareaRef.current && wrapSelection(textareaRef.current, '*', '*', content, setContent))}
+        {toolbarBtn(<Code size={14} />, 'Code', () => textareaRef.current && wrapSelection(textareaRef.current, '`', '`', content, setContent))}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowEmojiPicker((v) => !v)}
+            title="Insert emoji"
+            className="flex items-center justify-center h-7 w-7 rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+          >
+            <Smile size={14} />
+          </button>
+          {showEmojiPicker && (
+            <EmojiPicker onSelect={(emoji) => setContent((c) => c + emoji)} onClose={() => setShowEmojiPicker(false)} />
+          )}
+        </div>
+      </div>
+
       <div className="relative">
         <textarea
           ref={textareaRef}
@@ -281,13 +300,6 @@ const Composer: React.FC<{
         )}
       </div>
 
-      <div className="flex items-center gap-1 px-1">
-        {toolbarBtn(<Bold size={14} />, 'Bold', () => textareaRef.current && wrapSelection(textareaRef.current, '**', '**', content, setContent))}
-        {toolbarBtn(<Italic size={14} />, 'Italic', () => textareaRef.current && wrapSelection(textareaRef.current, '*', '*', content, setContent))}
-        {toolbarBtn(<Code size={14} />, 'Code', () => textareaRef.current && wrapSelection(textareaRef.current, '`', '`', content, setContent))}
-        {toolbarBtn(<AtSign size={14} />, 'Mention someone', () => setContent((c) => c + (c.endsWith(' ') || !c ? '@' : ' @')))}
-      </div>
-
       <div className="flex items-center justify-between gap-2">
         <input
           ref={fileInputRef}
@@ -296,30 +308,15 @@ const Composer: React.FC<{
           className="hidden"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileChosen(f); }}
         />
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="flex items-center gap-2 px-3 h-9 rounded-xl border border-(--color-border) text-xs font-semibold text-(--color-text-secondary) hover:bg-(--color-state-hover) disabled:opacity-50"
-          >
-            <Paperclip size={14} />
-            {uploading ? 'Uploading…' : 'Attach'}
-          </button>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowEmojiPicker((v) => !v)}
-              className="flex items-center justify-center h-9 w-9 rounded-xl border border-(--color-border) text-(--color-text-secondary) hover:bg-(--color-state-hover)"
-              title="Insert emoji"
-            >
-              <Smile size={15} />
-            </button>
-            {showEmojiPicker && (
-              <EmojiPicker onSelect={(emoji) => setContent((c) => c + emoji)} onClose={() => setShowEmojiPicker(false)} />
-            )}
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center gap-2 px-3 h-9 rounded-xl border border-(--color-border) text-xs font-semibold text-(--color-text-secondary) hover:bg-(--color-state-hover) disabled:opacity-50"
+        >
+          <Paperclip size={14} />
+          {uploading ? 'Uploading…' : 'Attach'}
+        </button>
         <button
           onClick={handleSend}
           disabled={(!content.trim() && !pendingAttachment) || sendMessage.isPending || uploading}
@@ -729,8 +726,8 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   });
 
   return (
-    <div className="flex flex-col gap-4 h-[calc(100vh-260px)] min-h-[420px]">
-      <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-y-auto">
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 min-h-[calc(100vh-420px)]">
         {roots.length === 0 && (
           <p className="text-sm text-(--color-text-secondary) py-10 text-center">No messages yet.</p>
         )}
@@ -754,7 +751,7 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
       </div>
 
       {canCompose && (
-        <div className="mt-auto pt-4 border-t border-(--color-card-border) shrink-0">
+        <div className="sticky bottom-4 pt-4 border-t border-(--color-card-border) bg-(--color-app-bg)">
           <Composer projectId={projectId} onSent={() => {}} />
         </div>
       )}
