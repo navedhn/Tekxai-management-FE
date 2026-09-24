@@ -705,6 +705,7 @@ export const API_ENDPOINTS = {
     MILESTONES:        (id: string) => `${v1}/portal/projects/${id}/milestones`,
     UPDATES:           (id: string) => `${v1}/portal/projects/${id}/updates`,
     MESSAGES:          (id: string) => `${v1}/portal/projects/${id}/messages`,
+    MESSAGE:           (id: string, messageId: string) => `${v1}/portal/projects/${id}/messages/${messageId}`,
     MESSAGE_ATTACHMENT_UPLOAD: (id: string) => `${v1}/portal/projects/${id}/messages/attachment`,
     MESSAGE_ATTACHMENT_VIEW_URL: (id: string, messageId: string) => `${v1}/portal/projects/${id}/messages/${messageId}/attachment-view-url`,
     MESSAGE_REACTIONS: (id: string, messageId: string) => `${v1}/portal/projects/${id}/messages/${messageId}/reactions`,

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Paperclip, FileText, X, Smile, Reply, Bold, Italic, Code, ChevronDown, ChevronRight, AtSign } from 'lucide-react';
+import { Send, Paperclip, FileText, X, Smile, Reply, Bold, Italic, Code, ChevronDown, ChevronRight, AtSign, Pencil, Trash2, Check } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useMyPermissions } from '@/services/permissionsService';
@@ -21,11 +21,13 @@ import ProfileSidePanel from '../ProfileSidePanel';
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '🙏', '👀'];
 
 function aggregateReactions(reactions: PortalMessage['reactions'], myUserId?: string) {
-  const byEmoji = new Map<string, { emoji: string; count: number; reactedByMe: boolean }>();
+  const byEmoji = new Map<string, { emoji: string; count: number; reactedByMe: boolean; names: string[] }>();
   for (const r of reactions || []) {
-    const entry = byEmoji.get(r.emoji) || { emoji: r.emoji, count: 0, reactedByMe: false };
+    const entry = byEmoji.get(r.emoji) || { emoji: r.emoji, count: 0, reactedByMe: false, names: [] };
     entry.count += 1;
     if (r.user_id === myUserId) entry.reactedByMe = true;
+    const name = `${r.user?.first_name ?? ''} ${r.user?.last_name ?? ''}`.trim();
+    if (name) entry.names.push(r.user_id === myUserId ? 'You' : name);
     byEmoji.set(r.emoji, entry);
   }
   return Array.from(byEmoji.values());
@@ -317,13 +319,17 @@ const MessageBubble: React.FC<{
   message: PortalMessage;
   projectId: string;
   canCompose: boolean;
+  canDeleteAny?: boolean;
   myUserId?: string;
   onReply: () => void;
   onOpenProfile: (userId: string) => void;
-}> = ({ message: m, projectId, canCompose, myUserId, onReply, onOpenProfile }) => {
+}> = ({ message: m, projectId, canCompose, canDeleteAny, myUserId, onReply, onOpenProfile }) => {
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState(m.content);
   const qc = useQueryClient();
   const toast = useToastContext();
+  const isOwn = m.user?.id === myUserId;
 
   const toggleReaction = useMutation({
     mutationFn: ({ emoji, remove }: { emoji: string; remove: boolean }) =>
@@ -333,6 +339,22 @@ const MessageBubble: React.FC<{
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] }),
     onError: () => toast?.error?.('Failed to update reaction'),
+  });
+
+  const editMessage = useMutation({
+    mutationFn: (content: string) =>
+      apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE(projectId, m.id), {
+        method: 'PATCH',
+        body: JSON.stringify({ content }),
+      }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] }); setEditing(false); },
+    onError: () => toast?.error?.('Failed to update message'),
+  });
+
+  const deleteMessage = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE(projectId, m.id), { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] }),
+    onError: () => toast?.error?.('Failed to delete message'),
   });
 
   const handleToggleReaction = (emoji: string) => {
@@ -349,6 +371,10 @@ const MessageBubble: React.FC<{
     } catch {
       toast?.error?.('Failed to open attachment');
     }
+  };
+
+  const handleDelete = () => {
+    if (window.confirm('Delete this message? This cannot be undone.')) deleteMessage.mutate();
   };
 
   return (
@@ -374,9 +400,38 @@ const MessageBubble: React.FC<{
           )}
           <span className="text-xs font-bold text-(--color-text-primary) group-hover:underline truncate">{senderName(m)}</span>
         </button>
-        <span className="text-[11px] text-(--color-text-secondary) shrink-0">{new Date(m.created_at).toLocaleString()}</span>
+        <span className="text-[11px] text-(--color-text-secondary) shrink-0">
+          {new Date(m.created_at).toLocaleString()}
+          {m.updated_at && m.updated_at !== m.created_at && <span className="italic"> (edited)</span>}
+        </span>
       </div>
-      {m.content && <RichText content={m.content} className="text-sm text-(--color-text-primary)" />}
+      {editing ? (
+        <div className="flex flex-col gap-1.5">
+          <textarea
+            autoFocus
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            className={inputCls}
+          />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { if (editValue.trim()) editMessage.mutate(editValue.trim()); }}
+              disabled={editMessage.isPending || !editValue.trim()}
+              className="flex items-center gap-1 px-2.5 h-7 rounded-lg bg-primary-600 text-white text-xs font-semibold disabled:opacity-50"
+            >
+              <Check size={12} /> Save
+            </button>
+            <button
+              onClick={() => { setEditing(false); setEditValue(m.content); }}
+              className="px-2.5 h-7 rounded-lg text-xs font-semibold text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        m.content && <RichText content={m.content} className="text-sm text-(--color-text-primary)" />
+      )}
       {m.attachment_file_key && m.attachment_mime_type?.startsWith('image/') ? (
         <AttachmentImagePreview
           projectId={projectId}
@@ -395,12 +450,13 @@ const MessageBubble: React.FC<{
         </button>
       )}
 
-      {canCompose && (
+      {(canCompose || isOwn || canDeleteAny) && !editing && (
         <div className="flex flex-wrap items-center gap-1 mt-2 relative">
           {aggregateReactions(m.reactions, myUserId).map((r) => (
             <button
               key={r.emoji}
-              onClick={() => handleToggleReaction(r.emoji)}
+              onClick={() => canCompose && handleToggleReaction(r.emoji)}
+              title={r.names.join(', ')}
               className={cn(
                 'flex items-center gap-1 px-2 h-6 rounded-full text-xs border',
                 r.reactedByMe
@@ -412,21 +468,46 @@ const MessageBubble: React.FC<{
               <span className="font-semibold">{r.count}</span>
             </button>
           ))}
-          <button
-            onClick={() => setReactionPickerOpen((v) => !v)}
-            className="flex items-center justify-center h-6 w-6 rounded-full border border-dashed border-(--color-border) text-(--color-text-secondary) hover:bg-(--color-state-hover)"
-            title="Add reaction"
-          >
-            <Smile size={13} />
-          </button>
-          <button
-            onClick={onReply}
-            className="flex items-center gap-1 px-2 h-6 rounded-full text-xs text-(--color-text-secondary) hover:bg-(--color-state-hover)"
-            title="Reply"
-          >
-            <Reply size={12} />
-            Reply
-          </button>
+          {canCompose && (
+            <>
+              <button
+                onClick={() => setReactionPickerOpen((v) => !v)}
+                className="flex items-center justify-center h-6 w-6 rounded-full border border-dashed border-(--color-border) text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+                title="Add reaction"
+              >
+                <Smile size={13} />
+              </button>
+              <button
+                onClick={onReply}
+                className="flex items-center gap-1 px-2 h-6 rounded-full text-xs text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+                title="Reply"
+              >
+                <Reply size={12} />
+                Reply
+              </button>
+            </>
+          )}
+          {isOwn && (
+            <button
+              onClick={() => setEditing(true)}
+              className="flex items-center gap-1 px-2 h-6 rounded-full text-xs text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+              title="Edit"
+            >
+              <Pencil size={12} />
+              Edit
+            </button>
+          )}
+          {(isOwn || canDeleteAny) && (
+            <button
+              onClick={handleDelete}
+              disabled={deleteMessage.isPending}
+              className="flex items-center gap-1 px-2 h-6 rounded-full text-xs text-red-500 hover:bg-red-50 disabled:opacity-50"
+              title="Delete"
+            >
+              <Trash2 size={12} />
+              Delete
+            </button>
+          )}
           {reactionPickerOpen && (
             <div className="absolute top-full left-0 mt-1 z-20 flex items-center gap-1 p-1.5 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg">
               {QUICK_REACTIONS.map((e) => (
@@ -449,16 +530,17 @@ const Thread: React.FC<{
   replies: PortalMessage[];
   projectId: string;
   canCompose: boolean;
+  canDeleteAny?: boolean;
   myUserId?: string;
   initiallyExpanded?: boolean;
   onOpenProfile: (userId: string) => void;
-}> = ({ root, replies, projectId, canCompose, myUserId, initiallyExpanded, onOpenProfile }) => {
+}> = ({ root, replies, projectId, canCompose, canDeleteAny, myUserId, initiallyExpanded, onOpenProfile }) => {
   const [expanded, setExpanded] = useState(!!initiallyExpanded);
   const [replying, setReplying] = useState(false);
 
   return (
     <div className="flex flex-col gap-2">
-      <MessageBubble message={root} projectId={projectId} canCompose={canCompose} myUserId={myUserId} onReply={() => { setExpanded(true); setReplying(true); }} onOpenProfile={onOpenProfile} />
+      <MessageBubble message={root} projectId={projectId} canCompose={canCompose} canDeleteAny={canDeleteAny} myUserId={myUserId} onReply={() => { setExpanded(true); setReplying(true); }} onOpenProfile={onOpenProfile} />
 
       {replies.length > 0 && (
         <button
@@ -476,7 +558,7 @@ const Thread: React.FC<{
       {expanded && (
         <div className={cn('flex flex-col gap-2 pl-4 border-l-2 border-(--color-border)', root.user?.id === myUserId ? 'self-end mr-4' : 'self-start ml-4')}>
           {replies.map((r) => (
-            <MessageBubble key={r.id} message={r} projectId={projectId} canCompose={canCompose} myUserId={myUserId} onReply={() => setReplying(true)} onOpenProfile={onOpenProfile} />
+            <MessageBubble key={r.id} message={r} projectId={projectId} canCompose={canCompose} canDeleteAny={canDeleteAny} myUserId={myUserId} onReply={() => setReplying(true)} onOpenProfile={onOpenProfile} />
           ))}
           {canCompose && replying && (
             <Composer
@@ -514,6 +596,11 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   // granted a CLIENT-only permission key, even though the backend would
   // accept their message.
   const canCompose = user?.user_type === 'INTERNAL' || !!myPerms?.permissions?.includes('client.communication.create');
+  // Deleting someone ELSE's message (a message's own sender can always
+  // delete their own, handled separately per-bubble) — Super Admin gets
+  // this via is_super_admin, anyone else only with the real permission,
+  // matching the backend's check_permission() precedence exactly.
+  const canDeleteAny = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('client.communication.delete');
   const qc = useQueryClient();
   // Mention/notification deep link: .../communication?message=:id — scroll
   // to and briefly highlight the specific message once loaded. Read once;
@@ -556,8 +643,20 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
         .then(() => qc.invalidateQueries({ queryKey: ['portal', 'unread-counts'] }))
         .catch(() => {});
     };
+    // Edits/deletes (from any source — another tab, another participant)
+    // just need a refetch; no unread-count implications either way.
+    const handleChanged = (payload: { project_id?: string }) => {
+      if (payload.project_id && payload.project_id !== projectId) return;
+      qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] });
+    };
     socket.on('project:message:new', handleNewMessage);
-    return () => { socket.off('project:message:new', handleNewMessage); };
+    socket.on('project:message:updated', handleChanged);
+    socket.on('project:message:deleted', handleChanged);
+    return () => {
+      socket.off('project:message:new', handleNewMessage);
+      socket.off('project:message:updated', handleChanged);
+      socket.off('project:message:deleted', handleChanged);
+    };
   }, [projectId, qc]);
 
   // Scroll to and briefly highlight the deep-linked message once the
@@ -599,6 +698,7 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
               replies={replies}
               projectId={projectId}
               canCompose={canCompose}
+              canDeleteAny={canDeleteAny}
               myUserId={user?.id}
               initiallyExpanded={targetIsInThisThread}
               onOpenProfile={setProfileUserId}
