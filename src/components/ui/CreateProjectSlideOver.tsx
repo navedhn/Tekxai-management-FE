@@ -129,7 +129,7 @@ const UserSelectDropdown: React.FC<{
   const dropdownRef = React.useRef<HTMLDivElement>(null);
   const toast = useToastContext();
 
-  const { data: users, isLoading } = useFetchUsersQuery({ search: searchTerm }, showDropdown);
+  const { data: users, isLoading, isError } = useFetchUsersQuery({ search: searchTerm }, showDropdown);
 
   const filteredUsers = useMemo(() => {
     if (!users) return [];
@@ -180,6 +180,8 @@ const UserSelectDropdown: React.FC<{
                 <div className="flex items-center justify-center py-4">
                   <Loader2 className="animate-spin text-primary-500" size={16} />
                 </div>
+              ) : isError ? (
+                <div className="text-center py-4 text-xs text-red-400 font-medium">Couldn't load users — try again</div>
               ) : filteredUsers.length > 0 ? (
                 filteredUsers.map((u: any) => (
 
