@@ -117,7 +117,7 @@ const EmployeeDocuments: React.FC = () => {
             <div className="h-10 w-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600"><ShieldCheck size={18} /></div>
             <h2 className="text-lg font-black text-gray-900">Company Policies</h2>
           </div>
-          <PolicyList />
+          <PolicyList showVersionInfo={false} />
         </Card>
       )}
     </div>

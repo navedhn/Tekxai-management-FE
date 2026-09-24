@@ -41,7 +41,7 @@ const AckButton: React.FC<{ policyId: string; acknowledged: boolean }> = ({ poli
   );
 };
 
-export const PolicyList: React.FC<{ emptyMessage?: string }> = ({ emptyMessage = 'No policies published yet.' }) => {
+export const PolicyList: React.FC<{ emptyMessage?: string; showVersionInfo?: boolean }> = ({ emptyMessage = 'No policies published yet.', showVersionInfo = true }) => {
   const { data: policies = [], isLoading } = useGetPolicies();
   const { data: acks = [] } = useGetMyAcks();
   const acknowledgedIds = new Set((acks as any[]).map((a: any) => a.policy_id));
@@ -56,9 +56,10 @@ export const PolicyList: React.FC<{ emptyMessage?: string }> = ({ emptyMessage =
           <div className="flex-1">
             <p className="font-black text-gray-900">{p.title}</p>
             <p className="text-xs text-gray-400">
-              {p.policy_number && <span className="font-mono">{p.policy_number}</span>}
-              {p.policy_number && ' · '}
-              {p.category} · v{p.version}
+              {showVersionInfo && p.policy_number && <span className="font-mono">{p.policy_number}</span>}
+              {showVersionInfo && p.policy_number && ' · '}
+              {p.category}
+              {showVersionInfo && <> · v{p.version}</>}
             </p>
             {p.is_mandatory && <span className="text-[10px] font-bold text-red-500">* Required</span>}
           </div>
