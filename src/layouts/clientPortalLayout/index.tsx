@@ -1,7 +1,7 @@
 import React, { memo, Suspense, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { LayoutDashboard, FolderKanban, LogOut, Users, ChevronDown, ChevronRight, Plus, Circle } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, LogOut, Users, ChevronDown, ChevronRight, Plus, Circle, Boxes } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/authStore';
@@ -79,6 +79,7 @@ const ClientPortalLayout: React.FC = memo(() => {
   const { userLogout } = useAuthStore();
   const navigate = useNavigate();
   const isSuperAdmin = role === 'SUPER_ADMIN';
+  const [spacesOpen, setSpacesOpen] = useState(true);
 
   const handleLogout = () => {
     userLogout();
@@ -115,6 +116,19 @@ const ClientPortalLayout: React.FC = memo(() => {
               {label}
             </NavLink>
           ))}
+          <button
+            onClick={() => setSpacesOpen((v) => !v)}
+            title={spacesOpen ? 'Hide Spaces' : 'Show Spaces'}
+            className={cn(
+              'flex flex-col items-center justify-center gap-1 w-full py-2 rounded-xl text-[10px] font-bold transition-colors',
+              spacesOpen
+                ? 'bg-emerald-500/15 text-emerald-400'
+                : 'text-emerald-100/50 hover:bg-white/5 hover:text-emerald-100'
+            )}
+          >
+            <Boxes size={18} />
+            Spaces
+          </button>
         </nav>
 
         <button
@@ -127,12 +141,14 @@ const ClientPortalLayout: React.FC = memo(() => {
       </aside>
 
       {/* Spaces panel — the project list, ClickUp's second sidebar column */}
-      <aside className="hidden lg:flex flex-col w-52 shrink-0 border-r border-(--color-border) bg-(--color-surface) py-4 px-3 min-h-0">
-        <div className="px-1 mb-4">
-          <span className="text-base font-black text-(--color-text-primary) tracking-tight">Client Portal</span>
-        </div>
-        <SpacesList isSuperAdmin={isSuperAdmin} />
-      </aside>
+      {spacesOpen && (
+        <aside className="hidden lg:flex flex-col w-52 shrink-0 border-r border-(--color-border) bg-(--color-surface) py-4 px-3 min-h-0">
+          <div className="px-1 mb-4">
+            <span className="text-base font-black text-(--color-text-primary) tracking-tight">Client Portal</span>
+          </div>
+          <SpacesList isSuperAdmin={isSuperAdmin} />
+        </aside>
+      )}
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-16 shrink-0 border-b border-(--color-border) bg-(--color-surface) flex items-center justify-between px-4 lg:px-8">
