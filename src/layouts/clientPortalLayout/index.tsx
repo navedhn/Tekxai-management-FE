@@ -1,7 +1,7 @@
 import React, { memo, Suspense, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { LayoutDashboard, FolderKanban, LogOut, Users, ChevronDown, ChevronRight, Plus, Circle, Boxes } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, LogOut, Users, ChevronDown, ChevronRight, Plus, Circle, Boxes, MessageCircle } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/authStore';
@@ -79,6 +79,7 @@ const ClientPortalLayout: React.FC = memo(() => {
   const { userLogout } = useAuthStore();
   const navigate = useNavigate();
   const isSuperAdmin = role === 'SUPER_ADMIN';
+  const isInternal = user?.user_type === 'INTERNAL';
   const [spacesOpen, setSpacesOpen] = useState(true);
 
   const handleLogout = () => {
@@ -90,6 +91,13 @@ const ClientPortalLayout: React.FC = memo(() => {
     ? [...NAV_ITEMS, { to: '/portal/invites', label: 'People', icon: Users, end: false }]
     : NAV_ITEMS;
 
+  // /chat is an INTERNAL-only route (CLIENT users get bounced back to
+  // /portal by ProtectedRoute) — only surface it for the internal users
+  // (employees/super admins) who are allowed to actually open it.
+  const railItems = isInternal
+    ? [...navItems, { to: '/chat', label: 'Chats', icon: MessageCircle, end: false }]
+    : navItems;
+
   return (
     <div className="min-h-screen flex bg-(--color-app-bg)">
       {/* Icon rail — ClickUp-style: icon stacked over a short label, narrow, dark */}
@@ -98,7 +106,7 @@ const ClientPortalLayout: React.FC = memo(() => {
           T
         </div>
         <nav className="flex flex-col items-center gap-1 w-full px-1.5">
-          {navItems.map(({ to, label, icon: Icon, end }) => (
+          {railItems.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
               to={to}
