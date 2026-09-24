@@ -582,6 +582,7 @@ export const API_ENDPOINTS = {
     DISCONNECT:    `${v1}/chat/zoom/disconnect`,
     CONVERSATIONS: `${v1}/chat/zoom/conversations`,
     MESSAGES:      `${v1}/chat/zoom/messages`,
+    CREATE_MEETING: `${v1}/chat/zoom/meetings`,
   },
   SERVERS: {
     LIST:        `${v1}/servers`,

@@ -96,6 +96,27 @@ export async function sendZoomMessage(target: { to_channel?: string; to_contact?
   return unwrap<ZoomSendResult>(r);
 }
 
+export interface ZoomMeeting {
+  id: number;
+  join_url: string;
+  start_url: string;
+  topic: string;
+}
+
+// Creates an instant Zoom meeting under the caller's own connected Zoom
+// account (see create_instant_meeting in the backend service) — used by
+// the portal's profile "Call" button. Throws ZOOM_NOT_CONNECTED /
+// ZOOM_REAUTH_REQUIRED the same way every other Zoom call here does; the
+// caller decides how to surface that (e.g. "connect your Zoom account").
+export const useCreateInstantZoomMeeting = () =>
+  useMutation({
+    mutationFn: async (topic?: string) =>
+      unwrap<ZoomMeeting>(await apiRequest<any>(API_ENDPOINTS.ZOOM_CHAT.CREATE_MEETING, {
+        method: 'POST',
+        body: JSON.stringify({ topic }),
+      })),
+  });
+
 export const useZoomMessages = (
   target: { to_channel?: string; to_contact?: string } | null,
   nextPageToken?: string,
