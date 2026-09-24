@@ -365,7 +365,7 @@ const MessageBubble: React.FC<{
           className="flex items-center gap-1.5 min-w-0 group"
           title="View profile"
         >
-          {m.user?.avatar ? (
+          {m.user?.avatar && m.user?.user_type !== 'INTERNAL' ? (
             <img src={m.user.avatar} alt="" className="h-5 w-5 rounded-full object-cover shrink-0" />
           ) : (
             <span className="h-5 w-5 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-[9px] font-black shrink-0">
@@ -504,7 +504,16 @@ const Thread: React.FC<{
 const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   const { data: myPerms } = useMyPermissions();
   const { user } = useAuth();
-  const canCompose = !!myPerms?.permissions?.includes('client.communication.create');
+  // An INTERNAL viewer only ever reaches this tab because the backend's
+  // assertClientProjectAccess already confirmed they're a member/owner/
+  // leader of this exact project — for them that membership IS the
+  // authorization boundary (see can_client_or_portal_member on the
+  // backend, which skips the client.communication.create permission
+  // check entirely for INTERNAL callers). Gating compose on that raw
+  // permission here would block a normal assigned employee who was never
+  // granted a CLIENT-only permission key, even though the backend would
+  // accept their message.
+  const canCompose = user?.user_type === 'INTERNAL' || !!myPerms?.permissions?.includes('client.communication.create');
   const qc = useQueryClient();
   // Mention/notification deep link: .../communication?message=:id — scroll
   // to and briefly highlight the specific message once loaded. Read once;
