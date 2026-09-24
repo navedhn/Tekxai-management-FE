@@ -248,13 +248,6 @@ const Composer: React.FC<{
         </div>
       )}
 
-      <div className="flex items-center gap-1 px-1">
-        {toolbarBtn(<Bold size={14} />, 'Bold', () => textareaRef.current && wrapSelection(textareaRef.current, '**', '**', content, setContent))}
-        {toolbarBtn(<Italic size={14} />, 'Italic', () => textareaRef.current && wrapSelection(textareaRef.current, '*', '*', content, setContent))}
-        {toolbarBtn(<Code size={14} />, 'Code', () => textareaRef.current && wrapSelection(textareaRef.current, '`', '`', content, setContent))}
-        {toolbarBtn(<AtSign size={14} />, 'Mention someone', () => setContent((c) => c + (c.endsWith(' ') || !c ? '@' : ' @')))}
-      </div>
-
       <div className="relative">
         <textarea
           ref={textareaRef}
@@ -286,6 +279,13 @@ const Composer: React.FC<{
             ))}
           </div>
         )}
+      </div>
+
+      <div className="flex items-center gap-1 px-1">
+        {toolbarBtn(<Bold size={14} />, 'Bold', () => textareaRef.current && wrapSelection(textareaRef.current, '**', '**', content, setContent))}
+        {toolbarBtn(<Italic size={14} />, 'Italic', () => textareaRef.current && wrapSelection(textareaRef.current, '*', '*', content, setContent))}
+        {toolbarBtn(<Code size={14} />, 'Code', () => textareaRef.current && wrapSelection(textareaRef.current, '`', '`', content, setContent))}
+        {toolbarBtn(<AtSign size={14} />, 'Mention someone', () => setContent((c) => c + (c.endsWith(' ') || !c ? '@' : ' @')))}
       </div>
 
       <div className="flex items-center justify-between gap-2">

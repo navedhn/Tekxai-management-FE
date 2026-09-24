@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { MessageSquare, LayoutDashboard, ListChecks, FileText as FileIcon, CheckSquare, List, KanbanSquare, GanttChartSquare, Table2, UsersRound, Gauge } from 'lucide-react';
+import { MessageSquare, FileText as FileIcon, CheckSquare, List, KanbanSquare, GanttChartSquare, Table2, UsersRound, Gauge } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
@@ -9,22 +9,17 @@ import Card from '@/components/ui/Card';
 import { PageSkeleton } from '@/components/skeletons';
 import { PortalProjectDetail, MilestonesView } from './types';
 import MilestonesTab from './tabs/MilestonesTab';
-import UpdatesTab from './tabs/UpdatesTab';
 import CommunicationTab from './tabs/CommunicationTab';
 import FilesTab from './tabs/FilesTab';
 import ApprovalsTab from './tabs/ApprovalsTab';
 
-// One flat tab row — Communication/Updates/Files/Approvals are their own
-// pages (URL-routed, as before); Dashboard/List/Board/Timeline/Table/
-// Workload/Team are all views of the same milestones data, switched via
-// local state rather than the URL (same as before this merge, just no
-// longer nested inside a second row under a separate "Milestones" tab).
-// "Overview" (start/end date) is folded into Dashboard rather than kept
-// as its own tab — there is no standalone Milestones tab now; every one
-// of its views already has a direct top-level entry.
+// Communication/Files/Approvals are their own pages (URL-routed, as
+// before); Dashboard/List/Board/Timeline/Table/Workload/Team are all
+// views of the same milestones data, switched via local state rather
+// than the URL. The two kinds are interleaved into one ordered tab row
+// below — Dashboard sits second, right after Communication.
 const PAGE_TABS = [
   { id: 'communication', label: 'Communication', icon: MessageSquare },
-  { id: 'updates', label: 'Updates', icon: ListChecks },
   { id: 'files', label: 'Files', icon: FileIcon },
   { id: 'approvals', label: 'Approvals', icon: CheckSquare },
 ] as const;
@@ -32,13 +27,11 @@ type PageTab = typeof PAGE_TABS[number]['id'];
 
 const pageSlug: Record<PageTab, string> = {
   communication: '',
-  updates: 'updates',
   files: 'files',
   approvals: 'approvals',
 };
 
 const MILESTONE_VIEW_OPTIONS: { id: MilestonesView; label: string; icon: React.ElementType }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'list', label: 'List', icon: List },
   { id: 'board', label: 'Board', icon: KanbanSquare },
   { id: 'timeline', label: 'Timeline', icon: GanttChartSquare },
@@ -100,7 +93,6 @@ const PortalProjectDetailPage: React.FC = () => {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-black text-(--color-text-primary) tracking-tight">{project.title}</h1>
-            <p className="text-sm text-(--color-text-secondary) mt-1">{project.project_type}</p>
           </div>
           <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-(--color-elevated) text-(--color-text-secondary)">
             {project.status}
@@ -109,7 +101,25 @@ const PortalProjectDetailPage: React.FC = () => {
       </div>
 
       <div className="flex items-center gap-1 overflow-x-auto border-b border-(--color-border)">
-        {PAGE_TABS.map((t) => (
+        <button
+          onClick={() => goToPage('communication')}
+          className={cn(
+            'px-4 h-11 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
+            !showingMilestones && page === 'communication' ? 'border-primary-600 text-primary-600' : 'border-transparent text-(--color-text-secondary) hover:text-(--color-text-primary)'
+          )}
+        >
+          Communication
+        </button>
+        <button
+          onClick={() => goToMilestoneView('dashboard')}
+          className={cn(
+            'px-4 h-11 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
+            showingMilestones && activeMilestoneView === 'dashboard' ? 'border-primary-600 text-primary-600' : 'border-transparent text-(--color-text-secondary) hover:text-(--color-text-primary)'
+          )}
+        >
+          Dashboard
+        </button>
+        {PAGE_TABS.filter((t) => t.id !== 'communication').map((t) => (
           <button
             key={t.id}
             onClick={() => goToPage(t.id)}
@@ -185,7 +195,6 @@ const PortalProjectDetailPage: React.FC = () => {
         ) : (
           <>
             {page === 'communication' && <CommunicationTab projectId={project.id} />}
-            {page === 'updates' && <UpdatesTab projectId={project.id} />}
             {page === 'files' && <FilesTab projectId={project.id} />}
             {page === 'approvals' && <ApprovalsTab projectId={project.id} />}
           </>
