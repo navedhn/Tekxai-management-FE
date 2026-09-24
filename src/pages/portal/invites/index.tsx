@@ -27,6 +27,7 @@ type ClientInvite = {
   project: { id: string; title: string } | null;
   role: { id: string; name: string } | null;
   inviter: { id: string; first_name: string; last_name: string } | null;
+  accepted_user: { id: string; last_active_at: string | null } | null;
 };
 
 type EmployeeInvite = {
@@ -35,7 +36,7 @@ type EmployeeInvite = {
   status: 'PENDING' | 'ACCEPTED' | 'REVOKED';
   created_at: string;
   accepted_at: string | null;
-  user: { id: string; first_name: string; last_name: string; email: string; avatar: string | null } | null;
+  user: { id: string; first_name: string; last_name: string; email: string; avatar: string | null; last_active_at: string | null } | null;
   project: { id: string; title: string } | null;
   inviter: { id: string; first_name: string; last_name: string } | null;
 };
@@ -192,18 +193,18 @@ const PortalInvitesPage: React.FC = () => {
 
       <Card className="p-0 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm border-separate border-spacing-0">
             <thead>
-              <tr className="border-b border-gray-100 text-left text-xs font-bold text-gray-400 uppercase tracking-wide">
-                <th className="px-5 py-3">Name</th>
-                <th className="px-5 py-3">Email</th>
-                <th className="px-5 py-3">Type</th>
-                <th className="px-5 py-3">Project</th>
-                <th className="px-5 py-3">Status</th>
-                <th className="px-5 py-3">Invited</th>
-                <th className="px-5 py-3">Accepted</th>
-                <th className="px-5 py-3">Invited By</th>
-                <th className="px-5 py-3 w-10" />
+              <tr className="text-left text-xs font-bold text-gray-400 uppercase tracking-wide">
+                <th className="sticky left-0 z-20 bg-gray-50 px-5 py-3 border-b border-r border-gray-100">Name</th>
+                <th className="px-5 py-3 border-b border-gray-100">Email</th>
+                <th className="px-5 py-3 border-b border-gray-100">Type</th>
+                <th className="px-5 py-3 border-b border-gray-100">Last Active</th>
+                <th className="px-5 py-3 border-b border-gray-100">Invited By</th>
+                <th className="px-5 py-3 border-b border-gray-100">Invited On</th>
+                <th className="px-5 py-3 border-b border-gray-100">Project</th>
+                <th className="px-5 py-3 border-b border-gray-100">Access</th>
+                <th className="px-5 py-3 border-b border-gray-100 w-10" />
               </tr>
             </thead>
             <tbody>
@@ -217,27 +218,34 @@ const PortalInvitesPage: React.FC = () => {
                   ? [r.first_name, r.last_name].filter(Boolean).join(' ') || '—'
                   : [r.user?.first_name, r.user?.last_name].filter(Boolean).join(' ') || '—';
                 const email = r.kind === 'client' ? r.email : (r.user?.email || '—');
+                const lastActiveAt = r.kind === 'client' ? r.accepted_user?.last_active_at : r.user?.last_active_at;
+                const access = r.kind === 'client' ? (r.role?.name || '—') : 'Portal Access';
                 return (
-                  <tr key={`${r.kind}-${r.id}`} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60">
-                    <td className="px-5 py-3 font-bold text-gray-900">{name}</td>
-                    <td className="px-5 py-3 text-gray-600">{email}</td>
-                    <td className="px-5 py-3">
+                  <tr key={`${r.kind}-${r.id}`} className="group">
+                    <td className="sticky left-0 z-10 bg-white group-hover:bg-gray-50/60 px-5 py-3 border-b border-r border-gray-100 font-bold text-gray-900">
+                      <div className="flex items-center gap-2">
+                        {name}
+                        <Badge variant="info" className={`text-[10px] font-bold border rounded-lg px-2 py-0.5 shrink-0 ${STATUS_STYLES[r.status] || ''}`}>
+                          {r.status}
+                        </Badge>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3 border-b border-gray-100 text-gray-600 group-hover:bg-gray-50/60">{email}</td>
+                    <td className="px-5 py-3 border-b border-gray-100 group-hover:bg-gray-50/60">
                       <Badge variant="info" className="text-[10px] font-bold border rounded-lg px-2 py-0.5 bg-gray-50 text-gray-500 border-gray-100">
                         {r.kind === 'client' ? 'Client' : 'Employee'}
                       </Badge>
                     </td>
-                    <td className="px-5 py-3 text-gray-600">{r.project?.title || '—'}</td>
-                    <td className="px-5 py-3">
-                      <Badge variant="info" className={`text-[10px] font-bold border rounded-lg px-2 py-0.5 ${STATUS_STYLES[r.status] || ''}`}>
-                        {r.status}
-                      </Badge>
+                    <td className="px-5 py-3 border-b border-gray-100 text-gray-500 group-hover:bg-gray-50/60">
+                      {lastActiveAt ? new Date(lastActiveAt).toLocaleDateString() : '—'}
                     </td>
-                    <td className="px-5 py-3 text-gray-500">{new Date(r.created_at).toLocaleDateString()}</td>
-                    <td className="px-5 py-3 text-gray-500">{r.accepted_at ? new Date(r.accepted_at).toLocaleDateString() : '—'}</td>
-                    <td className="px-5 py-3 text-gray-500">
+                    <td className="px-5 py-3 border-b border-gray-100 text-gray-500 group-hover:bg-gray-50/60">
                       {r.inviter ? `${r.inviter.first_name} ${r.inviter.last_name}` : '—'}
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="px-5 py-3 border-b border-gray-100 text-gray-500 group-hover:bg-gray-50/60">{new Date(r.created_at).toLocaleDateString()}</td>
+                    <td className="px-5 py-3 border-b border-gray-100 text-gray-600 group-hover:bg-gray-50/60">{r.project?.title || '—'}</td>
+                    <td className="px-5 py-3 border-b border-gray-100 text-gray-600 group-hover:bg-gray-50/60">{access}</td>
+                    <td className="px-5 py-3 border-b border-gray-100 group-hover:bg-gray-50/60">
                       {r.status === 'PENDING' && (
                         <RowMenu
                           canRevoke
