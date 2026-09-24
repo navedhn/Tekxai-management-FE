@@ -1,7 +1,7 @@
 import React, { memo, Suspense, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { LayoutDashboard, FolderKanban, LogOut, Users, ChevronDown, ChevronRight, Plus, Circle, Boxes, MessageCircle } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, LogOut, Users, ChevronDown, ChevronRight, Plus, Boxes, MessageCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/hooks/useAuth';
@@ -15,16 +15,61 @@ const NAV_ITEMS = [
   { to: '/portal/projects', label: 'Projects', icon: FolderKanban, end: false },
 ];
 
-type SpaceProject = { id: string; title: string; status: string };
+type SpaceProject = { id: string; title: string; status: string; client: { id: string; name: string } | null };
+type Milestone = { id: string; title: string; status: string; progress_percent: number | null };
+
+const PROJECT_STATUS_DOT: Record<string, string> = {
+  IN_PROGRESS: 'bg-blue-500',
+  COMPLETED: 'bg-emerald-500',
+  PENDING: 'bg-amber-500',
+  ON_HOLD: 'bg-gray-400',
+  CANCELLED: 'bg-red-400',
+};
+
+const MILESTONE_STATUS_STYLES: Record<string, string> = {
+  NOT_STARTED: 'bg-gray-100 text-gray-500',
+  IN_PROGRESS: 'bg-blue-50 text-blue-600',
+  COMPLETED: 'bg-emerald-50 text-emerald-700',
+  BLOCKED: 'bg-red-50 text-red-600',
+};
+
+// Milestones only ever fetched once a Space is actually expanded — this
+// is a per-project list nested inside a sidebar panel, not a page, so it
+// should never fire dozens of requests just for the project list to render.
+const MilestonesList: React.FC<{ projectId: string }> = ({ projectId }) => {
+  const { data: milestones = [], isLoading } = useQuery<Milestone[]>({
+    queryKey: ['portal', 'projects', projectId, 'milestones', 'sidebar'],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.MILESTONES(projectId)),
+    select: (r: any) => r?.payload?.records || [],
+  });
+
+  if (isLoading) return <div className="pl-7 py-1.5 text-[11px] text-(--color-text-secondary)">Loading…</div>;
+  if (milestones.length === 0) return <div className="pl-7 py-1.5 text-[11px] text-(--color-text-secondary)">No milestones yet.</div>;
+
+  return (
+    <div className="flex flex-col gap-0.5 pl-6 pr-1 pb-1">
+      {milestones.map((m) => (
+        <div key={m.id} className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[12px] text-(--color-text-secondary)">
+          <span className="truncate flex-1">{m.title}</span>
+          <span className={cn('shrink-0 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded', MILESTONE_STATUS_STYLES[m.status] || 'bg-gray-100 text-gray-500')}>
+            {(m.status || '').replace(/_/g, ' ')}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 // The second sidebar panel is shared by the "Spaces" and "Chats" rail
 // buttons — same project list either way, just linking into a different
 // tab of that project (its overview vs. its client Communication tab),
 // since "Chats" here means the portal's own client-communication threads,
-// never the separate internal /chat module.
+// never the separate internal /chat module. In "spaces" mode each row
+// also expands to show that project's milestones (its task groups).
 const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' }> = ({ isSuperAdmin, mode }) => {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(true);
+  const [openProjectIds, setOpenProjectIds] = useState<Set<string>>(new Set());
   const { data: projects = [] } = useQuery<SpaceProject[]>({
     queryKey: ['portal', 'projects', 'spaces'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.PROJECTS),
@@ -32,6 +77,13 @@ const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' 
   });
 
   const label = mode === 'chats' ? 'Chats' : 'Spaces';
+
+  const toggleProject = (id: string) =>
+    setOpenProjectIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
@@ -58,28 +110,55 @@ const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' 
           {projects.length === 0 && (
             <span className="px-3 py-1.5 text-xs text-(--color-text-secondary)">No projects yet.</span>
           )}
-          {projects.map((p) => (
-            <NavLink
-              key={p.id}
-              to={mode === 'chats' ? `/portal/projects/${p.id}/communication` : `/portal/projects/${p.id}`}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-2 px-3 h-8 rounded-lg text-[13px] font-semibold truncate transition-colors',
-                  isActive
-                    ? 'bg-emerald-50 text-emerald-700'
-                    : 'text-(--color-text-secondary) hover:bg-(--color-state-hover)'
-                )
-              }
-              title={p.title}
-            >
-              {mode === 'chats' ? (
-                <MessageCircle size={13} className="shrink-0 opacity-60" />
-              ) : (
-                <Circle size={7} className="shrink-0 fill-current opacity-60" />
-              )}
-              <span className="truncate">{p.title}</span>
-            </NavLink>
-          ))}
+          {projects.map((p) => {
+            const displayName = p.client?.name ? `${p.client.name} - ${p.title}` : p.title;
+            if (mode === 'chats') {
+              return (
+                <NavLink
+                  key={p.id}
+                  to={`/portal/projects/${p.id}/communication`}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-2 px-3 h-8 rounded-lg text-[13px] font-semibold truncate transition-colors',
+                      isActive ? 'bg-emerald-50 text-emerald-700' : 'text-(--color-text-secondary) hover:bg-(--color-state-hover)'
+                    )
+                  }
+                  title={displayName}
+                >
+                  <MessageCircle size={13} className="shrink-0 opacity-60" />
+                  <span className="truncate">{displayName}</span>
+                </NavLink>
+              );
+            }
+            const isOpen = openProjectIds.has(p.id);
+            return (
+              <div key={p.id}>
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={() => toggleProject(p.id)}
+                    className="h-8 w-5 shrink-0 flex items-center justify-center text-(--color-text-secondary) hover:text-(--color-text-primary)"
+                    title={isOpen ? 'Hide milestones' : 'Show milestones'}
+                  >
+                    {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                  </button>
+                  <NavLink
+                    to={`/portal/projects/${p.id}`}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex-1 min-w-0 flex items-center gap-2 pl-1 pr-2 h-8 rounded-lg text-[13px] font-semibold truncate transition-colors',
+                        isActive ? 'bg-emerald-50 text-emerald-700' : 'text-(--color-text-secondary) hover:bg-(--color-state-hover)'
+                      )
+                    }
+                    title={displayName}
+                  >
+                    <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', PROJECT_STATUS_DOT[p.status] || 'bg-gray-400')} />
+                    <span className="truncate">{displayName}</span>
+                  </NavLink>
+                </div>
+                {isOpen && <MilestonesList projectId={p.id} />}
+              </div>
+            );
+          })}
         </nav>
       )}
     </div>
