@@ -285,6 +285,32 @@ const Composer: React.FC<{
   );
 };
 
+// ── Inline image preview for image attachments (everything else keeps the
+// file-chip treatment below) — the stored file has no public URL, so the
+// same signed view_url the file chip fetches on click is fetched once here
+// to use as the <img> src.
+const AttachmentImagePreview: React.FC<{ projectId: string; messageId: string; alt: string; onOpenFull: () => void }> = ({ projectId, messageId, alt, onOpenFull }) => {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['portal', 'messages', projectId, messageId, 'attachment-view-url'],
+    queryFn: async () => {
+      const res = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_ATTACHMENT_VIEW_URL(projectId, messageId));
+      return res?.payload?.view_url as string;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (isLoading) {
+    return <div className="mt-2 h-40 w-56 rounded-xl bg-(--color-state-hover) animate-pulse" />;
+  }
+  if (isError || !data) return null;
+
+  return (
+    <button onClick={onOpenFull} className="mt-2 block rounded-xl overflow-hidden border border-(--color-border) max-w-[280px]">
+      <img src={data} alt={alt} loading="lazy" className="block max-h-64 w-auto object-cover" />
+    </button>
+  );
+};
+
 // ── One message bubble (used for both root messages and thread replies) ────
 
 const MessageBubble: React.FC<{
@@ -351,7 +377,14 @@ const MessageBubble: React.FC<{
         <span className="text-[11px] text-(--color-text-secondary) shrink-0">{new Date(m.created_at).toLocaleString()}</span>
       </div>
       {m.content && <RichText content={m.content} className="text-sm text-(--color-text-primary)" />}
-      {m.attachment_file_key && (
+      {m.attachment_file_key && m.attachment_mime_type?.startsWith('image/') ? (
+        <AttachmentImagePreview
+          projectId={projectId}
+          messageId={m.id}
+          alt={m.attachment_file_name || 'attachment'}
+          onOpenFull={handleViewAttachment}
+        />
+      ) : m.attachment_file_key && (
         <button
           onClick={handleViewAttachment}
           className="mt-2 flex items-center gap-2 px-3 h-9 rounded-xl border border-(--color-border) bg-(--color-surface) text-xs font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover)"
