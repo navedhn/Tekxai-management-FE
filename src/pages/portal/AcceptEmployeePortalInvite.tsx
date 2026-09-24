@@ -5,6 +5,7 @@ import { Button } from '@/components';
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/queryClient';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { disconnectSocket, getSocket } from '@/lib/socket';
 
 const EmployeeInviteError: React.FC<{ title: string; message: string }> = ({ title, message }) => (
   <div className="flex flex-col gap-5 text-center">
@@ -30,6 +31,11 @@ const AcceptEmployeePortalInvite: React.FC = () => {
   const accept = useMutation({
     mutationFn: () => apiRequest<any>(`api/v1/employee-portal-invites/accept/${token}`, { method: 'POST' }),
     onSuccess: (response) => {
+      // Socket rooms are resolved at connection time. Reconnect after the
+      // server records the acceptance so this new portal project begins
+      // receiving real-time messages immediately, without a browser refresh.
+      disconnectSocket();
+      getSocket();
       toast.success('Portal invitation accepted');
       const projectId = response?.payload?.project?.id;
       navigate(projectId ? `/portal/projects/${projectId}` : '/portal/projects', { replace: true });

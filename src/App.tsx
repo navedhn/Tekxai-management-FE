@@ -8,6 +8,7 @@ import { useAuthChannel } from '@/hooks/useAuthChannel';
 import { useProfileRefresh } from '@/hooks/useProfileRefresh';
 import { useTheme } from '@/hooks/useTheme';
 import { useColorMode } from '@/hooks/useColorMode';
+import { usePortalMessageNotifications } from '@/hooks/usePortalMessageNotifications';
 
 const App: React.FC = () => {
   useTokenRefresh();
@@ -15,6 +16,7 @@ const App: React.FC = () => {
   useProfileRefresh();
   useTheme();
   useColorMode();
+  usePortalMessageNotifications();
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
