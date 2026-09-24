@@ -95,6 +95,7 @@ const Composer: React.FC<{
   const [uploading, setUploading] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionActiveIndex, setMentionActiveIndex] = useState(0);
   const [mentionedIds, setMentionedIds] = useState<Set<string>>(new Set());
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -151,14 +152,21 @@ const Composer: React.FC<{
     const upToCursor = value.slice(0, e.target.selectionStart ?? value.length);
     const match = /(?:^|\s)@([a-zA-Z]*)$/.exec(upToCursor);
     setMentionQuery(match ? match[1] : null);
+    setMentionActiveIndex(0);
   };
+
+  // A user's first_name/last_name can individually be null/empty (some
+  // portal accounts only ever captured a single full-name field) — never
+  // interpolate a null field directly into a template string, or it
+  // renders the literal text "null"/"undefined" into the message.
+  const mentionDisplayName = (u: MentionableUser) => [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
 
   const insertMention = (u: MentionableUser) => {
     const el = textareaRef.current;
     if (!el) return;
     const cursor = el.selectionStart ?? content.length;
     const upToCursor = content.slice(0, cursor);
-    const replaced = upToCursor.replace(/@([a-zA-Z]*)$/, `@${u.first_name} ${u.last_name} `);
+    const replaced = upToCursor.replace(/@([a-zA-Z]*)$/, `@${mentionDisplayName(u)} `);
     const next = replaced + content.slice(cursor);
     setContent(next);
     setMentionedIds((prev) => new Set(prev).add(u.id));
@@ -167,8 +175,24 @@ const Composer: React.FC<{
   };
 
   const filteredMentionable = mentionQuery !== null
-    ? mentionable.filter((u) => `${u.first_name} ${u.last_name}`.toLowerCase().includes(mentionQuery.toLowerCase()))
+    ? mentionable.filter((u) => mentionDisplayName(u).toLowerCase().includes(mentionQuery.toLowerCase()))
     : [];
+
+  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mentionQuery === null || filteredMentionable.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setMentionActiveIndex((i) => (i + 1) % filteredMentionable.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setMentionActiveIndex((i) => (i - 1 + filteredMentionable.length) % filteredMentionable.length);
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      insertMention(filteredMentionable[mentionActiveIndex] ?? filteredMentionable[0]);
+    } else if (e.key === 'Escape') {
+      setMentionQuery(null);
+    }
+  };
 
   const toolbarBtn = (icon: React.ReactNode, title: string, onClick: () => void) => (
     <button
@@ -222,20 +246,25 @@ const Composer: React.FC<{
           placeholder="Write a message... (type @ to mention someone)"
           value={content}
           onChange={handleTextareaChange}
+          onKeyDown={handleTextareaKeyDown}
           autoFocus={autoFocus}
         />
         {mentionQuery !== null && filteredMentionable.length > 0 && (
           <div className="absolute bottom-full left-0 mb-1 z-20 w-64 max-h-48 overflow-y-auto rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg">
-            {filteredMentionable.map((u) => (
+            {filteredMentionable.map((u, i) => (
               <button
                 key={u.id}
                 onClick={() => insertMention(u)}
-                className="w-full flex items-center gap-2 px-3 h-9 text-sm text-left hover:bg-(--color-state-hover)"
+                onMouseEnter={() => setMentionActiveIndex(i)}
+                className={cn(
+                  'w-full flex items-center gap-2 px-3 h-9 text-sm text-left',
+                  i === mentionActiveIndex ? 'bg-(--color-state-hover)' : 'hover:bg-(--color-state-hover)'
+                )}
               >
                 <span className="h-6 w-6 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-xs font-bold shrink-0">
                   {u.first_name?.[0]?.toUpperCase() ?? '?'}
                 </span>
-                {u.first_name} {u.last_name}
+                {mentionDisplayName(u)}
               </button>
             ))}
           </div>
