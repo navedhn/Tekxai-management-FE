@@ -1,25 +1,42 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Search, Mail } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Search, Plus, MoreHorizontal, X } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
+
+const V1 = 'api/v1';
+import { useToastContext } from '@/components/toast/ToastProvider';
+import { useFetchUsersQuery } from '@/services/userService';
+import { useGetProjects } from '@/services/projectService';
 import Card from '@/components/ui/Card';
-import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
+import Modal from '@/components/ui/Modal';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { PageSkeleton } from '@/components/skeletons';
 
-type PortalInvite = {
+type ClientInvite = {
   id: string;
+  kind: 'client';
   email: string;
   first_name: string | null;
   last_name: string | null;
   status: 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'REVOKED';
   created_at: string;
   accepted_at: string | null;
-  expires_at: string;
   client_account: { id: string; name: string } | null;
   project: { id: string; title: string } | null;
   role: { id: string; name: string } | null;
+  inviter: { id: string; first_name: string; last_name: string } | null;
+};
+
+type EmployeeInvite = {
+  id: string;
+  kind: 'employee';
+  status: 'PENDING' | 'ACCEPTED' | 'REVOKED';
+  created_at: string;
+  accepted_at: string | null;
+  user: { id: string; first_name: string; last_name: string; email: string; avatar: string | null } | null;
+  project: { id: string; title: string } | null;
   inviter: { id: string; first_name: string; last_name: string } | null;
 };
 
@@ -30,134 +47,274 @@ const STATUS_STYLES: Record<string, string> = {
   REVOKED: 'bg-red-50 text-red-500 border-red-100',
 };
 
-// Company-wide client-portal invite roster — who's been invited to which
-// client's portal, for which project, pending or accepted. This whole
-// page only renders for SUPER_ADMIN (see ClientPortalLayout's nav gate and
-// the router entry); the backend independently enforces the same via
-// authorize('SUPER_ADMIN') on GET /portal/invites, so a direct URL visit
-// by anyone else 403s regardless of this page rendering.
+const RowMenu: React.FC<{ canRevoke: boolean; onRevoke: () => void }> = ({ canRevoke, onRevoke }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="h-7 w-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+      >
+        <MoreHorizontal size={16} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-8 z-20 w-44 bg-white border border-gray-100 rounded-xl shadow-lg py-1">
+            <button
+              onClick={() => { setOpen(false); onRevoke(); }}
+              disabled={!canRevoke}
+              className="w-full text-left px-3 py-2 text-xs font-semibold text-red-500 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Revoke invite
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// SUPER_ADMIN-only "People" view — every client AND employee portal
+// invite ever sent, who invited whom to which project, pending or
+// accepted. Since portal access became invite-gated (no employee gets in
+// just by being a project member), this is also the only place to grant
+// an employee portal access at all.
 const PortalInvitesPage: React.FC = () => {
+  const toast = useToastContext();
+  const qc = useQueryClient();
   const [search, setSearch] = useState('');
-  const { data, isLoading } = useQuery<PortalInvite[]>({
-    queryKey: ['portal', 'invites'],
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteTab, setInviteTab] = useState<'employee' | 'client'>('employee');
+  const [employeeForm, setEmployeeForm] = useState<{ user_id: string | null; project_id: string | null }>({ user_id: null, project_id: null });
+  const [employeeSearch, setEmployeeSearch] = useState('');
+
+  const { data: clientInvites = [], isLoading: loadingClients } = useQuery<ClientInvite[]>({
+    queryKey: ['portal', 'invites', 'client'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.INVITES),
-    select: (r: any) => r?.payload?.records || [],
+    select: (r: any) => (r?.payload?.records || []).map((i: any) => ({ ...i, kind: 'client' })),
+  });
+  const { data: employeeInvites = [], isLoading: loadingEmployees } = useQuery<EmployeeInvite[]>({
+    queryKey: ['portal', 'invites', 'employee'],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.EMPLOYEE_PORTAL_INVITES.LIST_ALL),
+    select: (r: any) => (r?.payload?.records || []).map((i: any) => ({ ...i, kind: 'employee' })),
+  });
+  const { data: employees = [], isLoading: employeesLoading } = useFetchUsersQuery({ search: employeeSearch }, showInvite && inviteTab === 'employee');
+  const { data: projects = [] } = useGetProjects();
+
+  const createEmployeeInvite = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.EMPLOYEE_PORTAL_INVITES.CREATE, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: employeeForm.user_id, project_id: employeeForm.project_id }),
+    }),
+    onSuccess: () => {
+      toast.success('Invite sent');
+      qc.invalidateQueries({ queryKey: ['portal', 'invites', 'employee'] });
+      setShowInvite(false);
+      setEmployeeForm({ user_id: null, project_id: null });
+    },
+    onError: (e: any) => toast.error(e?.message || 'Failed to send invite'),
   });
 
-  if (isLoading) return <PageSkeleton />;
+  const revokeEmployeeInvite = useMutation({
+    mutationFn: (id: string) => apiRequest<any>(API_ENDPOINTS.EMPLOYEE_PORTAL_INVITES.REVOKE(id), { method: 'DELETE' }),
+    onSuccess: () => { toast.success('Invite revoked'); qc.invalidateQueries({ queryKey: ['portal', 'invites', 'employee'] }); },
+    onError: () => toast.error('Failed to revoke invite'),
+  });
 
-  const invites = data || [];
-  const filtered = invites.filter((inv) => {
-    const q = search.trim().toLowerCase();
+  const revokeClientInvite = useMutation({
+    mutationFn: ({ clientId, inviteId }: { clientId: string; inviteId: string }) =>
+      apiRequest<any>(`${V1}/crm/${clientId}/portal-invites/${inviteId}`, { method: 'DELETE' }),
+    onSuccess: () => { toast.success('Invite revoked'); qc.invalidateQueries({ queryKey: ['portal', 'invites', 'client'] }); },
+    onError: () => toast.error('Failed to revoke invite'),
+  });
+
+  if (loadingClients || loadingEmployees) return <PageSkeleton />;
+
+  const rows = [...clientInvites, ...employeeInvites].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  const q = search.trim().toLowerCase();
+  const filtered = rows.filter((r) => {
     if (!q) return true;
-    return [inv.email, inv.client_account?.name, inv.project?.title]
-      .some((v) => (v || '').toLowerCase().includes(q));
+    const name = r.kind === 'client'
+      ? [r.first_name, r.last_name].filter(Boolean).join(' ')
+      : [r.user?.first_name, r.user?.last_name].filter(Boolean).join(' ');
+    const email = r.kind === 'client' ? r.email : r.user?.email;
+    return [name, email, r.project?.title].some((v) => (v || '').toLowerCase().includes(q));
   });
 
-  const columns: Column<PortalInvite>[] = [
-    {
-      header: 'Invitee',
-      key: 'email',
-      render: (inv) => (
-        <div>
-          <p className="font-bold text-(--color-text-primary)">
-            {[inv.first_name, inv.last_name].filter(Boolean).join(' ') || '—'}
-          </p>
-          <p className="text-xs text-(--color-text-secondary)">{inv.email}</p>
-        </div>
-      ),
-    },
-    {
-      header: 'Client',
-      key: 'client_account',
-      render: (inv) => <span className="font-semibold">{inv.client_account?.name || '—'}</span>,
-    },
-    {
-      header: 'Project',
-      key: 'project',
-      render: (inv) => <span className="text-(--color-text-secondary)">{inv.project?.title || '—'}</span>,
-    },
-    {
-      header: 'Status',
-      key: 'status',
-      render: (inv) => (
-        <Badge variant="info" className={`text-[10px] font-bold border rounded-lg px-2 py-0.5 ${STATUS_STYLES[inv.status] || ''}`}>
-          {inv.status}
-        </Badge>
-      ),
-    },
-    {
-      header: 'Invited',
-      key: 'created_at',
-      render: (inv) => <span className="text-(--color-text-secondary)">{new Date(inv.created_at).toLocaleDateString()}</span>,
-    },
-    {
-      header: 'Accepted',
-      key: 'accepted_at',
-      render: (inv) => (
-        <span className="text-(--color-text-secondary)">
-          {inv.accepted_at ? new Date(inv.accepted_at).toLocaleDateString() : '—'}
-        </span>
-      ),
-    },
-    {
-      header: 'Invited By',
-      key: 'inviter',
-      render: (inv) => (
-        <span className="text-(--color-text-secondary)">
-          {inv.inviter ? `${inv.inviter.first_name} ${inv.inviter.last_name}` : '—'}
-        </span>
-      ),
-    },
-  ];
-
-  const pendingCount = invites.filter((i) => i.status === 'PENDING').length;
-  const acceptedCount = invites.filter((i) => i.status === 'ACCEPTED').length;
+  const pendingCount = rows.filter((r) => r.status === 'PENDING').length;
+  const acceptedCount = rows.filter((r) => r.status === 'ACCEPTED').length;
 
   return (
     <div className="flex flex-col gap-6 pb-10">
       <div>
-        <h1 className="text-2xl font-black text-(--color-text-primary) tracking-tight flex items-center gap-2">
-          <Mail size={22} className="text-primary-500" /> Client Portal Invites
-        </h1>
-        <p className="text-sm text-(--color-text-secondary) mt-1">
-          Every client portal invite ever sent — who, for which project, pending or accepted.
+        <h1 className="text-2xl font-black text-gray-900 tracking-tight">People</h1>
+        <p className="text-sm text-gray-500 font-medium mt-1">
+          Manage client and employee portal access — who's been invited, to which project, pending or accepted.
         </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
-          <p className="text-xs font-semibold text-(--color-text-secondary)">Total Invites</p>
-          <p className="text-2xl font-black text-(--color-text-primary) mt-1">{invites.length}</p>
+          <p className="text-xs font-semibold text-gray-500">Total Invites</p>
+          <p className="text-2xl font-black text-gray-900 mt-1">{rows.length}</p>
         </Card>
         <Card>
-          <p className="text-xs font-semibold text-(--color-text-secondary)">Pending</p>
+          <p className="text-xs font-semibold text-gray-500">Pending</p>
           <p className="text-2xl font-black text-yellow-600 mt-1">{pendingCount}</p>
         </Card>
         <Card>
-          <p className="text-xs font-semibold text-(--color-text-secondary)">Accepted</p>
+          <p className="text-xs font-semibold text-gray-500">Accepted</p>
           <p className="text-2xl font-black text-green-600 mt-1">{acceptedCount}</p>
         </Card>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-(--color-text-secondary)" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by email, client, or project…"
-          className="w-full h-10 pl-10 pr-4 rounded-xl border border-(--color-border) bg-(--color-surface) text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
-        />
-      </div>
+      <Card className="border-none shadow-sm bg-teal-50/60 flex items-center gap-3 px-5 py-4">
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search people by name, email, or project…"
+            className="w-full h-10 pl-10 pr-4 rounded-xl border border-gray-200 bg-white text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
+          />
+        </div>
+        <button
+          onClick={() => setShowInvite(true)}
+          className="flex items-center gap-1.5 h-10 px-4 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 shrink-0"
+        >
+          <Plus size={16} /> Invite People
+        </button>
+      </Card>
 
       <Card className="p-0 overflow-hidden">
-        <Table
-          columns={columns}
-          data={filtered}
-          emptyMessage={search ? 'No invites match your search.' : 'No invites sent yet.'}
-          className="p-6"
-        />
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 text-left text-xs font-bold text-gray-400 uppercase tracking-wide">
+                <th className="px-5 py-3">Name</th>
+                <th className="px-5 py-3">Email</th>
+                <th className="px-5 py-3">Type</th>
+                <th className="px-5 py-3">Project</th>
+                <th className="px-5 py-3">Status</th>
+                <th className="px-5 py-3">Invited</th>
+                <th className="px-5 py-3">Accepted</th>
+                <th className="px-5 py-3">Invited By</th>
+                <th className="px-5 py-3 w-10" />
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr><td colSpan={9} className="px-5 py-10 text-center text-gray-400">
+                  {search ? 'No one matches your search.' : 'No invites sent yet.'}
+                </td></tr>
+              )}
+              {filtered.map((r) => {
+                const name = r.kind === 'client'
+                  ? [r.first_name, r.last_name].filter(Boolean).join(' ') || '—'
+                  : [r.user?.first_name, r.user?.last_name].filter(Boolean).join(' ') || '—';
+                const email = r.kind === 'client' ? r.email : (r.user?.email || '—');
+                return (
+                  <tr key={`${r.kind}-${r.id}`} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60">
+                    <td className="px-5 py-3 font-bold text-gray-900">{name}</td>
+                    <td className="px-5 py-3 text-gray-600">{email}</td>
+                    <td className="px-5 py-3">
+                      <Badge variant="info" className="text-[10px] font-bold border rounded-lg px-2 py-0.5 bg-gray-50 text-gray-500 border-gray-100">
+                        {r.kind === 'client' ? 'Client' : 'Employee'}
+                      </Badge>
+                    </td>
+                    <td className="px-5 py-3 text-gray-600">{r.project?.title || '—'}</td>
+                    <td className="px-5 py-3">
+                      <Badge variant="info" className={`text-[10px] font-bold border rounded-lg px-2 py-0.5 ${STATUS_STYLES[r.status] || ''}`}>
+                        {r.status}
+                      </Badge>
+                    </td>
+                    <td className="px-5 py-3 text-gray-500">{new Date(r.created_at).toLocaleDateString()}</td>
+                    <td className="px-5 py-3 text-gray-500">{r.accepted_at ? new Date(r.accepted_at).toLocaleDateString() : '—'}</td>
+                    <td className="px-5 py-3 text-gray-500">
+                      {r.inviter ? `${r.inviter.first_name} ${r.inviter.last_name}` : '—'}
+                    </td>
+                    <td className="px-5 py-3">
+                      {r.status === 'PENDING' && (
+                        <RowMenu
+                          canRevoke
+                          onRevoke={() => {
+                            if (r.kind === 'employee') revokeEmployeeInvite.mutate(r.id);
+                            else if (r.client_account) revokeClientInvite.mutate({ clientId: r.client_account.id, inviteId: r.id });
+                          }}
+                        />
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </Card>
+
+      <Modal isOpen={showInvite} onClose={() => setShowInvite(false)} title="Invite People">
+        <div className="flex flex-col gap-4 mt-4">
+          <div className="flex items-center gap-1 bg-gray-50 rounded-xl p-1 w-fit">
+            <button
+              onClick={() => setInviteTab('employee')}
+              className={`px-3 h-8 rounded-lg text-xs font-black ${inviteTab === 'employee' ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-500'}`}
+            >
+              Employee
+            </button>
+            <button
+              onClick={() => setInviteTab('client')}
+              className={`px-3 h-8 rounded-lg text-xs font-black ${inviteTab === 'client' ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-500'}`}
+            >
+              Client
+            </button>
+          </div>
+
+          {inviteTab === 'employee' ? (
+            <>
+              <p className="text-xs text-gray-500 -mt-1">
+                Portal access is invite-only now — an employee can't open a project's client-facing view until invited here and they accept.
+              </p>
+              <SearchableSelect
+                label="Employee"
+                placeholder="Search employees…"
+                value={employeeForm.user_id}
+                onSearch={setEmployeeSearch}
+                loading={employeesLoading}
+                onChange={(v) => setEmployeeForm((f) => ({ ...f, user_id: v as string }))}
+                options={(employees as any[]).map((u) => ({ value: u.id, label: `${u.first_name} ${u.last_name}`, description: u.email }))}
+              />
+              <SearchableSelect
+                label="Project"
+                placeholder="Search projects…"
+                value={employeeForm.project_id}
+                onChange={(v) => setEmployeeForm((f) => ({ ...f, project_id: v as string }))}
+                options={(projects as any[]).map((p) => ({ value: p.id, label: p.title }))}
+              />
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowInvite(false)} className="flex-1 h-11 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50">
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={!employeeForm.user_id || !employeeForm.project_id || createEmployeeInvite.isPending}
+                  onClick={() => createEmployeeInvite.mutate()}
+                  className="flex-1 h-11 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Send Invite
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-gray-500 py-6 text-center">
+              Client invites are sent from that client's row in Client CRM — this is where you can review or revoke them afterward.
+            </p>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };

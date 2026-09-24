@@ -1,6 +1,6 @@
 import React, { memo, Suspense } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, LogOut, Mail } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, LogOut, Users } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/authStore';
@@ -22,7 +22,7 @@ const ClientPortalLayout: React.FC = memo(() => {
   };
 
   const navItems = role === 'SUPER_ADMIN'
-    ? [...NAV_ITEMS, { to: '/portal/invites', label: 'Invites', icon: Mail, end: false }]
+    ? [...NAV_ITEMS, { to: '/portal/invites', label: 'People', icon: Users, end: false }]
     : NAV_ITEMS;
 
   return (

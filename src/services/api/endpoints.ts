@@ -699,6 +699,11 @@ export const API_ENDPOINTS = {
     SET_TASK_STATUS: (id: string) => `${v1}/offboarding/tasks/${id}/status`,
     EXIT_DETAIL:     (userId: string) => `${v1}/offboarding/exit/${userId}`,
   },
+  EMPLOYEE_PORTAL_INVITES: {
+    LIST_ALL: `${v1}/employee-portal-invites/all`,
+    CREATE:   `${v1}/employee-portal-invites`,
+    REVOKE:   (id: string) => `${v1}/employee-portal-invites/${id}`,
+  },
   PORTAL: {
     INVITES:           `${v1}/portal/invites`,
     PROJECTS:          `${v1}/portal/projects`,
