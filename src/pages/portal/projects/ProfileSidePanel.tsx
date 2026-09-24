@@ -25,7 +25,24 @@ type PersonProfile = {
   avatar: string | null;
   user_type: 'INTERNAL' | 'CLIENT';
   designation: string | null;
+  last_active_at: string | null;
 };
+
+// Same 2-minute "online" convention as the internal chat module's own
+// isOnline/fmtLastSeen (src/pages/chat/index.tsx) — there's no live
+// presence socket reaching this panel, so it's purely last_active_at
+// derived, same as chat's own fallback when a user isn't in its socket set.
+const ONLINE_WINDOW_MS = 2 * 60 * 1000;
+function presenceLabel(lastActiveAt: string | null): { label: string; online: boolean } {
+  if (!lastActiveAt) return { label: 'Offline', online: false };
+  const ms = Date.now() - new Date(lastActiveAt).getTime();
+  if (ms < ONLINE_WINDOW_MS) return { label: 'Online', online: true };
+  const mins = Math.floor(ms / 60000);
+  if (mins < 60) return { label: `Last seen ${mins}m ago`, online: false };
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return { label: `Last seen ${hours}h ago`, online: false };
+  return { label: `Last seen ${new Date(lastActiveAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`, online: false };
+}
 
 function displayName(p?: Pick<PersonProfile, 'first_name' | 'last_name'>) {
   return `${p?.first_name || ''} ${p?.last_name || ''}`.trim() || 'Unknown';
@@ -120,16 +137,24 @@ const ProfileSidePanel: React.FC<ProfileSidePanelProps> = ({ projectId, userId, 
           </p>
         )}
 
-        {!isLoading && data && (
+        {!isLoading && data && (() => {
+          const presence = presenceLabel(data.last_active_at);
+          return (
           <div className="flex flex-col gap-6 p-6 overflow-y-auto">
             <div className="flex flex-col items-center gap-3 text-center">
-              {data.avatar ? (
-                <img src={data.avatar} alt={displayName(data)} className="h-20 w-20 rounded-full object-cover shadow-sm" />
-              ) : (
-                <div className="h-20 w-20 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-2xl font-black">
-                  {displayName(data).slice(0, 1).toUpperCase()}
-                </div>
-              )}
+              <div className="relative">
+                {data.avatar ? (
+                  <img src={data.avatar} alt={displayName(data)} className="h-20 w-20 rounded-full object-cover shadow-sm" />
+                ) : (
+                  <div className="h-20 w-20 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-2xl font-black">
+                    {displayName(data).slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+                <span
+                  className={`absolute bottom-0.5 right-0.5 h-4 w-4 rounded-full border-2 border-(--color-surface) ${presence.online ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                  title={presence.label}
+                />
+              </div>
               <div>
                 <p className="text-base font-black text-(--color-text-primary)">{displayName(data)}</p>
                 <span className={
@@ -139,6 +164,9 @@ const ProfileSidePanel: React.FC<ProfileSidePanelProps> = ({ projectId, userId, 
                 }>
                   {isInternal ? 'TekXAI Team' : 'Client'}
                 </span>
+                <p className={`mt-1.5 text-xs font-semibold ${presence.online ? 'text-emerald-600' : 'text-(--color-text-secondary)'}`}>
+                  {presence.label}
+                </p>
               </div>
               {canReachViaInternalChat && (
                 <div className="flex items-center gap-3 mt-1">
@@ -179,7 +207,8 @@ const ProfileSidePanel: React.FC<ProfileSidePanelProps> = ({ projectId, userId, 
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );
