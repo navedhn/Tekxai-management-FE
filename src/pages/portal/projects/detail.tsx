@@ -108,35 +108,6 @@ const PortalProjectDetailPage: React.FC = () => {
         </div>
       </div>
 
-      <Card>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <div>
-            <p className="text-xs font-semibold text-(--color-text-secondary)">Progress</p>
-            <p className="text-lg font-black text-(--color-text-primary) mt-1">{project.progress}%</p>
-            <div className="h-2 rounded-full bg-(--color-elevated) mt-2 overflow-hidden">
-              <div className="h-full bg-primary-500 rounded-full" style={{ width: `${project.progress}%` }} />
-            </div>
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-(--color-text-secondary)">Project Manager</p>
-            <p className="text-sm font-bold text-(--color-text-primary) mt-1">
-              {project.project_manager ? `${project.project_manager.first_name} ${project.project_manager.last_name}` : 'Unassigned'}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-(--color-text-secondary)">Current Milestone</p>
-            <p className="text-sm font-bold text-(--color-text-primary) mt-1">
-              {project.current_milestone ? project.current_milestone.title : '—'}
-            </p>
-            {project.current_milestone?.due_date && (
-              <p className="text-xs text-(--color-text-secondary) mt-0.5">
-                Due {new Date(project.current_milestone.due_date).toLocaleDateString()}
-              </p>
-            )}
-          </div>
-        </div>
-      </Card>
-
       <div className="flex items-center gap-1 overflow-x-auto border-b border-(--color-border)">
         {PAGE_TABS.map((t) => (
           <button
@@ -169,7 +140,31 @@ const PortalProjectDetailPage: React.FC = () => {
           <div className="flex flex-col gap-4">
             {activeMilestoneView === 'dashboard' && (
               <Card>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm">
+                  <div>
+                    <p className="text-xs font-semibold text-(--color-text-secondary)">Progress</p>
+                    <p className="text-lg font-black text-(--color-text-primary) mt-1">{project.progress}%</p>
+                    <div className="h-2 rounded-full bg-(--color-elevated) mt-2 overflow-hidden">
+                      <div className="h-full bg-primary-500 rounded-full" style={{ width: `${project.progress}%` }} />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-(--color-text-secondary)">Project Manager</p>
+                    <p className="font-bold text-(--color-text-primary) mt-1">
+                      {project.project_manager ? `${project.project_manager.first_name} ${project.project_manager.last_name}` : 'Unassigned'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-(--color-text-secondary)">Current Milestone</p>
+                    <p className="font-bold text-(--color-text-primary) mt-1">
+                      {project.current_milestone ? project.current_milestone.title : '—'}
+                    </p>
+                    {project.current_milestone?.due_date && (
+                      <p className="text-xs text-(--color-text-secondary) mt-0.5">
+                        Due {new Date(project.current_milestone.due_date).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
                   <div>
                     <p className="text-xs font-semibold text-(--color-text-secondary)">Start Date</p>
                     <p className="font-bold text-(--color-text-primary) mt-1">
