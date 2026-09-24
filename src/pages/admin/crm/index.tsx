@@ -4,7 +4,7 @@ import Table, { Column } from '@/components/ui/Table';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
-import { Building2, Plus, Link2, FolderOpen, Mail, X } from 'lucide-react';
+import { Building2, Plus, Link2, FolderOpen, Mail, X, Search } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -146,6 +146,7 @@ const CRMPage: React.FC = () => {
   const { data: projects = [] } = useGetProjects();
   const createClient = useCreateClient();
 
+  const [search, setSearch] = useState('');
   const [showNewClient, setShowNewClient] = useState(false);
   const [showGrant, setShowGrant] = useState<string | null>(null);
   const [showInvite, setShowInvite] = useState<string | null>(null);
@@ -162,6 +163,12 @@ const CRMPage: React.FC = () => {
   const { data: invites = [], isLoading: invitesLoading } = useClientPortalInvites(showInvite || '');
   const createInvite = useCreateInvite(showInvite || '');
   const revokeInvite = useRevokeInvite(showInvite || '');
+
+  const filteredClients = (clients as any[]).filter((c) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [c.name, c.email, c.company].some((v) => (v || '').toLowerCase().includes(q));
+  });
 
   const existingUsersForSelectedProject: any[] =
     clientProjectAccess.find((p: any) => p.id === grantForm.project_id)?.users || [];
@@ -297,8 +304,18 @@ const CRMPage: React.FC = () => {
         </Button>
       </div>
 
+      <div className="relative max-w-sm">
+        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search clients by name, email, or company…"
+          className="w-full h-10 pl-10 pr-4 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
+        />
+      </div>
+
       <Card className="border-none shadow-sm">
-        <Table columns={columns} data={clients} isLoading={isLoading} emptyMessage="No clients yet." />
+        <Table columns={columns} data={filteredClients} isLoading={isLoading} emptyMessage={search ? 'No clients match your search.' : 'No clients yet.'} />
       </Card>
 
       <Modal isOpen={showNewClient} onClose={() => setShowNewClient(false)} title="Add Client Account">
