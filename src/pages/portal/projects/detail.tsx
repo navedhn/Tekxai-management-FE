@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { LayoutDashboard, List, KanbanSquare, GanttChartSquare, Table2, UsersRound, Gauge } from 'lucide-react';
+import { MessageSquare, LayoutDashboard, ListChecks, FileText as FileIcon, CheckSquare, List, KanbanSquare, GanttChartSquare, Table2, UsersRound, Gauge } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
@@ -14,6 +14,29 @@ import CommunicationTab from './tabs/CommunicationTab';
 import FilesTab from './tabs/FilesTab';
 import ApprovalsTab from './tabs/ApprovalsTab';
 
+// One flat tab row — Communication/Updates/Files/Approvals are their own
+// pages (URL-routed, as before); Dashboard/List/Board/Timeline/Table/
+// Workload/Team are all views of the same milestones data, switched via
+// local state rather than the URL (same as before this merge, just no
+// longer nested inside a second row under a separate "Milestones" tab).
+// "Overview" (start/end date) is folded into Dashboard rather than kept
+// as its own tab — there is no standalone Milestones tab now; every one
+// of its views already has a direct top-level entry.
+const PAGE_TABS = [
+  { id: 'communication', label: 'Communication', icon: MessageSquare },
+  { id: 'updates', label: 'Updates', icon: ListChecks },
+  { id: 'files', label: 'Files', icon: FileIcon },
+  { id: 'approvals', label: 'Approvals', icon: CheckSquare },
+] as const;
+type PageTab = typeof PAGE_TABS[number]['id'];
+
+const pageSlug: Record<PageTab, string> = {
+  communication: '',
+  updates: 'updates',
+  files: 'files',
+  approvals: 'approvals',
+};
+
 const MILESTONE_VIEW_OPTIONS: { id: MilestonesView; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'list', label: 'List', icon: List },
@@ -24,20 +47,6 @@ const MILESTONE_VIEW_OPTIONS: { id: MilestonesView; label: string; icon: React.E
   { id: 'team', label: 'Team', icon: UsersRound },
 ];
 
-// Communication is the first/default tab — clients land straight on the
-// conversation with the TekXAI team rather than a static overview.
-const TABS = ['Communication', 'Overview', 'Milestones', 'Updates', 'Files', 'Approvals'] as const;
-type Tab = typeof TABS[number];
-
-const tabSlug: Record<Tab, string> = {
-  Communication: '',
-  Overview: 'overview',
-  Milestones: 'milestones',
-  Updates: 'updates',
-  Files: 'files',
-  Approvals: 'approvals',
-};
-
 const PortalProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -45,9 +54,18 @@ const PortalProjectDetailPage: React.FC = () => {
   const [milestoneView, setMilestoneView] = useState<MilestonesView>('dashboard');
 
   const activeSlug = location.pathname.split(`/portal/projects/${id}`)[1]?.replace(/^\//, '') ?? '';
-  const tab: Tab = (Object.keys(tabSlug) as Tab[]).find((t) => tabSlug[t] === activeSlug) ?? 'Communication';
+  // Any milestone-view tab shares the same "milestones" URL slug — the
+  // specific view is local state (milestoneView), not part of the route.
+  const onMilestonesRoute = activeSlug === 'milestones';
+  const page: PageTab = onMilestonesRoute
+    ? 'communication' // unused while showingMilestones is true, needs a valid fallback
+    : (Object.keys(pageSlug) as PageTab[]).find((t) => pageSlug[t] === activeSlug) ?? 'communication';
 
-  const goToTab = (t: Tab) => navigate(`/portal/projects/${id}${tabSlug[t] ? `/${tabSlug[t]}` : ''}`);
+  const goToPage = (t: PageTab) => navigate(`/portal/projects/${id}${pageSlug[t] ? `/${pageSlug[t]}` : ''}`);
+  const goToMilestoneView = (v: MilestonesView) => {
+    setMilestoneView(v);
+    navigate(`/portal/projects/${id}/milestones`);
+  };
 
   const { data: project, isLoading, isError } = useQuery<PortalProjectDetail>({
     queryKey: ['portal', 'project', id],
@@ -69,6 +87,9 @@ const PortalProjectDetailPage: React.FC = () => {
       </div>
     );
   }
+
+  const showingMilestones = onMilestonesRoute;
+  const activeMilestoneView = milestoneView;
 
   return (
     <div className="flex flex-col gap-6 pb-10">
@@ -116,65 +137,64 @@ const PortalProjectDetailPage: React.FC = () => {
         </div>
       </Card>
 
-      <div className="flex items-center justify-between gap-3 flex-wrap border-b border-(--color-border)">
-        <div className="flex items-center gap-1 overflow-x-auto">
-          {TABS.map((t) => (
-            <button
-              key={t}
-              onClick={() => goToTab(t)}
-              className={cn(
-                'px-4 h-11 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
-                tab === t ? 'border-primary-600 text-primary-600' : 'border-transparent text-(--color-text-secondary) hover:text-(--color-text-primary)'
-              )}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-
-        {tab === 'Milestones' && (
-          <div className="flex items-center gap-1 bg-(--color-elevated) rounded-xl p-1 flex-wrap my-1">
-            {MILESTONE_VIEW_OPTIONS.map((v) => (
-              <button
-                key={v.id}
-                onClick={() => setMilestoneView(v.id)}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 h-8 rounded-lg text-[11px] font-black transition-colors',
-                  milestoneView === v.id ? 'bg-(--color-card) text-primary-600 shadow-sm' : 'text-(--color-text-secondary) hover:text-(--color-text-primary)'
-                )}
-              >
-                <v.icon size={13} />
-                {v.label}
-              </button>
-            ))}
-          </div>
-        )}
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-(--color-border)">
+        {PAGE_TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => goToPage(t.id)}
+            className={cn(
+              'px-4 h-11 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
+              !showingMilestones && page === t.id ? 'border-primary-600 text-primary-600' : 'border-transparent text-(--color-text-secondary) hover:text-(--color-text-primary)'
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+        {MILESTONE_VIEW_OPTIONS.map((v) => (
+          <button
+            key={v.id}
+            onClick={() => goToMilestoneView(v.id)}
+            className={cn(
+              'px-4 h-11 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
+              showingMilestones && activeMilestoneView === v.id ? 'border-primary-600 text-primary-600' : 'border-transparent text-(--color-text-secondary) hover:text-(--color-text-primary)'
+            )}
+          >
+            {v.label}
+          </button>
+        ))}
       </div>
 
       <div>
-        {tab === 'Overview' && (
-          <Card>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
-              <div>
-                <p className="text-xs font-semibold text-(--color-text-secondary)">Start Date</p>
-                <p className="font-bold text-(--color-text-primary) mt-1">
-                  {project.start_date ? new Date(project.start_date).toLocaleDateString() : '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-(--color-text-secondary)">End Date</p>
-                <p className="font-bold text-(--color-text-primary) mt-1">
-                  {project.end_date ? new Date(project.end_date).toLocaleDateString() : '—'}
-                </p>
-              </div>
-            </div>
-          </Card>
+        {showingMilestones ? (
+          <div className="flex flex-col gap-4">
+            {activeMilestoneView === 'dashboard' && (
+              <Card>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
+                  <div>
+                    <p className="text-xs font-semibold text-(--color-text-secondary)">Start Date</p>
+                    <p className="font-bold text-(--color-text-primary) mt-1">
+                      {project.start_date ? new Date(project.start_date).toLocaleDateString() : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-(--color-text-secondary)">End Date</p>
+                    <p className="font-bold text-(--color-text-primary) mt-1">
+                      {project.end_date ? new Date(project.end_date).toLocaleDateString() : '—'}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
+            <MilestonesTab projectId={project.id} view={activeMilestoneView} />
+          </div>
+        ) : (
+          <>
+            {page === 'communication' && <CommunicationTab projectId={project.id} />}
+            {page === 'updates' && <UpdatesTab projectId={project.id} />}
+            {page === 'files' && <FilesTab projectId={project.id} />}
+            {page === 'approvals' && <ApprovalsTab projectId={project.id} />}
+          </>
         )}
-        {tab === 'Milestones' && <MilestonesTab projectId={project.id} view={milestoneView} />}
-        {tab === 'Updates' && <UpdatesTab projectId={project.id} />}
-        {tab === 'Communication' && <CommunicationTab projectId={project.id} />}
-        {tab === 'Files' && <FilesTab projectId={project.id} />}
-        {tab === 'Approvals' && <ApprovalsTab projectId={project.id} />}
       </div>
     </div>
   );
