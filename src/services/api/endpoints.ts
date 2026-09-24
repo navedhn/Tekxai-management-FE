@@ -706,6 +706,7 @@ export const API_ENDPOINTS = {
   },
   PORTAL: {
     INVITES:           `${v1}/portal/invites`,
+    DOCUMENTS:         `${v1}/portal/documents`,
     PROJECTS:          `${v1}/portal/projects`,
     PROJECT:           (id: string) => `${v1}/portal/projects/${id}`,
     MILESTONES:        (id: string) => `${v1}/portal/projects/${id}/milestones`,

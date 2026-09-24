@@ -1,7 +1,7 @@
 import React, { memo, Suspense, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { LayoutDashboard, FolderKanban, LogOut, Users, ChevronDown, ChevronRight, Plus, Boxes, MessageCircle } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, LogOut, Users, ChevronDown, ChevronRight, Plus, Boxes, MessageCircle, FileText } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,6 +13,7 @@ import { RoutePageSkeleton } from '@/components/skeletons';
 const NAV_ITEMS = [
   { to: '/portal', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/portal/projects', label: 'Projects', icon: FolderKanban, end: false },
+  { to: '/portal/docs', label: 'Docs', icon: FileText, end: false },
 ];
 
 type SpaceProject = { id: string; title: string; status: string; client: { id: string; name: string } | null };
@@ -170,7 +171,7 @@ const ClientPortalLayout: React.FC = memo(() => {
   const { userLogout } = useAuthStore();
   const navigate = useNavigate();
   const isSuperAdmin = role === 'SUPER_ADMIN';
-  const [panel, setPanel] = useState<'spaces' | 'chats' | null>('spaces');
+  const [panel, setPanel] = useState<'spaces' | 'chats' | null>(null);
 
   const handleLogout = () => {
     userLogout();
@@ -218,7 +219,7 @@ const ClientPortalLayout: React.FC = memo(() => {
 
         <nav className="flex flex-col items-center gap-2.5 w-full px-2">
           {navItems.map(({ to, label, icon: Icon, end }) => (
-            <NavLink key={to} to={to} end={end} className="w-full">
+            <NavLink key={to} to={to} end={end} className="w-full" onClick={() => setPanel(null)}>
               {({ isActive }) => <RailButton icon={Icon} label={label} active={isActive} />}
             </NavLink>
           ))}
