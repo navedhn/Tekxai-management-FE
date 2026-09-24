@@ -16,7 +16,12 @@ const NAV_ITEMS = [
 
 type SpaceProject = { id: string; title: string; status: string };
 
-const SpacesList: React.FC<{ isSuperAdmin: boolean }> = ({ isSuperAdmin }) => {
+// The second sidebar panel is shared by the "Spaces" and "Chats" rail
+// buttons — same project list either way, just linking into a different
+// tab of that project (its overview vs. its client Communication tab),
+// since "Chats" here means the portal's own client-communication threads,
+// never the separate internal /chat module.
+const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' }> = ({ isSuperAdmin, mode }) => {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(true);
   const { data: projects = [] } = useQuery<SpaceProject[]>({
@@ -24,6 +29,8 @@ const SpacesList: React.FC<{ isSuperAdmin: boolean }> = ({ isSuperAdmin }) => {
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.PROJECTS),
     select: (r: any) => r?.payload?.records || [],
   });
+
+  const label = mode === 'chats' ? 'Chats' : 'Spaces';
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
@@ -33,9 +40,9 @@ const SpacesList: React.FC<{ isSuperAdmin: boolean }> = ({ isSuperAdmin }) => {
           className="flex items-center gap-1 text-xs font-black uppercase tracking-wide text-(--color-text-secondary) hover:text-(--color-text-primary)"
         >
           {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-          Spaces
+          {label}
         </button>
-        {isSuperAdmin && (
+        {isSuperAdmin && mode === 'spaces' && (
           <button
             onClick={() => navigate('/admin/projects')}
             title="Create a new project"
@@ -53,7 +60,7 @@ const SpacesList: React.FC<{ isSuperAdmin: boolean }> = ({ isSuperAdmin }) => {
           {projects.map((p) => (
             <NavLink
               key={p.id}
-              to={`/portal/projects/${p.id}`}
+              to={mode === 'chats' ? `/portal/projects/${p.id}/communication` : `/portal/projects/${p.id}`}
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-2 px-3 h-8 rounded-lg text-[13px] font-semibold truncate transition-colors',
@@ -64,7 +71,11 @@ const SpacesList: React.FC<{ isSuperAdmin: boolean }> = ({ isSuperAdmin }) => {
               }
               title={p.title}
             >
-              <Circle size={7} className="shrink-0 fill-current opacity-60" />
+              {mode === 'chats' ? (
+                <MessageCircle size={13} className="shrink-0 opacity-60" />
+              ) : (
+                <Circle size={7} className="shrink-0 fill-current opacity-60" />
+              )}
               <span className="truncate">{p.title}</span>
             </NavLink>
           ))}
@@ -79,8 +90,7 @@ const ClientPortalLayout: React.FC = memo(() => {
   const { userLogout } = useAuthStore();
   const navigate = useNavigate();
   const isSuperAdmin = role === 'SUPER_ADMIN';
-  const isInternal = user?.user_type === 'INTERNAL';
-  const [spacesOpen, setSpacesOpen] = useState(true);
+  const [panel, setPanel] = useState<'spaces' | 'chats' | null>('spaces');
 
   const handleLogout = () => {
     userLogout();
@@ -91,33 +101,26 @@ const ClientPortalLayout: React.FC = memo(() => {
     ? [...NAV_ITEMS, { to: '/portal/invites', label: 'People', icon: Users, end: false }]
     : NAV_ITEMS;
 
-  // /chat is an INTERNAL-only route (CLIENT users get bounced back to
-  // /portal by ProtectedRoute) — only surface it for the internal users
-  // (employees/super admins) who are allowed to actually open it.
-  const railItems = isInternal
-    ? [...navItems, { to: '/chat', label: 'Chats', icon: MessageCircle, end: false }]
-    : navItems;
+  const togglePanel = (mode: 'spaces' | 'chats') => setPanel((p) => (p === mode ? null : mode));
+
+  const railActiveCls = 'bg-emerald-500 text-white shadow-sm shadow-emerald-900/40';
+  const railInactiveCls = 'text-emerald-200/70 hover:bg-white/10 hover:text-white';
 
   return (
     <div className="min-h-screen flex bg-(--color-app-bg)">
       {/* Icon rail — ClickUp-style: icon stacked over a short label, narrow, dark */}
-      <aside className="hidden lg:flex flex-col items-center w-[68px] shrink-0 bg-emerald-950 py-4 gap-1">
-        <div className="h-8 w-8 rounded-lg bg-emerald-500 text-emerald-950 flex items-center justify-center font-black text-sm mb-3">
+      <aside className="hidden lg:flex flex-col items-center w-[68px] shrink-0 bg-emerald-950 py-4 gap-1.5">
+        <div className="h-9 w-9 rounded-xl bg-white text-emerald-700 flex items-center justify-center font-black text-base mb-3">
           T
         </div>
         <nav className="flex flex-col items-center gap-1 w-full px-1.5">
-          {railItems.map(({ to, label, icon: Icon, end }) => (
+          {navItems.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
               className={({ isActive }) =>
-                cn(
-                  'flex flex-col items-center justify-center gap-1 w-full py-2 rounded-xl text-[10px] font-bold transition-colors',
-                  isActive
-                    ? 'bg-emerald-500/15 text-emerald-400'
-                    : 'text-emerald-100/50 hover:bg-white/5 hover:text-emerald-100'
-                )
+                cn('flex flex-col items-center justify-center gap-1 w-full py-2 rounded-xl text-[10px] font-bold transition-colors', isActive ? railActiveCls : railInactiveCls)
               }
             >
               <Icon size={18} />
@@ -125,14 +128,17 @@ const ClientPortalLayout: React.FC = memo(() => {
             </NavLink>
           ))}
           <button
-            onClick={() => setSpacesOpen((v) => !v)}
-            title={spacesOpen ? 'Hide Spaces' : 'Show Spaces'}
-            className={cn(
-              'flex flex-col items-center justify-center gap-1 w-full py-2 rounded-xl text-[10px] font-bold transition-colors',
-              spacesOpen
-                ? 'bg-emerald-500/15 text-emerald-400'
-                : 'text-emerald-100/50 hover:bg-white/5 hover:text-emerald-100'
-            )}
+            onClick={() => togglePanel('chats')}
+            title="Client communication threads, by project"
+            className={cn('flex flex-col items-center justify-center gap-1 w-full py-2 rounded-xl text-[10px] font-bold transition-colors', panel === 'chats' ? railActiveCls : railInactiveCls)}
+          >
+            <MessageCircle size={18} />
+            Chats
+          </button>
+          <button
+            onClick={() => togglePanel('spaces')}
+            title="Every project"
+            className={cn('flex flex-col items-center justify-center gap-1 w-full py-2 rounded-xl text-[10px] font-bold transition-colors', panel === 'spaces' ? railActiveCls : railInactiveCls)}
           >
             <Boxes size={18} />
             Spaces
@@ -141,20 +147,20 @@ const ClientPortalLayout: React.FC = memo(() => {
 
         <button
           onClick={handleLogout}
-          className="mt-auto flex flex-col items-center justify-center gap-1 w-full py-2 rounded-xl text-[10px] font-bold text-emerald-100/50 hover:bg-white/5 hover:text-emerald-100"
+          className={cn('mt-auto flex flex-col items-center justify-center gap-1 w-full py-2 rounded-xl text-[10px] font-bold', railInactiveCls)}
         >
           <LogOut size={18} />
           Log out
         </button>
       </aside>
 
-      {/* Spaces panel — the project list, ClickUp's second sidebar column */}
-      {spacesOpen && (
+      {/* Spaces/Chats panel — the project list, ClickUp's second sidebar column */}
+      {panel && (
         <aside className="hidden lg:flex flex-col w-52 shrink-0 border-r border-(--color-border) bg-(--color-surface) py-4 px-3 min-h-0">
           <div className="px-1 mb-4">
             <span className="text-base font-black text-(--color-text-primary) tracking-tight">Client Portal</span>
           </div>
-          <SpacesList isSuperAdmin={isSuperAdmin} />
+          <ProjectsPanel isSuperAdmin={isSuperAdmin} mode={panel} />
         </aside>
       )}
 

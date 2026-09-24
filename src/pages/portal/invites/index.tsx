@@ -199,6 +199,7 @@ const PortalInvitesPage: React.FC = () => {
                 <th className="sticky left-0 z-20 bg-gray-50 px-5 py-3 border-b border-r border-gray-100">Name</th>
                 <th className="px-5 py-3 border-b border-gray-100">Email</th>
                 <th className="px-5 py-3 border-b border-gray-100">Type</th>
+                <th className="px-5 py-3 border-b border-gray-100">Status</th>
                 <th className="px-5 py-3 border-b border-gray-100">Last Active</th>
                 <th className="px-5 py-3 border-b border-gray-100">Invited By</th>
                 <th className="px-5 py-3 border-b border-gray-100">Invited On</th>
@@ -209,7 +210,7 @@ const PortalInvitesPage: React.FC = () => {
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={9} className="px-5 py-10 text-center text-gray-400">
+                <tr><td colSpan={10} className="px-5 py-10 text-center text-gray-400">
                   {search ? 'No one matches your search.' : 'No invites sent yet.'}
                 </td></tr>
               )}
@@ -223,17 +224,17 @@ const PortalInvitesPage: React.FC = () => {
                 return (
                   <tr key={`${r.kind}-${r.id}`} className="group">
                     <td className="sticky left-0 z-10 bg-white group-hover:bg-gray-50/60 px-5 py-3 border-b border-r border-gray-100 font-bold text-gray-900">
-                      <div className="flex items-center gap-2">
-                        {name}
-                        <Badge variant="info" className={`text-[10px] font-bold border rounded-lg px-2 py-0.5 shrink-0 ${STATUS_STYLES[r.status] || ''}`}>
-                          {r.status}
-                        </Badge>
-                      </div>
+                      {name}
                     </td>
                     <td className="px-5 py-3 border-b border-gray-100 text-gray-600 group-hover:bg-gray-50/60">{email}</td>
                     <td className="px-5 py-3 border-b border-gray-100 group-hover:bg-gray-50/60">
                       <Badge variant="info" className="text-[10px] font-bold border rounded-lg px-2 py-0.5 bg-gray-50 text-gray-500 border-gray-100">
                         {r.kind === 'client' ? 'Client' : 'Employee'}
+                      </Badge>
+                    </td>
+                    <td className="px-5 py-3 border-b border-gray-100 group-hover:bg-gray-50/60">
+                      <Badge variant="info" className={`text-[10px] font-bold border rounded-lg px-2 py-0.5 ${STATUS_STYLES[r.status] || ''}`}>
+                        {r.status}
                       </Badge>
                     </td>
                     <td className="px-5 py-3 border-b border-gray-100 text-gray-500 group-hover:bg-gray-50/60">
