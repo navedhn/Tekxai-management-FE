@@ -92,8 +92,8 @@ const PortalProjectDetailPage: React.FC = () => {
   const activeMilestoneView = milestoneView;
 
   return (
-    <div className="flex flex-col gap-6 pb-10">
-      <div className="flex items-center gap-1 overflow-x-auto border-b border-(--color-border)">
+    <div className="flex flex-col gap-6 pb-10 h-[calc(100vh-114px)]">
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-(--color-border) shrink-0">
         <button
           onClick={() => goToPage('communication')}
           className={cn(
@@ -138,7 +138,7 @@ const PortalProjectDetailPage: React.FC = () => {
         ))}
       </div>
 
-      <div>
+      <div className="flex-1 min-h-0 flex flex-col">
         {showingMilestones ? (
           <div className="flex flex-col gap-4">
             {activeMilestoneView === 'dashboard' && (

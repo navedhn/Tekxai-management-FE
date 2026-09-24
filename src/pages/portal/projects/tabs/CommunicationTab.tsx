@@ -726,8 +726,8 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   });
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-4 min-h-[calc(100vh-420px)]">
+    <div className="h-full flex flex-col gap-4">
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
         {roots.length === 0 && (
           <p className="text-sm text-(--color-text-secondary) py-10 text-center">No messages yet.</p>
         )}
@@ -751,7 +751,7 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
       </div>
 
       {canCompose && (
-        <div className="sticky bottom-4 pt-4 border-t border-(--color-card-border) bg-(--color-app-bg)">
+        <div className="shrink-0 pt-4 border-t border-(--color-card-border)">
           <Composer projectId={projectId} onSent={() => {}} />
         </div>
       )}
