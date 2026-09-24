@@ -25,9 +25,12 @@ const statusBadge = (status: string) => (
   </span>
 );
 
+const PAGE_SIZE = 10;
+
 const PortalProjects: React.FC = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const { data, isLoading } = useQuery<PortalProject[]>({
     queryKey: ['portal', 'projects'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.PROJECTS),
@@ -39,6 +42,15 @@ const PortalProjects: React.FC = () => {
     if (!q) return true;
     return [p.title, p.client?.name].some((v) => (v || '').toLowerCase().includes(q));
   });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
 
   const columns: Column<PortalProject>[] = [
     {
@@ -73,7 +85,7 @@ const PortalProjects: React.FC = () => {
         <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-(--color-text-secondary)" />
         <input
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           placeholder="Search by title or client…"
           className="w-full h-10 pl-10 pr-4 rounded-xl border border-(--color-border) bg-(--color-surface) text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
         />
@@ -82,14 +94,21 @@ const PortalProjects: React.FC = () => {
       <Card className="p-0 overflow-hidden hidden lg:block">
         <Table
           columns={columns}
-          data={filtered}
+          data={paginated}
           emptyMessage={search ? 'No projects match your search.' : 'No projects yet.'}
           className="p-6"
+          pagination={{
+            currentPage,
+            totalPages,
+            onPageChange: setPage,
+            totalEntries: filtered.length,
+            entriesPerPage: PAGE_SIZE,
+          }}
         />
       </Card>
 
       <div className="grid grid-cols-1 gap-3 lg:hidden">
-        {filtered.map((p) => (
+        {paginated.map((p) => (
           <button
             key={p.id}
             onClick={() => navigate(`/portal/projects/${p.id}`)}
@@ -102,6 +121,25 @@ const PortalProjects: React.FC = () => {
             <p className="text-xs text-(--color-text-secondary) mt-1">{p.project_type} · {p.progress}%</p>
           </button>
         ))}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-1">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="h-9 px-4 rounded-lg border border-(--color-border) text-sm font-semibold disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <span className="text-xs text-(--color-text-secondary)">Page {currentPage} of {totalPages}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="h-9 px-4 rounded-lg border border-(--color-border) text-sm font-semibold disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
