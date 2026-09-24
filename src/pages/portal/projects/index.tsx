@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { Search } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import Table, { Column } from '@/components/ui/Table';
@@ -15,6 +16,7 @@ type PortalProject = {
   progress: number;
   start_date: string | null;
   end_date: string | null;
+  client: { id: string; name: string } | null;
 };
 
 const statusBadge = (status: string) => (
@@ -25,10 +27,17 @@ const statusBadge = (status: string) => (
 
 const PortalProjects: React.FC = () => {
   const navigate = useNavigate();
+  const [search, setSearch] = useState('');
   const { data, isLoading } = useQuery<PortalProject[]>({
     queryKey: ['portal', 'projects'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.PROJECTS),
     select: (r: any) => r?.payload?.records || [],
+  });
+
+  const filtered = (data || []).filter((p) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [p.title, p.client?.name].some((v) => (v || '').toLowerCase().includes(q));
   });
 
   const columns: Column<PortalProject>[] = [
@@ -44,6 +53,7 @@ const PortalProjects: React.FC = () => {
         </button>
       ),
     },
+    { header: 'Client', key: 'client', render: (p) => <span className="text-(--color-text-secondary)">{p.client?.name || '—'}</span> },
     { header: 'Type', key: 'project_type' },
     { header: 'Status', key: 'status', render: (p) => statusBadge(p.status) },
     { header: 'Progress', key: 'progress', render: (p) => <span className="font-semibold">{p.progress}%</span> },
@@ -59,17 +69,27 @@ const PortalProjects: React.FC = () => {
         <p className="text-sm text-(--color-text-secondary) mt-1">All projects you have access to.</p>
       </div>
 
+      <div className="relative max-w-sm">
+        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-(--color-text-secondary)" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by title or client…"
+          className="w-full h-10 pl-10 pr-4 rounded-xl border border-(--color-border) bg-(--color-surface) text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
+        />
+      </div>
+
       <Card className="p-0 overflow-hidden hidden lg:block">
         <Table
           columns={columns}
-          data={data || []}
-          emptyMessage="No projects yet."
+          data={filtered}
+          emptyMessage={search ? 'No projects match your search.' : 'No projects yet.'}
           className="p-6"
         />
       </Card>
 
       <div className="grid grid-cols-1 gap-3 lg:hidden">
-        {(data || []).map((p) => (
+        {filtered.map((p) => (
           <button
             key={p.id}
             onClick={() => navigate(`/portal/projects/${p.id}`)}
