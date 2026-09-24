@@ -60,8 +60,14 @@ type PendingAttachment = {
 
 type MentionableUser = { id: string; first_name: string; last_name: string };
 
+// Unified Portal — an INTERNAL sender is now frequently the actual
+// assigned employee (e.g. Farhan) participating as themselves, not just
+// an anonymous "company voice" reply, so their real name is shown just
+// like a CLIENT sender's — the backend already returns the real person
+// (see create_portal_message: "Sender identity must be the real person,
+// not anonymized").
 function senderName(msg: Pick<PortalMessage, 'user'>) {
-  return msg.user?.user_type === 'INTERNAL' ? 'TekXAI Team' : `${msg.user?.first_name ?? ''} ${msg.user?.last_name ?? ''}`.trim();
+  return [msg.user?.first_name, msg.user?.last_name].filter(Boolean).join(' ').trim() || 'Unknown';
 }
 
 // Wraps (or, with no selection, inserts markers around the cursor for) the
@@ -420,7 +426,7 @@ const MessageBubble: React.FC<{
           className="flex items-center gap-1.5 min-w-0 group"
           title="View profile"
         >
-          {m.user?.avatar && m.user?.user_type !== 'INTERNAL' ? (
+          {m.user?.avatar ? (
             <img src={m.user.avatar} alt="" className="h-5 w-5 rounded-full object-cover shrink-0" />
           ) : (
             <span className="h-5 w-5 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-[9px] font-black shrink-0">
