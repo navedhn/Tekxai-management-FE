@@ -65,9 +65,13 @@ const ClientPortalLayout: React.FC = memo(() => {
             <span className="text-sm font-semibold text-(--color-text-primary)">
               {user?.first_name} {user?.last_name}
             </span>
-            <div className="h-9 w-9 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-sm font-bold">
-              {user?.first_name?.[0]?.toUpperCase() ?? 'C'}
-            </div>
+            {user?.avatar ? (
+              <img src={user.avatar} alt="" className="h-9 w-9 rounded-full object-cover" />
+            ) : (
+              <div className="h-9 w-9 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-sm font-bold">
+                {user?.first_name?.[0]?.toUpperCase() ?? 'C'}
+              </div>
+            )}
           </div>
         </header>
 
