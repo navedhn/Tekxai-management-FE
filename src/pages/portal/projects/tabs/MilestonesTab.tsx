@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { FileText, LayoutDashboard, List, KanbanSquare, GanttChartSquare, Table2, UsersRound, Gauge } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import Card from '@/components/ui/Card';
@@ -12,7 +12,7 @@ import PortalMilestoneTableView from '../PortalMilestoneTableView';
 import PortalMilestoneTeamView from '../PortalMilestoneTeamView';
 import PortalMilestoneWorkloadView from '../PortalMilestoneWorkloadView';
 import PortalMilestoneDashboardView from '../PortalMilestoneDashboardView';
-import { cn } from '@/utils/cn';
+import type { MilestonesView } from '../types';
 
 const statusStyles: Record<string, string> = {
   COMPLETED: 'bg-green-100 text-green-700',
@@ -20,18 +20,7 @@ const statusStyles: Record<string, string> = {
   PENDING: 'bg-(--color-elevated) text-(--color-text-secondary)',
 };
 
-const VIEW_OPTIONS = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'list', label: 'List', icon: List },
-  { id: 'board', label: 'Board', icon: KanbanSquare },
-  { id: 'timeline', label: 'Timeline', icon: GanttChartSquare },
-  { id: 'table', label: 'Table', icon: Table2 },
-  { id: 'workload', label: 'Workload', icon: Gauge },
-  { id: 'team', label: 'Team', icon: UsersRound },
-] as const;
-
-const MilestonesTab: React.FC<{ projectId: string }> = ({ projectId }) => {
-  const [view, setView] = useState<'dashboard' | 'list' | 'board' | 'timeline' | 'table' | 'workload' | 'team'>('dashboard');
+const MilestonesTab: React.FC<{ projectId: string; view: MilestonesView }> = ({ projectId, view }) => {
   const { data, isLoading } = useQuery<PortalMilestone[]>({
     queryKey: ['portal', 'milestones', projectId],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.MILESTONES(projectId)),
@@ -50,25 +39,7 @@ const MilestonesTab: React.FC<{ projectId: string }> = ({ projectId }) => {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-end">
-        <div className="flex items-center gap-1 bg-(--color-elevated) rounded-xl p-1 flex-wrap">
-          {VIEW_OPTIONS.map((v) => (
-            <button
-              key={v.id}
-              onClick={() => setView(v.id)}
-              className={cn(
-                'flex items-center gap-1.5 px-3 h-8 rounded-lg text-[11px] font-black transition-colors',
-                view === v.id ? 'bg-(--color-card) text-primary-600 shadow-sm' : 'text-(--color-text-secondary) hover:text-(--color-text-primary)'
-              )}
-            >
-              <v.icon size={13} />
-              {v.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {milestones.length === 0 && view !== 'dashboard' && (
+      {milestones.length === 0 && view !== 'dashboard' && view !== 'team' && (
         <p className="text-sm text-(--color-text-secondary) py-10 text-center">No milestones yet.</p>
       )}
 
@@ -77,7 +48,7 @@ const MilestonesTab: React.FC<{ projectId: string }> = ({ projectId }) => {
       {view === 'timeline' && milestones.length > 0 && <PortalMilestoneTimelineView milestones={milestones} />}
       {view === 'table' && milestones.length > 0 && <PortalMilestoneTableView milestones={milestones} />}
       {view === 'workload' && milestones.length > 0 && <PortalMilestoneWorkloadView milestones={milestones} />}
-      {view === 'team' && milestones.length > 0 && <PortalMilestoneTeamView milestones={milestones} />}
+      {view === 'team' && <PortalMilestoneTeamView projectId={projectId} milestones={milestones} />}
 
       {view === 'list' && milestones.map((m) => (
         <Card key={m.id} className="p-5">

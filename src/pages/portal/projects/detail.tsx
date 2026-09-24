@@ -1,17 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { LayoutDashboard, List, KanbanSquare, GanttChartSquare, Table2, UsersRound, Gauge } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 import Card from '@/components/ui/Card';
 import { PageSkeleton } from '@/components/skeletons';
-import { PortalProjectDetail } from './types';
+import { PortalProjectDetail, MilestonesView } from './types';
 import MilestonesTab from './tabs/MilestonesTab';
 import UpdatesTab from './tabs/UpdatesTab';
 import CommunicationTab from './tabs/CommunicationTab';
 import FilesTab from './tabs/FilesTab';
 import ApprovalsTab from './tabs/ApprovalsTab';
+
+const MILESTONE_VIEW_OPTIONS: { id: MilestonesView; label: string; icon: React.ElementType }[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'list', label: 'List', icon: List },
+  { id: 'board', label: 'Board', icon: KanbanSquare },
+  { id: 'timeline', label: 'Timeline', icon: GanttChartSquare },
+  { id: 'table', label: 'Table', icon: Table2 },
+  { id: 'workload', label: 'Workload', icon: Gauge },
+  { id: 'team', label: 'Team', icon: UsersRound },
+];
 
 // Communication is the first/default tab — clients land straight on the
 // conversation with the TekXAI team rather than a static overview.
@@ -31,6 +42,7 @@ const PortalProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const [milestoneView, setMilestoneView] = useState<MilestonesView>('dashboard');
 
   const activeSlug = location.pathname.split(`/portal/projects/${id}`)[1]?.replace(/^\//, '') ?? '';
   const tab: Tab = (Object.keys(tabSlug) as Tab[]).find((t) => tabSlug[t] === activeSlug) ?? 'Communication';
@@ -104,19 +116,39 @@ const PortalProjectDetailPage: React.FC = () => {
         </div>
       </Card>
 
-      <div className="flex items-center gap-1 overflow-x-auto border-b border-(--color-border)">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => goToTab(t)}
-            className={cn(
-              'px-4 h-11 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
-              tab === t ? 'border-primary-600 text-primary-600' : 'border-transparent text-(--color-text-secondary) hover:text-(--color-text-primary)'
-            )}
-          >
-            {t}
-          </button>
-        ))}
+      <div className="flex items-center justify-between gap-3 flex-wrap border-b border-(--color-border)">
+        <div className="flex items-center gap-1 overflow-x-auto">
+          {TABS.map((t) => (
+            <button
+              key={t}
+              onClick={() => goToTab(t)}
+              className={cn(
+                'px-4 h-11 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
+                tab === t ? 'border-primary-600 text-primary-600' : 'border-transparent text-(--color-text-secondary) hover:text-(--color-text-primary)'
+              )}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'Milestones' && (
+          <div className="flex items-center gap-1 bg-(--color-elevated) rounded-xl p-1 flex-wrap my-1">
+            {MILESTONE_VIEW_OPTIONS.map((v) => (
+              <button
+                key={v.id}
+                onClick={() => setMilestoneView(v.id)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 h-8 rounded-lg text-[11px] font-black transition-colors',
+                  milestoneView === v.id ? 'bg-(--color-card) text-primary-600 shadow-sm' : 'text-(--color-text-secondary) hover:text-(--color-text-primary)'
+                )}
+              >
+                <v.icon size={13} />
+                {v.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div>
@@ -138,7 +170,7 @@ const PortalProjectDetailPage: React.FC = () => {
             </div>
           </Card>
         )}
-        {tab === 'Milestones' && <MilestonesTab projectId={project.id} />}
+        {tab === 'Milestones' && <MilestonesTab projectId={project.id} view={milestoneView} />}
         {tab === 'Updates' && <UpdatesTab projectId={project.id} />}
         {tab === 'Communication' && <CommunicationTab projectId={project.id} />}
         {tab === 'Files' && <FilesTab projectId={project.id} />}

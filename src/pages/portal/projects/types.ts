@@ -1,3 +1,5 @@
+export type MilestonesView = 'dashboard' | 'list' | 'board' | 'timeline' | 'table' | 'workload' | 'team';
+
 export type PortalProjectDetail = {
   id: string;
   title: string;
