@@ -2,6 +2,7 @@ import React, { memo, Suspense, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { LayoutDashboard, FolderKanban, LogOut, Users, ChevronDown, ChevronRight, Plus, Circle, Boxes, MessageCircle } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/authStore';
@@ -103,55 +104,64 @@ const ClientPortalLayout: React.FC = memo(() => {
 
   const togglePanel = (mode: 'spaces' | 'chats') => setPanel((p) => (p === mode ? null : mode));
 
-  const railActiveCls = 'bg-emerald-500 text-white shadow-sm shadow-emerald-900/40';
-  const railInactiveCls = 'text-emerald-200/70 hover:bg-white/10 hover:text-white';
+  // Icon sits in its own small chip that lights up on active/hover; the
+  // label underneath stays plain text and only changes color — mirrors
+  // ClickUp's rail, where the highlight never stretches the full row.
+  const RailButton: React.FC<{ icon: LucideIcon; label: string; active: boolean; onClick?: () => void; title?: string }> = ({ icon: Icon, label, active, onClick, title }) => (
+    <button
+      onClick={onClick}
+      title={title}
+      className="flex flex-col items-center gap-1 w-full py-1 group"
+    >
+      <span
+        className={cn(
+          'flex items-center justify-center h-9 w-9 rounded-xl transition-colors',
+          active ? 'bg-emerald-500 text-white' : 'text-emerald-300/80 group-hover:bg-white/10 group-hover:text-white'
+        )}
+      >
+        <Icon size={18} />
+      </span>
+      <span className={cn('text-[10px] font-semibold transition-colors', active ? 'text-white' : 'text-emerald-300/70 group-hover:text-emerald-100')}>
+        {label}
+      </span>
+    </button>
+  );
 
   return (
     <div className="min-h-screen flex bg-(--color-app-bg)">
       {/* Icon rail — ClickUp-style: icon stacked over a short label, narrow, dark */}
-      <aside className="hidden lg:flex flex-col items-center w-[68px] shrink-0 bg-emerald-950 py-4 gap-1.5">
-        <div className="h-9 w-9 rounded-xl bg-white text-emerald-700 flex items-center justify-center font-black text-base mb-3">
+      <aside className="hidden lg:flex flex-col items-center w-[72px] shrink-0 bg-emerald-950 pt-5 pb-4">
+        <div className="h-9 w-9 rounded-xl bg-white text-emerald-700 flex items-center justify-center font-black text-base">
           T
         </div>
-        <nav className="flex flex-col items-center gap-1 w-full px-1.5">
+
+        <div className="w-full h-px bg-white/10 my-4" />
+
+        <nav className="flex flex-col items-center gap-2.5 w-full px-2">
           {navItems.map(({ to, label, icon: Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                cn('flex flex-col items-center justify-center gap-1 w-full py-2 rounded-xl text-[10px] font-bold transition-colors', isActive ? railActiveCls : railInactiveCls)
-              }
-            >
-              <Icon size={18} />
-              {label}
+            <NavLink key={to} to={to} end={end} className="w-full">
+              {({ isActive }) => <RailButton icon={Icon} label={label} active={isActive} />}
             </NavLink>
           ))}
-          <button
+          <RailButton
+            icon={MessageCircle}
+            label="Chats"
+            active={panel === 'chats'}
             onClick={() => togglePanel('chats')}
             title="Client communication threads, by project"
-            className={cn('flex flex-col items-center justify-center gap-1 w-full py-2 rounded-xl text-[10px] font-bold transition-colors', panel === 'chats' ? railActiveCls : railInactiveCls)}
-          >
-            <MessageCircle size={18} />
-            Chats
-          </button>
-          <button
+          />
+          <RailButton
+            icon={Boxes}
+            label="Spaces"
+            active={panel === 'spaces'}
             onClick={() => togglePanel('spaces')}
             title="Every project"
-            className={cn('flex flex-col items-center justify-center gap-1 w-full py-2 rounded-xl text-[10px] font-bold transition-colors', panel === 'spaces' ? railActiveCls : railInactiveCls)}
-          >
-            <Boxes size={18} />
-            Spaces
-          </button>
+          />
         </nav>
 
-        <button
-          onClick={handleLogout}
-          className={cn('mt-auto flex flex-col items-center justify-center gap-1 w-full py-2 rounded-xl text-[10px] font-bold', railInactiveCls)}
-        >
-          <LogOut size={18} />
-          Log out
-        </button>
+        <div className="mt-auto w-full px-2">
+          <RailButton icon={LogOut} label="Log out" active={false} onClick={handleLogout} />
+        </div>
       </aside>
 
       {/* Spaces/Chats panel — the project list, ClickUp's second sidebar column */}
