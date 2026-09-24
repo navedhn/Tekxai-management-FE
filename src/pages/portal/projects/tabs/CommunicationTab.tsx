@@ -330,7 +330,7 @@ const MessageBubble: React.FC<{
       id={`portal-message-${m.id}`}
       className={cn(
         'max-w-[80%] rounded-2xl px-4 py-3',
-        m.user?.user_type === 'CLIENT' ? 'self-end bg-primary-50' : 'self-start bg-(--color-elevated)'
+        m.user?.id === myUserId ? 'self-end bg-primary-50' : 'self-start bg-(--color-elevated)'
       )}
     >
       <div className="flex items-center justify-between gap-4 mb-1">
@@ -432,7 +432,7 @@ const Thread: React.FC<{
           onClick={() => setExpanded((v) => !v)}
           className={cn(
             'flex items-center gap-1.5 text-xs font-semibold text-(--color-text-secondary) hover:text-primary-600',
-            root.user?.user_type === 'CLIENT' ? 'self-end mr-2' : 'self-start ml-2'
+            root.user?.id === myUserId ? 'self-end mr-2' : 'self-start ml-2'
           )}
         >
           {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
@@ -441,7 +441,7 @@ const Thread: React.FC<{
       )}
 
       {expanded && (
-        <div className={cn('flex flex-col gap-2 pl-4 border-l-2 border-(--color-border)', root.user?.user_type === 'CLIENT' ? 'self-end mr-4' : 'self-start ml-4')}>
+        <div className={cn('flex flex-col gap-2 pl-4 border-l-2 border-(--color-border)', root.user?.id === myUserId ? 'self-end mr-4' : 'self-start ml-4')}>
           {replies.map((r) => (
             <MessageBubble key={r.id} message={r} projectId={projectId} canCompose={canCompose} myUserId={myUserId} onReply={() => setReplying(true)} onOpenProfile={onOpenProfile} />
           ))}

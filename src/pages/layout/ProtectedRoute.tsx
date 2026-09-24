@@ -19,8 +19,17 @@ const ProtectedRoute: React.FC<{ permission?: string | string[]; superAdminOnly?
   if (isLoading) return <RoutePageSkeleton />;
 
   const isClientUser = user?.user_type === 'CLIENT';
+  // Unified Portal — an INTERNAL user is also allowed on clientOnly (i.e.
+  // /portal/*) routes now, alongside CLIENT. Per-project access is still
+  // enforced server-side for every actual portal API call
+  // (assertClientProjectAccess's INTERNAL branch) — this route-level check
+  // only ever gated "logged in as the right kind of account", never a
+  // specific project, so admitting INTERNAL here doesn't weaken anything;
+  // it just lets them reach a project list the API correctly scopes down
+  // to only what they're actually assigned to.
+  const isInternalUser = user?.user_type === 'INTERNAL';
 
-  if (clientOnly && !isClientUser) return <Navigate to="/403" replace />;
+  if (clientOnly && !isClientUser && !isInternalUser) return <Navigate to="/403" replace />;
 
   if (!clientOnly && isClientUser) return <Navigate to="/portal" replace />;
 
