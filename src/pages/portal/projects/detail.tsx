@@ -8,11 +8,13 @@ import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 import Card from '@/components/ui/Card';
 import { PageSkeleton } from '@/components/skeletons';
+import { useAuth } from '@/hooks/useAuth';
 import { PortalProjectDetail, MilestonesView } from './types';
 import MilestonesTab from './tabs/MilestonesTab';
 import CommunicationTab from './tabs/CommunicationTab';
 import FilesTab from './tabs/FilesTab';
 import ApprovalsTab from './tabs/ApprovalsTab';
+import ProjectPeopleWidget from './ProjectPeopleWidget';
 
 // Communication/Files/Approvals are their own pages (URL-routed, as
 // before); Dashboard/List/Board/Timeline/Table/Workload/Team are all
@@ -45,6 +47,8 @@ const PortalProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const { role } = useAuth();
+  const isSuperAdmin = role === 'SUPER_ADMIN';
   const [milestoneView, setMilestoneView] = useState<MilestonesView>('dashboard');
 
   const activeSlug = location.pathname.split(`/portal/projects/${id}`)[1]?.replace(/^\//, '') ?? '';
@@ -93,7 +97,8 @@ const PortalProjectDetailPage: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-6 pb-10 h-[calc(100vh-114px)]">
-      <div className="flex items-center gap-1 overflow-x-auto border-b border-(--color-border) shrink-0">
+      <div className="flex items-center gap-2 border-b border-(--color-border) shrink-0">
+      <div className="flex items-center gap-1 overflow-x-auto flex-1 min-w-0">
         <button
           onClick={() => goToPage('communication')}
           className={cn(
@@ -136,6 +141,12 @@ const PortalProjectDetailPage: React.FC = () => {
             {v.label}
           </button>
         ))}
+      </div>
+        {isSuperAdmin && (
+          <div className="pb-2 shrink-0">
+            <ProjectPeopleWidget projectId={project.id} />
+          </div>
+        )}
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col">
