@@ -26,7 +26,7 @@ const SpacesList: React.FC<{ isSuperAdmin: boolean }> = ({ isSuperAdmin }) => {
   });
 
   return (
-    <div className="mt-6 flex-1 min-h-0 flex flex-col">
+    <div className="flex-1 min-h-0 flex flex-col">
       <div className="flex items-center justify-between px-3 mb-1">
         <button
           onClick={() => setExpanded((v) => !v)}
@@ -58,7 +58,7 @@ const SpacesList: React.FC<{ isSuperAdmin: boolean }> = ({ isSuperAdmin }) => {
                 cn(
                   'flex items-center gap-2 px-3 h-8 rounded-lg text-[13px] font-semibold truncate transition-colors',
                   isActive
-                    ? 'bg-primary-50 text-primary-600'
+                    ? 'bg-emerald-50 text-emerald-700'
                     : 'text-(--color-text-secondary) hover:bg-(--color-state-hover)'
                 )
               }
@@ -91,11 +91,12 @@ const ClientPortalLayout: React.FC = memo(() => {
 
   return (
     <div className="min-h-screen flex bg-(--color-app-bg)">
-      <aside className="hidden lg:flex flex-col w-48 shrink-0 border-r border-(--color-border) bg-(--color-surface) py-4 px-3 min-h-0">
-        <div className="px-2 mb-5">
-          <span className="text-base font-black text-(--color-text-primary) tracking-tight">Client Portal</span>
+      {/* Icon rail — ClickUp-style: icon stacked over a short label, narrow, dark */}
+      <aside className="hidden lg:flex flex-col items-center w-[68px] shrink-0 bg-emerald-950 py-4 gap-1">
+        <div className="h-8 w-8 rounded-lg bg-emerald-500 text-emerald-950 flex items-center justify-center font-black text-sm mb-3">
+          T
         </div>
-        <nav className="flex flex-col gap-0.5">
+        <nav className="flex flex-col items-center gap-1 w-full px-1.5">
           {navItems.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
@@ -103,30 +104,34 @@ const ClientPortalLayout: React.FC = memo(() => {
               end={end}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-2.5 px-2.5 h-8 rounded-lg text-[13px] font-semibold transition-colors',
+                  'flex flex-col items-center justify-center gap-1 w-full py-2 rounded-xl text-[10px] font-bold transition-colors',
                   isActive
-                    ? 'bg-primary-50 text-primary-600'
-                    : 'text-(--color-text-secondary) hover:bg-(--color-state-hover)'
+                    ? 'bg-emerald-500/15 text-emerald-400'
+                    : 'text-emerald-100/50 hover:bg-white/5 hover:text-emerald-100'
                 )
               }
             >
-              <Icon size={16} />
+              <Icon size={18} />
               {label}
             </NavLink>
           ))}
         </nav>
 
-        <SpacesList isSuperAdmin={isSuperAdmin} />
+        <button
+          onClick={handleLogout}
+          className="mt-auto flex flex-col items-center justify-center gap-1 w-full py-2 rounded-xl text-[10px] font-bold text-emerald-100/50 hover:bg-white/5 hover:text-emerald-100"
+        >
+          <LogOut size={18} />
+          Log out
+        </button>
+      </aside>
 
-        <div className="pt-4 border-t border-(--color-border)">
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2.5 px-2.5 h-8 rounded-lg text-[13px] font-semibold text-(--color-text-secondary) hover:bg-(--color-state-hover) w-full"
-          >
-            <LogOut size={16} />
-            Log out
-          </button>
+      {/* Spaces panel — the project list, ClickUp's second sidebar column */}
+      <aside className="hidden lg:flex flex-col w-52 shrink-0 border-r border-(--color-border) bg-(--color-surface) py-4 px-3 min-h-0">
+        <div className="px-1 mb-4">
+          <span className="text-base font-black text-(--color-text-primary) tracking-tight">Client Portal</span>
         </div>
+        <SpacesList isSuperAdmin={isSuperAdmin} />
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -163,7 +168,7 @@ const ClientPortalLayout: React.FC = memo(() => {
               className={({ isActive }) =>
                 cn(
                   'flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold',
-                  isActive ? 'text-primary-600' : 'text-(--color-text-secondary)'
+                  isActive ? 'text-emerald-600' : 'text-(--color-text-secondary)'
                 )
               }
             >
