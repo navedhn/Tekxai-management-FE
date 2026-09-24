@@ -1,6 +1,6 @@
 import React, { memo, Suspense } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, LogOut } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, LogOut, Mail } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/authStore';
@@ -12,7 +12,7 @@ const NAV_ITEMS = [
 ];
 
 const ClientPortalLayout: React.FC = memo(() => {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { userLogout } = useAuthStore();
   const navigate = useNavigate();
 
@@ -21,6 +21,10 @@ const ClientPortalLayout: React.FC = memo(() => {
     navigate('/login');
   };
 
+  const navItems = role === 'SUPER_ADMIN'
+    ? [...NAV_ITEMS, { to: '/portal/invites', label: 'Invites', icon: Mail, end: false }]
+    : NAV_ITEMS;
+
   return (
     <div className="min-h-screen flex bg-(--color-app-bg)">
       <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-(--color-border) bg-(--color-surface) py-6 px-4">
@@ -28,7 +32,7 @@ const ClientPortalLayout: React.FC = memo(() => {
           <span className="text-lg font-black text-(--color-text-primary) tracking-tight">Client Portal</span>
         </div>
         <nav className="flex flex-col gap-1">
-          {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+          {navItems.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
               to={to}
@@ -84,7 +88,7 @@ const ClientPortalLayout: React.FC = memo(() => {
         </main>
 
         <nav className="lg:hidden flex items-center justify-around border-t border-(--color-border) bg-(--color-surface) h-14 shrink-0">
-          {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+          {navItems.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
               to={to}

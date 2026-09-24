@@ -137,6 +137,7 @@ const ChatPage               = lazy(() => import('@/pages/chat'));
 const PortalDashboard        = lazy(() => import('@/pages/portal/dashboard'));
 const PortalProjects         = lazy(() => import('@/pages/portal/projects'));
 const PortalProjectDetail    = lazy(() => import('@/pages/portal/projects/detail'));
+const PortalInvites          = lazy(() => import('@/pages/portal/invites'));
 
 const routes: RouteObject[] = [
   {
@@ -400,6 +401,12 @@ const routes: RouteObject[] = [
           { path: '/portal/projects/:id/communication',      element: <PortalProjectDetail /> },
           { path: '/portal/projects/:id/files',              element: <PortalProjectDetail /> },
           { path: '/portal/projects/:id/approvals',           element: <PortalProjectDetail /> },
+          {
+            element: <ProtectedRoute superAdminOnly />,
+            children: [
+              { path: '/portal/invites', element: <PortalInvites /> },
+            ],
+          },
         ],
       },
       { path: '/portal/*', element: <NotFound /> },

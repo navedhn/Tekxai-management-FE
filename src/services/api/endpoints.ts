@@ -700,6 +700,7 @@ export const API_ENDPOINTS = {
     EXIT_DETAIL:     (userId: string) => `${v1}/offboarding/exit/${userId}`,
   },
   PORTAL: {
+    INVITES:           `${v1}/portal/invites`,
     PROJECTS:          `${v1}/portal/projects`,
     PROJECT:           (id: string) => `${v1}/portal/projects/${id}`,
     MILESTONES:        (id: string) => `${v1}/portal/projects/${id}/milestones`,
