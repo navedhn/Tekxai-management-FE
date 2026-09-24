@@ -30,6 +30,7 @@ const VerifyOTP              = lazy(() => import('@/pages/auth/VerifyOTP'));
 const ResetPassword          = lazy(() => import('@/pages/auth/ResetPassword'));
 const AcceptInvite           = lazy(() => import('@/pages/auth/AcceptInvite'));
 const AcceptPortalInvite     = lazy(() => import('@/pages/portal/AcceptPortalInvite'));
+const AcceptEmployeePortalInvite = lazy(() => import('@/pages/portal/AcceptEmployeePortalInvite'));
 
 const AdminDashboard         = lazy(() => import('@/pages/admin/dashboard'));
 const AdminProjects          = lazy(() => import('@/pages/admin/projects'));
@@ -169,6 +170,12 @@ const routes: RouteObject[] = [
           { path: '/portal/accept-invite/:token', element: <AcceptPortalInvite /> },
         ],
       },
+    ],
+  },
+  {
+    element: <AuthLayout />,
+    children: [
+      { path: '/portal/accept-employee-invite/:token', element: <AcceptEmployeePortalInvite /> },
     ],
   },
   {
