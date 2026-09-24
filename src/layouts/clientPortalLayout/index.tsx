@@ -1,11 +1,12 @@
 import React, { memo, Suspense, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { LayoutDashboard, FolderKanban, LogOut, Users, ChevronDown, ChevronRight, Plus, Boxes, MessageCircle, FileText } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, LogOut, Users, ChevronDown, ChevronRight, Plus, Boxes, MessageCircle, FileText, ArrowLeft } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/authStore';
+import { usePortalTopbarStore } from '@/stores/portalTopbarStore';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { RoutePageSkeleton } from '@/components/skeletons';
@@ -168,6 +169,7 @@ const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' 
 
 const ClientPortalLayout: React.FC = memo(() => {
   const { user, role } = useAuth();
+  const topbarTitle = usePortalTopbarStore((s) => s.title);
   const { userLogout } = useAuthStore();
   const navigate = useNavigate();
   const isSuperAdmin = role === 'SUPER_ADMIN';
@@ -255,9 +257,22 @@ const ClientPortalLayout: React.FC = memo(() => {
       )}
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 shrink-0 border-b border-(--color-border) bg-(--color-surface) flex items-center justify-between px-4 lg:px-8">
-          <span className="lg:hidden text-base font-black text-(--color-text-primary)">Client Portal</span>
-          <div className="ml-auto flex items-center gap-3">
+        <header className="h-16 shrink-0 border-b border-(--color-border) bg-(--color-surface) flex items-center justify-between px-4 lg:px-8 gap-4 min-w-0">
+          {topbarTitle ? (
+            <div className="flex items-center gap-3 min-w-0">
+              <button
+                onClick={() => navigate('/portal/projects')}
+                className="shrink-0 text-(--color-text-secondary) hover:text-primary-600"
+                title="Back to Projects"
+              >
+                <ArrowLeft size={18} />
+              </button>
+              <h1 className="text-base font-black text-(--color-text-primary) truncate">{topbarTitle}</h1>
+            </div>
+          ) : (
+            <span className="lg:hidden text-base font-black text-(--color-text-primary)">Client Portal</span>
+          )}
+          <div className="ml-auto flex items-center gap-3 shrink-0">
             <span className="text-sm font-semibold text-(--color-text-primary)">
               {user?.first_name} {user?.last_name}
             </span>

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { usePortalTopbarStore } from '@/stores/portalTopbarStore';
 import { MessageSquare, FileText as FileIcon, CheckSquare, List, KanbanSquare, GanttChartSquare, Table2, UsersRound, Gauge } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
@@ -68,6 +69,12 @@ const PortalProjectDetailPage: React.FC = () => {
     retry: false,
   });
 
+  const setTopbarTitle = usePortalTopbarStore((s) => s.setTitle);
+  useEffect(() => {
+    setTopbarTitle(project?.title ?? null);
+    return () => setTopbarTitle(null);
+  }, [project?.title, setTopbarTitle]);
+
   if (isLoading) return <PageSkeleton />;
 
   if (isError || !project) {
@@ -86,20 +93,6 @@ const PortalProjectDetailPage: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-6 pb-10">
-      <div>
-        <button onClick={() => navigate('/portal/projects')} className="text-xs font-semibold text-(--color-text-secondary) hover:text-primary-600 mb-2">
-          ← Back to Projects
-        </button>
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-2xl font-black text-(--color-text-primary) tracking-tight">{project.title}</h1>
-          </div>
-          <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-(--color-elevated) text-(--color-text-secondary)">
-            {project.status}
-          </span>
-        </div>
-      </div>
-
       <div className="flex items-center gap-1 overflow-x-auto border-b border-(--color-border)">
         <button
           onClick={() => goToPage('communication')}
