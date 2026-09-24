@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Search, FileText, MessageSquare, Download } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
+import { useAuth } from '@/hooks/useAuth';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -31,6 +32,8 @@ function formatBytes(bytes?: number | null) {
 // ClickUp's own company-wide Docs list, but for real project files rather
 // than wiki pages.
 const PortalDocsPage: React.FC = () => {
+  const { role } = useAuth();
+  const isSuperAdmin = role === 'SUPER_ADMIN';
   const toast = useToastContext();
   const [search, setSearch] = useState('');
 
@@ -67,7 +70,9 @@ const PortalDocsPage: React.FC = () => {
       <div>
         <h1 className="text-2xl font-black text-gray-900 tracking-tight">Docs</h1>
         <p className="text-sm text-gray-500 font-medium mt-1">
-          Every file uploaded across your projects — from a project's Files tab or shared in Communication.
+          {isSuperAdmin
+            ? "Every file uploaded across your projects — from a project's Files tab or shared in Communication."
+            : 'Every file shared with you in your projects’ Communication threads.'}
         </p>
       </div>
 
