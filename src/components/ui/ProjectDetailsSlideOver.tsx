@@ -259,7 +259,7 @@ const ProjectDetailsSlideOver: React.FC<SlideOverProps> = ({ isOpen, onClose, pr
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 overflow-x-auto no-scrollbar border-b border-gray-100 -mb-2">
+                  <div className="flex items-center gap-1 overflow-x-auto no-scrollbar border-b border-gray-100 -mb-2 sticky top-0 z-20 bg-[#FCFDFE]">
                     {WORKSPACE_TABS.map((tab) => (
                       <button
                         key={tab.id}
