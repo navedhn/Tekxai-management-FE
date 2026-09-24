@@ -33,6 +33,8 @@ function aggregateReactions(reactions: PortalMessage['reactions'], myUserId?: st
   return Array.from(byEmoji.values());
 }
 
+const MAX_TEXTAREA_HEIGHT = 200;
+
 const inputCls =
   'w-full min-h-[70px] px-3 py-2 border border-(--color-border) rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none bg-(--color-surface)';
 
@@ -141,6 +143,14 @@ const Composer: React.FC<{
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT)}px`;
+    el.style.overflowY = el.scrollHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden';
+  }, [content]);
 
   const handleSend = () => {
     if (!content.trim() && !pendingAttachment) return;
@@ -254,6 +264,7 @@ const Composer: React.FC<{
           onChange={handleTextareaChange}
           onKeyDown={handleTextareaKeyDown}
           autoFocus={autoFocus}
+          style={{ maxHeight: MAX_TEXTAREA_HEIGHT }}
         />
         {mentionQuery !== null && filteredMentionable.length > 0 && (
           <div className="absolute bottom-full left-0 mb-1 z-20 w-64 max-h-48 overflow-y-auto rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg">

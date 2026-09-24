@@ -317,6 +317,15 @@ const Composer: React.FC<{
     textareaRef.current?.focus();
   };
 
+  const MAX_TEXTAREA_HEIGHT = 200;
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT)}px`;
+    el.style.overflowY = el.scrollHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden';
+  }, [content]);
+
   const handleSend = () => {
     if (!content.trim()) return;
     sendMessage.mutate();
@@ -340,6 +349,7 @@ const Composer: React.FC<{
           placeholder="Write a message the client will see... (type @ to mention someone)"
           rows={3}
           className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-200"
+          style={{ maxHeight: MAX_TEXTAREA_HEIGHT }}
         />
         {mentionQuery !== null && filteredMentionable.length > 0 && (
           <div className="absolute bottom-full left-0 mb-1 z-20 w-64 max-h-48 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg">
