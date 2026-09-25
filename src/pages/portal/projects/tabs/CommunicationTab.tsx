@@ -370,6 +370,7 @@ const MessageBubble: React.FC<{
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(m.content);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const qc = useQueryClient();
   const toast = useToastContext();
   const isOwn = m.user?.id === myUserId;
@@ -411,6 +412,20 @@ const MessageBubble: React.FC<{
       const res = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_ATTACHMENT_VIEW_URL(projectId, m.id));
       const url = res?.payload?.view_url;
       if (url) window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      toast?.error?.('Failed to open attachment');
+    }
+  };
+
+  // Image attachments open in an in-chat lightbox instead of a new tab —
+  // a document/other file still uses handleViewAttachment above (a new
+  // tab is the right behavior there — it's a download/viewer handoff,
+  // not something worth a custom in-app viewer for every file type).
+  const handleViewImage = async () => {
+    try {
+      const res = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_ATTACHMENT_VIEW_URL(projectId, m.id));
+      const url = res?.payload?.view_url;
+      if (url) setLightboxUrl(url);
     } catch {
       toast?.error?.('Failed to open attachment');
     }
@@ -480,7 +495,7 @@ const MessageBubble: React.FC<{
           projectId={projectId}
           messageId={m.id}
           alt={m.attachment_file_name || 'attachment'}
-          onOpenFull={handleViewAttachment}
+          onOpenFull={handleViewImage}
         />
       ) : m.attachment_file_key && (
         <button
@@ -560,6 +575,27 @@ const MessageBubble: React.FC<{
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 h-9 w-9 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+            title="Close"
+          >
+            <X size={18} />
+          </button>
+          <img
+            src={lightboxUrl}
+            alt={m.attachment_file_name || 'attachment'}
+            className="max-w-full max-h-full rounded-lg object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </div>
