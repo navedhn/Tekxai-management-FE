@@ -144,7 +144,7 @@ const PortalProjectDetailPage: React.FC = () => {
       </div>
         {isSuperAdmin && (
           <div className="pb-2 shrink-0">
-            <ProjectPeopleWidget projectId={project.id} />
+            <ProjectPeopleWidget projectId={project.id} clientId={project.client_id} />
           </div>
         )}
       </div>

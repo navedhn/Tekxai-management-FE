@@ -8,6 +8,7 @@ export type PortalProjectDetail = {
   progress: number;
   start_date: string | null;
   end_date: string | null;
+  client_id: string | null;
   project_manager: { id: string; first_name: string; last_name: string } | null;
   current_milestone: { id: string; title: string; status: string; due_date: string | null } | null;
 };

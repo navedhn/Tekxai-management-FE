@@ -5,6 +5,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useFetchUsersQuery } from '@/services/userService';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { cn } from '@/utils/cn';
 
 type ProjectAccessPerson = { id: string; type: 'INTERNAL' | 'CLIENT'; first_name: string; last_name: string; email: string; role: string | null };
 type EmployeeInvite = { id: string; status: 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED'; user: { id: string; first_name: string; last_name: string; avatar: string | null } | null };
@@ -27,7 +28,7 @@ type EmployeeInvite = { id: string; status: 'PENDING' | 'ACCEPTED' | 'REVOKED' |
 // /employee-portal-invites) — this is just a second, project-scoped
 // entry point for it. SUPER_ADMIN only: granting portal access is a
 // privileged action, same gate the People page itself uses.
-const ProjectPeopleWidget: React.FC<{ projectId: string }> = ({ projectId }) => {
+const ProjectPeopleWidget: React.FC<{ projectId: string; clientId: string | null }> = ({ projectId, clientId }) => {
   const toast = useToastContext();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -49,14 +50,30 @@ const ProjectPeopleWidget: React.FC<{ projectId: string }> = ({ projectId }) => 
   const pendingEmployees = invites.filter((i) => i.status === 'PENDING' && i.user);
   const clients = access?.clients || [];
 
-  // Never re-invite someone who already has a live (pending or accepted)
-  // invite row for this exact project.
+  // Never re-surface someone who's already on this project one way or
+  // another — a live employee invite (pending or accepted), or an existing
+  // client_project_access grant.
   const alreadyInvitedIds = new Set(invites.filter((i) => i.status === 'PENDING' || i.status === 'ACCEPTED').map((i) => i.user?.id));
+  const alreadyClientIds = new Set(clients.map((c) => c.id));
 
-  const { data: employees = [], isLoading: employeesLoading } = useFetchUsersQuery({ search }, open && search.trim().length > 0);
-  const results = (employees as any[]).filter((u) => !alreadyInvitedIds.has(u.id));
+  // Company-wide search, both INTERNAL and CLIENT — this widget adds either
+  // kind of person to the project, just through two different grants
+  // underneath (see handleAdd below). A CLIENT result is only ever
+  // real to add here if they already have a portal account (a users row) on
+  // THIS project's own client account; someone who's never accepted any
+  // portal invite yet has no users row at all and so can never appear in
+  // this search — they'd need a fresh client_portal_invite from the CRM
+  // instead, which is a different, email-driven flow than "add existing
+  // person to one more project".
+  const { data: employees = [], isLoading: employeesLoading } = useFetchUsersQuery(
+    { search },
+    open && search.trim().length > 0
+  );
+  const results = (employees as any[]).filter((u) =>
+    !alreadyInvitedIds.has(u.id) && !alreadyClientIds.has(u.id)
+  );
 
-  const invite = useMutation({
+  const inviteEmployee = useMutation({
     mutationFn: (userId: string) => apiRequest<any>(API_ENDPOINTS.EMPLOYEE_PORTAL_INVITES.CREATE, {
       method: 'POST',
       body: JSON.stringify({ user_id: userId, project_id: projectId }),
@@ -67,6 +84,27 @@ const ProjectPeopleWidget: React.FC<{ projectId: string }> = ({ projectId }) => 
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to send invite'),
   });
+
+  const grantClient = useMutation({
+    mutationFn: (userId: string) => {
+      if (!clientId) throw new Error('This project has no client account to grant access under');
+      return apiRequest<any>(API_ENDPOINTS.PROJECT_ACCESS.GRANT_CLIENT(clientId, projectId), {
+        method: 'POST',
+        body: JSON.stringify({ user_id: userId }),
+      });
+    },
+    onSuccess: () => {
+      toast.success('Access granted');
+      qc.invalidateQueries({ queryKey: ['project', 'access', projectId] });
+    },
+    onError: (e: any) => toast.error(e?.message || 'Failed to grant access'),
+  });
+
+  const handleAdd = (u: { id: string; user_type?: string }) => {
+    if (u.user_type === 'CLIENT') grantClient.mutate(u.id);
+    else inviteEmployee.mutate(u.id);
+  };
+  const addPending = inviteEmployee.isPending || grantClient.isPending;
 
   const totalOnProject = acceptedEmployees.length + clients.length;
   type Avatar = { id: string; name: string; avatar?: string | null };
@@ -123,7 +161,7 @@ const ProjectPeopleWidget: React.FC<{ projectId: string }> = ({ projectId }) => 
                   autoFocus
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search employees to invite…"
+                  placeholder="Search people to add…"
                   className="w-full h-9 pl-9 pr-3 rounded-xl border border-(--color-border) bg-(--color-app-bg) text-sm outline-none focus:ring-2 focus:ring-primary-100"
                 />
               </div>
@@ -134,25 +172,35 @@ const ProjectPeopleWidget: React.FC<{ projectId: string }> = ({ projectId }) => 
                 <div className="p-2">
                   {employeesLoading && <p className="text-xs text-(--color-text-secondary) text-center py-3">Searching…</p>}
                   {!employeesLoading && results.length === 0 && (
-                    <p className="text-xs text-(--color-text-secondary) text-center py-3">No matching employees to invite.</p>
+                    <p className="text-xs text-(--color-text-secondary) text-center py-3">No matching people to add.</p>
                   )}
-                  {results.map((u: any) => (
-                    <button
-                      key={u.id}
-                      onClick={() => invite.mutate(u.id)}
-                      disabled={invite.isPending}
-                      className="w-full flex items-center gap-2 px-2 py-2 rounded-xl hover:bg-(--color-state-hover) text-left disabled:opacity-50"
-                    >
-                      <div className="h-8 w-8 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-xs font-black overflow-hidden shrink-0">
-                        {u.avatar ? <img src={u.avatar} alt="" className="h-full w-full object-cover" /> : initials(`${u.first_name || ''} ${u.last_name || ''}`)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-bold text-(--color-text-primary) truncate">{u.first_name} {u.last_name}</p>
-                        <p className="text-xs text-(--color-text-secondary) truncate">{u.email}</p>
-                      </div>
-                      <Plus size={14} className="text-(--color-text-secondary) shrink-0" />
-                    </button>
-                  ))}
+                  {results.map((u: any) => {
+                    const isClient = u.user_type === 'CLIENT';
+                    // A CLIENT result only ever belongs to grant_project_client_access
+                    // if they're this project's own client's contact — someone from
+                    // a different client account showing up on a broad name/email
+                    // match can't be granted here (the backend would 400 anyway).
+                    const disabled = addPending || (isClient && u.client_account_id !== clientId);
+                    return (
+                      <button
+                        key={u.id}
+                        onClick={() => handleAdd(u)}
+                        disabled={disabled}
+                        title={disabled && isClient ? "Belongs to a different client account" : undefined}
+                        className="w-full flex items-center gap-2 px-2 py-2 rounded-xl hover:bg-(--color-state-hover) text-left disabled:opacity-40"
+                      >
+                        <div className={cn('h-8 w-8 rounded-full flex items-center justify-center text-xs font-black overflow-hidden shrink-0', isClient ? 'bg-emerald-100 text-emerald-700' : 'bg-primary-100 text-primary-600')}>
+                          {u.avatar ? <img src={u.avatar} alt="" className="h-full w-full object-cover" /> : initials(`${u.first_name || ''} ${u.last_name || ''}`)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-(--color-text-primary) truncate">{u.first_name} {u.last_name}</p>
+                          <p className="text-xs text-(--color-text-secondary) truncate">{u.email}</p>
+                        </div>
+                        <span className="text-[9px] font-black text-(--color-text-secondary) uppercase shrink-0">{isClient ? 'Client' : 'Team'}</span>
+                        <Plus size={14} className="text-(--color-text-secondary) shrink-0" />
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 

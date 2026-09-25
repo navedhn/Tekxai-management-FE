@@ -742,6 +742,12 @@ export const API_ENDPOINTS = {
     ADD:           (id: string) => `${v1}/project/${id}/access`,
     INVITE_CLIENT: (id: string) => `${v1}/project/${id}/access/invite-client`,
     REMOVE:        (id: string, userId: string) => `${v1}/project/${id}/access/${userId}`,
+    // Grants an EXISTING client portal user (already has a users row,
+    // user_type CLIENT) access to one more project directly — no new
+    // invite/email, same canonical endpoint the CRM "Grant Project Access"
+    // modal itself calls. Distinct from client_portal_invites, which is for
+    // someone who doesn't have a portal account yet.
+    GRANT_CLIENT:  (clientId: string, projectId: string) => `${v1}/crm/clients/${clientId}/projects/${projectId}/client-access`,
   },
   JOB_REQUISITIONS: {
     LIST:        `${v1}/job-requisitions`,
