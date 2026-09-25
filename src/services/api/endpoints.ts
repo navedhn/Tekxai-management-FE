@@ -702,6 +702,7 @@ export const API_ENDPOINTS = {
   },
   EMPLOYEE_PORTAL_INVITES: {
     LIST_ALL: `${v1}/employee-portal-invites/all`,
+    LIST_FOR_PROJECT: (projectId: string) => `${v1}/employee-portal-invites?project_id=${projectId}`,
     CREATE:   `${v1}/employee-portal-invites`,
     REVOKE:   (id: string) => `${v1}/employee-portal-invites/${id}`,
   },
