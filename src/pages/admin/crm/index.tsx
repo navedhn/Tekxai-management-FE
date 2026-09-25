@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Building2, Plus, Link2, FolderOpen, Mail, X, Search } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
@@ -143,8 +144,13 @@ const STATUS_COLORS: Record<string, string> = {
 const CRMPage: React.FC = () => {
   const toast = useToastContext();
   const { data: clients = [], isLoading } = useGetClients();
-  const { data: projects = [] } = useGetProjects();
+  const { data: projects = [] } = useGetProjects({ limit: 1000 });
   const createClient = useCreateClient();
+
+  const projectOptions = useMemo(
+    () => (projects as any[]).map((p: any) => ({ label: p.title, value: p.id })),
+    [projects]
+  );
 
   const [search, setSearch] = useState('');
   const [showNewClient, setShowNewClient] = useState(false);
@@ -347,16 +353,13 @@ const CRMPage: React.FC = () => {
         <form onSubmit={handleGrant} className="flex flex-col gap-4 mt-4">
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Project</label>
-            <select
-              value={grantForm.project_id}
-              onChange={(e) => setGrantForm((p) => ({ ...p, project_id: e.target.value }))}
-              className="h-11 px-4 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
-            >
-              <option value="">Select project</option>
-              {(projects as any[]).map((p: any) => (
-                <option key={p.id} value={p.id}>{p.title}</option>
-              ))}
-            </select>
+            <SearchableSelect
+              options={projectOptions}
+              value={grantForm.project_id || null}
+              onChange={(value) => setGrantForm((p) => ({ ...p, project_id: value ? String(value) : '' }))}
+              placeholder="Select project"
+              searchPlaceholder="Search projects…"
+            />
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Portal User</label>
@@ -464,16 +467,13 @@ const CRMPage: React.FC = () => {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Project (optional)</label>
-            <select
-              value={inviteForm.project_id}
-              onChange={(e) => setInviteForm((p) => ({ ...p, project_id: e.target.value }))}
-              className="h-11 px-4 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
-            >
-              <option value="">No project yet — invite to the client account only</option>
-              {(projects as any[]).map((p: any) => (
-                <option key={p.id} value={p.id}>{p.title}</option>
-              ))}
-            </select>
+            <SearchableSelect
+              options={projectOptions}
+              value={inviteForm.project_id || null}
+              onChange={(value) => setInviteForm((p) => ({ ...p, project_id: value ? String(value) : '' }))}
+              placeholder="No project yet — invite to the client account only"
+              searchPlaceholder="Search projects…"
+            />
             <p className="text-[11px] text-gray-400 font-medium">
               If set, accepting the invite also grants access to this project — otherwise grant it afterward.
             </p>
