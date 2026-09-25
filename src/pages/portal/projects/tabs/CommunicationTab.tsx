@@ -652,12 +652,26 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   const location = useLocation();
   const highlightMessageId = useRef<string | null>(new URLSearchParams(location.search).get('message')).current;
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading } = useQuery<PortalMessage[]>({
     queryKey: ['portal', 'messages', projectId],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES(projectId)),
     select: (r: any) => r?.payload?.records || [],
   });
+
+  // Opening a project (or a new message arriving) should land on the most
+  // RECENT message, same as any normal chat — not the oldest one just
+  // because that's first in the array. Skipped entirely when a deep-linked
+  // message id is present (?message=:id) — that scroll-to-target below
+  // takes priority and shouldn't be immediately overridden by this one.
+  useEffect(() => {
+    if (highlightMessageId || isLoading) return;
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, isLoading, data?.length, highlightMessageId]);
 
   // Opening this tab marks the thread read up to now; also refresh the
   // dashboard's unread badge so it drops immediately rather than on next
@@ -727,7 +741,7 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
 
   return (
     <div className="h-full flex flex-col gap-4">
-      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
+      <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
         {roots.length === 0 && (
           <p className="text-sm text-(--color-text-secondary) py-10 text-center">No messages yet.</p>
         )}
