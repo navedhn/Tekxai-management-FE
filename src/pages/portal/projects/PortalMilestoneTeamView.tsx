@@ -11,7 +11,7 @@ interface PortalMilestoneTeamViewProps {
   milestones: PortalMilestone[];
 }
 
-type MentionableUser = { id: string; first_name: string; last_name: string; user_type: 'INTERNAL' | 'CLIENT' };
+type MentionableUser = { id: string; first_name: string; last_name: string; user_type: 'INTERNAL' | 'CLIENT'; designation: string | null };
 
 const STATUS_ORDER = ['NOT_STARTED', 'IN_PROGRESS', 'BLOCKED', 'COMPLETED'] as const;
 
@@ -53,7 +53,13 @@ const PortalMilestoneTeamView: React.FC<PortalMilestoneTeamViewProps> = ({ proje
 
     const roster = [...mentionable];
     if (user?.id && !roster.some((u) => u.id === user.id)) {
-      roster.push({ id: user.id, first_name: user.first_name || '', last_name: user.last_name || '', user_type: (user.user_type as 'INTERNAL' | 'CLIENT') || 'INTERNAL' });
+      roster.push({
+        id: user.id,
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+        user_type: (user.user_type as 'INTERNAL' | 'CLIENT') || 'INTERNAL',
+        designation: (user as any).designation ?? null,
+      });
     }
 
     const list = roster
@@ -62,6 +68,7 @@ const PortalMilestoneTeamView: React.FC<PortalMilestoneTeamViewProps> = ({ proje
         name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Unknown',
         avatar: avatarById.get(u.id) ?? null,
         userType: u.user_type,
+        designation: u.designation,
         milestones: milestonesByUser.get(u.id) || [],
       }))
       .sort((a, b) => b.milestones.length - a.milestones.length || a.name.localeCompare(b.name));
@@ -103,8 +110,8 @@ const PortalMilestoneTeamView: React.FC<PortalMilestoneTeamViewProps> = ({ proje
                 </div>
                 <div className="min-w-0">
                   <p className="font-black text-(--color-text-primary) text-sm truncate">{member.name}</p>
-                  <p className="text-[11px] text-(--color-text-secondary) font-semibold">
-                    {member.userType === 'CLIENT' ? 'Client' : 'TekXAI Team'} · {total} milestone{total !== 1 ? 's' : ''}
+                  <p className="text-[11px] text-(--color-text-secondary) font-semibold truncate">
+                    {member.userType === 'CLIENT' ? 'Client' : (member.designation || 'TekXAI Team')}
                   </p>
                 </div>
                 {total > 0 && (
