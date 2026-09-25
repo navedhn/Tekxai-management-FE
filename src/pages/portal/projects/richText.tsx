@@ -8,13 +8,19 @@ import { cn } from '@/utils/cn';
 // CommunicationTab.tsx); this only ever renders plain text markers back
 // out, it never touches raw HTML.
 //
-// Supported inline: **bold**, *italic*, `code`. Supported block: a line
-// starting with "- " or "* " groups into a bullet list; everything else is
-// a paragraph, blank lines separate paragraphs. @Mentions (one or two
-// capitalized words after @, matching how the mention picker inserts them)
-// are highlighted regardless of block type.
+// Supported inline: **bold**, *italic*, `code`, bare URLs (auto-linked).
+// Supported block: a line starting with "- " or "* " groups into a bullet
+// list; everything else is a paragraph, blank lines separate paragraphs.
+// @Mentions (one or two capitalized words after @, matching how the
+// mention picker inserts them) are highlighted regardless of block type.
+//
+// No [text](url) markdown-link syntax — pasting rich text (Google Docs,
+// Notion, etc.) into the composer's plain <textarea> already strips that
+// kind of markup down to plain text before it's ever typed, so a message's
+// stored content never actually contains it; only the auto-link pass below
+// can recover anything clickable from a paste like that.
 
-const INLINE_RE = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)|(@[A-Z][a-zA-Z'-]*(?:\s[A-Z][a-zA-Z'-]*)?)/g;
+const INLINE_RE = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)|(@[A-Z][a-zA-Z'-]*(?:\s[A-Z][a-zA-Z'-]*)?)|(https?:\/\/[^\s<>()"']+)/g;
 
 function renderInline(
   text: string,
@@ -55,6 +61,25 @@ function renderInline(
       } else {
         nodes.push(<span key={key} className="font-semibold text-primary-600 [font-family:var(--font-communication-sans)]!">{match[7]}</span>);
       }
+    } else if (match[8]) {
+      // Trailing punctuation (.,;:) commonly ends up glued to a bare URL
+      // when someone types/pastes it at the end of a sentence — strip it
+      // from the link itself so it doesn't 404, but keep it in the text.
+      const urlMatch = /^(.*?)([.,;:]+)$/.exec(match[8]);
+      const url = urlMatch ? urlMatch[1] : match[8];
+      const trailing = urlMatch ? urlMatch[2] : '';
+      nodes.push(
+        <a
+          key={key}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary-600 underline hover:text-primary-700 break-all"
+        >
+          {url}
+        </a>
+      );
+      if (trailing) nodes.push(trailing);
     }
     lastIndex = match.index + match[0].length;
   }
