@@ -136,18 +136,42 @@ const PortalInvitesPage: React.FC = () => {
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 
+  // The backend still hands back one invite row per (person, project) pair,
+  // but this view is meant to answer "who has portal access", not "which of
+  // their project invites is this" — so fold every person's rows down to
+  // one, keyed by their real user id where one exists (accepted client /
+  // any employee invite), falling back to email for a client who hasn't
+  // accepted yet and so has no user row at all.
+  type PersonRow = (ClientInvite | EmployeeInvite) & { projectCount: number; invites: (ClientInvite | EmployeeInvite)[] };
+  const personMap = new Map<string, PersonRow>();
+  for (const r of rows) {
+    const key = r.kind === 'client' ? (r.accepted_user?.id || r.email) : (r.user?.id || r.id);
+    const existing = personMap.get(key);
+    if (existing) {
+      existing.invites.push(r);
+      existing.projectCount += 1;
+      // ACCEPTED on any one project means this person genuinely has portal
+      // access today — that should win over a PENDING row from some other
+      // project, rather than the arbitrary first-sorted row's status.
+      if (r.status === 'ACCEPTED') existing.status = 'ACCEPTED';
+    } else {
+      personMap.set(key, { ...r, projectCount: 1, invites: [r] });
+    }
+  }
+  const people = [...personMap.values()];
+
   const q = search.trim().toLowerCase();
-  const filtered = rows.filter((r) => {
+  const filtered = people.filter((r) => {
     if (!q) return true;
     const name = r.kind === 'client'
       ? [r.first_name, r.last_name].filter(Boolean).join(' ')
       : [r.user?.first_name, r.user?.last_name].filter(Boolean).join(' ');
     const email = r.kind === 'client' ? r.email : r.user?.email;
-    return [name, email, r.project?.title].some((v) => (v || '').toLowerCase().includes(q));
+    return [name, email].some((v) => (v || '').toLowerCase().includes(q));
   });
 
-  const pendingCount = rows.filter((r) => r.status === 'PENDING').length;
-  const acceptedCount = rows.filter((r) => r.status === 'ACCEPTED').length;
+  const pendingCount = people.filter((r) => r.status === 'PENDING').length;
+  const acceptedCount = people.filter((r) => r.status === 'ACCEPTED').length;
 
   return (
     <div className="flex flex-col gap-6 pb-10">
@@ -160,8 +184,8 @@ const PortalInvitesPage: React.FC = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
-          <p className="text-xs font-semibold text-gray-500">Total Invites</p>
-          <p className="text-2xl font-black text-gray-900 mt-1">{rows.length}</p>
+          <p className="text-xs font-semibold text-gray-500">Total People</p>
+          <p className="text-2xl font-black text-gray-900 mt-1">{people.length}</p>
         </Card>
         <Card>
           <p className="text-xs font-semibold text-gray-500">Pending</p>
@@ -179,7 +203,7 @@ const PortalInvitesPage: React.FC = () => {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search people by name, email, or project…"
+            placeholder="Search people by name or email…"
             className="w-full h-10 pl-10 pr-4 rounded-xl border border-gray-200 bg-white text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
           />
         </div>
@@ -203,14 +227,13 @@ const PortalInvitesPage: React.FC = () => {
                 <th className="px-5 py-3 border-b border-gray-100">Last Active</th>
                 <th className="px-5 py-3 border-b border-gray-100">Invited By</th>
                 <th className="px-5 py-3 border-b border-gray-100">Invited On</th>
-                <th className="px-5 py-3 border-b border-gray-100">Project</th>
                 <th className="px-5 py-3 border-b border-gray-100">Access</th>
                 <th className="px-5 py-3 border-b border-gray-100 w-10" />
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={10} className="px-5 py-10 text-center text-gray-400">
+                <tr><td colSpan={9} className="px-5 py-10 text-center text-gray-400">
                   {search ? 'No one matches your search.' : 'No invites sent yet.'}
                 </td></tr>
               )}
@@ -221,8 +244,9 @@ const PortalInvitesPage: React.FC = () => {
                 const email = r.kind === 'client' ? r.email : (r.user?.email || '—');
                 const lastActiveAt = r.kind === 'client' ? r.accepted_user?.last_active_at : r.user?.last_active_at;
                 const access = r.kind === 'client' ? (r.role?.name || '—') : 'Portal Access';
+                const pendingInvites = r.invites.filter((i) => i.status === 'PENDING');
                 return (
-                  <tr key={`${r.kind}-${r.id}`} className="group">
+                  <tr key={`${r.kind}-${r.invites[0].id}`} className="group">
                     <td className="sticky left-0 z-10 bg-white group-hover:bg-gray-50/60 px-5 py-3 border-b border-r border-gray-100 font-bold text-gray-900">
                       {name}
                     </td>
@@ -244,15 +268,23 @@ const PortalInvitesPage: React.FC = () => {
                       {r.inviter ? `${r.inviter.first_name} ${r.inviter.last_name}` : '—'}
                     </td>
                     <td className="px-5 py-3 border-b border-gray-100 text-gray-500 group-hover:bg-gray-50/60">{new Date(r.created_at).toLocaleDateString()}</td>
-                    <td className="px-5 py-3 border-b border-gray-100 text-gray-600 group-hover:bg-gray-50/60">{r.project?.title || '—'}</td>
-                    <td className="px-5 py-3 border-b border-gray-100 text-gray-600 group-hover:bg-gray-50/60">{access}</td>
+                    <td className="px-5 py-3 border-b border-gray-100 text-gray-600 group-hover:bg-gray-50/60">
+                      <div className="flex items-center gap-1.5">
+                        <span>{access}</span>
+                        <span className="text-[10px] font-bold text-gray-400" title={`${r.projectCount} project${r.projectCount === 1 ? '' : 's'}`}>
+                          · {r.projectCount} project{r.projectCount === 1 ? '' : 's'}
+                        </span>
+                      </div>
+                    </td>
                     <td className="px-5 py-3 border-b border-gray-100 group-hover:bg-gray-50/60">
-                      {r.status === 'PENDING' && (
+                      {pendingInvites.length > 0 && (
                         <RowMenu
                           canRevoke
                           onRevoke={() => {
-                            if (r.kind === 'employee') revokeEmployeeInvite.mutate(r.id);
-                            else if (r.client_account) revokeClientInvite.mutate({ clientId: r.client_account.id, inviteId: r.id });
+                            for (const inv of pendingInvites) {
+                              if (inv.kind === 'employee') revokeEmployeeInvite.mutate(inv.id);
+                              else if (inv.client_account) revokeClientInvite.mutate({ clientId: inv.client_account.id, inviteId: inv.id });
+                            }
                           }}
                         />
                       )}
