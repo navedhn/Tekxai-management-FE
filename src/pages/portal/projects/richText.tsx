@@ -1,4 +1,5 @@
 import React from 'react';
+import { cn } from '@/utils/cn';
 
 // Markdown-lite renderer for Communication messages — same "small curated
 // subset" philosophy already used elsewhere in this app for rendered
@@ -31,7 +32,7 @@ function renderInline(
     const key = `${keyPrefix}-${i++}`;
     if (match[1]) nodes.push(<strong key={key}>{match[2]}</strong>);
     else if (match[3]) nodes.push(<em key={key}>{match[4]}</em>);
-    else if (match[5]) nodes.push(<code key={key} className="px-1 py-0.5 rounded bg-(--color-elevated) text-[0.9em]">{match[6]}</code>);
+    else if (match[5]) nodes.push(<code key={key} className="px-1 py-0.5 rounded bg-(--color-elevated) text-[0.9em] [font-family:var(--font-communication-mono)]">{match[6]}</code>);
     else if (match[7]) {
       // Mentions are stored as plain "@Name Name" text, not an id — resolve
       // the display name back to a user id via the project's mentionable
@@ -52,7 +53,7 @@ function renderInline(
           </button>
         );
       } else {
-        nodes.push(<span key={key} className="font-semibold text-primary-600">{match[7]}</span>);
+        nodes.push(<span key={key} className="font-semibold text-primary-600 [font-family:var(--font-communication-sans)]!">{match[7]}</span>);
       }
     }
     lastIndex = match.index + match[0].length;
@@ -92,10 +93,14 @@ export const RichText: React.FC<{
     if (line.trim() === '') {
       blocks.push(<br key={`br-${idx}`} />);
     } else {
-      blocks.push(<span key={`ln-${idx}`}>{renderInline(line, `ln-${idx}`, mentionMap, onMentionClick)}<br /></span>);
+      blocks.push(<span key={`ln-${idx}`} className="[font-family:var(--font-communication-sans)]!">{renderInline(line, `ln-${idx}`, mentionMap, onMentionClick)}<br /></span>);
     }
   });
   flushBullets('ul-end');
 
-  return <p className={className}>{blocks}</p>;
+  // The important modifier is required here: a global, unlayered
+  // `p, span { font-family: 'Inter' }` rule in index.css always wins over
+  // any Tailwind @layer utility regardless of specificity (unlayered CSS
+  // beats layered CSS per the cascade spec, layer order notwithstanding).
+  return <p className={cn('[font-family:var(--font-communication-sans)]!', className)}>{blocks}</p>;
 };

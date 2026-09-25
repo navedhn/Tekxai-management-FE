@@ -98,6 +98,12 @@
   --font-heading: "Inter", sans-serif;
   --font-sans: var(--font-body);
 
+  /* Portal Communication tab only (message bubbles, composer, inline code)
+     — deliberately its own tokens rather than redefining --font-sans, so
+     this doesn't change typography anywhere else in the app. */
+  --font-communication-sans: -apple-system, "BlinkMacSystemFont", "Segoe UI Variable Text", "Segoe UI", "Helvetica", "Apple Color Emoji", "Arial", sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
+  --font-communication-mono: GeistMono, ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Monospace", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Courier New", monospace;
+
   --text-h1: 1.75rem;
   --text-h1--line-height: 2.25rem;
   --text-h1--font-weight: 700;

@@ -36,7 +36,7 @@ function aggregateReactions(reactions: PortalMessage['reactions'], myUserId?: st
 const MAX_TEXTAREA_HEIGHT = 200;
 
 const inputCls =
-  'w-full min-h-[70px] px-3 py-2 border border-(--color-border) rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none bg-(--color-surface)';
+  'w-full min-h-[70px] px-3 py-2 border border-(--color-border) rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none bg-(--color-surface) [font-family:var(--font-communication-sans)]';
 
 // Kept broad on purpose — project materials can legitimately be almost any
 // common file type, including installers/disk images (an explicit product
