@@ -366,7 +366,8 @@ const MessageBubble: React.FC<{
   myUserId?: string;
   onReply: () => void;
   onOpenProfile: (userId: string) => void;
-}> = ({ message: m, projectId, canCompose, canDeleteAny, myUserId, onReply, onOpenProfile }) => {
+  mentionMap: Map<string, string>;
+}> = ({ message: m, projectId, canCompose, canDeleteAny, myUserId, onReply, onOpenProfile, mentionMap }) => {
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(m.content);
@@ -488,7 +489,14 @@ const MessageBubble: React.FC<{
           </div>
         </div>
       ) : (
-        m.content && <RichText content={m.content} className="text-sm text-(--color-text-primary)" />
+        m.content && (
+          <RichText
+            content={m.content}
+            className="text-sm text-(--color-text-primary)"
+            mentionMap={mentionMap}
+            onMentionClick={onOpenProfile}
+          />
+        )
       )}
       {m.attachment_file_key && m.attachment_mime_type?.startsWith('image/') ? (
         <AttachmentImagePreview
@@ -613,13 +621,14 @@ const Thread: React.FC<{
   myUserId?: string;
   initiallyExpanded?: boolean;
   onOpenProfile: (userId: string) => void;
-}> = ({ root, replies, projectId, canCompose, canDeleteAny, myUserId, initiallyExpanded, onOpenProfile }) => {
+  mentionMap: Map<string, string>;
+}> = ({ root, replies, projectId, canCompose, canDeleteAny, myUserId, initiallyExpanded, onOpenProfile, mentionMap }) => {
   const [expanded, setExpanded] = useState(!!initiallyExpanded);
   const [replying, setReplying] = useState(false);
 
   return (
     <div className="flex flex-col gap-2">
-      <MessageBubble message={root} projectId={projectId} canCompose={canCompose} canDeleteAny={canDeleteAny} myUserId={myUserId} onReply={() => { setExpanded(true); setReplying(true); }} onOpenProfile={onOpenProfile} />
+      <MessageBubble message={root} projectId={projectId} canCompose={canCompose} canDeleteAny={canDeleteAny} myUserId={myUserId} onReply={() => { setExpanded(true); setReplying(true); }} onOpenProfile={onOpenProfile} mentionMap={mentionMap} />
 
       {replies.length > 0 && (
         <button
@@ -637,7 +646,7 @@ const Thread: React.FC<{
       {expanded && (
         <div className={cn('flex flex-col gap-2 pl-4 border-l-2 border-(--color-border)', root.user?.id === myUserId ? 'self-end mr-4' : 'self-start ml-4')}>
           {replies.map((r) => (
-            <MessageBubble key={r.id} message={r} projectId={projectId} canCompose={canCompose} canDeleteAny={canDeleteAny} myUserId={myUserId} onReply={() => setReplying(true)} onOpenProfile={onOpenProfile} />
+            <MessageBubble key={r.id} message={r} projectId={projectId} canCompose={canCompose} canDeleteAny={canDeleteAny} myUserId={myUserId} onReply={() => setReplying(true)} onOpenProfile={onOpenProfile} mentionMap={mentionMap} />
           ))}
           {canCompose && replying && (
             <Composer
@@ -695,6 +704,23 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES(projectId)),
     select: (r: any) => r?.payload?.records || [],
   });
+
+  // Same query/key the Composer's @mention picker already uses (React
+  // Query dedupes the request across the two mount points) — needed here
+  // too so a rendered "@Full Name" span can be resolved back to a user id
+  // to make it clickable, the same way clicking a message author's name
+  // already opens their profile.
+  const { data: mentionable = [] } = useQuery<{ id: string; first_name: string; last_name: string }[]>({
+    queryKey: ['portal', 'mentionable-users', projectId],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.MENTIONABLE_USERS(projectId)),
+    select: (r: any) => r?.payload || [],
+  });
+  const mentionMap = new Map(
+    mentionable.map((u) => [[u.first_name, u.last_name].filter(Boolean).join(' ').trim().toLowerCase(), u.id])
+  );
+  if (user?.id && !mentionMap.has([user.first_name, user.last_name].filter(Boolean).join(' ').trim().toLowerCase())) {
+    mentionMap.set([user.first_name, user.last_name].filter(Boolean).join(' ').trim().toLowerCase(), user.id);
+  }
 
   // Opening a project (or a new message arriving) should land on the most
   // RECENT message, same as any normal chat — not the oldest one just
@@ -795,6 +821,7 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
               myUserId={user?.id}
               initiallyExpanded={targetIsInThisThread}
               onOpenProfile={setProfileUserId}
+              mentionMap={mentionMap}
             />
           );
         })}
