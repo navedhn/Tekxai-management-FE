@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useGetProjects, ProjectDetail, useDeleteProjectMutation, useRestoreProjectMutation, useSaveProjectMutation, useUnsaveProjectMutation } from '@/services/projectService';
+import { useGetProjects, ProjectDetail, useDeleteProjectMutation, useRestoreProjectMutation, useSaveProjectMutation, useUnsaveProjectMutation, useUpdateProjectMutation } from '@/services/projectService';
 import { useMyPermissions } from '@/services/permissionsService';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
@@ -9,7 +9,7 @@ import Button, { IconButton, pageOutlineButtonClass, PageActionButton } from '@/
 import Input from '@/components/ui/Input';
 import Tabs from '@/components/ui/Tabs';
 import Loader from '@/components/ui/Loader';
-import { Search, Filter, Plus, Edit2, Trash2, MoreVertical, Star, Archive, ArchiveRestore } from 'lucide-react';
+import { Search, Filter, Plus, Edit2, Trash2, MoreVertical, Star, Archive, ArchiveRestore, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { getProjectStatusStyle, getProjectStatusLabel } from '@/utils/projectStatus';
 
@@ -78,6 +78,7 @@ const ProjectManagement: React.FC = () => {
   const [editingProject, setEditingProject] = useState<ProjectDetail | null>(null);
   const [projectToDelete, setProjectToDelete] = useState<ProjectDetail | null>(null);
   const [projectToRestore, setProjectToRestore] = useState<ProjectDetail | null>(null);
+  const [projectToComplete, setProjectToComplete] = useState<ProjectDetail | null>(null);
   const [projectToToggleSave, setProjectToToggleSave] = useState<{ project: ProjectDetail, action: 'save' | 'unsave' } | null>(null);
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTER_STATE);
   const [kpiFilter, setKpiFilter] = useState<string | null>(null);
@@ -157,6 +158,18 @@ const ProjectManagement: React.FC = () => {
 
   const saveMutation = useSaveProjectMutation();
   const unsaveMutation = useUnsaveProjectMutation();
+  const updateMutation = useUpdateProjectMutation();
+
+  const handleMarkCompleted = async () => {
+    if (!projectToComplete) return;
+    try {
+      await updateMutation.mutateAsync({ id: projectToComplete.id, data: { status: 'COMPLETED' } });
+      toast.success('Project marked as completed');
+      setProjectToComplete(null);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to mark project as completed');
+    }
+  };
 
   const handleToggleSave = async () => {
     if (!projectToToggleSave) return;
@@ -429,6 +442,17 @@ const ProjectManagement: React.FC = () => {
             disabled={!!item.deleted_at}
             className="!h-auto !w-auto p-2 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600 disabled:opacity-30 disabled:pointer-events-none"
           />
+          {!item.deleted_at && item.status !== 'COMPLETED' && item.status !== 'DELIVERED' && (
+            <IconButton
+              icon={CheckCircle2}
+              variant="ghost"
+              size="sm"
+              aria-label="Mark as Completed"
+              title="Mark as Completed"
+              onClick={() => setProjectToComplete(item)}
+              className="!h-auto !w-auto p-2 rounded-lg hover:bg-emerald-50 text-gray-400 hover:text-emerald-600"
+            />
+          )}
           {canArchive && (
             item.deleted_at ? (
               <IconButton
@@ -494,6 +518,18 @@ const ProjectManagement: React.FC = () => {
         confirmText="Restore Project"
         confirmVariant="primary"
         loading={restoreMutation.isPending}
+        icon="info"
+      />
+
+      <ActionModal
+        isOpen={!!projectToComplete}
+        onClose={() => setProjectToComplete(null)}
+        onConfirm={handleMarkCompleted}
+        title="Mark Project as Completed"
+        description={`Mark "${projectToComplete?.title}" as completed? This updates its status and moves it into the Delivered stat.`}
+        confirmText="Mark as Completed"
+        confirmVariant="primary"
+        loading={updateMutation.isPending}
         icon="info"
       />
 
