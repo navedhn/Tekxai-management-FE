@@ -18,6 +18,9 @@ const NAV_ITEMS = [
   { to: '/portal/docs', label: 'Docs', icon: FileText, end: false },
 ];
 
+const CHATS_PAGE_SIZE = 10;
+const CHATS_PAGE_INCREMENT = 5;
+
 type SpaceProject = { id: string; title: string; status: string; client: { id: string; name: string } | null };
 type Milestone = { id: string; title: string; status: string; progress_percent: number | null };
 
@@ -74,6 +77,7 @@ const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' 
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(true);
   const [openProjectIds, setOpenProjectIds] = useState<Set<string>>(new Set());
+  const [visibleCount, setVisibleCount] = useState(CHATS_PAGE_SIZE);
   const { data: projects = [] } = useQuery<SpaceProject[]>({
     queryKey: ['portal', 'projects', 'spaces'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.PROJECTS),
@@ -83,7 +87,7 @@ const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' 
   // Only the Chats rail needs this — polled lightly so a message that
   // arrives while the sidebar is open still shows up as unread without
   // requiring a manual refresh.
-  const { data: unreadCounts = {} } = useQuery<Record<string, number>>({
+  const { data: unreadCounts = {} } = useQuery<Record<string, { count: number; last_message_at: string | null }>>({
     queryKey: ['portal', 'unread-counts'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.UNREAD_COUNTS),
     select: (r: any) => r?.payload || {},
@@ -104,11 +108,22 @@ const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' 
     return () => socket.off('project:message:new', refreshUnread);
   }, [mode, queryClient]);
 
-  // Put conversations needing attention first, as ClickUp does, while
-  // keeping the existing project order within unread and read groups.
-  const visibleProjects = mode === 'chats'
-    ? [...projects].sort((a, b) => Number((unreadCounts[b.id] || 0) > 0) - Number((unreadCounts[a.id] || 0) > 0))
+  // Put conversations needing attention first, as ClickUp does, then within
+  // each group (unread / read) sort by most recent activity, latest first,
+  // same as any normal chat app — a project with no messages yet sinks to
+  // the bottom of its group rather than sitting wherever the project list
+  // itself happens to order it.
+  const sortedProjects = mode === 'chats'
+    ? [...projects].sort((a, b) => {
+        const unreadDiff = Number((unreadCounts[b.id]?.count || 0) > 0) - Number((unreadCounts[a.id]?.count || 0) > 0);
+        if (unreadDiff !== 0) return unreadDiff;
+        const aTime = unreadCounts[a.id]?.last_message_at ? new Date(unreadCounts[a.id]!.last_message_at!).getTime() : 0;
+        const bTime = unreadCounts[b.id]?.last_message_at ? new Date(unreadCounts[b.id]!.last_message_at!).getTime() : 0;
+        return bTime - aTime;
+      })
     : projects;
+  const visibleProjects = mode === 'chats' ? sortedProjects.slice(0, visibleCount) : sortedProjects;
+  const hasMoreChats = mode === 'chats' && sortedProjects.length > visibleProjects.length;
 
   const toggleProject = (id: string) =>
     setOpenProjectIds((prev) => {
@@ -145,7 +160,7 @@ const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' 
           {visibleProjects.map((p) => {
             const displayName = p.client?.name ? `${p.client.name} - ${p.title}` : p.title;
             if (mode === 'chats') {
-              const unreadCount = unreadCounts[p.id] || 0;
+              const unreadCount = unreadCounts[p.id]?.count || 0;
               const hasUnread = unreadCount > 0;
               return (
                 <NavLink
@@ -200,6 +215,14 @@ const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' 
             );
           })}
         </nav>
+      )}
+      {expanded && hasMoreChats && (
+        <button
+          onClick={() => setVisibleCount((v) => v + CHATS_PAGE_INCREMENT)}
+          className="mx-1 mt-0.5 px-3 h-8 rounded-lg text-[12px] font-bold text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary) text-left shrink-0"
+        >
+          View more ({sortedProjects.length - visibleProjects.length} more)
+        </button>
       )}
     </div>
   );

@@ -86,9 +86,9 @@ const PortalDashboard: React.FC = () => {
   const { data: unreadCounts } = useQuery({
     queryKey: ['portal', 'unread-counts'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.UNREAD_COUNTS),
-    select: (r: any) => (r?.payload || {}) as Record<string, number>,
+    select: (r: any) => (r?.payload || {}) as Record<string, { count: number; last_message_at: string | null }>,
   });
-  const messagesUnread = Object.values(unreadCounts || {}).reduce((sum, n) => sum + (n || 0), 0);
+  const messagesUnread = Object.values(unreadCounts || {}).reduce((sum, v) => sum + (v?.count || 0), 0);
 
   const isLoading = projectsLoading || milestoneQueries.some((q) => q.isLoading) || approvalQueries.some((q) => q.isLoading);
 
