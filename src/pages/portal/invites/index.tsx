@@ -27,7 +27,7 @@ type ClientInvite = {
   project: { id: string; title: string } | null;
   role: { id: string; name: string } | null;
   inviter: { id: string; first_name: string; last_name: string } | null;
-  accepted_user: { id: string; last_active_at: string | null } | null;
+  accepted_user: { id: string; first_name: string | null; last_name: string | null; last_active_at: string | null } | null;
 };
 
 type EmployeeInvite = {
@@ -40,6 +40,17 @@ type EmployeeInvite = {
   project: { id: string; title: string } | null;
   inviter: { id: string; first_name: string; last_name: string } | null;
 };
+
+// A client invite row's own first_name/last_name are captured once, at
+// invite-creation time (often just left blank by whoever sent it) — once
+// the invite is accepted, accepted_user carries the client's REAL, current
+// profile name (the one they actually typed in and that shows up in chat),
+// which should win whenever it's available.
+function clientDisplayName(r: ClientInvite): string {
+  const accepted = [r.accepted_user?.first_name, r.accepted_user?.last_name].filter(Boolean).join(' ').trim();
+  if (accepted) return accepted;
+  return [r.first_name, r.last_name].filter(Boolean).join(' ').trim();
+}
 
 const STATUS_STYLES: Record<string, string> = {
   PENDING: 'bg-yellow-50 text-yellow-600 border-yellow-100',
@@ -142,10 +153,17 @@ const PortalInvitesPage: React.FC = () => {
   // one, keyed by their real user id where one exists (accepted client /
   // any employee invite), falling back to email for a client who hasn't
   // accepted yet and so has no user row at all.
+  // Keyed by email for a client (stable across every one of their invite
+  // rows — accepted_user is only ever set on the SPECIFIC rows that have
+  // individually been accepted, so a person accepted on 2 of their 39
+  // project invites and still-pending on the other 37 would otherwise
+  // split into two different "people" if keyed by accepted_user?.id: one
+  // group under their real user id, one under email). Employee rows have
+  // a real user_id on every row from the start, so that stays the key.
   type PersonRow = (ClientInvite | EmployeeInvite) & { projectCount: number; invites: (ClientInvite | EmployeeInvite)[] };
   const personMap = new Map<string, PersonRow>();
   for (const r of rows) {
-    const key = r.kind === 'client' ? (r.accepted_user?.id || r.email) : (r.user?.id || r.id);
+    const key = r.kind === 'client' ? r.email : (r.user?.id || r.id);
     const existing = personMap.get(key);
     if (existing) {
       existing.invites.push(r);
@@ -154,6 +172,13 @@ const PortalInvitesPage: React.FC = () => {
       // access today — that should win over a PENDING row from some other
       // project, rather than the arbitrary first-sorted row's status.
       if (r.status === 'ACCEPTED') existing.status = 'ACCEPTED';
+      // Same reasoning as the key above: whichever row happened to sort
+      // first might be one of the not-yet-accepted ones (no accepted_user,
+      // so no real name) — adopt a real name from ANY row in the group
+      // the moment one shows up.
+      if (existing.kind === 'client' && r.kind === 'client' && !existing.accepted_user && r.accepted_user) {
+        existing.accepted_user = r.accepted_user;
+      }
     } else {
       personMap.set(key, { ...r, projectCount: 1, invites: [r] });
     }
@@ -164,7 +189,7 @@ const PortalInvitesPage: React.FC = () => {
   const filtered = people.filter((r) => {
     if (!q) return true;
     const name = r.kind === 'client'
-      ? [r.first_name, r.last_name].filter(Boolean).join(' ')
+      ? clientDisplayName(r)
       : [r.user?.first_name, r.user?.last_name].filter(Boolean).join(' ');
     const email = r.kind === 'client' ? r.email : r.user?.email;
     return [name, email].some((v) => (v || '').toLowerCase().includes(q));
@@ -239,7 +264,7 @@ const PortalInvitesPage: React.FC = () => {
               )}
               {filtered.map((r) => {
                 const name = r.kind === 'client'
-                  ? [r.first_name, r.last_name].filter(Boolean).join(' ') || '—'
+                  ? clientDisplayName(r) || '—'
                   : [r.user?.first_name, r.user?.last_name].filter(Boolean).join(' ') || '—';
                 const email = r.kind === 'client' ? r.email : (r.user?.email || '—');
                 const lastActiveAt = r.kind === 'client' ? r.accepted_user?.last_active_at : r.user?.last_active_at;
