@@ -1,6 +1,6 @@
-import React, { memo, Suspense, useState } from 'react';
+import React, { memo, Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { LayoutDashboard, FolderKanban, LogOut, Users, ChevronDown, ChevronRight, Plus, Boxes, MessageCircle, FileText, ArrowLeft } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -10,6 +10,7 @@ import { usePortalTopbarStore } from '@/stores/portalTopbarStore';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { RoutePageSkeleton } from '@/components/skeletons';
+import { getSocket } from '@/lib/socket';
 
 const NAV_ITEMS = [
   { to: '/portal', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -70,6 +71,7 @@ const MilestonesList: React.FC<{ projectId: string }> = ({ projectId }) => {
 // also expands to show that project's milestones (its task groups).
 const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' }> = ({ isSuperAdmin, mode }) => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(true);
   const [openProjectIds, setOpenProjectIds] = useState<Set<string>>(new Set());
   const { data: projects = [] } = useQuery<SpaceProject[]>({
@@ -78,7 +80,35 @@ const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' 
     select: (r: any) => r?.payload?.records || [],
   });
 
+  // Only the Chats rail needs this — polled lightly so a message that
+  // arrives while the sidebar is open still shows up as unread without
+  // requiring a manual refresh.
+  const { data: unreadCounts = {} } = useQuery<Record<string, number>>({
+    queryKey: ['portal', 'unread-counts'],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.UNREAD_COUNTS),
+    select: (r: any) => r?.payload || {},
+    enabled: mode === 'chats',
+    refetchInterval: mode === 'chats' ? 15000 : false,
+  });
+
   const label = mode === 'chats' ? 'Chats' : 'Spaces';
+
+  // The poll remains a safety net for a reconnect, while this listener makes
+  // a newly received message light up its conversation immediately.
+  useEffect(() => {
+    if (mode !== 'chats') return;
+    const socket = getSocket();
+    if (!socket) return;
+    const refreshUnread = () => queryClient.invalidateQueries({ queryKey: ['portal', 'unread-counts'] });
+    socket.on('project:message:new', refreshUnread);
+    return () => socket.off('project:message:new', refreshUnread);
+  }, [mode, queryClient]);
+
+  // Put conversations needing attention first, as ClickUp does, while
+  // keeping the existing project order within unread and read groups.
+  const visibleProjects = mode === 'chats'
+    ? [...projects].sort((a, b) => Number((unreadCounts[b.id] || 0) > 0) - Number((unreadCounts[a.id] || 0) > 0))
+    : projects;
 
   const toggleProject = (id: string) =>
     setOpenProjectIds((prev) => {
@@ -109,26 +139,34 @@ const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' 
       </div>
       {expanded && (
         <nav className="flex flex-col gap-0.5 overflow-y-auto px-1">
-          {projects.length === 0 && (
+          {visibleProjects.length === 0 && (
             <span className="px-3 py-1.5 text-xs text-(--color-text-secondary)">No projects yet.</span>
           )}
-          {projects.map((p) => {
+          {visibleProjects.map((p) => {
             const displayName = p.client?.name ? `${p.client.name} - ${p.title}` : p.title;
             if (mode === 'chats') {
+              const unreadCount = unreadCounts[p.id] || 0;
+              const hasUnread = unreadCount > 0;
               return (
                 <NavLink
                   key={p.id}
                   to={`/portal/projects/${p.id}/communication`}
                   className={({ isActive }) =>
                     cn(
-                      'flex items-center gap-2 px-3 h-8 rounded-lg text-[13px] font-semibold truncate transition-colors',
-                      isActive ? 'bg-emerald-50 text-emerald-700' : 'text-(--color-text-secondary) hover:bg-(--color-state-hover)'
+                      'relative flex items-center gap-2 px-3 h-9 rounded-lg text-[13px] truncate transition-colors',
+                      hasUnread ? 'bg-primary-50 font-black text-primary-800 ring-1 ring-inset ring-primary-100' : 'font-semibold text-(--color-text-secondary)',
+                      isActive ? 'bg-emerald-50 text-emerald-700 ring-0' : 'hover:bg-(--color-state-hover)'
                     )
                   }
                   title={displayName}
                 >
-                  <MessageCircle size={13} className="shrink-0 opacity-60" />
-                  <span className="truncate">{displayName}</span>
+                  <MessageCircle size={13} className={cn('shrink-0', hasUnread ? 'text-primary-600 opacity-100' : 'opacity-60')} />
+                  <span className="truncate flex-1">{displayName}</span>
+                  {hasUnread && (
+                    <span className="shrink-0 h-5 min-w-[20px] px-1.5 flex items-center justify-center rounded-full bg-primary-600 text-white text-[10px] font-black leading-none shadow-sm">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
                 </NavLink>
               );
             }
