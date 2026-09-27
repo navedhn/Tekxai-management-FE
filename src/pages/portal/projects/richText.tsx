@@ -9,7 +9,8 @@ import { cn } from '@/utils/cn';
 // out, it never touches raw HTML.
 //
 // Supported inline: **bold**, *italic*, `code`, bare URLs (auto-linked).
-// Supported block: a line starting with "- " or "* " groups into a bullet
+// Supported block: "# ", "## ", "### " (up to six #) make a bold heading,
+// ChatGPT-style; a line starting with "- " or "* " groups into a bullet
 // list; everything else is a paragraph, blank lines separate paragraphs.
 // @Mentions (one or two capitalized words after @, matching how the
 // mention picker inserts them) are highlighted regardless of block type.
@@ -87,6 +88,9 @@ function renderInline(
   return nodes;
 }
 
+// Heading sizes relative to the message text; everything past ### is just bold.
+const HEADING_CLASSES = ['text-[1.25em]', 'text-[1.15em]', 'text-[1.05em]'];
+
 export const RichText: React.FC<{
   content: string;
   className?: string;
@@ -115,6 +119,23 @@ export const RichText: React.FC<{
       return;
     }
     flushBullets(`ul-${idx}`);
+    // Block-level <span>s, not <h1>-<h6>: everything renders inside one <p>,
+    // which can't legally contain heading elements.
+    const headingMatch = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      blocks.push(
+        <span
+          key={`h-${idx}`}
+          role="heading"
+          aria-level={level}
+          className={cn('block font-bold leading-snug mt-2 mb-0.5 first:mt-0 [font-family:var(--font-communication-sans)]!', HEADING_CLASSES[level - 1])}
+        >
+          {renderInline(headingMatch[2], `h-${idx}`, mentionMap, onMentionClick)}
+        </span>
+      );
+      return;
+    }
     if (line.trim() === '') {
       blocks.push(<br key={`br-${idx}`} />);
     } else {
