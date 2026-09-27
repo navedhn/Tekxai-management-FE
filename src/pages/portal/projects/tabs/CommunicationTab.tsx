@@ -99,8 +99,9 @@ const Composer: React.FC<{
   replyingToPreview?: { name: string; text: string } | null;
 }> = ({ projectId, parentId, autoFocus, onSent, onCancel, replyingToPreview }) => {
   const [content, setContent] = useState('');
-  const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [sending, setSending] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionActiveIndex, setMentionActiveIndex] = useState(0);
@@ -116,28 +117,26 @@ const Composer: React.FC<{
     select: (r: any) => r?.payload || [],
   });
 
-  const sendMessage = useMutation({
-    mutationFn: (body: Record<string, unknown>) =>
-      apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES(projectId), { method: 'POST', body: JSON.stringify(body) }),
-    onSuccess: () => {
-      setContent('');
-      setPendingAttachment(null);
-      setMentionedIds(new Set());
-      qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] });
-      onSent();
-    },
-    onError: () => toast?.error?.('Failed to send message'),
-  });
+  const postMessage = (body: Record<string, unknown>) =>
+    apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES(projectId), { method: 'POST', body: JSON.stringify(body) });
 
-  const handleFileChosen = async (file: File) => {
+  // Uploaded one at a time through the existing single-file endpoint — a
+  // message still carries exactly one attachment, so several files become
+  // several messages at send time (see handleSend). A failed file is skipped
+  // with a toast rather than discarding the ones that did upload.
+  const handleFilesChosen = async (files: File[]) => {
     setUploading(true);
     try {
-      const form = new FormData();
-      form.append('file', file);
-      const res = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_ATTACHMENT_UPLOAD(projectId), { method: 'POST', body: form });
-      setPendingAttachment(res?.payload);
-    } catch {
-      toast?.error?.('Failed to upload file');
+      for (const file of files) {
+        try {
+          const form = new FormData();
+          form.append('file', file);
+          const res = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_ATTACHMENT_UPLOAD(projectId), { method: 'POST', body: form });
+          if (res?.payload) setPendingAttachments((prev) => [...prev, res.payload]);
+        } catch {
+          toast?.error?.(`Failed to upload ${file.name}`);
+        }
+      }
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -152,14 +151,40 @@ const Composer: React.FC<{
     el.style.overflowY = el.scrollHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden';
   }, [content]);
 
-  const handleSend = () => {
-    if (!content.trim() && !pendingAttachment) return;
-    sendMessage.mutate({
-      content: content.trim(),
-      ...(parentId ? { parent_id: parentId } : {}),
-      ...(mentionedIds.size ? { mentions: Array.from(mentionedIds) } : {}),
-      ...(pendingAttachment || {}),
-    });
+  // The text (and mentions) ride on the first message; each further file is
+  // its own message, posted in order so they appear in the order picked.
+  const handleSend = async () => {
+    if (!content.trim() && !pendingAttachments.length) return;
+    const text = content.trim();
+    const parts: (PendingAttachment | null)[] = pendingAttachments.length ? pendingAttachments : [null];
+    setSending(true);
+    let sent = 0;
+    try {
+      for (const [i, attachment] of parts.entries()) {
+        await postMessage({
+          content: i === 0 ? text : '',
+          ...(parentId ? { parent_id: parentId } : {}),
+          ...(i === 0 && mentionedIds.size ? { mentions: Array.from(mentionedIds) } : {}),
+          ...(attachment || {}),
+        });
+        sent++;
+      }
+      setContent('');
+      setPendingAttachments([]);
+      setMentionedIds(new Set());
+      onSent();
+    } catch {
+      // Drop what already went out so a retry doesn't post duplicates.
+      if (sent > 0) {
+        setContent('');
+        setMentionedIds(new Set());
+        setPendingAttachments((prev) => prev.slice(sent));
+      }
+      toast?.error?.('Failed to send message');
+    } finally {
+      setSending(false);
+      qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] });
+    }
   };
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -237,14 +262,22 @@ const Composer: React.FC<{
           )}
         </div>
       )}
-      {pendingAttachment && (
-        <div className="flex items-center gap-2 px-3 h-9 rounded-xl border border-(--color-border) bg-(--color-elevated) text-xs font-semibold w-fit">
-          <FileText size={14} />
-          <span className="truncate max-w-[220px]">{pendingAttachment.attachment_file_name}</span>
-          <span className="text-(--color-text-secondary)">{formatBytes(pendingAttachment.attachment_size_bytes)}</span>
-          <button onClick={() => setPendingAttachment(null)} className="text-(--color-text-secondary) hover:text-red-500">
-            <X size={14} />
-          </button>
+      {pendingAttachments.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {pendingAttachments.map((a) => (
+            <div key={a.attachment_file_key} className="flex items-center gap-2 px-3 h-9 rounded-xl border border-(--color-border) bg-(--color-elevated) text-xs font-semibold w-fit">
+              <FileText size={14} />
+              <span className="truncate max-w-[220px]">{a.attachment_file_name}</span>
+              <span className="text-(--color-text-secondary)">{formatBytes(a.attachment_size_bytes)}</span>
+              <button
+                onClick={() => setPendingAttachments((prev) => prev.filter((p) => p.attachment_file_key !== a.attachment_file_key))}
+                disabled={sending}
+                className="text-(--color-text-secondary) hover:text-red-500 disabled:opacity-50"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
@@ -305,13 +338,14 @@ const Composer: React.FC<{
           ref={fileInputRef}
           type="file"
           accept={ATTACHMENT_ACCEPT}
+          multiple
           className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileChosen(f); }}
+          onChange={(e) => { const files = Array.from(e.target.files || []); if (files.length) handleFilesChosen(files); }}
         />
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
+          disabled={uploading || sending}
           className="flex items-center gap-2 px-3 h-9 rounded-xl border border-(--color-border) text-xs font-semibold text-(--color-text-secondary) hover:bg-(--color-state-hover) disabled:opacity-50"
         >
           <Paperclip size={14} />
@@ -319,7 +353,7 @@ const Composer: React.FC<{
         </button>
         <button
           onClick={handleSend}
-          disabled={(!content.trim() && !pendingAttachment) || sendMessage.isPending || uploading}
+          disabled={(!content.trim() && !pendingAttachments.length) || sending || uploading}
           className="flex items-center gap-2 px-4 h-9 rounded-xl bg-primary-600 text-white text-sm font-semibold disabled:opacity-50"
         >
           <Send size={14} />
