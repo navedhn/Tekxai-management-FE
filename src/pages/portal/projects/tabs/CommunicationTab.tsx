@@ -14,6 +14,7 @@ import { getSocket } from '@/lib/socket';
 import { RichText } from '../richText';
 import { PortalMessage, messageAttachments } from '../types';
 import ProfileSidePanel from '../ProfileSidePanel';
+import MentionTextarea, { extractMentionIds, useMentionableUsers } from '../MentionTextarea';
 
 // Small curated set for the one-click "quick react" row — the full picker
 // (search + categories) is still reachable via the "+" button for anything
@@ -60,8 +61,6 @@ type PendingAttachment = {
   attachment_size_bytes: number;
 };
 
-type MentionableUser = { id: string; first_name: string; last_name: string };
-
 // Unified Portal — an INTERNAL sender is now frequently the actual
 // assigned employee (e.g. Farhan) participating as themselves, not just
 // an anonymous "company voice" reply, so their real name is shown just
@@ -103,19 +102,12 @@ const Composer: React.FC<{
   const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
-  const [mentionActiveIndex, setMentionActiveIndex] = useState(0);
-  const [mentionedIds, setMentionedIds] = useState<Set<string>>(new Set());
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
   const toast = useToastContext();
 
-  const { data: mentionable = [] } = useQuery<MentionableUser[]>({
-    queryKey: ['portal', 'mentionable-users', projectId],
-    queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.MENTIONABLE_USERS(projectId)),
-    select: (r: any) => r?.payload || [],
-  });
+  const mentionable = useMentionableUsers(projectId);
 
   const postMessage = (body: Record<string, unknown>) =>
     apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES(projectId), { method: 'POST', body: JSON.stringify(body) });
@@ -156,71 +148,23 @@ const Composer: React.FC<{
   // Text, mentions and every picked file go out as ONE message.
   const handleSend = async () => {
     if (!content.trim() && !pendingAttachments.length) return;
+    const mentions = extractMentionIds(content, mentionable);
     setSending(true);
     try {
       await postMessage({
         content: content.trim(),
         ...(parentId ? { parent_id: parentId } : {}),
-        ...(mentionedIds.size ? { mentions: Array.from(mentionedIds) } : {}),
+        ...(mentions.length ? { mentions } : {}),
         ...(pendingAttachments.length ? { attachments: pendingAttachments } : {}),
       });
       setContent('');
       setPendingAttachments([]);
-      setMentionedIds(new Set());
       onSent();
     } catch {
       toast?.error?.('Failed to send message');
     } finally {
       setSending(false);
       qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] });
-    }
-  };
-
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    setContent(value);
-    const upToCursor = value.slice(0, e.target.selectionStart ?? value.length);
-    const match = /(?:^|\s)@([a-zA-Z]*)$/.exec(upToCursor);
-    setMentionQuery(match ? match[1] : null);
-    setMentionActiveIndex(0);
-  };
-
-  // A user's first_name/last_name can individually be null/empty (some
-  // portal accounts only ever captured a single full-name field) — never
-  // interpolate a null field directly into a template string, or it
-  // renders the literal text "null"/"undefined" into the message.
-  const mentionDisplayName = (u: MentionableUser) => [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
-
-  const insertMention = (u: MentionableUser) => {
-    const el = textareaRef.current;
-    if (!el) return;
-    const cursor = el.selectionStart ?? content.length;
-    const upToCursor = content.slice(0, cursor);
-    const replaced = upToCursor.replace(/@([a-zA-Z]*)$/, `@${mentionDisplayName(u)} `);
-    const next = replaced + content.slice(cursor);
-    setContent(next);
-    setMentionedIds((prev) => new Set(prev).add(u.id));
-    setMentionQuery(null);
-    requestAnimationFrame(() => el.focus());
-  };
-
-  const filteredMentionable = mentionQuery !== null
-    ? mentionable.filter((u) => mentionDisplayName(u).toLowerCase().includes(mentionQuery.toLowerCase()))
-    : [];
-
-  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (mentionQuery === null || filteredMentionable.length === 0) return;
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setMentionActiveIndex((i) => (i + 1) % filteredMentionable.length);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setMentionActiveIndex((i) => (i - 1 + filteredMentionable.length) % filteredMentionable.length);
-    } else if (e.key === 'Enter' || e.key === 'Tab') {
-      e.preventDefault();
-      insertMention(filteredMentionable[mentionActiveIndex] ?? filteredMentionable[0]);
-    } else if (e.key === 'Escape') {
-      setMentionQuery(null);
     }
   };
 
@@ -289,38 +233,16 @@ const Composer: React.FC<{
         </div>
       </div>
 
-      <div className="relative">
-        <textarea
-          ref={textareaRef}
-          className={inputCls}
-          placeholder="Write a message... (type @ to mention someone)"
-          value={content}
-          onChange={handleTextareaChange}
-          onKeyDown={handleTextareaKeyDown}
-          autoFocus={autoFocus}
-          style={{ maxHeight: MAX_TEXTAREA_HEIGHT }}
-        />
-        {mentionQuery !== null && filteredMentionable.length > 0 && (
-          <div className="absolute bottom-full left-0 mb-1 z-20 w-64 max-h-48 overflow-y-auto rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg">
-            {filteredMentionable.map((u, i) => (
-              <button
-                key={u.id}
-                onClick={() => insertMention(u)}
-                onMouseEnter={() => setMentionActiveIndex(i)}
-                className={cn(
-                  'w-full flex items-center gap-2 px-3 h-9 text-sm text-left',
-                  i === mentionActiveIndex ? 'bg-(--color-state-hover)' : 'hover:bg-(--color-state-hover)'
-                )}
-              >
-                <span className="h-6 w-6 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-xs font-bold shrink-0">
-                  {u.first_name?.[0]?.toUpperCase() ?? '?'}
-                </span>
-                {mentionDisplayName(u)}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      <MentionTextarea
+        ref={textareaRef}
+        projectId={projectId}
+        className={inputCls}
+        placeholder="Write a message... (type @ to mention someone)"
+        value={content}
+        onChange={setContent}
+        autoFocus={autoFocus}
+        style={{ maxHeight: MAX_TEXTAREA_HEIGHT }}
+      />
 
       <div className="flex items-center justify-between gap-2">
         <input
@@ -410,11 +332,14 @@ const MessageBubble: React.FC<{
     onError: () => toast?.error?.('Failed to update reaction'),
   });
 
+  const mentionable = useMentionableUsers(projectId);
+  // Mentions are re-derived from the edited text (same as a new message),
+  // so adding a name notifies them and removing one drops it.
   const editMessage = useMutation({
     mutationFn: (content: string) =>
       apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE(projectId, m.id), {
         method: 'PATCH',
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, mentions: extractMentionIds(content, mentionable) }),
       }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] }); setEditing(false); },
     onError: () => toast?.error?.('Failed to update message'),
@@ -492,10 +417,11 @@ const MessageBubble: React.FC<{
       </div>
       {editing ? (
         <div className="flex flex-col gap-1.5">
-          <textarea
+          <MentionTextarea
+            projectId={projectId}
             autoFocus
             value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
+            onChange={setEditValue}
             className={inputCls}
           />
           <div className="flex items-center gap-2">
