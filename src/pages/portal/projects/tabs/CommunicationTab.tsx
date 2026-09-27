@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Send, Paperclip, FileText, X, Smile, Reply, Bold, Italic, Code, ChevronDown, ChevronRight, Pencil, Trash2, Check } from 'lucide-react';
@@ -651,11 +651,13 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   const canDeleteAny = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('client.communication.delete');
   const qc = useQueryClient();
   // Mention/notification deep link: .../communication?message=:id — scroll
-  // to and briefly highlight the specific message once loaded. Read once;
-  // this is navigation only, unrelated to the authorization that already
-  // gated loading this project's Communication tab in the first place.
+  // to and briefly highlight the specific message once loaded. Follows the
+  // URL, so opening another message from the topbar search while already
+  // on this thread scrolls to it too. This is navigation only, unrelated to
+  // the authorization that already gated loading this project's
+  // Communication tab in the first place.
   const location = useLocation();
-  const highlightMessageId = useRef<string | null>(new URLSearchParams(location.search).get('message')).current;
+  const highlightMessageId = useMemo(() => new URLSearchParams(location.search).get('message'), [location.search]);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 

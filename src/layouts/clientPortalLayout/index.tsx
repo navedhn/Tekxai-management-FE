@@ -11,6 +11,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { RoutePageSkeleton } from '@/components/skeletons';
 import { getSocket } from '@/lib/socket';
+import PortalSearch from './PortalSearch';
 
 const NAV_ITEMS = [
   { to: '/portal', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -320,7 +321,7 @@ const ClientPortalLayout: React.FC = memo(() => {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-16 shrink-0 border-b border-(--color-border) bg-(--color-surface) flex items-center justify-between px-4 lg:px-8 gap-4 min-w-0">
           {topbarTitle ? (
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-3 min-w-0 md:max-w-[30%]">
               <button
                 onClick={() => navigate('/portal/projects')}
                 className="shrink-0 text-(--color-text-secondary) hover:text-primary-600"
@@ -333,7 +334,10 @@ const ClientPortalLayout: React.FC = memo(() => {
           ) : (
             <span className="lg:hidden text-base font-black text-(--color-text-primary)">Client Portal</span>
           )}
-          <div className="ml-auto flex items-center gap-3 shrink-0">
+          <div className="flex-1 min-w-0 flex justify-end md:justify-center">
+            <PortalSearch />
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
             <span className="text-sm font-semibold text-(--color-text-primary)">
               {user?.first_name} {user?.last_name}
             </span>
