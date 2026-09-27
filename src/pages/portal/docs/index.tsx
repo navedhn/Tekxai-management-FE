@@ -12,6 +12,7 @@ import { PageSkeleton } from '@/components/skeletons';
 type PortalDocument = {
   id: string;
   source: 'file' | 'communication';
+  attachment_id?: string | null;
   title: string;
   document_type: string | null;
   size_bytes?: number | null;
@@ -54,7 +55,7 @@ const PortalDocsPage: React.FC = () => {
     try {
       const url = d.source === 'file'
         ? API_ENDPOINTS.PORTAL.FILE_VIEW_URL(d.project.id, d.id)
-        : API_ENDPOINTS.PORTAL.MESSAGE_ATTACHMENT_VIEW_URL(d.project.id, d.id);
+        : API_ENDPOINTS.PORTAL.MESSAGE_ATTACHMENT_VIEW_URL(d.project.id, d.id, d.attachment_id);
       const res = await apiRequest<any>(url);
       const viewUrl = res?.payload?.view_url;
       if (viewUrl) window.open(viewUrl, '_blank', 'noopener,noreferrer');
@@ -108,7 +109,7 @@ const PortalDocsPage: React.FC = () => {
                 </td></tr>
               )}
               {filtered.map((d) => (
-                <tr key={`${d.source}-${d.id}`} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60">
+                <tr key={`${d.source}-${d.id}-${d.attachment_id ?? ''}`} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60">
                   <td className="px-5 py-3">
                     <button onClick={() => openDoc(d)} className="flex items-center gap-2 font-bold text-gray-900 hover:text-primary-600 hover:underline text-left">
                       <FileText size={15} className="shrink-0 text-gray-400" />
