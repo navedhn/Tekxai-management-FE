@@ -12,7 +12,7 @@ import { TableSkeleton } from '@/components/skeletons';
 import EmojiPicker from '@/pages/chat/EmojiPicker';
 import { getSocket } from '@/lib/socket';
 import { RichText } from '../richText';
-import { PortalMessage } from '../types';
+import { PortalMessage, messageAttachments } from '../types';
 import ProfileSidePanel from '../ProfileSidePanel';
 
 // Small curated set for the one-click "quick react" row — the full picker
@@ -99,8 +99,9 @@ const Composer: React.FC<{
   replyingToPreview?: { name: string; text: string } | null;
 }> = ({ projectId, parentId, autoFocus, onSent, onCancel, replyingToPreview }) => {
   const [content, setContent] = useState('');
-  const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [sending, setSending] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionActiveIndex, setMentionActiveIndex] = useState(0);
@@ -116,28 +117,28 @@ const Composer: React.FC<{
     select: (r: any) => r?.payload || [],
   });
 
-  const sendMessage = useMutation({
-    mutationFn: (body: Record<string, unknown>) =>
-      apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES(projectId), { method: 'POST', body: JSON.stringify(body) }),
-    onSuccess: () => {
-      setContent('');
-      setPendingAttachment(null);
-      setMentionedIds(new Set());
-      qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] });
-      onSent();
-    },
-    onError: () => toast?.error?.('Failed to send message'),
-  });
+  const postMessage = (body: Record<string, unknown>) =>
+    apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES(projectId), { method: 'POST', body: JSON.stringify(body) });
 
-  const handleFileChosen = async (file: File) => {
+  // Uploaded one at a time through the single-file upload endpoint, then
+  // sent together as one message (see handleSend). A failed file is skipped
+  // with a toast rather than discarding the ones that did upload.
+  const MAX_ATTACHMENTS = 10;
+  const handleFilesChosen = async (files: File[]) => {
+    const room = MAX_ATTACHMENTS - pendingAttachments.length;
+    if (files.length > room) toast?.error?.(`Up to ${MAX_ATTACHMENTS} files per message`);
     setUploading(true);
     try {
-      const form = new FormData();
-      form.append('file', file);
-      const res = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_ATTACHMENT_UPLOAD(projectId), { method: 'POST', body: form });
-      setPendingAttachment(res?.payload);
-    } catch {
-      toast?.error?.('Failed to upload file');
+      for (const file of files.slice(0, Math.max(room, 0))) {
+        try {
+          const form = new FormData();
+          form.append('file', file);
+          const res = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_ATTACHMENT_UPLOAD(projectId), { method: 'POST', body: form });
+          if (res?.payload) setPendingAttachments((prev) => [...prev, res.payload]);
+        } catch {
+          toast?.error?.(`Failed to upload ${file.name}`);
+        }
+      }
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -152,14 +153,27 @@ const Composer: React.FC<{
     el.style.overflowY = el.scrollHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden';
   }, [content]);
 
-  const handleSend = () => {
-    if (!content.trim() && !pendingAttachment) return;
-    sendMessage.mutate({
-      content: content.trim(),
-      ...(parentId ? { parent_id: parentId } : {}),
-      ...(mentionedIds.size ? { mentions: Array.from(mentionedIds) } : {}),
-      ...(pendingAttachment || {}),
-    });
+  // Text, mentions and every picked file go out as ONE message.
+  const handleSend = async () => {
+    if (!content.trim() && !pendingAttachments.length) return;
+    setSending(true);
+    try {
+      await postMessage({
+        content: content.trim(),
+        ...(parentId ? { parent_id: parentId } : {}),
+        ...(mentionedIds.size ? { mentions: Array.from(mentionedIds) } : {}),
+        ...(pendingAttachments.length ? { attachments: pendingAttachments } : {}),
+      });
+      setContent('');
+      setPendingAttachments([]);
+      setMentionedIds(new Set());
+      onSent();
+    } catch {
+      toast?.error?.('Failed to send message');
+    } finally {
+      setSending(false);
+      qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] });
+    }
   };
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -237,14 +251,22 @@ const Composer: React.FC<{
           )}
         </div>
       )}
-      {pendingAttachment && (
-        <div className="flex items-center gap-2 px-3 h-9 rounded-xl border border-(--color-border) bg-(--color-elevated) text-xs font-semibold w-fit">
-          <FileText size={14} />
-          <span className="truncate max-w-[220px]">{pendingAttachment.attachment_file_name}</span>
-          <span className="text-(--color-text-secondary)">{formatBytes(pendingAttachment.attachment_size_bytes)}</span>
-          <button onClick={() => setPendingAttachment(null)} className="text-(--color-text-secondary) hover:text-red-500">
-            <X size={14} />
-          </button>
+      {pendingAttachments.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {pendingAttachments.map((a) => (
+            <div key={a.attachment_file_key} className="flex items-center gap-2 px-3 h-9 rounded-xl border border-(--color-border) bg-(--color-elevated) text-xs font-semibold w-fit">
+              <FileText size={14} />
+              <span className="truncate max-w-[220px]">{a.attachment_file_name}</span>
+              <span className="text-(--color-text-secondary)">{formatBytes(a.attachment_size_bytes)}</span>
+              <button
+                onClick={() => setPendingAttachments((prev) => prev.filter((p) => p.attachment_file_key !== a.attachment_file_key))}
+                disabled={sending}
+                className="text-(--color-text-secondary) hover:text-red-500 disabled:opacity-50"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
@@ -305,13 +327,14 @@ const Composer: React.FC<{
           ref={fileInputRef}
           type="file"
           accept={ATTACHMENT_ACCEPT}
+          multiple
           className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileChosen(f); }}
+          onChange={(e) => { const files = Array.from(e.target.files || []); if (files.length) handleFilesChosen(files); }}
         />
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
+          disabled={uploading || sending || pendingAttachments.length >= MAX_ATTACHMENTS}
           className="flex items-center gap-2 px-3 h-9 rounded-xl border border-(--color-border) text-xs font-semibold text-(--color-text-secondary) hover:bg-(--color-state-hover) disabled:opacity-50"
         >
           <Paperclip size={14} />
@@ -319,7 +342,7 @@ const Composer: React.FC<{
         </button>
         <button
           onClick={handleSend}
-          disabled={(!content.trim() && !pendingAttachment) || sendMessage.isPending || uploading}
+          disabled={(!content.trim() && !pendingAttachments.length) || sending || uploading}
           className="flex items-center gap-2 px-4 h-9 rounded-xl bg-primary-600 text-white text-sm font-semibold disabled:opacity-50"
         >
           <Send size={14} />
@@ -334,11 +357,11 @@ const Composer: React.FC<{
 // file-chip treatment below) — the stored file has no public URL, so the
 // same signed view_url the file chip fetches on click is fetched once here
 // to use as the <img> src.
-const AttachmentImagePreview: React.FC<{ projectId: string; messageId: string; alt: string; onOpenFull: () => void }> = ({ projectId, messageId, alt, onOpenFull }) => {
+const AttachmentImagePreview: React.FC<{ projectId: string; messageId: string; attachmentId: string | null; alt: string; onOpenFull: () => void }> = ({ projectId, messageId, attachmentId, alt, onOpenFull }) => {
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['portal', 'messages', projectId, messageId, 'attachment-view-url'],
+    queryKey: ['portal', 'messages', projectId, messageId, 'attachment-view-url', attachmentId],
     queryFn: async () => {
-      const res = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_ATTACHMENT_VIEW_URL(projectId, messageId));
+      const res = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_ATTACHMENT_VIEW_URL(projectId, messageId, attachmentId));
       return res?.payload?.view_url as string;
     },
     staleTime: 5 * 60 * 1000,
@@ -372,6 +395,7 @@ const MessageBubble: React.FC<{
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(m.content);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [lightboxAlt, setLightboxAlt] = useState('attachment');
   const qc = useQueryClient();
   const toast = useToastContext();
   const isOwn = m.user?.id === myUserId;
@@ -408,9 +432,11 @@ const MessageBubble: React.FC<{
     setReactionPickerOpen(false);
   };
 
-  const handleViewAttachment = async () => {
+  const attachments = messageAttachments(m);
+
+  const handleViewAttachment = async (attachmentId: string | null) => {
     try {
-      const res = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_ATTACHMENT_VIEW_URL(projectId, m.id));
+      const res = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_ATTACHMENT_VIEW_URL(projectId, m.id, attachmentId));
       const url = res?.payload?.view_url;
       if (url) window.open(url, '_blank', 'noopener,noreferrer');
     } catch {
@@ -422,11 +448,11 @@ const MessageBubble: React.FC<{
   // a document/other file still uses handleViewAttachment above (a new
   // tab is the right behavior there — it's a download/viewer handoff,
   // not something worth a custom in-app viewer for every file type).
-  const handleViewImage = async () => {
+  const handleViewImage = async (attachmentId: string | null, name: string | null) => {
     try {
-      const res = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_ATTACHMENT_VIEW_URL(projectId, m.id));
+      const res = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_ATTACHMENT_VIEW_URL(projectId, m.id, attachmentId));
       const url = res?.payload?.view_url;
-      if (url) setLightboxUrl(url);
+      if (url) { setLightboxUrl(url); setLightboxAlt(name || 'attachment'); }
     } catch {
       toast?.error?.('Failed to open attachment');
     }
@@ -498,23 +524,31 @@ const MessageBubble: React.FC<{
           />
         )
       )}
-      {m.attachment_file_key && m.attachment_mime_type?.startsWith('image/') ? (
-        <AttachmentImagePreview
-          projectId={projectId}
-          messageId={m.id}
-          alt={m.attachment_file_name || 'attachment'}
-          onOpenFull={handleViewImage}
-        />
-      ) : m.attachment_file_key && (
+      {attachments.some((a) => a.mime_type?.startsWith('image/')) && (
+        <div className="flex flex-wrap gap-2">
+          {attachments.filter((a) => a.mime_type?.startsWith('image/')).map((a) => (
+            <AttachmentImagePreview
+              key={a.id ?? a.file_key}
+              projectId={projectId}
+              messageId={m.id}
+              attachmentId={a.id}
+              alt={a.file_name || 'attachment'}
+              onOpenFull={() => handleViewImage(a.id, a.file_name)}
+            />
+          ))}
+        </div>
+      )}
+      {attachments.filter((a) => !a.mime_type?.startsWith('image/')).map((a) => (
         <button
-          onClick={handleViewAttachment}
+          key={a.id ?? a.file_key}
+          onClick={() => handleViewAttachment(a.id)}
           className="mt-2 flex items-center gap-2 px-3 h-9 rounded-xl border border-(--color-border) bg-(--color-surface) text-xs font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover)"
         >
           <FileText size={14} className="shrink-0" />
-          <span className="truncate max-w-[220px]">{m.attachment_file_name}</span>
-          {!!m.attachment_size_bytes && <span className="text-(--color-text-secondary) shrink-0">{formatBytes(m.attachment_size_bytes)}</span>}
+          <span className="truncate max-w-[220px]">{a.file_name}</span>
+          {!!a.size_bytes && <span className="text-(--color-text-secondary) shrink-0">{formatBytes(a.size_bytes)}</span>}
         </button>
-      )}
+      ))}
 
       {(canCompose || isOwn || canDeleteAny) && !editing && (
         <div className="flex flex-wrap items-center gap-1 mt-2 relative">
@@ -600,7 +634,7 @@ const MessageBubble: React.FC<{
           </button>
           <img
             src={lightboxUrl}
-            alt={m.attachment_file_name || 'attachment'}
+            alt={lightboxAlt}
             className="max-w-full max-h-full rounded-lg object-contain"
             onClick={(e) => e.stopPropagation()}
           />

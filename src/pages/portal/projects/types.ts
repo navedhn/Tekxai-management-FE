@@ -39,6 +39,22 @@ export type PortalUpdate = {
   created_at: string;
 };
 
+export type PortalMessageAttachment = {
+  // null for a single-file message (its file lives in the attachment_*
+  // columns); the view-url endpoint's default then returns that file.
+  id: string | null;
+  file_key: string;
+  file_name: string | null;
+  mime_type: string | null;
+  size_bytes: number | null;
+};
+
+export const messageAttachments = (m: Pick<PortalMessage, 'attachments' | 'attachment_file_key' | 'attachment_file_name' | 'attachment_mime_type' | 'attachment_size_bytes'>): PortalMessageAttachment[] => {
+  if (m.attachments) return m.attachments;
+  if (!m.attachment_file_key) return [];
+  return [{ id: null, file_key: m.attachment_file_key, file_name: m.attachment_file_name, mime_type: m.attachment_mime_type, size_bytes: m.attachment_size_bytes }];
+};
+
 export type PortalMessage = {
   id: string;
   content: string;
@@ -51,6 +67,10 @@ export type PortalMessage = {
   attachment_file_name: string | null;
   attachment_mime_type: string | null;
   attachment_size_bytes: number | null;
+  // Every file on the message, in send order. Absent on messages from an
+  // older API response — use messageAttachments() rather than reading this
+  // directly, it falls back to the single attachment_* fields.
+  attachments?: PortalMessageAttachment[];
   reactions: Array<{ id: string; user_id: string; emoji: string; user: { id: string; first_name: string; last_name: string } }>;
   mentions: string[];
 };

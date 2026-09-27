@@ -716,7 +716,8 @@ export const API_ENDPOINTS = {
     MESSAGES:          (id: string) => `${v1}/portal/projects/${id}/messages`,
     MESSAGE:           (id: string, messageId: string) => `${v1}/portal/projects/${id}/messages/${messageId}`,
     MESSAGE_ATTACHMENT_UPLOAD: (id: string) => `${v1}/portal/projects/${id}/messages/attachment`,
-    MESSAGE_ATTACHMENT_VIEW_URL: (id: string, messageId: string) => `${v1}/portal/projects/${id}/messages/${messageId}/attachment-view-url`,
+    MESSAGE_ATTACHMENT_VIEW_URL: (id: string, messageId: string, attachmentId?: string | null) =>
+      `${v1}/portal/projects/${id}/messages/${messageId}/attachment-view-url${attachmentId ? `?attachment_id=${encodeURIComponent(attachmentId)}` : ''}`,
     MESSAGE_REACTIONS: (id: string, messageId: string) => `${v1}/portal/projects/${id}/messages/${messageId}/reactions`,
     MESSAGES_READ: (id: string) => `${v1}/portal/projects/${id}/messages/read`,
     UNREAD_COUNTS: `${v1}/portal/unread-counts`,
