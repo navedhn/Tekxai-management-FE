@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Plus, MoreHorizontal, X } from 'lucide-react';
+import { Search, Plus, MoreHorizontal, X, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 
@@ -59,6 +59,11 @@ const STATUS_STYLES: Record<string, string> = {
   REVOKED: 'bg-red-50 text-red-500 border-red-100',
 };
 
+// Status column sort order (ascending); an unknown status sorts last.
+const STATUS_ORDER: Record<string, number> = { ACCEPTED: 0, PENDING: 1, EXPIRED: 2, REVOKED: 3 };
+type StatusSort = 'none' | 'asc' | 'desc';
+const NEXT_STATUS_SORT: Record<StatusSort, StatusSort> = { none: 'asc', asc: 'desc', desc: 'none' };
+
 const RowMenu: React.FC<{ canRevoke: boolean; onRevoke: () => void }> = ({ canRevoke, onRevoke }) => {
   const [open, setOpen] = useState(false);
   return (
@@ -96,6 +101,7 @@ const PortalInvitesPage: React.FC = () => {
   const toast = useToastContext();
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
+  const [statusSort, setStatusSort] = useState<StatusSort>('none');
   const [showInvite, setShowInvite] = useState(false);
   const [inviteTab, setInviteTab] = useState<'employee' | 'client'>('employee');
   const [employeeForm, setEmployeeForm] = useState<{ user_id: string | null; project_id: string | null }>({ user_id: null, project_id: null });
@@ -194,6 +200,14 @@ const PortalInvitesPage: React.FC = () => {
     const email = r.kind === 'client' ? r.email : r.user?.email;
     return [name, email].some((v) => (v || '').toLowerCase().includes(q));
   });
+  // Array.sort is stable, so people with the same status keep the default
+  // newest-invite-first order.
+  if (statusSort !== 'none') {
+    const dir = statusSort === 'asc' ? 1 : -1;
+    const rank = (status: string) => STATUS_ORDER[status] ?? Object.keys(STATUS_ORDER).length;
+    filtered.sort((a, b) => dir * (rank(a.status) - rank(b.status)));
+  }
+  const StatusSortIcon = statusSort === 'asc' ? ArrowUp : statusSort === 'desc' ? ArrowDown : ArrowUpDown;
 
   const pendingCount = people.filter((r) => r.status === 'PENDING').length;
   const acceptedCount = people.filter((r) => r.status === 'ACCEPTED').length;
@@ -248,7 +262,20 @@ const PortalInvitesPage: React.FC = () => {
                 <th className="sticky left-0 z-20 bg-gray-50 px-5 py-3 border-b border-r border-gray-100">Name</th>
                 <th className="px-5 py-3 border-b border-gray-100">Email</th>
                 <th className="px-5 py-3 border-b border-gray-100">Type</th>
-                <th className="px-5 py-3 border-b border-gray-100">Status</th>
+                <th
+                  className="px-5 py-3 border-b border-gray-100"
+                  aria-sort={statusSort === 'asc' ? 'ascending' : statusSort === 'desc' ? 'descending' : 'none'}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setStatusSort((v) => NEXT_STATUS_SORT[v])}
+                    className={`inline-flex items-center gap-1 uppercase tracking-wide font-bold hover:text-gray-600 ${statusSort !== 'none' ? 'text-gray-700' : ''}`}
+                    title={statusSort === 'none' ? 'Sort by status' : statusSort === 'asc' ? 'Accepted first' : 'Pending first'}
+                  >
+                    Status
+                    <StatusSortIcon size={13} className={statusSort === 'none' ? 'opacity-50' : ''} />
+                  </button>
+                </th>
                 <th className="px-5 py-3 border-b border-gray-100">Last Active</th>
                 <th className="px-5 py-3 border-b border-gray-100">Invited By</th>
                 <th className="px-5 py-3 border-b border-gray-100">Invited On</th>
