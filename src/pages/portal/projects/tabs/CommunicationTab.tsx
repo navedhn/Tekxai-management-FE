@@ -103,7 +103,7 @@ function formatDateDividerLabel(iso: string) {
 const DateDivider: React.FC<{ iso: string }> = ({ iso }) => (
   <div className="flex items-center gap-3 py-1 select-none" role="separator" aria-label={formatDateDividerLabel(iso)}>
     <div className="flex-1 h-px bg-(--color-border)" />
-    <span className="shrink-0 text-[11px] font-semibold tracking-wide text-(--color-text-secondary) [font-family:var(--font-communication-sans)]">
+    <span className="shrink-0 px-1 text-[11px] font-semibold tracking-wide text-(--color-text-secondary) bg-white [font-family:var(--font-communication-sans)]">
       {formatDateDividerLabel(iso)}
     </span>
     <div className="flex-1 h-px bg-(--color-border)" />
@@ -877,8 +877,8 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   });
 
   return (
-    <div className="h-full flex flex-col gap-4">
-      <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-4 pr-1">
+    <div className="h-full flex flex-col gap-4 bg-white">
+      <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-4 pr-1 bg-white">
         {roots.length === 0 && (
           <p className="text-sm text-(--color-text-secondary) py-10 text-center">No messages yet.</p>
         )}

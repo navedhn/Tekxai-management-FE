@@ -104,7 +104,7 @@ const PortalProjectDetailPage: React.FC = () => {
     <div
       className={cn(
         'flex flex-col gap-5 -mt-6 lg:-mt-8 pt-2 lg:pt-3',
-        isCommunication ? '-mb-6 lg:-mb-8 pb-4 h-[calc(100dvh-7.5rem)] lg:h-[calc(100dvh-4rem)]' : 'pb-10'
+        isCommunication ? '-mb-6 lg:-mb-8 pb-4 h-[calc(100dvh-7.5rem)] lg:h-[calc(100dvh-4rem)] bg-white' : 'pb-10'
       )}
     >
       <div className="flex items-center gap-2 border-b border-(--color-border) shrink-0">
