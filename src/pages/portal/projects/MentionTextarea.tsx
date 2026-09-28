@@ -55,6 +55,7 @@ type Props = {
   placeholder?: string;
   autoFocus?: boolean;
   style?: React.CSSProperties;
+  onPaste?: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
 };
 
 // A textarea with the @mention picker and in-box highlighting of mentioned
@@ -64,7 +65,7 @@ type Props = {
 // selection and placeholder come from it. Both must keep the same font,
 // padding, border width and wrapping, or the highlight drifts.
 const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
-  ({ projectId, value, onChange, className, placeholder, autoFocus, style }, ref) => {
+  ({ projectId, value, onChange, className, placeholder, autoFocus, style, onPaste }, ref) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const mirrorRef = useRef<HTMLDivElement>(null);
     useImperativeHandle(ref, () => textareaRef.current as HTMLTextAreaElement);
@@ -131,7 +132,7 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
         const start = match.index ?? 0;
         if (start > last) parts.push(value.slice(last, start));
         parts.push(
-          <span key={start} className="rounded bg-primary-100 text-primary-700">{match[0]}</span>
+          <span key={start} className="rounded bg-primary-100 text-primary-700 [font-family:var(--font-communication-sans)]!">{match[0]}</span>
         );
         last = start + match[0].length;
       }
@@ -139,12 +140,18 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
       return parts;
     }, [value, pattern]);
 
+    // Mirror + textarea must share every box/font metric. The shared
+    // communication-composer-input class locks font/letter-spacing, and
+    // communication-mention-input keeps dark-mode from painting opaque
+    // text on top of the mirror (see index.css).
+    const sharedBoxCls = cn('communication-composer-input', className);
+
     return (
       <div className="relative">
         <div
           ref={mirrorRef}
           aria-hidden
-          className={cn(className, 'absolute inset-0 overflow-hidden whitespace-pre-wrap break-words pointer-events-none text-(--color-text-primary)')}
+          className={cn(sharedBoxCls, 'absolute inset-0 overflow-hidden whitespace-pre-wrap break-words pointer-events-none text-(--color-text-primary) [font-family:var(--font-communication-sans)]!')}
         >
           {mirrorContent}
           {/* a trailing newline in a textarea still takes a line */}
@@ -152,11 +159,15 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
         </div>
         <textarea
           ref={textareaRef}
-          className={cn(className, 'relative block bg-transparent! text-transparent caret-(--color-text-primary) placeholder:text-(--color-text-secondary)')}
+          className={cn(
+            sharedBoxCls,
+            'communication-mention-input relative block bg-transparent! text-transparent! caret-(--color-text-primary) placeholder:text-(--color-text-secondary)'
+          )}
           placeholder={placeholder}
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
+          onPaste={onPaste}
           onScroll={syncScroll}
           onClick={(e) => updateQuery(value, e.currentTarget.selectionStart ?? value.length)}
           autoFocus={autoFocus}

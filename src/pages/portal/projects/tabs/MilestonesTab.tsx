@@ -5,6 +5,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import Card from '@/components/ui/Card';
 import { TableSkeleton } from '@/components/skeletons';
+import { useAuth } from '@/hooks/useAuth';
 import { PortalMilestone } from '../types';
 import PortalMilestoneBoardView from '../PortalMilestoneBoardView';
 import PortalMilestoneTimelineView from '../PortalMilestoneTimelineView';
@@ -20,7 +21,12 @@ const statusStyles: Record<string, string> = {
   PENDING: 'bg-(--color-elevated) text-(--color-text-secondary)',
 };
 
+const PRICE_VIEW_ROLES = new Set(['SUPER_ADMIN', 'CLIENT_ADMIN']);
+
 const MilestonesTab: React.FC<{ projectId: string; view: MilestonesView }> = ({ projectId, view }) => {
+  const { role } = useAuth();
+  const canViewPricing = !!role && PRICE_VIEW_ROLES.has(role);
+
   const { data, isLoading } = useQuery<PortalMilestone[]>({
     queryKey: ['portal', 'milestones', projectId],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.MILESTONES(projectId)),
@@ -53,9 +59,21 @@ const MilestonesTab: React.FC<{ projectId: string; view: MilestonesView }> = ({ 
       {view === 'list' && milestones.map((m) => (
         <Card key={m.id} className="p-5">
           <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-bold text-(--color-text-primary)">{m.title}</p>
-              {m.description && <p className="text-xs text-(--color-text-secondary) mt-1">{m.description}</p>}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm font-bold text-(--color-text-primary)">{m.title}</p>
+                {canViewPricing && m.price != null && Number(m.price) > 0 && (
+                  <span className="text-xs font-black tabular-nums text-(--color-text-primary) bg-(--color-elevated) px-2 py-0.5 rounded-full">
+                    {m.currency || 'PKR'} {Number(m.price).toLocaleString()}
+                  </span>
+                )}
+                {canViewPricing && m.payment_status && (
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide ${m.payment_status === 'PAID' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-600'}`}>
+                    {m.payment_status === 'PAID' ? 'Paid' : 'Unpaid'}
+                  </span>
+                )}
+              </div>
+              {m.description && <p className="text-xs text-(--color-text-secondary) mt-1 whitespace-pre-wrap">{m.description}</p>}
             </div>
             <span className={`text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 ${statusStyles[m.status] || statusStyles.PENDING}`}>
               {m.status}

@@ -54,7 +54,7 @@ function renderInline(
             key={key}
             type="button"
             onClick={() => onMentionClick(mentionedId)}
-            className="font-semibold text-primary-600 hover:underline cursor-pointer"
+            className="font-semibold text-primary-600 hover:underline cursor-pointer [font-family:var(--font-communication-sans)]!"
           >
             {match[7]}
           </button>

@@ -26,6 +26,11 @@ export type PortalMilestone = {
   sequence: number | null;
   estimated_start: string | null;
   estimated_end: string | null;
+
+  /** Present only for SUPER_ADMIN / CLIENT_ADMIN — omitted for everyone else. */
+  price?: number;
+  payment_status?: string;
+  currency?: string;
   members: { id: string; first_name: string | null; last_name: string | null; avatar: string | null }[];
   deliverables: PortalDeliverable[];
 };

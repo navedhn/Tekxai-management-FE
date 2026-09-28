@@ -100,9 +100,11 @@
 
   /* Portal Communication tab only (message bubbles, composer, inline code)
      — deliberately its own tokens rather than redefining --font-sans, so
-     this doesn't change typography anywhere else in the app. */
-  --font-communication-sans: -apple-system, "BlinkMacSystemFont", "Segoe UI Variable Text", "Segoe UI", "Helvetica", "Apple Color Emoji", "Arial", sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
-  --font-communication-mono: GeistMono, ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Monospace", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Courier New", monospace;
+     this doesn't change typography anywhere else in the app.
+     Avoid "Segoe UI Variable Text": uninstalled/broken variable fonts can
+     collapse glyph advances. Keep mirror + textarea on the same stack. */
+  --font-communication-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --font-communication-mono: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Monospace", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Courier New", monospace;
 
   --text-h1: 1.75rem;
   --text-h1--line-height: 2.25rem;
@@ -724,6 +726,16 @@ body {
   border-color: rgba(148, 163, 184, 0.2) !important;
 }
 
+/* MentionTextarea paints highlighted text on a mirror layer under a
+   transparent textarea. Dark-mode's `color: … !important` above would
+   otherwise override `text-transparent` and stack two copies of every
+   glyph on top of each other. */
+:root[data-mode='dark'] textarea.communication-mention-input {
+  color: transparent !important;
+  caret-color: #f8fafc !important;
+  background-color: transparent !important;
+}
+
 :root[data-mode='dark'] input:not([type='checkbox']):not([type='radio']):focus,
 :root[data-mode='dark'] textarea:focus,
 :root[data-mode='dark'] select:focus {
@@ -804,6 +816,16 @@ span {
 
 .font-inter {
   font-family: 'Inter', sans-serif !important;
+}
+
+/* Shared by MentionTextarea's mirror + transparent textarea so glyph
+   advances stay locked together (and beat the unlayered Inter span rule). */
+.communication-composer-input {
+  font-family: var(--font-communication-sans) !important;
+  letter-spacing: normal !important;
+  line-height: 1.5 !important;
+  font-variant-ligatures: none;
+  font-feature-settings: normal;
 }
 
 @keyframes dropdown-enter {

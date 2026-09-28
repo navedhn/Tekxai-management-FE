@@ -37,12 +37,12 @@ function aggregateReactions(reactions: PortalMessage['reactions'], myUserId?: st
 const MAX_TEXTAREA_HEIGHT = 200;
 
 const inputCls =
-  'w-full min-h-[70px] px-3 py-2 border border-(--color-border) rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none bg-(--color-surface) [font-family:var(--font-communication-sans)]';
+  'communication-composer-input w-full min-h-[70px] px-3 py-2 border border-(--color-border) rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none bg-(--color-surface)';
 
 // The composer's text box sits borderless inside the composer card (the card
 // draws the border and focus ring).
 const composerInputCls =
-  'w-full min-h-[44px] px-2 py-1.5 border-0 text-[15px] leading-relaxed focus:outline-none resize-none bg-transparent [font-family:var(--font-communication-sans)]';
+  'communication-composer-input w-full min-h-[44px] px-2 py-1.5 border-0 text-[15px] leading-relaxed focus:outline-none resize-none bg-transparent';
 
 // Kept broad on purpose — project materials can legitimately be almost any
 // common file type, including installers/disk images (an explicit product
@@ -216,6 +216,26 @@ const Composer: React.FC<{
   };
   const handleAttachClick = () => fileInputRef.current?.click();
 
+  // Paste a screenshot/image from the clipboard as an attachment (same path
+  // as the paperclip picker). Plain-text pastes fall through untouched.
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items?.length) return;
+    const imageItems = Array.from(items).filter((item) => item.type.startsWith('image/'));
+    if (!imageItems.length) return;
+    const files = imageItems
+      .map((item) => {
+        const blob = item.getAsFile();
+        if (!blob) return null;
+        const ext = (item.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+        return new File([blob], `pasted-image-${Date.now()}.${ext}`, { type: item.type });
+      })
+      .filter((f): f is File => !!f);
+    if (!files.length) return;
+    e.preventDefault();
+    void handleFilesChosen(files);
+  };
+
   return (
     <div className="flex flex-col gap-2">
       {replyingToPreview && (
@@ -235,8 +255,12 @@ const Composer: React.FC<{
       {pendingAttachments.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {pendingAttachments.map((a) => (
-            <div key={a.attachment_file_key} className="flex items-center gap-2 px-3 h-9 rounded-xl border border-(--color-border) bg-(--color-elevated) text-xs font-semibold w-fit">
-              <FileText size={14} />
+            <div key={a.attachment_file_key} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-(--color-border) bg-(--color-elevated) text-xs font-semibold w-fit max-w-full">
+              {a.attachment_mime_type?.startsWith('image/') && a.attachment_file_url ? (
+                <img src={a.attachment_file_url} alt="" className="h-12 w-12 rounded-lg object-cover shrink-0" />
+              ) : (
+                <FileText size={14} className="shrink-0" />
+              )}
               <span className="truncate max-w-[220px]">{a.attachment_file_name}</span>
               <span className="text-(--color-text-secondary)">{formatBytes(a.attachment_size_bytes)}</span>
               <button
@@ -292,9 +316,10 @@ const Composer: React.FC<{
             ref={textareaRef}
             projectId={projectId}
             className={composerInputCls}
-            placeholder="Write a message... (type @ to mention someone)"
+            placeholder="Write a message... (type @ to mention someone, paste to attach an image)"
             value={content}
             onChange={setContent}
+            onPaste={handlePaste}
             autoFocus={autoFocus}
             style={{ maxHeight: MAX_TEXTAREA_HEIGHT }}
           />
@@ -428,162 +453,178 @@ const MessageBubble: React.FC<{
     if (window.confirm('Delete this message? This cannot be undone.')) deleteMessage.mutate();
   };
 
+  const reactionChips = aggregateReactions(m.reactions, myUserId);
+  const showActions = canCompose || isOwn || canDeleteAny;
+
   return (
     <div
       id={`portal-message-${m.id}`}
-      className={cn(
-        'w-full min-w-0 rounded-2xl px-5 py-4 transition-shadow [overflow-wrap:anywhere]',
-        m.user?.id === myUserId ? 'bg-primary-50' : 'bg-(--color-elevated)'
-      )}
+      className="group relative flex items-start gap-3 px-2 py-2 -mx-1 rounded-lg hover:bg-(--color-state-hover)/60 transition-colors [overflow-wrap:anywhere]"
     >
-      <div className="flex items-center justify-between gap-4 mb-2">
-        <button
-          onClick={() => onOpenProfile(m.user.id)}
-          className="flex items-center gap-2.5 min-w-0 group"
-          title="View profile"
-        >
-          {m.user?.avatar ? (
-            <img src={m.user.avatar} alt="" className="h-7 w-7 rounded-full object-cover shrink-0" />
-          ) : (
-            <span className="h-7 w-7 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-xs font-semibold shrink-0">
-              {senderName(m).slice(0, 1).toUpperCase() || '?'}
-            </span>
-          )}
-          <span className="text-[15px] font-semibold! text-(--color-text-primary) group-hover:underline truncate">{senderName(m)}</span>
-        </button>
-        <span className="text-[13px] text-(--color-text-secondary) shrink-0">
-          {new Date(m.created_at).toLocaleString()}
-          {m.updated_at && m.updated_at !== m.created_at && <span className="italic"> (edited)</span>}
-        </span>
-      </div>
-      {editing ? (
-        <div className="flex flex-col gap-1.5">
-          <MentionTextarea
-            projectId={projectId}
-            autoFocus
-            value={editValue}
-            onChange={setEditValue}
-            className={inputCls}
-          />
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => { if (editValue.trim()) editMessage.mutate(editValue.trim()); }}
-              disabled={editMessage.isPending || !editValue.trim()}
-              className="flex items-center gap-1 px-2.5 h-7 rounded-lg bg-primary-600 text-white text-xs font-semibold disabled:opacity-50"
-            >
-              <Check size={12} /> Save
-            </button>
-            <button
-              onClick={() => { setEditing(false); setEditValue(m.content); }}
-              className="px-2.5 h-7 rounded-lg text-xs font-semibold text-(--color-text-secondary) hover:bg-(--color-state-hover)"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        m.content && (
-          <RichText
-            content={m.content}
-            className="text-[15px] leading-relaxed text-(--color-text-primary)"
-            mentionMap={mentionMap}
-            onMentionClick={onOpenProfile}
-          />
-        )
-      )}
-      {attachments.some((a) => a.mime_type?.startsWith('image/')) && (
-        <div className="flex flex-wrap gap-2">
-          {attachments.filter((a) => a.mime_type?.startsWith('image/')).map((a) => (
-            <AttachmentImagePreview
-              key={a.id ?? a.file_key}
-              projectId={projectId}
-              messageId={m.id}
-              attachmentId={a.id}
-              alt={a.file_name || 'attachment'}
-              onOpenFull={() => handleViewImage(a.id, a.file_name)}
-            />
-          ))}
-        </div>
-      )}
-      {attachments.filter((a) => !a.mime_type?.startsWith('image/')).map((a) => (
-        <button
-          key={a.id ?? a.file_key}
-          onClick={() => handleViewAttachment(a.id)}
-          className="mt-2 flex items-center gap-2 px-3 h-9 rounded-xl border border-(--color-border) bg-(--color-surface) text-xs font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover)"
-        >
-          <FileText size={14} className="shrink-0" />
-          <span className="truncate max-w-[220px]">{a.file_name}</span>
-          {!!a.size_bytes && <span className="text-(--color-text-secondary) shrink-0">{formatBytes(a.size_bytes)}</span>}
-        </button>
-      ))}
+      <button
+        type="button"
+        onClick={() => onOpenProfile(m.user.id)}
+        className="shrink-0 mt-0.5"
+        title="View profile"
+      >
+        {m.user?.avatar ? (
+          <img src={m.user.avatar} alt="" className="h-9 w-9 rounded-full object-cover" />
+        ) : (
+          <span className="h-9 w-9 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-xs font-semibold">
+            {senderName(m).slice(0, 1).toUpperCase() || '?'}
+          </span>
+        )}
+      </button>
 
-      {(canCompose || isOwn || canDeleteAny) && !editing && (
-        <div className="flex flex-wrap items-center gap-1.5 mt-3 relative">
-          {aggregateReactions(m.reactions, myUserId).map((r) => (
-            <button
-              key={r.emoji}
-              onClick={() => canCompose && handleToggleReaction(r.emoji)}
-              title={r.names.join(', ')}
-              className={cn(
-                'flex items-center gap-1 px-2.5 h-8 rounded-full text-sm border',
-                r.reactedByMe
-                  ? 'bg-primary-100 border-primary-300 text-primary-700'
-                  : 'bg-(--color-surface) border-(--color-border) text-(--color-text-secondary) hover:bg-(--color-state-hover)'
-              )}
-            >
-              <span>{r.emoji}</span>
-              <span className="font-semibold">{r.count}</span>
-            </button>
-          ))}
-          {canCompose && (
-            <>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => onOpenProfile(m.user.id)}
+            className="text-[15px] font-semibold! text-(--color-text-primary) hover:underline"
+          >
+            {senderName(m)}
+          </button>
+          <span className="text-[12px] text-(--color-text-secondary)">
+            {new Date(m.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+            {m.updated_at && m.updated_at !== m.created_at && <span className="italic"> (edited)</span>}
+          </span>
+        </div>
+
+        {editing ? (
+          <div className="flex flex-col gap-1.5 mt-1">
+            <MentionTextarea
+              projectId={projectId}
+              autoFocus
+              value={editValue}
+              onChange={setEditValue}
+              className={inputCls}
+            />
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => setReactionPickerOpen((v) => !v)}
-                className="flex items-center justify-center h-8 w-8 rounded-full text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary)"
-                title="Add reaction"
+                onClick={() => { if (editValue.trim()) editMessage.mutate(editValue.trim()); }}
+                disabled={editMessage.isPending || !editValue.trim()}
+                className="flex items-center gap-1 px-2.5 h-7 rounded-lg bg-primary-600 text-white text-xs font-semibold disabled:opacity-50"
               >
-                <Smile size={17} />
+                <Check size={12} /> Save
               </button>
               <button
-                onClick={onReply}
-                className="flex items-center gap-1.5 px-2.5 h-8 rounded-full text-sm text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary)"
-                title="Reply"
+                onClick={() => { setEditing(false); setEditValue(m.content); }}
+                className="px-2.5 h-7 rounded-lg text-xs font-semibold text-(--color-text-secondary) hover:bg-(--color-state-hover)"
               >
-                <Reply size={15} />
-                Reply
+                Cancel
               </button>
-            </>
-          )}
-          {isOwn && (
-            <button
-              onClick={() => setEditing(true)}
-              className="flex items-center gap-1.5 px-2.5 h-8 rounded-full text-sm text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary)"
-              title="Edit"
-            >
-              <Pencil size={14} />
-              Edit
-            </button>
-          )}
-          {(isOwn || canDeleteAny) && (
-            <button
-              onClick={handleDelete}
-              disabled={deleteMessage.isPending}
-              className="flex items-center gap-1.5 px-2.5 h-8 rounded-full text-sm text-red-500 hover:bg-red-50 disabled:opacity-50"
-              title="Delete"
-            >
-              <Trash2 size={15} />
-              Delete
-            </button>
-          )}
-          {reactionPickerOpen && (
-            <div className="absolute top-full left-0 mt-1 z-20 flex items-center gap-1 p-1.5 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg">
-              {QUICK_REACTIONS.map((e) => (
-                <button key={e} onClick={() => handleToggleReaction(e)} className="text-lg h-8 w-8 flex items-center justify-center rounded-lg hover:bg-(--color-state-hover)">
-                  {e}
-                </button>
-              ))}
             </div>
-          )}
+          </div>
+        ) : (
+          m.content && (
+            <RichText
+              content={m.content}
+              className="text-[15px] leading-relaxed text-(--color-text-primary) mt-0.5"
+              mentionMap={mentionMap}
+              onMentionClick={onOpenProfile}
+            />
+          )
+        )}
+
+        {attachments.some((a) => a.mime_type?.startsWith('image/')) && (
+          <div className="flex flex-wrap gap-2 mt-1.5">
+            {attachments.filter((a) => a.mime_type?.startsWith('image/')).map((a) => (
+              <AttachmentImagePreview
+                key={a.id ?? a.file_key}
+                projectId={projectId}
+                messageId={m.id}
+                attachmentId={a.id}
+                alt={a.file_name || 'attachment'}
+                onOpenFull={() => handleViewImage(a.id, a.file_name)}
+              />
+            ))}
+          </div>
+        )}
+        {attachments.filter((a) => !a.mime_type?.startsWith('image/')).map((a) => (
+          <button
+            key={a.id ?? a.file_key}
+            onClick={() => handleViewAttachment(a.id)}
+            className="mt-1.5 flex items-center gap-2 text-xs font-semibold text-(--color-text-primary) hover:underline"
+          >
+            <FileText size={14} className="shrink-0 text-(--color-text-secondary)" />
+            <span className="truncate max-w-[280px]">{a.file_name}</span>
+            {!!a.size_bytes && <span className="text-(--color-text-secondary) shrink-0 font-medium">{formatBytes(a.size_bytes)}</span>}
+          </button>
+        ))}
+
+        {reactionChips.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1 mt-1.5">
+            {reactionChips.map((r) => (
+              <button
+                key={r.emoji}
+                onClick={() => canCompose && handleToggleReaction(r.emoji)}
+                title={r.names.join(', ')}
+                className={cn(
+                  'flex items-center gap-1 px-1.5 h-6 rounded-md text-xs border',
+                  r.reactedByMe
+                    ? 'bg-primary-50 border-primary-200 text-primary-700'
+                    : 'bg-(--color-elevated) border-transparent text-(--color-text-secondary) hover:border-(--color-border)'
+                )}
+              >
+                <span>{r.emoji}</span>
+                <span className="font-semibold">{r.count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {showActions && !editing && (
+        <div className="absolute top-1 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity z-10">
+          <div className="flex items-center gap-0.5 p-0.5 rounded-lg border border-(--color-border) bg-(--color-surface) shadow-sm relative">
+            {canCompose && (
+              <>
+                <button
+                  onClick={() => setReactionPickerOpen((v) => !v)}
+                  className="flex items-center justify-center h-7 w-7 rounded-md text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+                  title="Add reaction"
+                >
+                  <Smile size={14} />
+                </button>
+                <button
+                  onClick={onReply}
+                  className="flex items-center justify-center h-7 w-7 rounded-md text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+                  title="Reply"
+                >
+                  <Reply size={14} />
+                </button>
+              </>
+            )}
+            {isOwn && (
+              <button
+                onClick={() => setEditing(true)}
+                className="flex items-center justify-center h-7 w-7 rounded-md text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+                title="Edit"
+              >
+                <Pencil size={14} />
+              </button>
+            )}
+            {(isOwn || canDeleteAny) && (
+              <button
+                onClick={handleDelete}
+                disabled={deleteMessage.isPending}
+                className="flex items-center justify-center h-7 w-7 rounded-md text-red-500 hover:bg-red-50 disabled:opacity-50"
+                title="Delete"
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
+            {reactionPickerOpen && (
+              <div className="absolute top-full right-0 mt-1 z-20 flex items-center gap-1 p-1.5 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg">
+                {QUICK_REACTIONS.map((e) => (
+                  <button key={e} onClick={() => handleToggleReaction(e)} className="text-lg h-8 w-8 flex items-center justify-center rounded-lg hover:bg-(--color-state-hover)">
+                    {e}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
