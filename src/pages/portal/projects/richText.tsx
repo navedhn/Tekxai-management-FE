@@ -129,7 +129,7 @@ export const RichText: React.FC<{
           key={`h-${idx}`}
           role="heading"
           aria-level={level}
-          className={cn('block font-bold leading-snug mt-2 mb-0.5 first:mt-0 [font-family:var(--font-communication-sans)]!', HEADING_CLASSES[level - 1])}
+          className={cn('block font-bold! leading-snug mt-2 mb-0.5 first:mt-0 [font-family:var(--font-communication-sans)]!', HEADING_CLASSES[level - 1])}
         >
           {renderInline(headingMatch[2], `h-${idx}`, mentionMap, onMentionClick)}
         </span>
