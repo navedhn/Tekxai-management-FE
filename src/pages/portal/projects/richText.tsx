@@ -21,7 +21,7 @@ import { cn } from '@/utils/cn';
 // stored content never actually contains it; only the auto-link pass below
 // can recover anything clickable from a paste like that.
 
-const INLINE_RE = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)|(@[A-Z][a-zA-Z'-]*(?:\s[A-Z][a-zA-Z'-]*)?)|(https?:\/\/[^\s<>()"']+)/g;
+const INLINE_RE = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)|(@everyone\b)|(@[A-Z][a-zA-Z'-]*(?:\s[A-Z][a-zA-Z'-]*)?)|(https?:\/\/[^\s<>()"']+)/g;
 
 function renderInline(
   text: string,
@@ -41,13 +41,17 @@ function renderInline(
     else if (match[3]) nodes.push(<em key={key} className="italic! [font-family:var(--font-communication-sans)]!">{match[4]}</em>);
     else if (match[5]) nodes.push(<code key={key} className="px-1 py-0.5 rounded bg-(--color-elevated) text-[0.9em] [font-family:var(--font-communication-mono)]">{match[6]}</code>);
     else if (match[7]) {
+      // Broadcast mention — styled like a person mention, but not clickable
+      // (it isn't a single profile).
+      nodes.push(<span key={key} className="font-semibold text-primary-600 [font-family:var(--font-communication-sans)]!">{match[7]}</span>);
+    } else if (match[8]) {
       // Mentions are stored as plain "@Name Name" text, not an id — resolve
       // the display name back to a user id via the project's mentionable
       // roster (built by the caller) so clicking one opens that person's
       // profile, same as clicking a message author's name already does.
       // A name that no longer resolves (renamed/removed user) just falls
       // back to plain styled text instead of a dead button.
-      const mentionedId = mentionMap?.get(match[7].slice(1).toLowerCase());
+      const mentionedId = mentionMap?.get(match[8].slice(1).toLowerCase());
       if (mentionedId && onMentionClick) {
         nodes.push(
           <button
@@ -56,18 +60,18 @@ function renderInline(
             onClick={() => onMentionClick(mentionedId)}
             className="font-semibold text-primary-600 hover:underline cursor-pointer [font-family:var(--font-communication-sans)]!"
           >
-            {match[7]}
+            {match[8]}
           </button>
         );
       } else {
-        nodes.push(<span key={key} className="font-semibold text-primary-600 [font-family:var(--font-communication-sans)]!">{match[7]}</span>);
+        nodes.push(<span key={key} className="font-semibold text-primary-600 [font-family:var(--font-communication-sans)]!">{match[8]}</span>);
       }
-    } else if (match[8]) {
+    } else if (match[9]) {
       // Trailing punctuation (.,;:) commonly ends up glued to a bare URL
       // when someone types/pastes it at the end of a sentence — strip it
       // from the link itself so it doesn't 404, but keep it in the text.
-      const urlMatch = /^(.*?)([.,;:]+)$/.exec(match[8]);
-      const url = urlMatch ? urlMatch[1] : match[8];
+      const urlMatch = /^(.*?)([.,;:]+)$/.exec(match[9]);
+      const url = urlMatch ? urlMatch[1] : match[9];
       const trailing = urlMatch ? urlMatch[2] : '';
       nodes.push(
         <a

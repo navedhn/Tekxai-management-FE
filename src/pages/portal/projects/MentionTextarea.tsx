@@ -6,10 +6,16 @@ import { cn } from '@/utils/cn';
 
 export type MentionableUser = { id: string; first_name: string; last_name: string };
 
+// Synthetic picker row — not a real user. Inserting it writes "@everyone "
+// into the message; extractMentionIds expands that to every mentionable id.
+export const EVERYONE_MENTION_ID = '__everyone__';
+const EVERYONE_OPTION: MentionableUser = { id: EVERYONE_MENTION_ID, first_name: 'everyone', last_name: '' };
+
 // A user's first_name/last_name can individually be null/empty (some portal
 // accounts only ever captured a single full-name field) — never interpolate
 // a null field directly, or it renders the literal "null" into the message.
-export const mentionDisplayName = (u: MentionableUser) => [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
+export const mentionDisplayName = (u: MentionableUser) =>
+  u.id === EVERYONE_MENTION_ID ? 'everyone' : [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
 
 export function useMentionableUsers(projectId: string) {
   const { data = [] } = useQuery<{ payload?: MentionableUser[] }, Error, MentionableUser[]>({
@@ -26,23 +32,29 @@ function escapeRegExp(s: string) {
 
 // "@Full Name" for every mentionable user, longest names first so
 // "@Muhammad Farhan" wins over a shorter "@Muhammad" at the same spot.
+// "@everyone" is always included so the stored token highlights / extracts.
 function mentionPattern(users: MentionableUser[]) {
-  const names = users.map(mentionDisplayName).filter(Boolean).sort((a, b) => b.length - a.length);
+  const names = ['everyone', ...users.map(mentionDisplayName).filter(Boolean)]
+    .sort((a, b) => b.length - a.length);
   if (!names.length) return null;
   return new RegExp(`@(${names.map(escapeRegExp).join('|')})(?![\\p{L}\\p{N}])`, 'giu');
 }
 
+const EVERYONE_IN_TEXT = /(?:^|[\s([{])@everyone(?![\p{L}\p{N}])/iu;
+
 // The ids of everyone still @mentioned in the text — derived from the text
 // itself, so deleting a mention while typing (or while editing an old
 // message) drops it, and mentions already in a message being edited count.
+// "@everyone" expands to every currently-mentionable user on the project.
 export function extractMentionIds(text: string, users: MentionableUser[]): string[] {
+  if (EVERYONE_IN_TEXT.test(text)) return users.map((u) => u.id);
   const pattern = mentionPattern(users);
   if (!pattern) return [];
   const byName = new Map(users.map((u) => [mentionDisplayName(u).toLowerCase(), u.id]));
   const ids = new Set<string>();
   for (const match of text.matchAll(pattern)) {
     const id = byName.get(match[1].toLowerCase());
-    if (id) ids.add(id);
+    if (id && id !== EVERYONE_MENTION_ID) ids.add(id);
   }
   return [...ids];
 }
@@ -56,6 +68,8 @@ type Props = {
   autoFocus?: boolean;
   style?: React.CSSProperties;
   onPaste?: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
+  /** When set: Enter sends, Ctrl/Cmd+Enter inserts a newline. */
+  onSubmit?: () => void;
 };
 
 // A textarea with the @mention picker and in-box highlighting of mentioned
@@ -65,7 +79,7 @@ type Props = {
 // selection and placeholder come from it. Both must keep the same font,
 // padding, border width and wrapping, or the highlight drifts.
 const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
-  ({ projectId, value, onChange, className, placeholder, autoFocus, style, onPaste }, ref) => {
+  ({ projectId, value, onChange, className, placeholder, autoFocus, style, onPaste, onSubmit }, ref) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const mirrorRef = useRef<HTMLDivElement>(null);
     useImperativeHandle(ref, () => textareaRef.current as HTMLTextAreaElement);
@@ -76,9 +90,13 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
 
     const pattern = useMemo(() => mentionPattern(mentionable), [mentionable]);
 
-    const filtered = mentionQuery !== null
-      ? mentionable.filter((u) => mentionDisplayName(u).toLowerCase().includes(mentionQuery.toLowerCase()))
-      : [];
+    const filtered = useMemo(() => {
+      if (mentionQuery === null) return [];
+      const q = mentionQuery.toLowerCase();
+      const people = mentionable.filter((u) => mentionDisplayName(u).toLowerCase().includes(q));
+      const showEveryone = 'everyone'.startsWith(q);
+      return showEveryone ? [EVERYONE_OPTION, ...people] : people;
+    }, [mentionQuery, mentionable]);
 
     const updateQuery = (text: string, cursor: number) => {
       const match = /(?:^|\s)@([a-zA-Z]*)$/.exec(text.slice(0, cursor));
@@ -95,7 +113,8 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
       const el = textareaRef.current;
       if (!el) return;
       const cursor = el.selectionStart ?? value.length;
-      const before = value.slice(0, cursor).replace(/@([a-zA-Z]*)$/, `@${mentionDisplayName(u)} `);
+      const label = mentionDisplayName(u);
+      const before = value.slice(0, cursor).replace(/@([a-zA-Z]*)$/, `@${label} `);
       onChange(before + value.slice(cursor));
       setMentionQuery(null);
       window.requestAnimationFrame(() => {
@@ -104,20 +123,51 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
       });
     };
 
+    const insertNewline = () => {
+      const el = textareaRef.current;
+      if (!el) return;
+      const start = el.selectionStart ?? value.length;
+      const end = el.selectionEnd ?? value.length;
+      const next = `${value.slice(0, start)}\n${value.slice(end)}`;
+      onChange(next);
+      window.requestAnimationFrame(() => {
+        el.focus();
+        el.selectionStart = el.selectionEnd = start + 1;
+      });
+    };
+
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (mentionQuery === null || filtered.length === 0) return;
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setActiveIndex((i) => (i + 1) % filtered.length);
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setActiveIndex((i) => (i - 1 + filtered.length) % filtered.length);
-      } else if (e.key === 'Enter' || e.key === 'Tab') {
-        e.preventDefault();
-        insertMention(filtered[activeIndex] ?? filtered[0]);
-      } else if (e.key === 'Escape') {
-        setMentionQuery(null);
+      if (mentionQuery !== null && filtered.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setActiveIndex((i) => (i + 1) % filtered.length);
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setActiveIndex((i) => (i - 1 + filtered.length) % filtered.length);
+          return;
+        }
+        if (e.key === 'Enter' || e.key === 'Tab') {
+          e.preventDefault();
+          insertMention(filtered[activeIndex] ?? filtered[0]);
+          return;
+        }
+        if (e.key === 'Escape') {
+          setMentionQuery(null);
+          return;
+        }
       }
+
+      if (e.key !== 'Enter' || !onSubmit) return;
+      // Enter sends; Ctrl/Cmd+Enter (and Shift+Enter) insert a newline.
+      if (e.ctrlKey || e.metaKey || e.shiftKey) {
+        e.preventDefault();
+        insertNewline();
+        return;
+      }
+      e.preventDefault();
+      onSubmit();
     };
 
     const syncScroll = () => {
@@ -125,10 +175,10 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
     };
 
     const mirrorContent = useMemo(() => {
-      // Same marker order as RichText: **bold** before *italic*, then @mentions.
-      // Markers stay in the mirror (dimmed) so caret/wrapping stay aligned with
-      // the transparent textarea — never strip characters here.
-      const combined = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(@[A-Z][a-zA-Z'-]*(?:\s[A-Z][a-zA-Z'-]*)?)/g;
+      // Same marker order as RichText: **bold** before *italic*, then @mentions
+      // (including @everyone). Markers stay in the mirror (dimmed) so caret/
+      // wrapping stay aligned with the transparent textarea.
+      const combined = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(@everyone\b)|(@[A-Z][a-zA-Z'-]*(?:\s[A-Z][a-zA-Z'-]*)?)/g;
       const mentionRe = pattern;
       const parts: React.ReactNode[] = [];
       let last = 0;
@@ -153,14 +203,15 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
               <span className="text-(--color-text-secondary)/35">*</span>
             </span>
           );
-        } else if (match[5]) {
-          const isKnown = mentionRe?.test(match[5]);
-          // matchAll + global regex advances lastIndex — reset after tests.
+        } else if (match[5] || match[6]) {
+          const token = match[5] || match[6];
+          const isEveryone = !!match[5];
+          const isKnown = isEveryone || !!mentionRe?.test(token);
           if (mentionRe) mentionRe.lastIndex = 0;
           parts.push(
             isKnown
-              ? <span key={key} className="rounded bg-primary-100 text-primary-700 [font-family:var(--font-communication-sans)]!">{match[5]}</span>
-              : <span key={key}>{match[5]}</span>
+              ? <span key={key} className="rounded bg-primary-100 text-primary-700 [font-family:var(--font-communication-sans)]!">{token}</span>
+              : <span key={key}>{token}</span>
           );
         }
         last = start + match[0].length;
@@ -217,9 +268,16 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
                 )}
               >
                 <span className="h-6 w-6 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-xs font-bold shrink-0">
-                  {u.first_name?.[0]?.toUpperCase() ?? '?'}
+                  {u.id === EVERYONE_MENTION_ID ? '@' : (u.first_name?.[0]?.toUpperCase() ?? '?')}
                 </span>
-                {mentionDisplayName(u)}
+                <span className="flex flex-col min-w-0">
+                  <span className="truncate font-semibold">
+                    {u.id === EVERYONE_MENTION_ID ? 'everyone' : mentionDisplayName(u)}
+                  </span>
+                  {u.id === EVERYONE_MENTION_ID && (
+                    <span className="text-[11px] text-(--color-text-secondary)">Notify everyone on this project</span>
+                  )}
+                </span>
               </button>
             ))}
           </div>

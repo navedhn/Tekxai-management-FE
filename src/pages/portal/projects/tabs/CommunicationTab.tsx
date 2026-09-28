@@ -352,10 +352,11 @@ const Composer: React.FC<{
             ref={textareaRef}
             projectId={projectId}
             className={composerInputCls}
-            placeholder="Write a message... (type @ to mention someone, paste to attach an image)"
+            placeholder="Write a message... (@ to mention, @everyone for all, Enter to send, Ctrl+Enter for new line)"
             value={content}
             onChange={setContent}
             onPaste={handlePaste}
+            onSubmit={() => { if (!sending && !uploading) void handleSend(); }}
             autoFocus={autoFocus}
             style={{ maxHeight: MAX_TEXTAREA_HEIGHT }}
           />
@@ -365,7 +366,7 @@ const Composer: React.FC<{
           <button
             onClick={handleSend}
             disabled={(!content.trim() && !pendingAttachments.length) || sending || uploading}
-            title="Send"
+            title="Send (Enter)"
             aria-label="Send"
             className="flex items-center justify-center h-11 w-11 rounded-xl bg-primary-600 text-white shadow-sm hover:bg-primary-700 disabled:opacity-50 disabled:hover:bg-primary-600 transition-colors"
           >
