@@ -34,6 +34,13 @@ export interface TimesheetEntry {
   productive_label?: string | null;
   detected_overtime_seconds?: number | null;
 
+  // Optional Hubstaff-style clock-in attribution (nullable / absent when
+  // the session was unattributed).
+  project_id?: string | null;
+  task_id?: string | null;
+  project?: { id: string; title: string } | null;
+  task?: { id: string; title: string } | null;
+
   employee?: string;
 }
 

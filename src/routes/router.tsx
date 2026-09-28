@@ -140,6 +140,19 @@ const PortalProjects         = lazy(() => import('@/pages/portal/projects'));
 const PortalProjectDetail    = lazy(() => import('@/pages/portal/projects/detail'));
 const PortalInvites          = lazy(() => import('@/pages/portal/invites'));
 const PortalDocs             = lazy(() => import('@/pages/portal/docs'));
+const PortalTimesheets       = lazy(() => import('@/pages/portal/timesheets'));
+const PortalWiki             = lazy(() => import('@/pages/portal/wiki'));
+const PublicIntakeFormPage   = lazy(() => import('@/pages/public/intakeForm'));
+const AdminLiveActivity      = lazy(() => import('@/pages/admin/live-activity'));
+const AdminGoals             = lazy(() => import('@/pages/admin/goals'));
+const AdminBenefits          = lazy(() => import('@/pages/admin/benefits'));
+const AdminProductivityDigests = lazy(() => import('@/pages/admin/productivity-digests'));
+const AdminWiki              = lazy(() => import('@/pages/admin/wiki'));
+const AdminChannelSettings   = lazy(() => import('@/pages/admin/chat-channel-settings'));
+const AdminProjectCustomFields = lazy(() => import('@/pages/admin/project-custom-fields'));
+const AdminProjectAutomations = lazy(() => import('@/pages/admin/project-automations'));
+const AdminProjectIntakeForms = lazy(() => import('@/pages/admin/project-intake-forms'));
+const EmployeeBenefits       = lazy(() => import('@/pages/employee/benefits'));
 
 const routes: RouteObject[] = [
   {
@@ -151,6 +164,7 @@ const routes: RouteObject[] = [
       { path: '/sign/:token', element: <CandidateSignPage /> },
       { path: '/client-sign/:token', element: <ClientNdaSignPage /> },
       { path: '/offer/:id', element: <OfferReviewPage /> },
+      { path: '/public/intake/:token', element: <PublicIntakeFormPage /> },
       { path: '/403', element: <Forbidden /> },
       { path: '/404', element: <NotFound /> },
       { path: '*',    element: <NotFound /> },
@@ -207,6 +221,16 @@ const routes: RouteObject[] = [
           { element: <ProtectedRoute permission="erp.teams.view" />, children: [{ path: '/admin/team', element: <AdminTeam /> }] },
           { element: <ProtectedRoute permission="erp.users.view" />, children: [{ path: '/admin/users', element: <AdminUsers /> }] },
           { element: <ProtectedRoute permission="erp.monitoring.view" />, children: [{ path: '/admin/monitoring', element: <AdminMonitoring /> }] },
+          { element: <ProtectedRoute permission="erp.monitoring.view" />, children: [{ path: '/admin/productivity-digests', element: <AdminProductivityDigests /> }] },
+          { element: <ProtectedRoute permission="erp.attendance.view" />, children: [{ path: '/admin/live-activity', element: <AdminLiveActivity /> }] },
+          { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/admin/goals', element: <AdminGoals /> }] },
+          { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/admin/wiki', element: <AdminWiki /> }] },
+          { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/admin/projects/:projectId/custom-fields', element: <AdminProjectCustomFields /> }] },
+          { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/admin/projects/:projectId/automations', element: <AdminProjectAutomations /> }] },
+          { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/admin/projects/:projectId/intake-forms', element: <AdminProjectIntakeForms /> }] },
+          { element: <ProtectedRoute permission="erp.hr_documents.view" />, children: [{ path: '/admin/benefits', element: <AdminBenefits /> }] },
+          { path: '/admin/chat-channel-settings', element: <AdminChannelSettings /> },
+          { path: '/admin/my-benefits', element: <EmployeeBenefits /> },
           { element: <ProtectedRoute permission="erp.reports.view" />, children: [{ path: '/admin/projects-report', element: <AdminProjectsReport /> }] },
           { element: <ProtectedRoute permission="erp.estimator.view" />, children: [{ path: '/admin/estimator', element: <AdminEstimator /> }] },
           { element: <ProtectedRoute permission="hr.employee_profiles.view" />, children: [{ path: '/admin/employee/:employeeId', element: <AdminEmployeeProfile /> }] },
@@ -409,6 +433,8 @@ const routes: RouteObject[] = [
           { path: '/portal/projects/:id/files',              element: <PortalProjectDetail /> },
           { path: '/portal/projects/:id/approvals',           element: <PortalProjectDetail /> },
           { path: '/portal/docs',                             element: <PortalDocs /> },
+          { path: '/portal/wiki',                             element: <PortalWiki /> },
+          { path: '/portal/timesheets',                       element: <PortalTimesheets /> },
           {
             element: <ProtectedRoute superAdminOnly />,
             children: [

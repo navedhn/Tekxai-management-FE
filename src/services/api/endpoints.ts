@@ -737,6 +737,12 @@ export const API_ENDPOINTS = {
     APPROVALS:         (id: string) => `${v1}/portal/projects/${id}/approvals`,
     APPROVAL_RESPOND:  (id: string, approvalId: string) => `${v1}/portal/projects/${id}/approvals/${approvalId}/respond`,
     NOTIFICATIONS:     `${v1}/portal/notifications`,
+    TIMESHEETS:        `${v1}/portal/timesheets`,
+    PROJECT_TIMESHEETS:(id: string) => `${v1}/portal/projects/${id}/timesheets`,
+    TIMESHEET_SUBMIT:  (id: string, entryId: string) => `${v1}/portal/projects/${id}/timesheets/${entryId}/submit`,
+    TIMESHEET_RESPOND: (id: string, entryId: string) => `${v1}/portal/projects/${id}/timesheets/${entryId}/respond`,
+    WIKI:              (id: string) => `${v1}/portal/projects/${id}/wiki`,
+    WIKI_DOC:          (id: string, docId: string) => `${v1}/portal/projects/${id}/wiki/${docId}`,
   },
   // Internal-side Client Communication — the real two-way message thread
   // (visibility, reactions, mentions), distinct from PROJECT_DISCUSSIONS

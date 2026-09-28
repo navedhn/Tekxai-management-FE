@@ -7,6 +7,7 @@ import {
   Building2, TrendingUp, UserPlus, ShieldCheck, Briefcase, Heart, AlarmClock,
   UserSearch, PlusCircle, Tag, Network, Landmark, ChevronDown, ChevronRight,
   Bell as BellIcon, UserMinus, ListChecks, PanelLeftClose, PanelLeftOpen, FileBarChart,
+  Activity, Target, BookOpen, Zap,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
@@ -52,6 +53,7 @@ const ERP_OPS_ROUTE_PERMISSIONS: Record<string, string> = {
   '/admin/onboarding': 'hr.onboarding.view',
   '/admin/offboarding': 'hr.offboarding.view',
   '/admin/attendance': 'erp.attendance.view',
+  '/admin/live-activity': 'erp.attendance.view',
   '/admin/overtime': 'erp.overtime.view',
   '/admin/employee-timesheets': 'erp.timesheet.view',
   '/admin/performance': 'erp.performance.view',
@@ -65,8 +67,12 @@ const ERP_OPS_ROUTE_PERMISSIONS: Record<string, string> = {
   '/admin/document-templates': 'erp.hr_documents.view',
   '/admin/nda': 'erp.hr_documents.manage',
   '/admin/client-nda': 'crm.client_documents.manage',
+  '/admin/benefits': 'erp.hr_documents.view',
   '/admin/policies': 'hr.policies.view',
   '/admin/monitoring': 'erp.monitoring.view',
+  '/admin/productivity-digests': 'erp.monitoring.view',
+  '/admin/goals': 'erp.projects.view',
+  '/admin/wiki': 'erp.projects.view',
   '/admin/team': 'erp.teams.view',
   '/admin/compliance-violations': 'erp.compliance_violations.manage',
   '/admin/payroll': 'erp.payroll.view',
@@ -278,6 +284,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Recruitment', tier: 'erpOps', to: '/admin/offboarding', label: 'Offboarding', icon: <UserMinus size={18} strokeWidth={SW} /> },
 
       { module: 'Attendance', tier: 'erpOps', to: '/admin/attendance', label: 'Attendance', icon: <Clock size={18} strokeWidth={SW} /> },
+      { module: 'Attendance', tier: 'erpOps', to: '/admin/live-activity', label: 'Live Activity', icon: <Activity size={18} strokeWidth={SW} /> },
       { module: 'Attendance', tier: 'erpOps', to: '/admin/overtime', label: 'Overtime', icon: <AlarmClock size={18} strokeWidth={SW} /> },
       { module: 'Attendance', tier: 'erpOps', to: '/admin/employee-timesheets', label: 'Employee Timesheets', icon: <Clock size={18} strokeWidth={SW} /> },
       { module: 'Attendance', tier: 'erpOps', to: '/admin/manager-review', label: 'Manager Review', icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
@@ -310,11 +317,19 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Ticketing', tier: 'erpOps', to: '/admin/approvals', label: 'Approvals', icon: <ClipboardCheck size={18} strokeWidth={SW} /> },
 
       { module: 'Monitoring', tier: 'erpOps', to: '/admin/monitoring', label: 'Monitoring', icon: <Monitor size={18} strokeWidth={SW} /> },
+      { module: 'Monitoring', tier: 'erpOps', to: '/admin/productivity-digests', label: 'Productivity Digests', icon: <BarChart3 size={18} strokeWidth={SW} /> },
       { module: 'Monitoring', tier: 'admin', to: '/admin/download-app', label: 'Desktop App', icon: <Monitor size={18} strokeWidth={SW} /> },
 
+      { module: 'Projects', tier: 'erpOps', to: '/admin/goals', label: 'Goals / OKRs', icon: <Target size={18} strokeWidth={SW} /> },
+      { module: 'Projects', tier: 'erpOps', to: '/admin/wiki', label: 'Wiki', icon: <BookOpen size={18} strokeWidth={SW} /> },
+
+      { module: 'Contracts', tier: 'erpOps', to: '/admin/benefits', label: 'Benefits', icon: <Heart size={18} strokeWidth={SW} /> },
+
       { module: 'My Workspace', tier: 'all', to: '/admin/timesheet', label: 'Timesheet', icon: <Clock size={18} strokeWidth={SW} /> },
+      { module: 'My Workspace', tier: 'all', to: '/admin/my-benefits', label: 'My Benefits', icon: <Heart size={18} strokeWidth={SW} /> },
       { module: 'My Workspace', tier: 'all', to: '/admin/my-salaries', label: 'My Salaries', icon: <Heart size={18} strokeWidth={SW} /> },
       { module: 'My Workspace', tier: 'all', to: '/chat', label: 'Messages', icon: <MessageSquare size={18} strokeWidth={SW} />, badge: chatUnreadCount },
+      { module: 'My Workspace', tier: 'all', to: '/admin/chat-channel-settings', label: 'Channel Settings', icon: <Zap size={18} strokeWidth={SW} /> },
       { module: 'My Workspace', tier: 'all', to: '/admin/settings', label: 'Settings', icon: <Settings size={18} strokeWidth={SW} /> },
 
       { module: 'Administration', tier: 'superadmin', to: '/admin/permissions', label: 'Access Control', icon: <Shield size={18} strokeWidth={SW} /> },
