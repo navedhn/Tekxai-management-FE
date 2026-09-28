@@ -1,5 +1,6 @@
 import React, { memo, useState, useRef, useEffect } from 'react';
-import { Menu, Bell, User, LogOut, HelpCircle, ChevronDown, ArrowLeftRight, Moon, Sun } from 'lucide-react';
+import { Menu, Bell, User, LogOut, HelpCircle, ChevronDown, ArrowLeftRight, Moon, Sun, LayoutDashboard, Home, Globe2 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import NotificationDropdown from './NotificationDropdown';
 import { useNotifications } from '@/services/notificationService';
@@ -10,6 +11,8 @@ import { useMyPermissions } from '@/services/permissionsService';
 import { useColorMode } from '@/hooks/useColorMode';
 import { useTopbarExtraStore } from '@/stores/topbarExtraStore';
 import { cn } from '@/utils/cn';
+import { apiRequest } from '@/lib/queryClient';
+import { API_ENDPOINTS } from '@/services/api/endpoints';
 
 import ActionModal from '@/components/ui/ActionModal';
 import ChatMessagePopup from '@/components/chatPopup/ChatMessagePopup';
@@ -43,6 +46,42 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
     const { data: myPerms } = useMyPermissions();
     const canAccessCrm = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('crm.workspace.access');
     const crmAppUrl = import.meta.env.VITE_CRM_APP_URL as string | undefined;
+    const canAccessAdmin =
+      !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.workspace.access');
+    const canAccessEmployee =
+      !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.employee_workspace.access');
+    // Portal is invite-gated for ordinary INTERNAL users (see portal.controller
+    // list_portal_projects). SUPER_ADMIN and CLIENT accounts always qualify;
+    // otherwise probe the projects list once and cache — empty means no link.
+    const needsPortalProbe =
+      !!user &&
+      user.user_type === 'INTERNAL' &&
+      !myPerms?.is_super_admin &&
+      !myPerms?.permissions?.some((p) => p.startsWith('client.'));
+    const { data: portalProbe } = useQuery({
+      queryKey: ['portal-access-check', user?.id],
+      queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.PROJECTS),
+      enabled: needsPortalProbe,
+      staleTime: 5 * 60 * 1000,
+      retry: false,
+    });
+    const portalProjectCount =
+      portalProbe?.payload?.total ?? portalProbe?.payload?.records?.length ?? 0;
+    const canAccessPortal =
+      !!myPerms?.is_super_admin ||
+      user?.user_type === 'CLIENT' ||
+      !!myPerms?.permissions?.some((p) => p.startsWith('client.')) ||
+      (needsPortalProbe && portalProjectCount > 0);
+
+    const onAdmin = location.pathname.startsWith('/admin');
+    const onEmployee = location.pathname.startsWith('/employee');
+    const onPortal = location.pathname.startsWith('/portal');
+    const showAdminSwitch = canAccessAdmin && !onAdmin;
+    const showEmployeeSwitch = canAccessEmployee && !onEmployee;
+    const showPortalSwitch = canAccessPortal && !onPortal;
+    const showCrmSwitch = canAccessCrm && !!crmAppUrl;
+    const showWorkspaceSwitch =
+      showAdminSwitch || showEmployeeSwitch || showPortalSwitch || showCrmSwitch;
 
     const { title: routeTitle } = getPageTitle(location.pathname, routePrefix);
     const title = titleOverride ?? routeTitle;
@@ -233,21 +272,56 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
                                 </div>
 
                                 <div className="py-1.5">
-                                    {canAccessCrm && crmAppUrl && (
+                                    {showWorkspaceSwitch && (
                                         <>
                                             <div className="px-4 pt-1.5 pb-1 text-[10px] font-bold text-(--color-text-secondary) tracking-widest uppercase flex items-center gap-2">
                                                 <ArrowLeftRight size={12} />
                                                 Switch Workspace
                                             </div>
-                                            <a
-                                                href={crmAppUrl}
-                                                onClick={() => setIsProfileOpen(false)}
-                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover) hover:text-primary-500 transition-colors text-left"
-                                                role="menuitem"
-                                            >
-                                                <ArrowLeftRight size={16} className="text-(--color-text-secondary)" />
-                                                CRM Workspace
-                                            </a>
+                                            {showAdminSwitch && (
+                                                <Link
+                                                    to="/admin"
+                                                    onClick={() => setIsProfileOpen(false)}
+                                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover) hover:text-primary-500 transition-colors text-left"
+                                                    role="menuitem"
+                                                >
+                                                    <LayoutDashboard size={16} className="text-(--color-text-secondary)" />
+                                                    Admin Dashboard
+                                                </Link>
+                                            )}
+                                            {showEmployeeSwitch && (
+                                                <Link
+                                                    to="/employee"
+                                                    onClick={() => setIsProfileOpen(false)}
+                                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover) hover:text-primary-500 transition-colors text-left"
+                                                    role="menuitem"
+                                                >
+                                                    <Home size={16} className="text-(--color-text-secondary)" />
+                                                    Employee Dashboard
+                                                </Link>
+                                            )}
+                                            {showPortalSwitch && (
+                                                <Link
+                                                    to="/portal"
+                                                    onClick={() => setIsProfileOpen(false)}
+                                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover) hover:text-primary-500 transition-colors text-left"
+                                                    role="menuitem"
+                                                >
+                                                    <Globe2 size={16} className="text-(--color-text-secondary)" />
+                                                    Client Portal
+                                                </Link>
+                                            )}
+                                            {showCrmSwitch && (
+                                                <a
+                                                    href={crmAppUrl}
+                                                    onClick={() => setIsProfileOpen(false)}
+                                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover) hover:text-primary-500 transition-colors text-left"
+                                                    role="menuitem"
+                                                >
+                                                    <ArrowLeftRight size={16} className="text-(--color-text-secondary)" />
+                                                    CRM Workspace
+                                                </a>
+                                            )}
                                             <div className="mx-4 my-1 border-t border-(--color-border)" />
                                         </>
                                     )}
