@@ -10,8 +10,9 @@ import { useCreateInstantZoomMeeting, isZoomNotConnectedError, isZoomReauthError
 import Loader from '@/components/ui/Loader';
 
 // The Client Portal's "click a name to see their profile" sidebar — a
-// slide-in panel (not a full page navigation) showing avatar, name, email
-// and role for whoever was clicked. Backed by the client-safe
+// slide-in panel (not a full page navigation) showing avatar, name,
+// and role for whoever was clicked. Client emails are SUPER_ADMIN-only
+// (API redacts them for everyone else). Backed by the client-safe
 // GET /portal/projects/:id/people/:userId lookup, which only ever returns
 // someone actually visible to this client on this project (see that
 // endpoint's own comment) — this component trusts that scoping entirely
@@ -21,7 +22,8 @@ type PersonProfile = {
   id: string;
   first_name: string;
   last_name: string;
-  email: string;
+  /** Present for INTERNAL users always; for CLIENT users only when the viewer is SUPER_ADMIN. */
+  email?: string | null;
   avatar: string | null;
   user_type: 'INTERNAL' | 'CLIENT';
   designation: string | null;
@@ -57,7 +59,7 @@ interface ProfileSidePanelProps {
 const ProfileSidePanel: React.FC<ProfileSidePanelProps> = ({ projectId, userId, onClose }) => {
   const navigate = useNavigate();
   const toast = useToastContext();
-  const { user: me } = useAuth();
+  const { user: me, role } = useAuth();
   const [calling, setCalling] = useState(false);
   const { data, isLoading } = useQuery<PersonProfile | null>({
     queryKey: ['portal', 'person', projectId, userId],
@@ -191,10 +193,13 @@ const ProfileSidePanel: React.FC<ProfileSidePanelProps> = ({ projectId, userId, 
             </div>
 
             <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-3 rounded-xl border border-(--color-border) px-3 py-2.5">
-                <Mail size={16} className="text-(--color-text-secondary) shrink-0" />
-                <span className="text-sm text-(--color-text-primary) truncate">{data.email}</span>
-              </div>
+              {/* Client emails are SUPER_ADMIN-only; internal emails stay visible. */}
+              {(isInternal || role === 'SUPER_ADMIN') && data.email && (
+                <div className="flex items-center gap-3 rounded-xl border border-(--color-border) px-3 py-2.5">
+                  <Mail size={16} className="text-(--color-text-secondary) shrink-0" />
+                  <span className="text-sm text-(--color-text-primary) truncate">{data.email}</span>
+                </div>
+              )}
               {data.designation && (
                 <div className="flex items-center gap-3 rounded-xl border border-(--color-border) px-3 py-2.5">
                   <Briefcase size={16} className="text-(--color-text-secondary) shrink-0" />

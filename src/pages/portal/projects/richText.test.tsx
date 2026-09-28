@@ -22,4 +22,13 @@ describe('RichText headings', () => {
     expect(screen.getAllByRole('heading')).toHaveLength(1);
     expect(screen.getByRole('listitem').textContent).toBe('bullet');
   });
+
+  it('renders double-asterisk markers as bold (e.g. **Key Updates**)', () => {
+    render(<RichText content={'**Key Updates**\nNext line'} />);
+    const strong = screen.getByText('Key Updates');
+    expect(strong.tagName).toBe('STRONG');
+    expect(strong.className).toContain('font-bold!');
+    expect(screen.queryByText(/\*\*/)).not.toBeInTheDocument();
+    expect(screen.getByText('Next line')).toBeInTheDocument();
+  });
 });

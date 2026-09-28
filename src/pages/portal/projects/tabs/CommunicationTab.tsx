@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Paperclip, FileText, X, Smile, Reply, Bold, Italic, Code, Link2, Loader2, ChevronDown, ChevronRight, Pencil, Trash2, Check } from 'lucide-react';
+import { Send, Paperclip, FileText, X, Smile, Reply, Bold, Italic, Code, Link2, Loader2, ChevronDown, ChevronRight, Pencil, Trash2, Check, Copy } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useMyPermissions } from '@/services/permissionsService';
@@ -418,6 +418,7 @@ const MessageBubble: React.FC<{
   const [editValue, setEditValue] = useState(m.content);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [lightboxAlt, setLightboxAlt] = useState('attachment');
+  const [copied, setCopied] = useState(false);
   const qc = useQueryClient();
   const toast = useToastContext();
   const isOwn = m.user?.id === myUserId;
@@ -488,7 +489,20 @@ const MessageBubble: React.FC<{
   };
 
   const reactionChips = aggregateReactions(m.reactions, myUserId);
-  const showActions = canCompose || isOwn || canDeleteAny;
+  const canCopy = !!(m.content && m.content.trim());
+  // Copy is available to every viewer; react/reply/edit/delete keep their own gates.
+  const showActions = canCopy || canCompose || isOwn || !!canDeleteAny;
+
+  const handleCopy = async () => {
+    if (!canCopy) return;
+    try {
+      await navigator.clipboard.writeText(m.content);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast?.error?.('Failed to copy message');
+    }
+  };
 
   return (
     <div
@@ -612,6 +626,15 @@ const MessageBubble: React.FC<{
       {showActions && !editing && (
         <div className="absolute top-1 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity z-10">
           <div className="flex items-center gap-0.5 p-0.5 rounded-lg border border-(--color-border) bg-(--color-surface) shadow-sm relative">
+            {canCopy && (
+              <button
+                onClick={handleCopy}
+                className="flex items-center justify-center h-7 w-7 rounded-md text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+                title={copied ? 'Copied' : 'Copy message'}
+              >
+                {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+              </button>
+            )}
             {canCompose && (
               <>
                 <button

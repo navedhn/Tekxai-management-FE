@@ -125,15 +125,44 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
     };
 
     const mirrorContent = useMemo(() => {
-      if (!pattern) return value;
+      // Same marker order as RichText: **bold** before *italic*, then @mentions.
+      // Markers stay in the mirror (dimmed) so caret/wrapping stay aligned with
+      // the transparent textarea — never strip characters here.
+      const combined = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(@[A-Z][a-zA-Z'-]*(?:\s[A-Z][a-zA-Z'-]*)?)/g;
+      const mentionRe = pattern;
       const parts: React.ReactNode[] = [];
       let last = 0;
-      for (const match of value.matchAll(pattern)) {
+      let i = 0;
+      for (const match of value.matchAll(combined)) {
         const start = match.index ?? 0;
         if (start > last) parts.push(value.slice(last, start));
-        parts.push(
-          <span key={start} className="rounded bg-primary-100 text-primary-700 [font-family:var(--font-communication-sans)]!">{match[0]}</span>
-        );
+        const key = `m-${i++}`;
+        if (match[1]) {
+          parts.push(
+            <span key={key}>
+              <span className="text-(--color-text-secondary)/35">**</span>
+              <strong className="font-bold!">{match[2]}</strong>
+              <span className="text-(--color-text-secondary)/35">**</span>
+            </span>
+          );
+        } else if (match[3]) {
+          parts.push(
+            <span key={key}>
+              <span className="text-(--color-text-secondary)/35">*</span>
+              <em className="italic!">{match[4]}</em>
+              <span className="text-(--color-text-secondary)/35">*</span>
+            </span>
+          );
+        } else if (match[5]) {
+          const isKnown = mentionRe?.test(match[5]);
+          // matchAll + global regex advances lastIndex — reset after tests.
+          if (mentionRe) mentionRe.lastIndex = 0;
+          parts.push(
+            isKnown
+              ? <span key={key} className="rounded bg-primary-100 text-primary-700 [font-family:var(--font-communication-sans)]!">{match[5]}</span>
+              : <span key={key}>{match[5]}</span>
+          );
+        }
         last = start + match[0].length;
       }
       parts.push(value.slice(last));

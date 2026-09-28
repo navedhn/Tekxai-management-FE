@@ -37,8 +37,8 @@ function renderInline(
   while ((match = INLINE_RE.exec(text))) {
     if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index));
     const key = `${keyPrefix}-${i++}`;
-    if (match[1]) nodes.push(<strong key={key}>{match[2]}</strong>);
-    else if (match[3]) nodes.push(<em key={key}>{match[4]}</em>);
+    if (match[1]) nodes.push(<strong key={key} className="font-bold! [font-family:var(--font-communication-sans)]!">{match[2]}</strong>);
+    else if (match[3]) nodes.push(<em key={key} className="italic! [font-family:var(--font-communication-sans)]!">{match[4]}</em>);
     else if (match[5]) nodes.push(<code key={key} className="px-1 py-0.5 rounded bg-(--color-elevated) text-[0.9em] [font-family:var(--font-communication-mono)]">{match[6]}</code>);
     else if (match[7]) {
       // Mentions are stored as plain "@Name Name" text, not an id — resolve
