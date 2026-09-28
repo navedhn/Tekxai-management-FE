@@ -64,7 +64,13 @@ const STATUS_ORDER: Record<string, number> = { ACCEPTED: 0, PENDING: 1, EXPIRED:
 type StatusSort = 'none' | 'asc' | 'desc';
 const NEXT_STATUS_SORT: Record<StatusSort, StatusSort> = { none: 'asc', asc: 'desc', desc: 'none' };
 
-const RowMenu: React.FC<{ canRevoke: boolean; onRevoke: () => void }> = ({ canRevoke, onRevoke }) => {
+const RowMenu: React.FC<{
+  canRevoke: boolean;
+  canResend?: boolean;
+  onRevoke: () => void;
+  onResend?: () => void;
+  resendPending?: boolean;
+}> = ({ canRevoke, canResend, onRevoke, onResend, resendPending }) => {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
@@ -78,6 +84,15 @@ const RowMenu: React.FC<{ canRevoke: boolean; onRevoke: () => void }> = ({ canRe
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-8 z-20 w-44 bg-white border border-gray-100 rounded-xl shadow-lg py-1">
+            {canResend && onResend && (
+              <button
+                onClick={() => { setOpen(false); onResend(); }}
+                disabled={resendPending}
+                className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {resendPending ? 'Resending…' : 'Resend invite'}
+              </button>
+            )}
             <button
               onClick={() => { setOpen(false); onRevoke(); }}
               disabled={!canRevoke}
@@ -145,6 +160,13 @@ const PortalInvitesPage: React.FC = () => {
       apiRequest<any>(`${V1}/crm/${clientId}/portal-invites/${inviteId}`, { method: 'DELETE' }),
     onSuccess: () => { toast.success('Invite revoked'); qc.invalidateQueries({ queryKey: ['portal', 'invites', 'client'] }); },
     onError: () => toast.error('Failed to revoke invite'),
+  });
+
+  const resendClientInvite = useMutation({
+    mutationFn: ({ clientId, inviteId }: { clientId: string; inviteId: string }) =>
+      apiRequest<any>(`${V1}/crm/${clientId}/portal-invites/${inviteId}/resend`, { method: 'POST' }),
+    onSuccess: () => { toast.success('Invitation resent'); qc.invalidateQueries({ queryKey: ['portal', 'invites', 'client'] }); },
+    onError: (e: any) => toast.error(e?.message || 'Failed to resend invite'),
   });
 
   if (loadingClients || loadingEmployees) return <PageSkeleton />;
@@ -332,6 +354,17 @@ const PortalInvitesPage: React.FC = () => {
                       {pendingInvites.length > 0 && (
                         <RowMenu
                           canRevoke
+                          canResend={r.kind === 'client' && pendingInvites.some((i) => i.kind === 'client' && !!i.client_account)}
+                          resendPending={resendClientInvite.isPending}
+                          onResend={() => {
+                            // One email per person — resend the newest pending
+                            // client invite (covers expired-by-date PENDING too).
+                            const newest = [...pendingInvites]
+                              .filter((i): i is ClientInvite => i.kind === 'client' && !!i.client_account)
+                              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+                            if (!newest?.client_account) return;
+                            resendClientInvite.mutate({ clientId: newest.client_account.id, inviteId: newest.id });
+                          }}
                           onRevoke={() => {
                             for (const inv of pendingInvites) {
                               if (inv.kind === 'employee') revokeEmployeeInvite.mutate(inv.id);

@@ -28,7 +28,9 @@ function aggregateReactions(reactions: PortalMessage['reactions'], myUserId?: st
     entry.count += 1;
     if (r.user_id === myUserId) entry.reactedByMe = true;
     const name = `${r.user?.first_name ?? ''} ${r.user?.last_name ?? ''}`.trim();
-    if (name) entry.names.push(r.user_id === myUserId ? 'You' : name);
+    if (r.user_id === myUserId) entry.names.push('You');
+    else if (name) entry.names.push(name);
+    else entry.names.push('Someone');
     byEmoji.set(r.emoji, entry);
   }
   return Array.from(byEmoji.values());
@@ -604,20 +606,32 @@ const MessageBubble: React.FC<{
         {reactionChips.length > 0 && (
           <div className="flex flex-wrap items-center gap-1 mt-1.5">
             {reactionChips.map((r) => (
-              <button
-                key={r.emoji}
-                onClick={() => canCompose && handleToggleReaction(r.emoji)}
-                title={r.names.join(', ')}
-                className={cn(
-                  'flex items-center gap-1 px-1.5 h-6 rounded-md text-xs border',
-                  r.reactedByMe
-                    ? 'bg-primary-50 border-primary-200 text-primary-700'
-                    : 'bg-(--color-elevated) border-transparent text-(--color-text-secondary) hover:border-(--color-border)'
+              <div key={r.emoji} className="relative group/reaction">
+                <button
+                  type="button"
+                  onClick={() => canCompose && handleToggleReaction(r.emoji)}
+                  aria-label={`${r.emoji} reaction from ${r.names.join(', ') || `${r.count} people`}`}
+                  className={cn(
+                    'flex items-center gap-1 px-1.5 h-6 rounded-md text-xs border',
+                    r.reactedByMe
+                      ? 'bg-primary-50 border-primary-200 text-primary-700'
+                      : 'bg-(--color-elevated) border-transparent text-(--color-text-secondary) hover:border-(--color-border)'
+                  )}
+                >
+                  <span>{r.emoji}</span>
+                  <span className="font-semibold">{r.count}</span>
+                </button>
+                {r.names.length > 0 && (
+                  <div
+                    role="tooltip"
+                    className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-30 hidden group-hover/reaction:block group-focus-within/reaction:block"
+                  >
+                    <div className="max-w-[220px] px-2.5 py-1.5 rounded-lg bg-gray-900 text-white text-[11px] font-semibold leading-snug shadow-lg whitespace-normal text-center">
+                      {r.names.join(', ')}
+                    </div>
+                  </div>
                 )}
-              >
-                <span>{r.emoji}</span>
-                <span className="font-semibold">{r.count}</span>
-              </button>
+              </div>
             ))}
           </div>
         )}

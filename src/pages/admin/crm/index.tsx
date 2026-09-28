@@ -127,6 +127,15 @@ function useRevokeInvite(clientId: string) {
   });
 }
 
+function useResendInvite(clientId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (inviteId: string) =>
+      apiRequest(`${v1}/crm/${clientId}/portal-invites/${inviteId}/resend`, { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-client-portal-invites', clientId] }),
+  });
+}
+
 function useRevokeAccess() {
   const qc = useQueryClient();
   return useMutation({
@@ -169,6 +178,7 @@ const CRMPage: React.FC = () => {
   const { data: invites = [], isLoading: invitesLoading } = useClientPortalInvites(showInvite || '');
   const createInvite = useCreateInvite(showInvite || '');
   const revokeInvite = useRevokeInvite(showInvite || '');
+  const resendInvite = useResendInvite(showInvite || '');
 
   const filteredClients = (clients as any[]).filter((c) => {
     const q = search.trim().toLowerCase();
@@ -222,6 +232,13 @@ const CRMPage: React.FC = () => {
       await revokeInvite.mutateAsync(inviteId);
       toast.success('Invitation revoked');
     } catch { toast.error('Failed to revoke invitation'); }
+  };
+
+  const handleResendInvite = async (inviteId: string) => {
+    try {
+      await resendInvite.mutateAsync(inviteId);
+      toast.success('Invitation resent');
+    } catch { toast.error('Failed to resend invitation'); }
   };
 
   const handleRevoke = async (project_id: string, user_id: string) => {
@@ -497,14 +514,24 @@ const CRMPage: React.FC = () => {
                       </p>
                     </div>
                     {inv.status === 'PENDING' && (
-                      <button
-                        type="button"
-                        onClick={() => handleRevokeInvite(inv.id)}
-                        disabled={revokeInvite.isPending}
-                        className="text-[11px] font-bold text-red-500 hover:text-red-600 disabled:opacity-50 shrink-0 flex items-center gap-1"
-                      >
-                        <X size={11} /> Revoke
-                      </button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleResendInvite(inv.id)}
+                          disabled={resendInvite.isPending}
+                          className="text-[11px] font-bold text-primary-600 hover:text-primary-700 disabled:opacity-50"
+                        >
+                          Resend
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRevokeInvite(inv.id)}
+                          disabled={revokeInvite.isPending}
+                          className="text-[11px] font-bold text-red-500 hover:text-red-600 disabled:opacity-50 flex items-center gap-1"
+                        >
+                          <X size={11} /> Revoke
+                        </button>
+                      </div>
                     )}
                   </div>
                 ))}
