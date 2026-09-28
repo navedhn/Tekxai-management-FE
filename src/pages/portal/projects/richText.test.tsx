@@ -9,7 +9,7 @@ describe('RichText headings', () => {
     expect(headings.map((h) => [h.textContent, h.getAttribute('aria-level')])).toEqual([
       ['Big', '1'], ['Medium', '2'], ['Stripe Test Card', '3'],
     ]);
-    expect(headings[2].className).toContain('font-bold');
+    expect(headings[2].className).toContain('font-bold!');
     expect(screen.getByText('plain text')).toBeInTheDocument();
   });
 

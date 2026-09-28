@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Paperclip, FileText, X, Smile, Reply, Bold, Italic, Code, ChevronDown, ChevronRight, Pencil, Trash2, Check } from 'lucide-react';
+import { Send, Paperclip, FileText, X, Smile, Reply, Bold, Italic, Code, Link2, Loader2, ChevronDown, ChevronRight, Pencil, Trash2, Check } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useMyPermissions } from '@/services/permissionsService';
@@ -38,6 +38,11 @@ const MAX_TEXTAREA_HEIGHT = 200;
 
 const inputCls =
   'w-full min-h-[70px] px-3 py-2 border border-(--color-border) rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none bg-(--color-surface) [font-family:var(--font-communication-sans)]';
+
+// The composer's text box sits borderless inside the composer card (the card
+// draws the border and focus ring).
+const composerInputCls =
+  'w-full min-h-[44px] px-2 py-1.5 border-0 text-[15px] leading-relaxed focus:outline-none resize-none bg-transparent [font-family:var(--font-communication-sans)]';
 
 // Kept broad on purpose — project materials can legitimately be almost any
 // common file type, including installers/disk images (an explicit product
@@ -88,6 +93,36 @@ function wrapSelection(el: HTMLTextAreaElement, before: string, after: string, v
 }
 
 // ── Reusable composer — the main box and each thread's inline reply box ────
+
+// Messages render bare URLs as links (there's no [text](url) syntax), so a
+// link is inserted as "text (url)" around a selection, or as the URL alone.
+function insertLink(el: HTMLTextAreaElement, value: string, setValue: (v: string) => void) {
+  const url = window.prompt('Link URL', 'https://')?.trim();
+  if (!url || url === 'https://') return;
+  const href = /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url}`;
+  const start = el.selectionStart ?? value.length;
+  const end = el.selectionEnd ?? value.length;
+  const selected = value.slice(start, end);
+  const inserted = selected ? `${selected} (${href})` : href;
+  setValue(value.slice(0, start) + inserted + value.slice(end));
+  window.requestAnimationFrame(() => {
+    el.focus();
+    el.selectionStart = el.selectionEnd = start + inserted.length;
+  });
+}
+
+const ToolbarButton: React.FC<{ title: string; onClick: () => void; disabled?: boolean; children: React.ReactNode }> = ({ title, onClick, disabled, children }) => (
+  <button
+    type="button"
+    title={title}
+    aria-label={title}
+    onClick={onClick}
+    disabled={disabled}
+    className="flex items-center justify-center h-8 w-8 rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary) disabled:opacity-40 disabled:hover:bg-transparent"
+  >
+    {children}
+  </button>
+);
 
 const Composer: React.FC<{
   projectId: string;
@@ -168,16 +203,18 @@ const Composer: React.FC<{
     }
   };
 
-  const toolbarBtn = (icon: React.ReactNode, title: string, onClick: () => void) => (
-    <button
-      type="button"
-      title={title}
-      onClick={onClick}
-      className="flex items-center justify-center h-7 w-7 rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover)"
-    >
-      {icon}
-    </button>
-  );
+  const wrapWith = (before: string, after: string) => {
+    const el = textareaRef.current;
+    if (el) wrapSelection(el, before, after, content, setContent);
+  };
+  const handleBold = () => wrapWith('**', '**');
+  const handleItalic = () => wrapWith('*', '*');
+  const handleCode = () => wrapWith('`', '`');
+  const handleLink = () => {
+    const el = textareaRef.current;
+    if (el) insertLink(el, content, setContent);
+  };
+  const handleAttachClick = () => fileInputRef.current?.click();
 
   return (
     <div className="flex flex-col gap-2">
@@ -214,62 +251,66 @@ const Composer: React.FC<{
         </div>
       )}
 
-      <div className="flex items-center gap-1 px-1">
-        {toolbarBtn(<Bold size={14} />, 'Bold', () => textareaRef.current && wrapSelection(textareaRef.current, '**', '**', content, setContent))}
-        {toolbarBtn(<Italic size={14} />, 'Italic', () => textareaRef.current && wrapSelection(textareaRef.current, '*', '*', content, setContent))}
-        {toolbarBtn(<Code size={14} />, 'Code', () => textareaRef.current && wrapSelection(textareaRef.current, '`', '`', content, setContent))}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setShowEmojiPicker((v) => !v)}
-            title="Insert emoji"
-            className="flex items-center justify-center h-7 w-7 rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover)"
-          >
-            <Smile size={14} />
-          </button>
-          {showEmojiPicker && (
-            <EmojiPicker onSelect={(emoji) => setContent((c) => c + emoji)} onClose={() => setShowEmojiPicker(false)} />
-          )}
-        </div>
-      </div>
-
-      <MentionTextarea
-        ref={textareaRef}
-        projectId={projectId}
-        className={inputCls}
-        placeholder="Write a message... (type @ to mention someone)"
-        value={content}
-        onChange={setContent}
-        autoFocus={autoFocus}
-        style={{ maxHeight: MAX_TEXTAREA_HEIGHT }}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={ATTACHMENT_ACCEPT}
+        multiple
+        className="hidden"
+        onChange={(e) => { const files = Array.from(e.target.files || []); if (files.length) handleFilesChosen(files); }}
       />
+      <div className="flex items-stretch rounded-2xl border border-(--color-border) bg-(--color-surface) focus-within:border-primary-400 transition-colors">
+        <div className="flex-1 min-w-0 flex flex-col px-3 pt-2 pb-2">
+          <div className="flex items-center gap-1">
+            <ToolbarButton title="Bold" onClick={handleBold}><Bold size={16} /></ToolbarButton>
+            <ToolbarButton title="Italic" onClick={handleItalic}><Italic size={16} /></ToolbarButton>
+            <ToolbarButton title="Code" onClick={handleCode}><Code size={16} /></ToolbarButton>
+            <ToolbarButton title="Insert link" onClick={handleLink}><Link2 size={16} /></ToolbarButton>
+            <ToolbarButton
+              title={uploading ? 'Uploading…' : pendingAttachments.length >= MAX_ATTACHMENTS ? `Up to ${MAX_ATTACHMENTS} files per message` : 'Attach files'}
+              onClick={handleAttachClick}
+              disabled={uploading || sending || pendingAttachments.length >= MAX_ATTACHMENTS}
+            >
+              {uploading ? <Loader2 size={16} className="animate-spin" /> : <Paperclip size={16} />}
+            </ToolbarButton>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker((v) => !v)}
+                title="Insert emoji"
+                className="flex items-center justify-center h-8 w-8 rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary)"
+              >
+                <Smile size={16} />
+              </button>
+              {showEmojiPicker && (
+                <EmojiPicker onSelect={(emoji) => setContent((c) => c + emoji)} onClose={() => setShowEmojiPicker(false)} />
+              )}
+            </div>
+          </div>
 
-      <div className="flex items-center justify-between gap-2">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={ATTACHMENT_ACCEPT}
-          multiple
-          className="hidden"
-          onChange={(e) => { const files = Array.from(e.target.files || []); if (files.length) handleFilesChosen(files); }}
-        />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading || sending || pendingAttachments.length >= MAX_ATTACHMENTS}
-          className="flex items-center gap-2 px-3 h-9 rounded-xl border border-(--color-border) text-xs font-semibold text-(--color-text-secondary) hover:bg-(--color-state-hover) disabled:opacity-50"
-        >
-          <Paperclip size={14} />
-          {uploading ? 'Uploading…' : 'Attach'}
-        </button>
-        <button
-          onClick={handleSend}
-          disabled={(!content.trim() && !pendingAttachments.length) || sending || uploading}
-          className="flex items-center gap-2 px-4 h-9 rounded-xl bg-primary-600 text-white text-sm font-semibold disabled:opacity-50"
-        >
-          <Send size={14} />
-          Send
-        </button>
+          <MentionTextarea
+            ref={textareaRef}
+            projectId={projectId}
+            className={composerInputCls}
+            placeholder="Write a message... (type @ to mention someone)"
+            value={content}
+            onChange={setContent}
+            autoFocus={autoFocus}
+            style={{ maxHeight: MAX_TEXTAREA_HEIGHT }}
+          />
+        </div>
+
+        <div className="flex items-center pl-3 pr-3 my-3 border-l border-(--color-border)">
+          <button
+            onClick={handleSend}
+            disabled={(!content.trim() && !pendingAttachments.length) || sending || uploading}
+            title="Send"
+            aria-label="Send"
+            className="flex items-center justify-center h-11 w-11 rounded-xl bg-primary-600 text-white shadow-sm hover:bg-primary-700 disabled:opacity-50 disabled:hover:bg-primary-600 transition-colors"
+          >
+            {sending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -391,26 +432,26 @@ const MessageBubble: React.FC<{
     <div
       id={`portal-message-${m.id}`}
       className={cn(
-        'max-w-[80%] rounded-2xl px-4 py-3',
-        m.user?.id === myUserId ? 'self-end bg-primary-50' : 'self-start bg-(--color-elevated)'
+        'w-full min-w-0 rounded-2xl px-5 py-4 transition-shadow [overflow-wrap:anywhere]',
+        m.user?.id === myUserId ? 'bg-primary-50' : 'bg-(--color-elevated)'
       )}
     >
-      <div className="flex items-center justify-between gap-4 mb-1">
+      <div className="flex items-center justify-between gap-4 mb-2">
         <button
           onClick={() => onOpenProfile(m.user.id)}
-          className="flex items-center gap-1.5 min-w-0 group"
+          className="flex items-center gap-2.5 min-w-0 group"
           title="View profile"
         >
           {m.user?.avatar ? (
-            <img src={m.user.avatar} alt="" className="h-5 w-5 rounded-full object-cover shrink-0" />
+            <img src={m.user.avatar} alt="" className="h-7 w-7 rounded-full object-cover shrink-0" />
           ) : (
-            <span className="h-5 w-5 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-[9px] font-black shrink-0">
+            <span className="h-7 w-7 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-xs font-semibold shrink-0">
               {senderName(m).slice(0, 1).toUpperCase() || '?'}
             </span>
           )}
-          <span className="text-xs font-bold text-(--color-text-primary) group-hover:underline truncate">{senderName(m)}</span>
+          <span className="text-[15px] font-semibold! text-(--color-text-primary) group-hover:underline truncate">{senderName(m)}</span>
         </button>
-        <span className="text-[11px] text-(--color-text-secondary) shrink-0">
+        <span className="text-[13px] text-(--color-text-secondary) shrink-0">
           {new Date(m.created_at).toLocaleString()}
           {m.updated_at && m.updated_at !== m.created_at && <span className="italic"> (edited)</span>}
         </span>
@@ -444,7 +485,7 @@ const MessageBubble: React.FC<{
         m.content && (
           <RichText
             content={m.content}
-            className="text-sm text-(--color-text-primary)"
+            className="text-[15px] leading-relaxed text-(--color-text-primary)"
             mentionMap={mentionMap}
             onMentionClick={onOpenProfile}
           />
@@ -477,14 +518,14 @@ const MessageBubble: React.FC<{
       ))}
 
       {(canCompose || isOwn || canDeleteAny) && !editing && (
-        <div className="flex flex-wrap items-center gap-1 mt-2 relative">
+        <div className="flex flex-wrap items-center gap-1.5 mt-3 relative">
           {aggregateReactions(m.reactions, myUserId).map((r) => (
             <button
               key={r.emoji}
               onClick={() => canCompose && handleToggleReaction(r.emoji)}
               title={r.names.join(', ')}
               className={cn(
-                'flex items-center gap-1 px-2 h-6 rounded-full text-xs border',
+                'flex items-center gap-1 px-2.5 h-8 rounded-full text-sm border',
                 r.reactedByMe
                   ? 'bg-primary-100 border-primary-300 text-primary-700'
                   : 'bg-(--color-surface) border-(--color-border) text-(--color-text-secondary) hover:bg-(--color-state-hover)'
@@ -498,17 +539,17 @@ const MessageBubble: React.FC<{
             <>
               <button
                 onClick={() => setReactionPickerOpen((v) => !v)}
-                className="flex items-center justify-center h-6 w-6 rounded-full border border-dashed border-(--color-border) text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+                className="flex items-center justify-center h-8 w-8 rounded-full text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary)"
                 title="Add reaction"
               >
-                <Smile size={13} />
+                <Smile size={17} />
               </button>
               <button
                 onClick={onReply}
-                className="flex items-center gap-1 px-2 h-6 rounded-full text-xs text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+                className="flex items-center gap-1.5 px-2.5 h-8 rounded-full text-sm text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary)"
                 title="Reply"
               >
-                <Reply size={12} />
+                <Reply size={15} />
                 Reply
               </button>
             </>
@@ -516,10 +557,10 @@ const MessageBubble: React.FC<{
           {isOwn && (
             <button
               onClick={() => setEditing(true)}
-              className="flex items-center gap-1 px-2 h-6 rounded-full text-xs text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+              className="flex items-center gap-1.5 px-2.5 h-8 rounded-full text-sm text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary)"
               title="Edit"
             >
-              <Pencil size={12} />
+              <Pencil size={14} />
               Edit
             </button>
           )}
@@ -527,10 +568,10 @@ const MessageBubble: React.FC<{
             <button
               onClick={handleDelete}
               disabled={deleteMessage.isPending}
-              className="flex items-center gap-1 px-2 h-6 rounded-full text-xs text-red-500 hover:bg-red-50 disabled:opacity-50"
+              className="flex items-center gap-1.5 px-2.5 h-8 rounded-full text-sm text-red-500 hover:bg-red-50 disabled:opacity-50"
               title="Delete"
             >
-              <Trash2 size={12} />
+              <Trash2 size={15} />
               Delete
             </button>
           )}
@@ -593,10 +634,7 @@ const Thread: React.FC<{
       {replies.length > 0 && (
         <button
           onClick={() => setExpanded((v) => !v)}
-          className={cn(
-            'flex items-center gap-1.5 text-xs font-semibold text-(--color-text-secondary) hover:text-primary-600',
-            root.user?.id === myUserId ? 'self-end mr-2' : 'self-start ml-2'
-          )}
+          className="self-start ml-5 flex items-center gap-1.5 text-[13px] font-semibold text-(--color-text-secondary) hover:text-primary-600"
         >
           {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
           {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
@@ -604,7 +642,7 @@ const Thread: React.FC<{
       )}
 
       {expanded && (
-        <div className={cn('flex flex-col gap-2 pl-4 border-l-2 border-(--color-border)', root.user?.id === myUserId ? 'self-end mr-4' : 'self-start ml-4')}>
+        <div className="flex flex-col gap-2 ml-5 pl-4 border-l-2 border-(--color-border)">
           {replies.map((r) => (
             <MessageBubble key={r.id} message={r} projectId={projectId} canCompose={canCompose} canDeleteAny={canDeleteAny} myUserId={myUserId} onReply={() => setReplying(true)} onOpenProfile={onOpenProfile} mentionMap={mentionMap} />
           ))}
@@ -619,7 +657,7 @@ const Thread: React.FC<{
             />
           )}
           {canCompose && !replying && (
-            <button onClick={() => setReplying(true)} className="self-start text-xs font-semibold text-primary-600 hover:text-primary-700">
+            <button onClick={() => setReplying(true)} className="self-start text-[13px] font-semibold text-primary-600 hover:text-primary-700">
               Reply in thread
             </button>
           )}
@@ -765,7 +803,7 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
 
   return (
     <div className="h-full flex flex-col gap-4">
-      <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
+      <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-4 pr-1">
         {roots.length === 0 && (
           <p className="text-sm text-(--color-text-secondary) py-10 text-center">No messages yet.</p>
         )}
@@ -790,7 +828,7 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
       </div>
 
       {canCompose && (
-        <div className="shrink-0 pt-4 border-t border-(--color-card-border)">
+        <div className="shrink-0">
           <Composer projectId={projectId} onSent={() => {}} />
         </div>
       )}
