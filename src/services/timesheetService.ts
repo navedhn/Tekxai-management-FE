@@ -40,6 +40,7 @@ export interface TimesheetEntry {
   task_id?: string | null;
   project?: { id: string; title: string } | null;
   task?: { id: string; title: string } | null;
+  client_approval_status?: string | null;
 
   employee?: string;
 }
@@ -358,6 +359,72 @@ export const useCreateTimesheetEntryMutation = () => {
   return useMutation({
     mutationFn: createTimesheetEntryApi,
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TIMESHEET.WEEKLY });
+    },
+  });
+};
+
+export type ClientApprovalRow = {
+  id: string;
+  check_in: string;
+  check_out: string | null;
+  duration_sec: number;
+  client_approval_status: string | null;
+  client_rejection_reason?: string | null;
+  user: { id: string; first_name: string; last_name: string; email: string };
+  project: { id: string; title: string } | null;
+  task: { id: string; title: string } | null;
+};
+
+const getClientApprovalsApi = async (status: string) => {
+  const res = await apiRequest<any>(
+    `${API_ENDPOINTS.TIMESHEET.CLIENT_APPROVALS}?status=${encodeURIComponent(status)}`,
+  );
+  const payload = res?.payload || res;
+  return {
+    records: (payload?.records || []) as ClientApprovalRow[],
+    total: payload?.total || 0,
+  };
+};
+
+const submitClientApprovalApi = async (id: string) => {
+  const res = await apiRequest(API_ENDPOINTS.TIMESHEET.SUBMIT_CLIENT_APPROVAL(id), { method: 'POST' });
+  return res.payload;
+};
+
+const respondClientApprovalApi = async ({ id, decision, reason }: { id: string; decision: string; reason?: string }) => {
+  const res = await apiRequest(API_ENDPOINTS.TIMESHEET.RESPOND_CLIENT_APPROVAL(id), {
+    method: 'POST',
+    body: JSON.stringify({ decision, reason }),
+  });
+  return res.payload;
+};
+
+export const useGetClientApprovals = (status: string, enabled = true) => {
+  return useQuery({
+    queryKey: [...QUERY_KEYS.TIMESHEET.CLIENT_APPROVALS, status],
+    queryFn: () => getClientApprovalsApi(status),
+    enabled,
+  });
+};
+
+export const useSubmitClientApprovalMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: submitClientApprovalApi,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TIMESHEET.WEEKLY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TIMESHEET.CLIENT_APPROVALS });
+    },
+  });
+};
+
+export const useRespondClientApprovalMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: respondClientApprovalApi,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TIMESHEET.CLIENT_APPROVALS });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TIMESHEET.WEEKLY });
     },
   });

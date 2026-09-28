@@ -96,6 +96,7 @@ export const QUERY_KEYS = {
     MY_REQUESTS:['timesheet', 'my-requests'],
     POLICIES:   ['timesheet', 'policies'],
     RECENT_ACTIVITY: ['timesheet', 'recent-activity'],
+    CLIENT_APPROVALS: ['timesheet', 'client-approvals'],
   },
   SETTINGS: {
     ME: ['settings', 'me'],

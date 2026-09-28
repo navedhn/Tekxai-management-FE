@@ -6,6 +6,8 @@ import {
     useApproveTimeOffMutation,
     useRejectTimeOffMutation,
     useDeleteTimeOffMutation,
+    useGetClientApprovals,
+    useRespondClientApprovalMutation,
     TimesheetEntry,
     EditRequest,
 } from '@/services/timesheetService';
@@ -14,6 +16,7 @@ import Table, { Column } from '@/components/ui/Table';
 import Badge from '@/components/ui/Badge';
 import Tabs from '@/components/ui/Tabs';
 import { Check, X, Trash2, Calendar, Clock, SquarePen, Search, Loader2 } from 'lucide-react';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { motion, AnimatePresence } from 'framer-motion';
 import Modal from '@/components/ui/Modal';
 import ActionModal from '@/components/ui/ActionModal';
@@ -21,15 +24,21 @@ import Input from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import ReviewEditRequestModal from '@/components/modals/ReviewEditRequestModal';
 import { useDebounce } from '@/hooks/useDebounce';
-import SearchableSelect from '@/components/ui/SearchableSelect';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { CardSkeleton, PageSkeleton } from '@/components/skeletons';
 import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
 import { useGetOrgFilterOptionsQuery } from '@/services/attendanceService';
 
+function formatApprovalHours(sec: number) {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    return `${h}h ${m}m`;
+}
+
 const TimesheetManagement: React.FC = () => {
     const toast = useToastContext();
     const [activeTab, setActiveTab] = useState('All Entries');
+    const [clientApprovalStatus, setClientApprovalStatus] = useState('PENDING');
     const [currentPage, setCurrentPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
@@ -83,6 +92,12 @@ const TimesheetManagement: React.FC = () => {
         employee_id: employeeFilter,
     }, activeTab === 'All Entries');
     const { data: requestData, isLoading: isRequestsLoading } = useGetTimesheetRequests(activeTab === 'Edit Requests' || activeTab === 'Time Off Requests');
+    const { data: clientApprovalsData, isLoading: isClientApprovalsLoading } = useGetClientApprovals(
+        clientApprovalStatus,
+        activeTab === 'Client Approvals',
+    );
+    const clientApprovalRows = clientApprovalsData?.records || [];
+    const respondClientApproval = useRespondClientApprovalMutation();
 
     const editRequests = requestData?.timesheet_edit_requests || [];
     const timeOffRequests = requestData?.time_off_requests || [];
@@ -93,7 +108,7 @@ const TimesheetManagement: React.FC = () => {
     const deleteMutation = useDeleteTimeOffMutation();
 
     const itemsPerPage = 8;
-    const tabs = ['All Entries', 'Edit Requests', 'Time Off Requests'];
+    const tabs = ['All Entries', 'Edit Requests', 'Time Off Requests', 'Client Approvals'];
 
     const paginatedData = useMemo(() => {
         if (!timesheet || !timesheet.rows) return [];
@@ -201,7 +216,8 @@ const TimesheetManagement: React.FC = () => {
     ];
 
     const isTabLoading = (activeTab === 'All Entries' && isTimesheetLoading) ||
-                       ((activeTab === 'Edit Requests' || activeTab === 'Time Off Requests') && isRequestsLoading);
+                       ((activeTab === 'Edit Requests' || activeTab === 'Time Off Requests') && isRequestsLoading) ||
+                       (activeTab === 'Client Approvals' && isClientApprovalsLoading);
     const showPageSkeleton = useShowPageSkeleton(isTabLoading);
 
     if (showPageSkeleton) return <PageSkeleton variant="timesheet" />;
@@ -226,7 +242,21 @@ const TimesheetManagement: React.FC = () => {
                                 {activeTab === 'All Entries' && 'Weekly Timesheet'}
                                 {activeTab === 'Edit Requests' && 'Pending Edit Requests'}
                                 {activeTab === 'Time Off Requests' && 'Pending Time Off Requests'}
+                                {activeTab === 'Client Approvals' && 'Project Hours Approvals'}
                             </h2>
+                            {activeTab === 'Client Approvals' && (
+                                <SearchableSelect
+                                    options={[
+                                        { value: 'PENDING', label: 'Pending' },
+                                        { value: 'APPROVED', label: 'Approved' },
+                                        { value: 'REJECTED', label: 'Rejected' },
+                                        { value: 'ALL', label: 'All' },
+                                    ]}
+                                    value={clientApprovalStatus}
+                                    onChange={(val) => setClientApprovalStatus(val as string)}
+                                    className="h-10 !rounded-xl text-xs font-black min-w-[140px]"
+                                />
+                            )}
                             {activeTab === 'All Entries' && (
                                 <div className="flex sm:items-center gap-2 sm:flex-row flex-col">
                                     <Input
@@ -417,6 +447,80 @@ const TimesheetManagement: React.FC = () => {
                                 )) : (
                                     <div className="col-span-full text-center py-12 italic">No time-off requests found.</div>
                                 )}
+                            </motion.div>
+                        )}
+
+                        {activeTab === 'Client Approvals' && (
+                            <motion.div
+                                key="client-approvals"
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                transition={{ duration: 0.2 }}
+                                className="flex flex-col gap-3 py-4"
+                            >
+                                {isClientApprovalsLoading ? (
+                                    Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
+                                ) : clientApprovalRows.length === 0 ? (
+                                    <div className="text-center py-12 italic text-gray-500">No timesheet entries to review.</div>
+                                ) : clientApprovalRows.map((r) => (
+                                    <div key={r.id} className="border border-gray-100 rounded-2xl p-4 bg-white shadow-sm">
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div>
+                                                <div className="font-bold text-gray-900">
+                                                    {r.user.first_name} {r.user.last_name}
+                                                </div>
+                                                <div className="text-sm text-gray-500 mt-0.5">
+                                                    {r.project?.title || '—'}{r.task ? ` · ${r.task.title}` : ''}
+                                                </div>
+                                                <div className="text-xs text-gray-400 mt-2 flex items-center gap-1">
+                                                    <Clock size={12} />
+                                                    {new Date(r.check_in).toLocaleString()} → {r.check_out ? new Date(r.check_out).toLocaleString() : 'open'} · {formatApprovalHours(r.duration_sec || 0)}
+                                                </div>
+                                                {r.client_rejection_reason && (
+                                                    <div className="text-xs text-red-600 mt-2">Rejected: {r.client_rejection_reason}</div>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700">{r.client_approval_status || '—'}</span>
+                                                {r.client_approval_status === 'PENDING' && (
+                                                    <>
+                                                        <button
+                                                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-sm font-bold disabled:opacity-50"
+                                                            disabled={respondClientApproval.isPending}
+                                                            onClick={async () => {
+                                                                try {
+                                                                    await respondClientApproval.mutateAsync({ id: r.id, decision: 'APPROVED' });
+                                                                    toast.success('Hours approved');
+                                                                } catch (e: any) {
+                                                                    toast.error(e?.message || 'Failed');
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Check size={14} /> Approve
+                                                        </button>
+                                                        <button
+                                                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-600 text-white text-sm font-bold disabled:opacity-50"
+                                                            disabled={respondClientApproval.isPending}
+                                                            onClick={async () => {
+                                                                const reason = window.prompt('Rejection reason');
+                                                                if (!reason) return;
+                                                                try {
+                                                                    await respondClientApproval.mutateAsync({ id: r.id, decision: 'REJECTED', reason });
+                                                                    toast.success('Hours rejected');
+                                                                } catch (e: any) {
+                                                                    toast.error(e?.message || 'Failed');
+                                                                }
+                                                            }}
+                                                        >
+                                                            <X size={14} /> Reject
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
                             </motion.div>
                         )}
                     </AnimatePresence>

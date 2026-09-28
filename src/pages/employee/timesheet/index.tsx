@@ -10,7 +10,7 @@ import Textarea from '@/components/ui/Textarea';
 import { ChevronLeft, ChevronRight, Calendar, MoreVertical, Clock, Coffee, Timer, BarChart3, Briefcase } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import RequestTimeOffModal from '@/components/ui/RequestTimeOffModal';
-import { useGetTimeOffRequests, useGetWeeklyTimesheet, useGetRangeTimesheet, useRequestEntryEditMutation, TimesheetEntry, WeeklyTimesheetData } from '@/services/timesheetService';
+import { useGetTimeOffRequests, useGetWeeklyTimesheet, useGetRangeTimesheet, useRequestEntryEditMutation, useSubmitClientApprovalMutation, TimesheetEntry, WeeklyTimesheetData } from '@/services/timesheetService';
 import { useGetMyShiftQuery, useGetMyAttendanceSummary } from '@/services/attendanceService';
 import { CardSkeleton, PageSkeleton, TableSkeleton } from '@/components/skeletons';
 import { useShowPageSkeleton } from '@/hooks/useShowPageSkeleton';
@@ -118,6 +118,7 @@ const EmployeeTimesheet: React.FC = () => {
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
 
   const toast = useToastContext();
+  const submitClientApproval = useSubmitClientApprovalMutation();
   const [editEntry, setEditEntry] = useState<TimesheetEntry | null>(null);
   const [editCheckIn, setEditCheckIn] = useState('');
   const [editCheckOut, setEditCheckOut] = useState('');
@@ -244,6 +245,41 @@ const EmployeeTimesheet: React.FC = () => {
           <Badge variant="info" className={cn('rounded-lg px-2 py-0.5 text-[10px] font-bold border', style)}>
             {item.status_label || item.status}
           </Badge>
+        );
+      },
+    },
+    {
+      header: 'Client Approval', key: 'client_approval_status',
+      render: (item) => {
+        if (!item.has_entry || !item.entry_id) return <span className="text-(--color-text-secondary)">—</span>;
+        if (!item.project_id) return <span className="text-(--color-text-secondary)">—</span>;
+        const status = item.client_approval_status;
+        if (status === 'PENDING' || status === 'APPROVED' || status === 'REJECTED') {
+          return (
+            <Badge variant="info" className="rounded-lg px-2 py-0.5 text-[10px] font-bold border">
+              {status}
+            </Badge>
+          );
+        }
+        if (item.is_open || !item.check_out) {
+          return <span className="text-xs text-(--color-text-secondary)">Clock out first</span>;
+        }
+        return (
+          <button
+            type="button"
+            disabled={submitClientApproval.isPending}
+            onClick={async () => {
+              try {
+                await submitClientApproval.mutateAsync(item.entry_id!);
+                toast.success('Submitted for approval');
+              } catch (e: any) {
+                toast.error(e?.message || 'Failed to submit');
+              }
+            }}
+            className="text-xs font-bold text-(--color-brand-primary) hover:underline disabled:opacity-50"
+          >
+            Submit
+          </button>
         );
       },
     },

@@ -1,7 +1,7 @@
 import React, { memo, Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { LayoutDashboard, FolderKanban, LogOut, Users, ChevronDown, ChevronRight, Plus, Boxes, MessageCircle, FileText, ArrowLeft, Clock, BookOpen } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, LogOut, Users, ChevronDown, ChevronRight, Plus, Boxes, MessageCircle, FileText, ArrowLeft, BookOpen } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,7 +19,6 @@ const NAV_ITEMS = [
   { to: '/portal/projects', label: 'Projects', icon: FolderKanban, end: false },
   { to: '/portal/docs', label: 'Docs', icon: FileText, end: false },
   { to: '/portal/wiki', label: 'Wiki', icon: BookOpen, end: false },
-  { to: '/portal/timesheets', label: 'Timesheets', icon: Clock, end: false },
 ];
 
 const CHATS_PAGE_SIZE = 10;

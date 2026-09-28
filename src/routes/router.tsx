@@ -140,7 +140,6 @@ const PortalProjects         = lazy(() => import('@/pages/portal/projects'));
 const PortalProjectDetail    = lazy(() => import('@/pages/portal/projects/detail'));
 const PortalInvites          = lazy(() => import('@/pages/portal/invites'));
 const PortalDocs             = lazy(() => import('@/pages/portal/docs'));
-const PortalTimesheets       = lazy(() => import('@/pages/portal/timesheets'));
 const PortalWiki             = lazy(() => import('@/pages/portal/wiki'));
 const PublicIntakeFormPage   = lazy(() => import('@/pages/public/intakeForm'));
 const AdminLiveActivity      = lazy(() => import('@/pages/admin/live-activity'));
@@ -434,7 +433,6 @@ const routes: RouteObject[] = [
           { path: '/portal/projects/:id/approvals',           element: <PortalProjectDetail /> },
           { path: '/portal/docs',                             element: <PortalDocs /> },
           { path: '/portal/wiki',                             element: <PortalWiki /> },
-          { path: '/portal/timesheets',                       element: <PortalTimesheets /> },
           {
             element: <ProtectedRoute superAdminOnly />,
             children: [
