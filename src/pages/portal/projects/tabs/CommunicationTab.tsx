@@ -76,6 +76,40 @@ function senderName(msg: Pick<PortalMessage, 'user'>) {
   return [msg.user?.first_name, msg.user?.last_name].filter(Boolean).join(' ').trim() || 'Unknown';
 }
 
+/** Local calendar day key (YYYY-MM-DD) for grouping messages into date dividers. */
+function dayKey(iso: string) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+/** ClickUp-style relative labels: Today / Yesterday / weekday, Mon D, YYYY. */
+function formatDateDividerLabel(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startMsg = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diffDays = Math.round((startToday.getTime() - startMsg.getTime()) / 86_400_000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  return d.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+    year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+  });
+}
+
+/** Centered label with hairline rules on both sides — ClickUp chat date separator. */
+const DateDivider: React.FC<{ iso: string }> = ({ iso }) => (
+  <div className="flex items-center gap-3 py-1 select-none" role="separator" aria-label={formatDateDividerLabel(iso)}>
+    <div className="flex-1 h-px bg-(--color-border)" />
+    <span className="shrink-0 text-[11px] font-semibold tracking-wide text-(--color-text-secondary) [font-family:var(--font-communication-sans)]">
+      {formatDateDividerLabel(iso)}
+    </span>
+    <div className="flex-1 h-px bg-(--color-border)" />
+  </div>
+);
+
 // Wraps (or, with no selection, inserts markers around the cursor for) the
 // textarea's current selection with a markdown-lite pair — same convention
 // RichText.tsx renders back out.
@@ -848,22 +882,26 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
         {roots.length === 0 && (
           <p className="text-sm text-(--color-text-secondary) py-10 text-center">No messages yet.</p>
         )}
-        {roots.map((root) => {
+        {roots.map((root, i) => {
           const replies = repliesByRoot.get(root.id) || [];
           const targetIsInThisThread = !!highlightMessageId && (root.id === highlightMessageId || replies.some((r) => r.id === highlightMessageId));
+          const prev = i > 0 ? roots[i - 1] : null;
+          const showDateDivider = !prev || dayKey(prev.created_at) !== dayKey(root.created_at);
           return (
-            <Thread
-              key={root.id}
-              root={root}
-              replies={replies}
-              projectId={projectId}
-              canCompose={canCompose}
-              canDeleteAny={canDeleteAny}
-              myUserId={user?.id}
-              initiallyExpanded={targetIsInThisThread}
-              onOpenProfile={setProfileUserId}
-              mentionMap={mentionMap}
-            />
+            <React.Fragment key={root.id}>
+              {showDateDivider && <DateDivider iso={root.created_at} />}
+              <Thread
+                root={root}
+                replies={replies}
+                projectId={projectId}
+                canCompose={canCompose}
+                canDeleteAny={canDeleteAny}
+                myUserId={user?.id}
+                initiallyExpanded={targetIsInThisThread}
+                onOpenProfile={setProfileUserId}
+                mentionMap={mentionMap}
+              />
+            </React.Fragment>
           );
         })}
       </div>
