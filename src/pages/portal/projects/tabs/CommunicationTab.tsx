@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Paperclip, FileText, X, Smile, Reply, Bold, Italic, Code, Link2, Loader2, ChevronDown, ChevronRight, Pencil, Trash2, Check, Copy, Pin, Link as LinkIcon } from 'lucide-react';
+import { Send, Paperclip, FileText, X, Smile, Reply, Bold, Italic, Code, Link2, Loader2, ChevronDown, ChevronRight, Pencil, Trash2, Check, Copy, Pin, Link as LinkIcon, Bookmark, BarChart3, XCircle } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useMyPermissions } from '@/services/permissionsService';
@@ -12,14 +12,37 @@ import { TableSkeleton } from '@/components/skeletons';
 import EmojiPicker from '@/pages/chat/EmojiPicker';
 import { getSocket } from '@/lib/socket';
 import { RichText, MessageLinkPreviews } from '../richText';
-import { PortalMessage, messageAttachments } from '../types';
+import { PortalMessage, PortalMessageEdit, PortalMessageRead, PortalPoll, messageAttachments } from '../types';
 import ProfileSidePanel from '../ProfileSidePanel';
 import MentionTextarea, { extractMentionIds, useMentionableUsers } from '../MentionTextarea';
 
 // Small curated set for the one-click "quick react" row — the full picker
-// (search + categories) is still reachable via the "+" button for anything
+// (search + categories) is still reachable via the Smile "+" button for anything
 // else, same two-tier pattern the internal chat already uses.
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '🙏', '👀'];
+
+function draftStorageKey(userId: string, projectId: string, parentId?: string) {
+  return `portal-draft:${userId}:${projectId}:${parentId || 'root'}`;
+}
+
+function readDraft(userId: string | undefined, projectId: string, parentId?: string): string {
+  if (!userId || typeof localStorage === 'undefined') return '';
+  try { return localStorage.getItem(draftStorageKey(userId, projectId, parentId)) || ''; } catch { return ''; }
+}
+
+function writeDraft(userId: string | undefined, projectId: string, parentId: string | undefined, value: string) {
+  if (!userId || typeof localStorage === 'undefined') return;
+  try {
+    const key = draftStorageKey(userId, projectId, parentId);
+    if (!value.trim()) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch { /* ignore quota */ }
+}
+
+function clearDraft(userId: string | undefined, projectId: string, parentId?: string) {
+  if (!userId || typeof localStorage === 'undefined') return;
+  try { localStorage.removeItem(draftStorageKey(userId, projectId, parentId)); } catch { /* ignore */ }
+}
 
 function aggregateReactions(reactions: PortalMessage['reactions'], myUserId?: string) {
   const byEmoji = new Map<string, { emoji: string; count: number; reactedByMe: boolean; names: string[] }>();
@@ -179,7 +202,8 @@ const Composer: React.FC<{
   onCancel?: () => void;
   replyingToPreview?: { name: string; text: string } | null;
 }> = ({ projectId, parentId, autoFocus, onSent, onCancel, replyingToPreview }) => {
-  const [content, setContent] = useState('');
+  const { user } = useAuth();
+  const [content, setContent] = useState(() => readDraft(user?.id, projectId, parentId));
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -187,10 +211,18 @@ const Composer: React.FC<{
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingStopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const qc = useQueryClient();
   const toast = useToastContext();
 
   const mentionable = useMentionableUsers(projectId);
+
+  // Persist draft per user+project (+ thread parent) — restore on mount above.
+  useEffect(() => {
+    if (draftTimer.current) clearTimeout(draftTimer.current);
+    draftTimer.current = setTimeout(() => writeDraft(user?.id, projectId, parentId, content), 300);
+    return () => { if (draftTimer.current) clearTimeout(draftTimer.current); };
+  }, [content, user?.id, projectId, parentId]);
 
   const stopTyping = () => {
     if (typingStopTimer.current) {
@@ -255,21 +287,60 @@ const Composer: React.FC<{
     el.style.overflowY = el.scrollHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden';
   }, [content]);
 
+  const tryHandleSlash = async (raw: string): Promise<boolean> => {
+    if (!raw.startsWith('/')) return false;
+    const [command, ...rest] = raw.slice(1).split(/\s+/);
+    if (command !== 'poll') {
+      toast?.error?.(`Unknown command "/${command}". Try /poll Question? | Option 1 | Option 2`);
+      return true;
+    }
+    const body = rest.join(' ');
+    const parts = body.split('|').map((p) => p.trim()).filter(Boolean);
+    if (parts.length < 3) {
+      toast?.error?.('Usage: /poll Question? | Option 1 | Option 2');
+      return true;
+    }
+    const [question, ...options] = parts;
+    setSending(true);
+    try {
+      await apiRequest<any>(API_ENDPOINTS.PORTAL.POLLS(projectId), {
+        method: 'POST',
+        body: JSON.stringify({ question, options }),
+      });
+      setContent('');
+      clearDraft(user?.id, projectId, parentId);
+      onSent();
+    } catch {
+      toast?.error?.('Failed to create poll');
+    } finally {
+      setSending(false);
+      qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] });
+    }
+    return true;
+  };
+
   // Text, mentions and every picked file go out as ONE message.
   const handleSend = async () => {
     if (!content.trim() && !pendingAttachments.length) return;
+    const trimmed = content.trim();
+    if (trimmed.startsWith('/') && !pendingAttachments.length) {
+      stopTyping();
+      await tryHandleSlash(trimmed);
+      return;
+    }
     const mentions = extractMentionIds(content, mentionable);
     stopTyping();
     setSending(true);
     try {
       await postMessage({
-        content: content.trim(),
+        content: trimmed,
         ...(parentId ? { parent_id: parentId } : {}),
         ...(mentions.length ? { mentions } : {}),
         ...(pendingAttachments.length ? { attachments: pendingAttachments } : {}),
       });
       setContent('');
       setPendingAttachments([]);
+      clearDraft(user?.id, projectId, parentId);
       onSent();
     } catch {
       toast?.error?.('Failed to send message');
@@ -392,7 +463,7 @@ const Composer: React.FC<{
             ref={textareaRef}
             projectId={projectId}
             className={composerInputCls}
-            placeholder="Write a message... (@ to mention, @everyone for all, Enter to send, Ctrl+Enter for new line)"
+            placeholder="Write a message... (@ to mention, /poll Q | A | B, Enter to send)"
             value={content}
             onChange={(v) => {
               setContent(v);
@@ -448,6 +519,260 @@ const AttachmentImagePreview: React.FC<{ projectId: string; messageId: string; a
   );
 };
 
+// ── Poll card (mirrors internal chat PollCard, portal endpoints) ───────────
+
+const PollCard: React.FC<{
+  poll: PortalPoll;
+  projectId: string;
+  currentUserId?: string;
+  canClose?: boolean;
+}> = ({ poll, projectId, currentUserId, canClose }) => {
+  const qc = useQueryClient();
+  const toast = useToastContext();
+
+  const voteMutation = useMutation({
+    mutationFn: (option_index: number) =>
+      apiRequest<any>(API_ENDPOINTS.PORTAL.POLL_VOTE(projectId, poll.id), {
+        method: 'POST',
+        body: JSON.stringify({ option_index }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] }),
+    onError: (e: any) => toast?.error?.(e?.message || 'Failed to vote'),
+  });
+
+  const closeMutation = useMutation({
+    mutationFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.POLL_CLOSE(projectId, poll.id), { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] }),
+    onError: (e: any) => toast?.error?.(e?.message || 'Failed to close poll'),
+  });
+
+  const myVote = poll.votes.find((v) => v.user_id === currentUserId);
+  const totalVotes = poll.votes.length;
+  const showClose = !poll.is_closed && (poll.created_by_id === currentUserId || canClose);
+
+  return (
+    <div className="w-64 bg-white border border-(--color-border) rounded-xl p-3 mt-1">
+      <p className="flex items-center gap-1.5 text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wide mb-2">
+        <BarChart3 size={11} />
+        {poll.is_closed ? 'Poll · Closed' : 'Poll'}
+      </p>
+      <p className="text-sm font-bold text-(--color-text-primary) mb-2">{poll.question}</p>
+      <div className="space-y-1.5">
+        {poll.options.map((option, i) => {
+          const count = poll.votes.filter((v) => v.option_index === i).length;
+          const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+          const mine = myVote?.option_index === i;
+          return (
+            <button
+              key={i}
+              disabled={poll.is_closed || voteMutation.isPending}
+              onClick={() => voteMutation.mutate(i)}
+              className={cn(
+                'relative w-full text-left px-2.5 py-1.5 rounded-lg border text-xs overflow-hidden disabled:cursor-default',
+                mine ? 'border-primary-400 bg-primary-50' : 'border-(--color-border) hover:border-gray-300',
+              )}
+            >
+              <div
+                className={cn('absolute inset-y-0 left-0 transition-all', mine ? 'bg-primary-100' : 'bg-gray-100')}
+                style={{ width: `${pct}%` }}
+              />
+              <div className="relative flex items-center justify-between gap-2">
+                <span className={cn('font-semibold truncate', mine ? 'text-primary-800' : 'text-(--color-text-primary)')}>
+                  {mine && <Check size={11} className="inline mr-1 -mt-0.5" />}
+                  {option}
+                </span>
+                <span className="shrink-0 text-(--color-text-secondary) font-bold">{count}</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex items-center justify-between mt-2">
+        <p className="text-[10px] text-(--color-text-secondary)">{totalVotes} vote{totalVotes === 1 ? '' : 's'}</p>
+        {showClose && (
+          <button
+            onClick={() => closeMutation.mutate()}
+            className="flex items-center gap-1 text-[10px] font-semibold text-(--color-text-secondary) hover:text-red-500"
+          >
+            <XCircle size={11} /> Close poll
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const SeenByIndicator: React.FC<{ users: PortalMessageRead['user'][] }> = ({ users }) => {
+  const [open, setOpen] = useState(false);
+  if (!users.length) return null;
+  return (
+    <div
+      className="relative mt-1"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center -space-x-1.5"
+        title={users.map((u) => `${u.first_name} ${u.last_name}`).join(', ')}
+      >
+        {users.slice(0, 3).map((u) => (
+          <span key={u.id} className="ring-2 ring-white rounded-full">
+            {u.avatar ? (
+              <img src={u.avatar} alt="" className="h-5 w-5 rounded-full object-cover" />
+            ) : (
+              <span className="h-5 w-5 rounded-full bg-primary-100 text-primary-700 text-[8px] font-black flex items-center justify-center">
+                {(u.first_name || '?').slice(0, 1).toUpperCase()}
+              </span>
+            )}
+          </span>
+        ))}
+        {users.length > 3 && (
+          <span className="w-5 h-5 rounded-full bg-gray-200 text-gray-600 text-[8px] font-black flex items-center justify-center ring-2 ring-white">
+            +{users.length - 3}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="absolute bottom-full left-0 mb-1.5 w-52 bg-white rounded-xl shadow-lg border border-(--color-border) py-1.5 z-20">
+          <p className="text-[10px] font-black uppercase tracking-widest text-(--color-text-secondary) px-3 pb-1">Seen by</p>
+          {users.map((u) => (
+            <div key={u.id} className="flex items-center gap-2 px-3 py-1.5">
+              {u.avatar ? (
+                <img src={u.avatar} alt="" className="h-6 w-6 rounded-full object-cover" />
+              ) : (
+                <span className="h-6 w-6 rounded-full bg-primary-100 text-primary-700 text-[10px] font-bold flex items-center justify-center">
+                  {(u.first_name || '?').slice(0, 1).toUpperCase()}
+                </span>
+              )}
+              <span className="text-xs font-semibold text-(--color-text-primary) truncate">{u.first_name} {u.last_name}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const EditHistoryModal: React.FC<{
+  projectId: string;
+  messageId: string;
+  onClose: () => void;
+}> = ({ projectId, messageId, onClose }) => {
+  const { data: edits = [], isLoading } = useQuery<PortalMessageEdit[]>({
+    queryKey: ['portal', 'message-edits', projectId, messageId],
+    queryFn: async () => {
+      const r = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_EDITS(projectId, messageId));
+      return r?.payload?.records || [];
+    },
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-(--color-border)">
+          <h3 className="font-black text-(--color-text-primary)">Edit history</h3>
+          <button type="button" onClick={onClose} className="p-1.5 text-(--color-text-secondary) hover:bg-(--color-state-hover) rounded-lg">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-10"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
+          ) : edits.length === 0 ? (
+            <p className="text-sm text-(--color-text-secondary) py-8 text-center">No prior versions</p>
+          ) : (
+            edits.map((e) => (
+              <div key={e.id} className="p-3 rounded-xl border border-(--color-border) bg-(--color-elevated)">
+                <p className="text-[11px] text-(--color-text-secondary) mb-1">
+                  {e.edited_by?.first_name} {e.edited_by?.last_name} · {new Date(e.created_at).toLocaleString()}
+                </p>
+                <p className="text-sm text-(--color-text-primary) whitespace-pre-wrap [overflow-wrap:anywhere]">{e.previous_content}</p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SavedMessagesPanel: React.FC<{
+  projectId: string;
+  onClose: () => void;
+  onJump: (messageId: string) => void;
+}> = ({ projectId, onClose, onJump }) => {
+  const qc = useQueryClient();
+  const { data: saved = [], isLoading } = useQuery<{ saved_at: string; message: PortalMessage }[]>({
+    queryKey: ['portal', 'messages-saved', projectId],
+    queryFn: async () => {
+      const r = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES_SAVED(projectId));
+      return r?.payload?.records || [];
+    },
+  });
+
+  const unsaveMutation = useMutation({
+    mutationFn: (msgId: string) =>
+      apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_SAVE(projectId, msgId), { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['portal', 'messages-saved', projectId] }),
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-(--color-border)">
+          <h3 className="font-black text-(--color-text-primary) flex items-center gap-2">
+            <Bookmark size={16} className="text-blue-500" /> Saved messages ({saved.length})
+          </h3>
+          <button type="button" onClick={onClose} className="p-1.5 text-(--color-text-secondary) hover:bg-(--color-state-hover) rounded-lg">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-10"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
+          ) : saved.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-gray-300">
+              <Bookmark size={28} className="mb-2" />
+              <p className="text-sm font-semibold text-(--color-text-secondary)">Nothing saved yet</p>
+              <p className="text-xs text-gray-300">Bookmark a message from its hover menu</p>
+            </div>
+          ) : (
+            saved.map(({ message, saved_at }) => (
+              <button
+                key={message.id}
+                type="button"
+                onClick={() => { onJump(message.id); onClose(); }}
+                className="w-full text-left p-3 bg-(--color-elevated) rounded-xl border border-(--color-border) hover:border-gray-300 transition-colors"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-bold text-(--color-text-primary)">{senderName(message)}</span>
+                  <span className="ml-auto text-[10px] text-(--color-text-secondary) shrink-0">
+                    {new Date(message.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                  </span>
+                  <span
+                    role="button"
+                    onClick={(e) => { e.stopPropagation(); unsaveMutation.mutate(message.id); }}
+                    className="p-1 text-(--color-text-secondary) hover:text-red-500 rounded shrink-0"
+                    title="Remove from Saved"
+                  >
+                    <X size={13} />
+                  </span>
+                </div>
+                <p className="text-sm text-(--color-text-primary) line-clamp-3">
+                  {message.content || <span className="italic text-(--color-text-secondary)">Attachment / poll</span>}
+                </p>
+                <p className="text-[10px] text-gray-300 mt-1">Saved {new Date(saved_at).toLocaleString()}</p>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── One message bubble (used for both root messages and thread replies) ────
 
 const MessageBubble: React.FC<{
@@ -456,17 +781,21 @@ const MessageBubble: React.FC<{
   canCompose: boolean;
   canDeleteAny?: boolean;
   myUserId?: string;
+  isSaved?: boolean;
+  seenBy?: PortalMessageRead['user'][];
   onReply: () => void;
   onOpenProfile: (userId: string) => void;
   mentionMap: Map<string, string>;
-}> = ({ message: m, projectId, canCompose, canDeleteAny, myUserId, onReply, onOpenProfile, mentionMap }) => {
+}> = ({ message: m, projectId, canCompose, canDeleteAny, myUserId, isSaved, seenBy, onReply, onOpenProfile, mentionMap }) => {
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
+  const [showFullEmojiPicker, setShowFullEmojiPicker] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(m.content);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [lightboxAlt, setLightboxAlt] = useState('attachment');
   const [copied, setCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [showEditHistory, setShowEditHistory] = useState(false);
   const qc = useQueryClient();
   const toast = useToastContext();
   const isOwn = m.user?.id === myUserId;
@@ -494,6 +823,15 @@ const MessageBubble: React.FC<{
     onError: () => toast?.error?.(m.is_pinned ? 'Failed to unpin' : 'Failed to pin'),
   });
 
+  const saveMessage = useMutation({
+    mutationFn: () =>
+      apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_SAVE(projectId, m.id), {
+        method: isSaved ? 'DELETE' : 'POST',
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['portal', 'messages-saved', projectId] }),
+    onError: () => toast?.error?.(isSaved ? 'Failed to unsave' : 'Failed to save'),
+  });
+
   const mentionable = useMentionableUsers(projectId);
   // Mentions are re-derived from the edited text (same as a new message),
   // so adding a name notifies them and removing one drops it.
@@ -517,6 +855,7 @@ const MessageBubble: React.FC<{
     const alreadyReacted = (m.reactions || []).some((r) => r.emoji === emoji && r.user_id === myUserId);
     toggleReaction.mutate({ emoji, remove: alreadyReacted });
     setReactionPickerOpen(false);
+    setShowFullEmojiPicker(false);
   };
 
   const attachments = messageAttachments(m);
@@ -550,9 +889,10 @@ const MessageBubble: React.FC<{
   };
 
   const reactionChips = aggregateReactions(m.reactions, myUserId);
-  const canCopy = !!(m.content && m.content.trim());
+  const canCopy = !!(m.content && m.content.trim()) && !m.poll;
   // Always show the action strip — copy-link is available on every message.
   const showActions = !editing;
+  const isEdited = !!(m.is_edited || (m.updated_at && m.updated_at !== m.created_at));
 
   const handleCopy = async () => {
     if (!canCopy) return;
@@ -607,7 +947,16 @@ const MessageBubble: React.FC<{
           </button>
           <span className="text-[12px] text-(--color-text-secondary)">
             {new Date(m.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-            {m.updated_at && m.updated_at !== m.created_at && <span className="italic"> (edited)</span>}
+            {isEdited && (
+              <button
+                type="button"
+                onClick={() => setShowEditHistory(true)}
+                className="italic ml-1 hover:underline hover:text-primary-600"
+                title="View edit history"
+              >
+                (edited)
+              </button>
+            )}
           </span>
           {m.is_pinned && (
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700">
@@ -641,6 +990,13 @@ const MessageBubble: React.FC<{
               </button>
             </div>
           </div>
+        ) : m.poll ? (
+          <PollCard
+            poll={m.poll}
+            projectId={projectId}
+            currentUserId={myUserId}
+            canClose={canDeleteAny}
+          />
         ) : (
           m.content && (
             <>
@@ -715,6 +1071,8 @@ const MessageBubble: React.FC<{
             ))}
           </div>
         )}
+
+        {isOwn && seenBy && seenBy.length > 0 && <SeenByIndicator users={seenBy} />}
       </div>
 
       {showActions && !editing && (
@@ -739,7 +1097,7 @@ const MessageBubble: React.FC<{
             {canCompose && (
               <>
                 <button
-                  onClick={() => setReactionPickerOpen((v) => !v)}
+                  onClick={() => { setReactionPickerOpen((v) => !v); setShowFullEmojiPicker(false); }}
                   className="flex items-center justify-center h-7 w-7 rounded-md text-(--color-text-secondary) hover:bg-(--color-state-hover)"
                   title="Add reaction"
                 >
@@ -767,7 +1125,18 @@ const MessageBubble: React.FC<{
                 )}
               </>
             )}
-            {isOwn && (
+            <button
+              onClick={() => saveMessage.mutate()}
+              disabled={saveMessage.isPending}
+              className={cn(
+                'flex items-center justify-center h-7 w-7 rounded-md hover:bg-(--color-state-hover) disabled:opacity-50',
+                isSaved ? 'text-blue-600' : 'text-(--color-text-secondary)'
+              )}
+              title={isSaved ? 'Remove from Saved' : 'Save message'}
+            >
+              <Bookmark size={14} fill={isSaved ? 'currentColor' : 'none'} />
+            </button>
+            {isOwn && !m.poll && (
               <button
                 onClick={() => setEditing(true)}
                 className="flex items-center justify-center h-7 w-7 rounded-md text-(--color-text-secondary) hover:bg-(--color-state-hover)"
@@ -793,6 +1162,23 @@ const MessageBubble: React.FC<{
                     {e}
                   </button>
                 ))}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowFullEmojiPicker((v) => !v)}
+                    className="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-amber-500"
+                    title="More reactions"
+                  >
+                    <Smile size={14} />
+                  </button>
+                  {showFullEmojiPicker && (
+                    <EmojiPicker
+                      align="right"
+                      onSelect={(emoji) => handleToggleReaction(emoji)}
+                      onClose={() => setShowFullEmojiPicker(false)}
+                    />
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -819,6 +1205,10 @@ const MessageBubble: React.FC<{
           />
         </div>
       )}
+
+      {showEditHistory && (
+        <EditHistoryModal projectId={projectId} messageId={m.id} onClose={() => setShowEditHistory(false)} />
+      )}
     </div>
   );
 };
@@ -832,16 +1222,27 @@ const Thread: React.FC<{
   canCompose: boolean;
   canDeleteAny?: boolean;
   myUserId?: string;
+  savedIds?: Set<string>;
+  seenByForMessageId?: string | null;
+  seenByUsers?: PortalMessageRead['user'][];
   initiallyExpanded?: boolean;
   onOpenProfile: (userId: string) => void;
   mentionMap: Map<string, string>;
-}> = ({ root, replies, projectId, canCompose, canDeleteAny, myUserId, initiallyExpanded, onOpenProfile, mentionMap }) => {
+}> = ({ root, replies, projectId, canCompose, canDeleteAny, myUserId, savedIds, seenByForMessageId, seenByUsers, initiallyExpanded, onOpenProfile, mentionMap }) => {
   const [expanded, setExpanded] = useState(!!initiallyExpanded);
   const [replying, setReplying] = useState(false);
 
+  const bubbleProps = { projectId, canCompose, canDeleteAny, myUserId, onOpenProfile, mentionMap };
+
   return (
     <div className="flex flex-col gap-2">
-      <MessageBubble message={root} projectId={projectId} canCompose={canCompose} canDeleteAny={canDeleteAny} myUserId={myUserId} onReply={() => { setExpanded(true); setReplying(true); }} onOpenProfile={onOpenProfile} mentionMap={mentionMap} />
+      <MessageBubble
+        message={root}
+        {...bubbleProps}
+        isSaved={savedIds?.has(root.id)}
+        seenBy={seenByForMessageId === root.id ? seenByUsers : undefined}
+        onReply={() => { setExpanded(true); setReplying(true); }}
+      />
 
       {replies.length > 0 && (
         <button
@@ -856,7 +1257,14 @@ const Thread: React.FC<{
       {expanded && (
         <div className="flex flex-col gap-2 ml-5 pl-4 border-l-2 border-(--color-border)">
           {replies.map((r) => (
-            <MessageBubble key={r.id} message={r} projectId={projectId} canCompose={canCompose} canDeleteAny={canDeleteAny} myUserId={myUserId} onReply={() => setReplying(true)} onOpenProfile={onOpenProfile} mentionMap={mentionMap} />
+            <MessageBubble
+              key={r.id}
+              message={r}
+              {...bubbleProps}
+              isSaved={savedIds?.has(r.id)}
+              seenBy={seenByForMessageId === r.id ? seenByUsers : undefined}
+              onReply={() => setReplying(true)}
+            />
           ))}
           {canCompose && replying && (
             <Composer
@@ -909,22 +1317,29 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   const location = useLocation();
   const highlightMessageId = useMemo(() => new URLSearchParams(location.search).get('message'), [location.search]);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
+  const [showSavedPanel, setShowSavedPanel] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const [typingUsers, setTypingUsers] = useState<Map<string, { first_name: string | null; last_name: string | null }>>(new Map());
   const [viewingUsers, setViewingUsers] = useState<Map<string, { first_name: string | null; last_name: string | null }>>(new Map());
   const unreadSinceRef = useRef<{ projectId: string; at: string | null } | null>(null);
-  const { data: messagesPayload, isLoading } = useQuery<{ records: PortalMessage[]; last_read_at: string | null }>({
+  const { data: messagesPayload, isLoading } = useQuery<{
+    records: PortalMessage[];
+    last_read_at: string | null;
+    message_reads: PortalMessageRead[];
+  }>({
     queryKey: ['portal', 'messages', projectId],
     queryFn: async () => {
       const r = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES(projectId));
       return {
         records: r?.payload?.records || [],
         last_read_at: r?.payload?.last_read_at || null,
+        message_reads: r?.payload?.message_reads || [],
       };
     },
   });
   const data = messagesPayload?.records;
+  const messageReads = messagesPayload?.message_reads || [];
   // Capture last_read_at from the first successful fetch for this project so
   // the unread divider survives the subsequent mark-read call.
   if (messagesPayload && unreadSinceRef.current?.projectId !== projectId) {
@@ -934,7 +1349,31 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
     ? unreadSinceRef.current.at
     : null;
 
+  const { data: savedEntries = [] } = useQuery<{ saved_at: string; message: PortalMessage }[]>({
+    queryKey: ['portal', 'messages-saved', projectId],
+    queryFn: async () => {
+      const r = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES_SAVED(projectId));
+      return r?.payload?.records || [];
+    },
+  });
+  const savedIds = useMemo(() => new Set(savedEntries.map((s) => s.message.id)), [savedEntries]);
+
   const pinned = useMemo(() => (data || []).filter((m) => m.is_pinned && !m.parent_id), [data]);
+
+  const lastOwnMsg = useMemo(() => {
+    if (!user?.id || !data?.length) return null;
+    for (let i = data.length - 1; i >= 0; i -= 1) {
+      if (data[i].user?.id === user.id) return data[i];
+    }
+    return null;
+  }, [data, user?.id]);
+
+  const seenByUsers = useMemo(() => {
+    if (!lastOwnMsg) return [];
+    return messageReads
+      .filter((r) => r.last_read_at && new Date(r.last_read_at) >= new Date(lastOwnMsg.created_at))
+      .map((r) => r.user);
+  }, [messageReads, lastOwnMsg]);
 
   // Same query/key the Composer's @mention picker already uses (React
   // Query dedupes the request across the two mount points) — needed here
@@ -1100,6 +1539,16 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
 
   return (
     <div className="h-full flex flex-col gap-4 bg-white">
+      <div className="shrink-0 flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setShowSavedPanel(true)}
+          className="flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-xs font-semibold text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-blue-600"
+          title="Saved messages"
+        >
+          <Bookmark size={14} /> Saved{savedEntries.length > 0 ? ` (${savedEntries.length})` : ''}
+        </button>
+      </div>
       {pinned.length > 0 && (
         <div className="shrink-0 rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2">
           <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-amber-800 mb-1.5">
@@ -1159,6 +1608,9 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
                 canCompose={canCompose}
                 canDeleteAny={canDeleteAny}
                 myUserId={user?.id}
+                savedIds={savedIds}
+                seenByForMessageId={lastOwnMsg?.id || null}
+                seenByUsers={seenByUsers}
                 initiallyExpanded={targetIsInThisThread}
                 onOpenProfile={setProfileUserId}
                 mentionMap={mentionMap}
@@ -1193,6 +1645,18 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
 
       {profileUserId && (
         <ProfileSidePanel projectId={projectId} userId={profileUserId} onClose={() => setProfileUserId(null)} />
+      )}
+      {showSavedPanel && (
+        <SavedMessagesPanel
+          projectId={projectId}
+          onClose={() => setShowSavedPanel(false)}
+          onJump={(messageId) => {
+            const el = document.getElementById(`portal-message-${messageId}`);
+            el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el?.classList.add('ring-2', 'ring-primary-400');
+            window.setTimeout(() => el?.classList.remove('ring-2', 'ring-primary-400'), 2000);
+          }}
+        />
       )}
     </div>
   );

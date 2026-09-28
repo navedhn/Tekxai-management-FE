@@ -60,6 +60,30 @@ export const messageAttachments = (m: Pick<PortalMessage, 'attachments' | 'attac
   return [{ id: null, file_key: m.attachment_file_key, file_name: m.attachment_file_name, mime_type: m.attachment_mime_type, size_bytes: m.attachment_size_bytes }];
 };
 
+export type PortalPoll = {
+  id: string;
+  question: string;
+  options: string[];
+  is_closed: boolean;
+  closes_at: string | null;
+  created_by_id: string;
+  votes: Array<{ user_id: string; option_index: number }>;
+};
+
+export type PortalMessageRead = {
+  user_id: string;
+  last_read_at: string | null;
+  user: { id: string; first_name: string; last_name: string; avatar?: string | null };
+};
+
+export type PortalMessageEdit = {
+  id: string;
+  previous_content: string;
+  edited_by_id: string;
+  created_at: string;
+  edited_by: { id: string; first_name: string; last_name: string };
+};
+
 export type PortalMessage = {
   id: string;
   content: string;
@@ -81,6 +105,9 @@ export type PortalMessage = {
   is_pinned?: boolean;
   pinned_at?: string | null;
   pinned_by?: { id: string; first_name: string; last_name: string } | null;
+  poll?: PortalPoll | null;
+  is_edited?: boolean;
+  edited_at?: string | null;
 };
 
 export type PortalFile = {
