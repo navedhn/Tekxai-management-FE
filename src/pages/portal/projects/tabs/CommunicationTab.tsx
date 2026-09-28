@@ -509,7 +509,7 @@ const MessageBubble: React.FC<{
   return (
     <div
       id={`portal-message-${m.id}`}
-      className="group relative flex items-start gap-3 px-2 py-2 -mx-1 rounded-lg hover:bg-(--color-state-hover)/60 transition-colors [overflow-wrap:anywhere]"
+      className="group relative flex items-start gap-3 px-2 py-2 -mx-1 rounded-lg hover:bg-(--color-state-hover)/60 transition-colors"
     >
       <button
         type="button"
@@ -570,7 +570,7 @@ const MessageBubble: React.FC<{
           m.content && (
             <RichText
               content={m.content}
-              className="text-[15px] leading-relaxed text-(--color-text-primary) mt-0.5"
+              className="text-[15px] leading-relaxed text-(--color-text-primary) mt-0.5 [overflow-wrap:anywhere]"
               mentionMap={mentionMap}
               onMentionClick={onOpenProfile}
             />
@@ -626,7 +626,9 @@ const MessageBubble: React.FC<{
                     role="tooltip"
                     className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-30 hidden group-hover/reaction:block group-focus-within/reaction:block"
                   >
-                    <div className="max-w-[220px] px-2.5 py-1.5 rounded-lg bg-gray-900 text-white text-[11px] font-semibold leading-snug shadow-lg whitespace-normal text-center">
+                    {/* w-max + overflow-wrap:normal: abspos over a narrow chip otherwise
+                        shrink-wraps names into a 1-char-wide vertical strip. */}
+                    <div className="w-max max-w-[220px] px-2.5 py-1.5 rounded-lg bg-gray-900 text-white text-[11px] font-semibold leading-snug shadow-lg whitespace-normal text-center [overflow-wrap:normal] break-words">
                       {r.names.join(', ')}
                     </div>
                   </div>
