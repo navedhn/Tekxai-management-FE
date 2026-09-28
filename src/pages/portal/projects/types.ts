@@ -78,6 +78,9 @@ export type PortalMessage = {
   attachments?: PortalMessageAttachment[];
   reactions: Array<{ id: string; user_id: string; emoji: string; user: { id: string; first_name: string; last_name: string } }>;
   mentions: string[];
+  is_pinned?: boolean;
+  pinned_at?: string | null;
+  pinned_by?: { id: string; first_name: string; last_name: string } | null;
 };
 
 export type PortalFile = {

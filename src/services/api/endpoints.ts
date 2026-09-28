@@ -720,6 +720,8 @@ export const API_ENDPOINTS = {
     MESSAGE_ATTACHMENT_VIEW_URL: (id: string, messageId: string, attachmentId?: string | null) =>
       `${v1}/portal/projects/${id}/messages/${messageId}/attachment-view-url${attachmentId ? `?attachment_id=${encodeURIComponent(attachmentId)}` : ''}`,
     MESSAGE_REACTIONS: (id: string, messageId: string) => `${v1}/portal/projects/${id}/messages/${messageId}/reactions`,
+    MESSAGE_PIN:       (id: string, messageId: string) => `${v1}/portal/projects/${id}/messages/${messageId}/pin`,
+    MESSAGES_PINNED:   (id: string) => `${v1}/portal/projects/${id}/messages/pinned`,
     MESSAGES_READ: (id: string) => `${v1}/portal/projects/${id}/messages/read`,
     UNREAD_COUNTS: `${v1}/portal/unread-counts`,
     MENTIONABLE_USERS: (id: string) => `${v1}/portal/projects/${id}/mentionable-users`,

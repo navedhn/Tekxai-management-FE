@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { RichText } from './richText';
+import { RichText, extractMessageUrls, MessageLinkPreviews } from './richText';
 
 describe('RichText headings', () => {
   it('renders #, ## and ### lines as bold headings without the hashes', () => {
@@ -30,5 +30,29 @@ describe('RichText headings', () => {
     expect(strong.className).toContain('font-bold!');
     expect(screen.queryByText(/\*\*/)).not.toBeInTheDocument();
     expect(screen.getByText('Next line')).toBeInTheDocument();
+  });
+
+  it('renders markdown links, strikethrough, and numbered lists', () => {
+    render(<RichText content={'See [docs](https://example.com/docs) and ~~old~~\n1. first\n2. second'} />);
+    const link = screen.getByRole('link', { name: 'docs' });
+    expect(link).toHaveAttribute('href', 'https://example.com/docs');
+    expect(screen.getByText('old').tagName).toBe('DEL');
+    const items = screen.getAllByRole('listitem');
+    expect(items.map((li) => li.textContent)).toEqual(['first', 'second']);
+  });
+});
+
+describe('extractMessageUrls / MessageLinkPreviews', () => {
+  it('dedupes markdown and bare urls', () => {
+    expect(extractMessageUrls('a https://a.com/x and [b](https://a.com/x) plus https://b.com')).toEqual([
+      'https://a.com/x',
+      'https://b.com',
+    ]);
+  });
+
+  it('renders hostname cards and image embeds', () => {
+    render(<MessageLinkPreviews content={'https://example.com/path\nhttps://cdn.example.com/pic.png'} />);
+    expect(screen.getByText('example.com')).toBeInTheDocument();
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'https://cdn.example.com/pic.png');
   });
 });

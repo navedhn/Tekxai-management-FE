@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Paperclip, FileText, X, Smile, Reply, Bold, Italic, Code, Link2, Loader2, ChevronDown, ChevronRight, Pencil, Trash2, Check, Copy } from 'lucide-react';
+import { Send, Paperclip, FileText, X, Smile, Reply, Bold, Italic, Code, Link2, Loader2, ChevronDown, ChevronRight, Pencil, Trash2, Check, Copy, Pin, Link as LinkIcon } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useMyPermissions } from '@/services/permissionsService';
@@ -11,7 +11,7 @@ import { cn } from '@/utils/cn';
 import { TableSkeleton } from '@/components/skeletons';
 import EmojiPicker from '@/pages/chat/EmojiPicker';
 import { getSocket } from '@/lib/socket';
-import { RichText } from '../richText';
+import { RichText, MessageLinkPreviews } from '../richText';
 import { PortalMessage, messageAttachments } from '../types';
 import ProfileSidePanel from '../ProfileSidePanel';
 import MentionTextarea, { extractMentionIds, useMentionableUsers } from '../MentionTextarea';
@@ -130,21 +130,32 @@ function wrapSelection(el: HTMLTextAreaElement, before: string, after: string, v
 
 // ── Reusable composer — the main box and each thread's inline reply box ────
 
-// Messages render bare URLs as links (there's no [text](url) syntax), so a
-// link is inserted as "text (url)" around a selection, or as the URL alone.
+// Inserts markdown [label](url) — RichText renders both this and bare URLs.
 function insertLink(el: HTMLTextAreaElement, value: string, setValue: (v: string) => void) {
   const url = window.prompt('Link URL', 'https://')?.trim();
   if (!url || url === 'https://') return;
   const href = /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url}`;
   const start = el.selectionStart ?? value.length;
   const end = el.selectionEnd ?? value.length;
-  const selected = value.slice(start, end);
-  const inserted = selected ? `${selected} (${href})` : href;
+  const selected = value.slice(start, end) || 'link';
+  const inserted = `[${selected}](${href})`;
   setValue(value.slice(0, start) + inserted + value.slice(end));
   window.requestAnimationFrame(() => {
     el.focus();
-    el.selectionStart = el.selectionEnd = start + inserted.length;
+    el.selectionStart = start + 1;
+    el.selectionEnd = start + 1 + selected.length;
   });
+}
+
+function presenceLabel(u: { first_name: string | null; last_name: string | null }) {
+  return [u.first_name, u.last_name].filter(Boolean).join(' ').trim() || 'Someone';
+}
+
+function formatTypingLabel(users: { first_name: string | null; last_name: string | null }[]) {
+  if (users.length === 0) return null;
+  if (users.length === 1) return `${presenceLabel(users[0])} is typing…`;
+  if (users.length === 2) return `${presenceLabel(users[0])} and ${presenceLabel(users[1])} are typing…`;
+  return `${users.length} people are typing…`;
 }
 
 const ToolbarButton: React.FC<{ title: string; onClick: () => void; disabled?: boolean; children: React.ReactNode }> = ({ title, onClick, disabled, children }) => (
@@ -175,10 +186,38 @@ const Composer: React.FC<{
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const typingStopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const qc = useQueryClient();
   const toast = useToastContext();
 
   const mentionable = useMentionableUsers(projectId);
+
+  const stopTyping = () => {
+    if (typingStopTimer.current) {
+      clearTimeout(typingStopTimer.current);
+      typingStopTimer.current = null;
+    }
+    getSocket()?.emit('project:typing:stop', { projectId });
+  };
+
+  const emitTyping = () => {
+    const socket = getSocket();
+    if (!socket) return;
+    socket.emit('project:typing:start', { projectId });
+    if (typingStopTimer.current) clearTimeout(typingStopTimer.current);
+    typingStopTimer.current = setTimeout(() => {
+      socket.emit('project:typing:stop', { projectId });
+      typingStopTimer.current = null;
+    }, 2500);
+  };
+
+  useEffect(() => () => {
+    if (typingStopTimer.current) {
+      clearTimeout(typingStopTimer.current);
+      typingStopTimer.current = null;
+    }
+    getSocket()?.emit('project:typing:stop', { projectId });
+  }, [projectId]);
 
   const postMessage = (body: Record<string, unknown>) =>
     apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES(projectId), { method: 'POST', body: JSON.stringify(body) });
@@ -220,6 +259,7 @@ const Composer: React.FC<{
   const handleSend = async () => {
     if (!content.trim() && !pendingAttachments.length) return;
     const mentions = extractMentionIds(content, mentionable);
+    stopTyping();
     setSending(true);
     try {
       await postMessage({
@@ -354,7 +394,11 @@ const Composer: React.FC<{
             className={composerInputCls}
             placeholder="Write a message... (@ to mention, @everyone for all, Enter to send, Ctrl+Enter for new line)"
             value={content}
-            onChange={setContent}
+            onChange={(v) => {
+              setContent(v);
+              if (v.trim()) emitTyping();
+              else stopTyping();
+            }}
             onPaste={handlePaste}
             onSubmit={() => { if (!sending && !uploading) void handleSend(); }}
             autoFocus={autoFocus}
@@ -422,9 +466,11 @@ const MessageBubble: React.FC<{
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [lightboxAlt, setLightboxAlt] = useState('attachment');
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const qc = useQueryClient();
   const toast = useToastContext();
   const isOwn = m.user?.id === myUserId;
+  const isRoot = !m.parent_id;
 
   const toggleReaction = useMutation({
     mutationFn: ({ emoji, remove }: { emoji: string; remove: boolean }) =>
@@ -434,6 +480,18 @@ const MessageBubble: React.FC<{
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] }),
     onError: () => toast?.error?.('Failed to update reaction'),
+  });
+
+  const pinMessage = useMutation({
+    mutationFn: () =>
+      apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGE_PIN(projectId, m.id), {
+        method: m.is_pinned ? 'DELETE' : 'POST',
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] });
+      qc.invalidateQueries({ queryKey: ['portal', 'messages-pinned', projectId] });
+    },
+    onError: () => toast?.error?.(m.is_pinned ? 'Failed to unpin' : 'Failed to pin'),
   });
 
   const mentionable = useMentionableUsers(projectId);
@@ -493,8 +551,8 @@ const MessageBubble: React.FC<{
 
   const reactionChips = aggregateReactions(m.reactions, myUserId);
   const canCopy = !!(m.content && m.content.trim());
-  // Copy is available to every viewer; react/reply/edit/delete keep their own gates.
-  const showActions = canCopy || canCompose || isOwn || !!canDeleteAny;
+  // Always show the action strip — copy-link is available on every message.
+  const showActions = !editing;
 
   const handleCopy = async () => {
     if (!canCopy) return;
@@ -504,6 +562,17 @@ const MessageBubble: React.FC<{
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
       toast?.error?.('Failed to copy message');
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      const url = `${window.location.origin}/portal/projects/${projectId}/communication?message=${m.id}`;
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 1500);
+    } catch {
+      toast?.error?.('Failed to copy link');
     }
   };
 
@@ -540,6 +609,11 @@ const MessageBubble: React.FC<{
             {new Date(m.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
             {m.updated_at && m.updated_at !== m.created_at && <span className="italic"> (edited)</span>}
           </span>
+          {m.is_pinned && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700">
+              <Pin size={11} fill="currentColor" /> Pinned
+            </span>
+          )}
         </div>
 
         {editing ? (
@@ -569,12 +643,15 @@ const MessageBubble: React.FC<{
           </div>
         ) : (
           m.content && (
-            <RichText
-              content={m.content}
-              className="text-[15px] leading-relaxed text-(--color-text-primary) mt-0.5 [overflow-wrap:anywhere]"
-              mentionMap={mentionMap}
-              onMentionClick={onOpenProfile}
-            />
+            <>
+              <RichText
+                content={m.content}
+                className="text-[15px] leading-relaxed text-(--color-text-primary) mt-0.5 [overflow-wrap:anywhere]"
+                mentionMap={mentionMap}
+                onMentionClick={onOpenProfile}
+              />
+              <MessageLinkPreviews content={m.content} />
+            </>
           )
         )}
 
@@ -652,6 +729,13 @@ const MessageBubble: React.FC<{
                 {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
               </button>
             )}
+            <button
+              onClick={handleCopyLink}
+              className="flex items-center justify-center h-7 w-7 rounded-md text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+              title={linkCopied ? 'Link copied' : 'Copy message link'}
+            >
+              {linkCopied ? <Check size={14} className="text-emerald-600" /> : <LinkIcon size={14} />}
+            </button>
             {canCompose && (
               <>
                 <button
@@ -668,6 +752,19 @@ const MessageBubble: React.FC<{
                 >
                   <Reply size={14} />
                 </button>
+                {isRoot && (
+                  <button
+                    onClick={() => pinMessage.mutate()}
+                    disabled={pinMessage.isPending}
+                    className={cn(
+                      'flex items-center justify-center h-7 w-7 rounded-md hover:bg-(--color-state-hover) disabled:opacity-50',
+                      m.is_pinned ? 'text-amber-600' : 'text-(--color-text-secondary)'
+                    )}
+                    title={m.is_pinned ? 'Unpin message' : 'Pin message'}
+                  >
+                    <Pin size={14} fill={m.is_pinned ? 'currentColor' : 'none'} />
+                  </button>
+                )}
               </>
             )}
             {isOwn && (
@@ -814,11 +911,30 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const { data, isLoading } = useQuery<PortalMessage[]>({
+  const [typingUsers, setTypingUsers] = useState<Map<string, { first_name: string | null; last_name: string | null }>>(new Map());
+  const [viewingUsers, setViewingUsers] = useState<Map<string, { first_name: string | null; last_name: string | null }>>(new Map());
+  const unreadSinceRef = useRef<{ projectId: string; at: string | null } | null>(null);
+  const { data: messagesPayload, isLoading } = useQuery<{ records: PortalMessage[]; last_read_at: string | null }>({
     queryKey: ['portal', 'messages', projectId],
-    queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES(projectId)),
-    select: (r: any) => r?.payload?.records || [],
+    queryFn: async () => {
+      const r = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES(projectId));
+      return {
+        records: r?.payload?.records || [],
+        last_read_at: r?.payload?.last_read_at || null,
+      };
+    },
   });
+  const data = messagesPayload?.records;
+  // Capture last_read_at from the first successful fetch for this project so
+  // the unread divider survives the subsequent mark-read call.
+  if (messagesPayload && unreadSinceRef.current?.projectId !== projectId) {
+    unreadSinceRef.current = { projectId, at: messagesPayload.last_read_at };
+  }
+  const effectiveUnreadSince = unreadSinceRef.current?.projectId === projectId
+    ? unreadSinceRef.current.at
+    : null;
+
+  const pinned = useMemo(() => (data || []).filter((m) => m.is_pinned && !m.parent_id), [data]);
 
   // Same query/key the Composer's @mention picker already uses (React
   // Query dedupes the request across the two mount points) — needed here
@@ -859,6 +975,63 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
       .catch(() => {});
   }, [projectId, qc]);
 
+  // Typing + who's-viewing presence for this project Communication tab.
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    socket.emit('project:viewing:start', { projectId });
+    const onTyping = (payload: {
+      projectId?: string;
+      userId: string;
+      first_name?: string | null;
+      last_name?: string | null;
+      typing: boolean;
+    }) => {
+      if (payload.projectId && payload.projectId !== projectId) return;
+      if (payload.userId === user?.id) return;
+      setTypingUsers((prev) => {
+        const next = new Map(prev);
+        if (payload.typing) next.set(payload.userId, { first_name: payload.first_name ?? null, last_name: payload.last_name ?? null });
+        else next.delete(payload.userId);
+        return next;
+      });
+    };
+    const onViewing = (payload: {
+      projectId?: string;
+      userId: string;
+      first_name?: string | null;
+      last_name?: string | null;
+      viewing: boolean;
+    }) => {
+      if (payload.projectId && payload.projectId !== projectId) return;
+      if (payload.userId === user?.id) return;
+      setViewingUsers((prev) => {
+        const next = new Map(prev);
+        const wasKnown = next.has(payload.userId);
+        if (payload.viewing) next.set(payload.userId, { first_name: payload.first_name ?? null, last_name: payload.last_name ?? null });
+        else next.delete(payload.userId);
+        // Handshake so a newly joined viewer learns who was already here.
+        if (payload.viewing && !wasKnown) {
+          socket.emit('project:viewing:start', { projectId });
+        }
+        return next;
+      });
+    };
+    socket.on('project:typing:update', onTyping);
+    socket.on('project:viewing:update', onViewing);
+    return () => {
+      socket.emit('project:viewing:stop', { projectId });
+      socket.emit('project:typing:stop', { projectId });
+      socket.off('project:typing:update', onTyping);
+      socket.off('project:viewing:update', onViewing);
+      setTypingUsers(new Map());
+      setViewingUsers(new Map());
+    };
+  }, [projectId, user?.id]);
+
+  const typingLabel = formatTypingLabel(Array.from(typingUsers.values()));
+  const viewingList = Array.from(viewingUsers.values()).map(presenceLabel);
+
   // Real-time — the socket auto-joins every project room this user has
   // access to on connect (see be-work's shared/socket/index.js), so no
   // explicit room:join call is needed here, just the listener. New messages
@@ -870,8 +1043,17 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
-    const handleNewMessage = (message: PortalMessage & { project_id?: string }) => {
+    const handleNewMessage = (message: PortalMessage & { project_id?: string; user_id?: string }) => {
       if (message.project_id && message.project_id !== projectId) return;
+      const authorId = message.user?.id || message.user_id;
+      if (authorId) {
+        setTypingUsers((prev) => {
+          if (!prev.has(authorId)) return prev;
+          const next = new Map(prev);
+          next.delete(authorId);
+          return next;
+        });
+      }
       qc.invalidateQueries({ queryKey: ['portal', 'messages', projectId] });
       apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES_READ(projectId), { method: 'POST' })
         .then(() => qc.invalidateQueries({ queryKey: ['portal', 'unread-counts'] }))
@@ -918,6 +1100,35 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
 
   return (
     <div className="h-full flex flex-col gap-4 bg-white">
+      {pinned.length > 0 && (
+        <div className="shrink-0 rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2">
+          <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-amber-800 mb-1.5">
+            <Pin size={12} fill="currentColor" /> Pinned
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {pinned.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById(`portal-message-${p.id}`);
+                  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  el?.classList.add('ring-2', 'ring-amber-400');
+                  window.setTimeout(() => el?.classList.remove('ring-2', 'ring-amber-400'), 2000);
+                }}
+                className="text-left px-2 py-1.5 rounded-lg hover:bg-amber-100/80 transition-colors"
+              >
+                <span className="text-xs font-semibold text-(--color-text-primary)">
+                  {senderName(p)}
+                </span>
+                <span className="block text-[13px] text-(--color-text-secondary) truncate">
+                  {p.content?.replace(/\s+/g, ' ').trim() || '(attachment)'}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-4 pr-1 bg-white">
         {roots.length === 0 && (
           <p className="text-sm text-(--color-text-secondary) py-10 text-center">No messages yet.</p>
@@ -927,9 +1138,20 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
           const targetIsInThisThread = !!highlightMessageId && (root.id === highlightMessageId || replies.some((r) => r.id === highlightMessageId));
           const prev = i > 0 ? roots[i - 1] : null;
           const showDateDivider = !prev || dayKey(prev.created_at) !== dayKey(root.created_at);
+          const watermarkMs = effectiveUnreadSince ? new Date(effectiveUnreadSince).getTime() : 0;
+          const rootIsUnread = !!user?.id && root.user?.id !== user.id && new Date(root.created_at).getTime() > watermarkMs;
+          const prevWasRead = !prev || !user?.id || prev.user?.id === user.id || new Date(prev.created_at).getTime() <= watermarkMs;
+          const showUnreadDivider = rootIsUnread && prevWasRead && watermarkMs > 0;
           return (
             <React.Fragment key={root.id}>
               {showDateDivider && <DateDivider iso={root.created_at} />}
+              {showUnreadDivider && (
+                <div className="flex items-center gap-3 py-1" role="separator" aria-label="New messages">
+                  <div className="flex-1 h-px bg-primary-300" />
+                  <span className="text-[11px] font-black uppercase tracking-wider text-primary-600 shrink-0">New messages</span>
+                  <div className="flex-1 h-px bg-primary-300" />
+                </div>
+              )}
               <Thread
                 root={root}
                 replies={replies}
@@ -947,9 +1169,26 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
       </div>
 
       {canCompose && (
-        <div className="shrink-0">
+        <div className="shrink-0 flex flex-col gap-1.5">
+          {(viewingList.length > 0 || typingLabel) && (
+            <div className="flex items-center justify-between gap-3 px-1 min-h-[18px] text-[12px] text-(--color-text-secondary)">
+              <span className="truncate">
+                {viewingList.length > 0
+                  ? viewingList.length === 1
+                    ? `${viewingList[0]} is here`
+                    : viewingList.length <= 3
+                      ? `${viewingList.join(', ')} are here`
+                      : `${viewingList.slice(0, 2).join(', ')} +${viewingList.length - 2} are here`
+                  : null}
+              </span>
+              <span className="truncate italic shrink-0">{typingLabel}</span>
+            </div>
+          )}
           <Composer projectId={projectId} onSent={() => {}} />
         </div>
+      )}
+      {!canCompose && typingLabel && (
+        <p className="shrink-0 text-[12px] italic text-(--color-text-secondary) px-1">{typingLabel}</p>
       )}
 
       {profileUserId && (

@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { ExternalLink } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
 // Markdown-lite renderer for Communication messages — same "small curated
@@ -8,20 +9,46 @@ import { cn } from '@/utils/cn';
 // CommunicationTab.tsx); this only ever renders plain text markers back
 // out, it never touches raw HTML.
 //
-// Supported inline: **bold**, *italic*, `code`, bare URLs (auto-linked).
+// Supported inline: **bold**, *italic*, `code`, ~~strike~~, [label](url),
+// bare URLs (auto-linked).
 // Supported block: "# ", "## ", "### " (up to six #) make a bold heading,
 // ChatGPT-style; a line starting with "- " or "* " groups into a bullet
-// list; everything else is a paragraph, blank lines separate paragraphs.
+// list; "1. " numbered lists; everything else is a paragraph, blank lines
+// separate paragraphs.
 // @Mentions (one or two capitalized words after @, matching how the
 // mention picker inserts them) are highlighted regardless of block type.
-//
-// No [text](url) markdown-link syntax — pasting rich text (Google Docs,
-// Notion, etc.) into the composer's plain <textarea> already strips that
-// kind of markup down to plain text before it's ever typed, so a message's
-// stored content never actually contains it; only the auto-link pass below
-// can recover anything clickable from a paste like that.
 
-const INLINE_RE = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)|(@everyone\b)|(@[A-Z][a-zA-Z'-]*(?:\s[A-Z][a-zA-Z'-]*)?)|(https?:\/\/[^\s<>()"']+)/g;
+const INLINE_RE =
+  /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)|(~~(.+?)~~)|(\[([^\]]+)\]\((https?:\/\/[^)\s]+)\))|(@everyone\b)|(@[A-Z][a-zA-Z'-]*(?:\s[A-Z][a-zA-Z'-]*)?)|(https?:\/\/[^\s<>()"']+)/g;
+
+const IMAGE_URL_RE = /\.(png|jpe?g|gif|webp|svg)(\?[#\w&=%-]*)?$/i;
+const URL_COLLECT_RE = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|(https?:\/\/[^\s<>()"']+)/g;
+
+/** Unique http(s) URLs from message body, for link / image preview cards. */
+export function extractMessageUrls(content: string, limit = 3): string[] {
+  if (!content) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  URL_COLLECT_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = URL_COLLECT_RE.exec(content)) && out.length < limit) {
+    const raw = match[2] || match[3];
+    if (!raw) continue;
+    const cleaned = raw.replace(/[.,;:]+$/, '');
+    if (seen.has(cleaned)) continue;
+    seen.add(cleaned);
+    out.push(cleaned);
+  }
+  return out;
+}
+
+function hostnameOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
 
 function renderInline(
   text: string,
@@ -40,18 +67,23 @@ function renderInline(
     if (match[1]) nodes.push(<strong key={key} className="font-bold! [font-family:var(--font-communication-sans)]!">{match[2]}</strong>);
     else if (match[3]) nodes.push(<em key={key} className="italic! [font-family:var(--font-communication-sans)]!">{match[4]}</em>);
     else if (match[5]) nodes.push(<code key={key} className="px-1 py-0.5 rounded bg-(--color-elevated) text-[0.9em] [font-family:var(--font-communication-mono)]">{match[6]}</code>);
-    else if (match[7]) {
-      // Broadcast mention — styled like a person mention, but not clickable
-      // (it isn't a single profile).
-      nodes.push(<span key={key} className="font-semibold text-primary-600 [font-family:var(--font-communication-sans)]!">{match[7]}</span>);
-    } else if (match[8]) {
-      // Mentions are stored as plain "@Name Name" text, not an id — resolve
-      // the display name back to a user id via the project's mentionable
-      // roster (built by the caller) so clicking one opens that person's
-      // profile, same as clicking a message author's name already does.
-      // A name that no longer resolves (renamed/removed user) just falls
-      // back to plain styled text instead of a dead button.
-      const mentionedId = mentionMap?.get(match[8].slice(1).toLowerCase());
+    else if (match[7]) nodes.push(<del key={key} className="text-(--color-text-secondary) [font-family:var(--font-communication-sans)]!">{match[8]}</del>);
+    else if (match[9]) {
+      nodes.push(
+        <a
+          key={key}
+          href={match[11]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary-600 underline hover:text-primary-700 break-all"
+        >
+          {match[10]}
+        </a>
+      );
+    } else if (match[12]) {
+      nodes.push(<span key={key} className="font-semibold text-primary-600 [font-family:var(--font-communication-sans)]!">{match[12]}</span>);
+    } else if (match[13]) {
+      const mentionedId = mentionMap?.get(match[13].slice(1).toLowerCase());
       if (mentionedId && onMentionClick) {
         nodes.push(
           <button
@@ -60,18 +92,15 @@ function renderInline(
             onClick={() => onMentionClick(mentionedId)}
             className="font-semibold text-primary-600 hover:underline cursor-pointer [font-family:var(--font-communication-sans)]!"
           >
-            {match[8]}
+            {match[13]}
           </button>
         );
       } else {
-        nodes.push(<span key={key} className="font-semibold text-primary-600 [font-family:var(--font-communication-sans)]!">{match[8]}</span>);
+        nodes.push(<span key={key} className="font-semibold text-primary-600 [font-family:var(--font-communication-sans)]!">{match[13]}</span>);
       }
-    } else if (match[9]) {
-      // Trailing punctuation (.,;:) commonly ends up glued to a bare URL
-      // when someone types/pastes it at the end of a sentence — strip it
-      // from the link itself so it doesn't 404, but keep it in the text.
-      const urlMatch = /^(.*?)([.,;:]+)$/.exec(match[9]);
-      const url = urlMatch ? urlMatch[1] : match[9];
+    } else if (match[14]) {
+      const urlMatch = /^(.*?)([.,;:]+)$/.exec(match[14]);
+      const url = urlMatch ? urlMatch[1] : match[14];
       const trailing = urlMatch ? urlMatch[2] : '';
       nodes.push(
         <a
@@ -92,7 +121,6 @@ function renderInline(
   return nodes;
 }
 
-// Heading sizes relative to the message text; everything past ### is just bold.
 const HEADING_CLASSES = ['text-[1.25em]', 'text-[1.15em]', 'text-[1.05em]'];
 
 export const RichText: React.FC<{
@@ -105,6 +133,7 @@ export const RichText: React.FC<{
   const lines = content.split('\n');
   const blocks: React.ReactNode[] = [];
   let bulletBuffer: string[] = [];
+  let numberBuffer: string[] = [];
 
   const flushBullets = (key: string) => {
     if (!bulletBuffer.length) return;
@@ -116,15 +145,31 @@ export const RichText: React.FC<{
     bulletBuffer = [];
   };
 
+  const flushNumbers = (key: string) => {
+    if (!numberBuffer.length) return;
+    blocks.push(
+      <ol key={key} className="list-decimal pl-5 my-1 space-y-0.5">
+        {numberBuffer.map((line, i) => <li key={i}>{renderInline(line, `${key}-${i}`, mentionMap, onMentionClick)}</li>)}
+      </ol>
+    );
+    numberBuffer = [];
+  };
+
   lines.forEach((line, idx) => {
     const bulletMatch = /^[-*]\s+(.*)$/.exec(line);
     if (bulletMatch) {
+      flushNumbers(`ol-${idx}`);
       bulletBuffer.push(bulletMatch[1]);
       return;
     }
+    const numberMatch = /^\d+\.\s+(.*)$/.exec(line);
+    if (numberMatch) {
+      flushBullets(`ul-${idx}`);
+      numberBuffer.push(numberMatch[1]);
+      return;
+    }
     flushBullets(`ul-${idx}`);
-    // Block-level <span>s, not <h1>-<h6>: everything renders inside one <p>,
-    // which can't legally contain heading elements.
+    flushNumbers(`ol-${idx}`);
     const headingMatch = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
     if (headingMatch) {
       const level = headingMatch[1].length;
@@ -147,10 +192,51 @@ export const RichText: React.FC<{
     }
   });
   flushBullets('ul-end');
+  flushNumbers('ol-end');
 
-  // The important modifier is required here: a global, unlayered
-  // `p, span { font-family: 'Inter' }` rule in index.css always wins over
-  // any Tailwind @layer utility regardless of specificity (unlayered CSS
-  // beats layered CSS per the cascade spec, layer order notwithstanding).
-  return <p className={cn('[font-family:var(--font-communication-sans)]!', className)}>{blocks}</p>;
+  return <div className={cn('[font-family:var(--font-communication-sans)]!', className)}>{blocks}</div>;
+};
+
+/** Hostname / image preview cards under a message (no OG scrape — URL fallback). */
+export const MessageLinkPreviews: React.FC<{ content: string; className?: string }> = ({ content, className }) => {
+  const urls = useMemo(() => extractMessageUrls(content), [content]);
+  if (!urls.length) return null;
+
+  return (
+    <div className={cn('flex flex-col gap-1.5 mt-1.5', className)}>
+      {urls.map((url) => {
+        if (IMAGE_URL_RE.test(url)) {
+          return (
+            <a
+              key={url}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-fit max-w-full overflow-hidden rounded-xl border border-(--color-border) bg-(--color-elevated)"
+            >
+              <img src={url} alt={hostnameOf(url)} className="max-h-52 max-w-full object-contain" loading="lazy" />
+            </a>
+          );
+        }
+        const host = hostnameOf(url);
+        return (
+          <a
+            key={url}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl border border-(--color-border) bg-(--color-elevated) hover:border-primary-300 transition-colors no-underline"
+          >
+            <ExternalLink size={14} className="shrink-0 mt-0.5 text-(--color-text-secondary)" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[11px] font-semibold uppercase tracking-wide text-(--color-text-secondary)">
+                {host}
+              </span>
+              <span className="block text-[13px] text-primary-600 truncate">{url}</span>
+            </span>
+          </a>
+        );
+      })}
+    </div>
+  );
 };
