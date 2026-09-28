@@ -1,5 +1,5 @@
 import React, { memo, Suspense, useEffect, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { LayoutDashboard, FolderKanban, LogOut, Users, ChevronDown, ChevronRight, Plus, Boxes, MessageCircle, FileText, ArrowLeft } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -234,8 +234,12 @@ const ClientPortalLayout: React.FC = memo(() => {
   const topbarTitle = usePortalTopbarStore((s) => s.title);
   const { userLogout } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const isSuperAdmin = role === 'SUPER_ADMIN';
   const [panel, setPanel] = useState<'spaces' | 'chats' | null>(null);
+  // Communication chat is full-bleed (no side gutters / max-width) so the
+  // thread can use the full main column like ClickUp Chat.
+  const isCommunicationFullBleed = /^\/portal\/projects\/[^/]+\/?$/.test(location.pathname);
 
   const handleLogout = () => {
     userLogout();
@@ -352,7 +356,13 @@ const ClientPortalLayout: React.FC = memo(() => {
         </header>
 
         <main className="flex-1 min-w-0">
-          <div className="p-6 lg:p-8 max-w-[1400px] mx-auto">
+          <div
+            className={cn(
+              isCommunicationFullBleed
+                ? 'py-6 lg:py-8 px-0 max-w-none w-full h-full'
+                : 'p-6 lg:p-8 max-w-[1400px] mx-auto'
+            )}
+          >
             <Suspense fallback={<RoutePageSkeleton />}>
               <Outlet />
             </Suspense>

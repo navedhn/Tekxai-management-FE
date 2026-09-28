@@ -107,7 +107,7 @@ const PortalProjectDetailPage: React.FC = () => {
         isCommunication ? '-mb-6 lg:-mb-8 pb-4 h-[calc(100dvh-7.5rem)] lg:h-[calc(100dvh-4rem)] bg-white' : 'pb-10'
       )}
     >
-      <div className="flex items-center gap-2 border-b border-(--color-border) shrink-0">
+      <div className={cn('flex items-center gap-2 border-b border-(--color-border) shrink-0', isCommunication && 'px-4 lg:px-6')}>
       <div className="flex items-center gap-1 overflow-x-auto flex-1 min-w-0">
         <button
           onClick={() => goToPage('communication')}
@@ -159,7 +159,7 @@ const PortalProjectDetailPage: React.FC = () => {
         )}
       </div>
 
-      <div className="flex-1 min-h-0 flex flex-col">
+      <div className={cn('flex-1 min-h-0 flex flex-col', isCommunication && 'px-4 lg:px-6')}>
         {showingMilestones ? (
           <div className="flex flex-col gap-4">
             {activeMilestoneView === 'dashboard' && (
