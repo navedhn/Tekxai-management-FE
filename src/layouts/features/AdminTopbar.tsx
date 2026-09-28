@@ -1,20 +1,14 @@
 import React, { memo, useState, useRef, useEffect } from 'react';
-import { Menu, Bell, User, LogOut, HelpCircle, ChevronDown, ArrowLeftRight, Moon, Sun, LayoutDashboard, Home, Globe2 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { useAuth } from '@/hooks/useAuth';
+import { Menu, Bell, HelpCircle, Moon, Sun } from 'lucide-react';
 import NotificationDropdown from './NotificationDropdown';
 import { useNotifications } from '@/services/notificationService';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { getPageTitle } from './pageTitles';
-import { useMyPermissions } from '@/services/permissionsService';
 import { useColorMode } from '@/hooks/useColorMode';
 import { useTopbarExtraStore } from '@/stores/topbarExtraStore';
 import { cn } from '@/utils/cn';
-import { apiRequest } from '@/lib/queryClient';
-import { API_ENDPOINTS } from '@/services/api/endpoints';
+import ProfileWorkspaceMenu from './ProfileWorkspaceMenu';
 
-import ActionModal from '@/components/ui/ActionModal';
 import ChatMessagePopup from '@/components/chatPopup/ChatMessagePopup';
 
 export type AdminTopbarProps = { onMenu: () => void; routePrefix?: string; fullWidth?: boolean; title?: string };
@@ -28,99 +22,22 @@ const iconBtnClass = cn(
 );
 
 const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/admin', fullWidth = false, title: titleOverride }) => {
-    const { user, userLogout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const [isNotifOpen, setIsNotifOpen] = useState(false);
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
-    const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
-    const [isLoggingOut, setIsLoggingOut] = useState(false);
     const { data: notifData } = useNotifications(10);
     const unreadCount = notifData?.unread_count ?? 0;
     const notifBtnRef = useRef<HTMLButtonElement>(null);
-    const profileRef = useRef<HTMLDivElement>(null);
     const { isDark, toggleColorMode } = useColorMode();
     const topbarExtra = useTopbarExtraStore((s) => s.extra);
     const hideTopbarTitle = useTopbarExtraStore((s) => s.hideTitle);
-
-    const { data: myPerms } = useMyPermissions();
-    const canAccessCrm = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('crm.workspace.access');
-    const crmAppUrl = import.meta.env.VITE_CRM_APP_URL as string | undefined;
-    const canAccessAdmin =
-      !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.workspace.access');
-    const canAccessEmployee =
-      !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.employee_workspace.access');
-    // Portal is invite-gated for ordinary INTERNAL users (see portal.controller
-    // list_portal_projects). SUPER_ADMIN and CLIENT accounts always qualify;
-    // otherwise probe the projects list once and cache — empty means no link.
-    const needsPortalProbe =
-      !!user &&
-      user.user_type === 'INTERNAL' &&
-      !myPerms?.is_super_admin &&
-      !myPerms?.permissions?.some((p) => p.startsWith('client.'));
-    const { data: portalProbe } = useQuery({
-      queryKey: ['portal-access-check', user?.id],
-      queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.PROJECTS),
-      enabled: needsPortalProbe,
-      staleTime: 5 * 60 * 1000,
-      retry: false,
-    });
-    const portalProjectCount =
-      portalProbe?.payload?.total ?? portalProbe?.payload?.records?.length ?? 0;
-    const canAccessPortal =
-      !!myPerms?.is_super_admin ||
-      user?.user_type === 'CLIENT' ||
-      !!myPerms?.permissions?.some((p) => p.startsWith('client.')) ||
-      (needsPortalProbe && portalProjectCount > 0);
-
-    const onAdmin = location.pathname.startsWith('/admin');
-    const onEmployee = location.pathname.startsWith('/employee');
-    const onPortal = location.pathname.startsWith('/portal');
-    const showAdminSwitch = canAccessAdmin && !onAdmin;
-    const showEmployeeSwitch = canAccessEmployee && !onEmployee;
-    const showPortalSwitch = canAccessPortal && !onPortal;
-    const showCrmSwitch = canAccessCrm && !!crmAppUrl;
-    const showWorkspaceSwitch =
-      showAdminSwitch || showEmployeeSwitch || showPortalSwitch || showCrmSwitch;
 
     const { title: routeTitle } = getPageTitle(location.pathname, routePrefix);
     const title = titleOverride ?? routeTitle;
 
     useEffect(() => {
-        setIsProfileOpen(false);
         setIsNotifOpen(false);
     }, [location.pathname]);
-
-    useEffect(() => {
-        const handler = (e: MouseEvent) => {
-            if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
-                setIsProfileOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, []);
-
-    const handleLogout = async () => {
-        setIsLoggingOut(true);
-        try {
-            await userLogout();
-            navigate('/login');
-        } catch (error) {
-            console.error('Logout error:', error);
-        } finally {
-            setIsLoggingOut(false);
-            setIsLogoutModalOpen(false);
-        }
-    };
-
-    const displayName = user?.first_name
-        ? `${user.first_name} ${user.last_name || ''}`.trim()
-        : 'User';
-    const roleLabel = user?.role_name ? user.role_name.replace(/_/g, ' ') : 'Employee';
-    const avatarSrc =
-        user?.avatar ||
-        `https://ui-avatars.com/api/?name=${encodeURIComponent((user?.first_name || 'U') + '+' + (user?.last_name || ''))}&background=005CDA&color=fff&size=128`;
 
     return (
         <>
@@ -201,168 +118,11 @@ const AdminTopbar: React.FC<AdminTopbarProps> = memo(({ onMenu, routePrefix = '/
                     triggerRef={notifBtnRef}
                 />
 
-                <div
-                    ref={profileRef}
-                    className="relative flex items-center pl-2.5 sm:pl-3 ml-0.5 border-l border-(--color-border)"
-                >
-                    <button
-                        type="button"
-                        onClick={() => setIsProfileOpen((prev) => !prev)}
-                        className={cn(
-                            'flex items-center gap-2.5 rounded-xl px-1.5 py-1 transition-colors',
-                            'hover:bg-(--color-state-hover)',
-                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-200',
-                        )}
-                        aria-expanded={isProfileOpen}
-                        aria-haspopup="menu"
-                    >
-                        <span
-                            className="h-9 w-9 shrink-0 rounded-full p-[2px] shadow-sm"
-                            style={{ backgroundImage: 'var(--gradient-primary)' }}
-                        >
-                            <span className="h-full w-full rounded-full bg-(--color-header-bg) p-[1.5px] flex">
-                                <img
-                                    src={avatarSrc}
-                                    alt="Profile"
-                                    className="h-full w-full rounded-full object-cover"
-                                />
-                            </span>
-                        </span>
-                        <span className="hidden md:flex flex-col items-start leading-tight min-w-0">
-                            <span className="text-sm font-bold text-(--color-text-primary) truncate max-w-[140px]">
-                                {displayName}
-                            </span>
-                            <span className="text-[11px] text-(--color-text-secondary) font-medium capitalize truncate max-w-[140px]">
-                                {roleLabel}
-                            </span>
-                        </span>
-                        <ChevronDown
-                            size={15}
-                            className={cn(
-                                'hidden md:block text-(--color-text-secondary) transition-transform duration-200',
-                                isProfileOpen && 'rotate-180',
-                            )}
-                        />
-                    </button>
-
-                    <AnimatePresence>
-                        {isProfileOpen && (
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.96, y: -6 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.96, y: -6 }}
-                                transition={{ duration: 0.16, ease: 'easeOut' }}
-                                className="absolute top-[calc(100%+10px)] right-0 w-56 bg-(--color-card-bg) rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.12)] border border-(--color-card-border) overflow-hidden z-50"
-                                role="menu"
-                            >
-                                <div className="flex items-center gap-3 px-4 py-3.5 border-b border-(--color-border)">
-                                    <img
-                                        src={avatarSrc}
-                                        alt=""
-                                        className="w-10 h-10 rounded-xl object-cover shadow-sm"
-                                    />
-                                    <div className="flex flex-col overflow-hidden min-w-0">
-                                        <span className="font-bold text-(--color-text-primary) text-[13px] truncate">
-                                            {displayName}
-                                        </span>
-                                        <span className="text-(--color-text-secondary) text-xs font-medium capitalize truncate">
-                                            {roleLabel}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="py-1.5">
-                                    {showWorkspaceSwitch && (
-                                        <>
-                                            <div className="px-4 pt-1.5 pb-1 text-[10px] font-bold text-(--color-text-secondary) tracking-widest uppercase flex items-center gap-2">
-                                                <ArrowLeftRight size={12} />
-                                                Switch Workspace
-                                            </div>
-                                            {showAdminSwitch && (
-                                                <Link
-                                                    to="/admin"
-                                                    onClick={() => setIsProfileOpen(false)}
-                                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover) hover:text-primary-500 transition-colors text-left"
-                                                    role="menuitem"
-                                                >
-                                                    <LayoutDashboard size={16} className="text-(--color-text-secondary)" />
-                                                    Admin Dashboard
-                                                </Link>
-                                            )}
-                                            {showEmployeeSwitch && (
-                                                <Link
-                                                    to="/employee"
-                                                    onClick={() => setIsProfileOpen(false)}
-                                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover) hover:text-primary-500 transition-colors text-left"
-                                                    role="menuitem"
-                                                >
-                                                    <Home size={16} className="text-(--color-text-secondary)" />
-                                                    Employee Dashboard
-                                                </Link>
-                                            )}
-                                            {showPortalSwitch && (
-                                                <Link
-                                                    to="/portal"
-                                                    onClick={() => setIsProfileOpen(false)}
-                                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover) hover:text-primary-500 transition-colors text-left"
-                                                    role="menuitem"
-                                                >
-                                                    <Globe2 size={16} className="text-(--color-text-secondary)" />
-                                                    Client Portal
-                                                </Link>
-                                            )}
-                                            {showCrmSwitch && (
-                                                <a
-                                                    href={crmAppUrl}
-                                                    onClick={() => setIsProfileOpen(false)}
-                                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover) hover:text-primary-500 transition-colors text-left"
-                                                    role="menuitem"
-                                                >
-                                                    <ArrowLeftRight size={16} className="text-(--color-text-secondary)" />
-                                                    CRM Workspace
-                                                </a>
-                                            )}
-                                            <div className="mx-4 my-1 border-t border-(--color-border)" />
-                                        </>
-                                    )}
-                                    <Link
-                                        to={`${routePrefix}/profile`}
-                                        onClick={() => setIsProfileOpen(false)}
-                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover) hover:text-primary-500 transition-colors text-left"
-                                        role="menuitem"
-                                    >
-                                        <User size={16} className="text-(--color-text-secondary)" />
-                                        My Profile
-                                    </Link>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setIsProfileOpen(false);
-                                            setIsLogoutModalOpen(true);
-                                        }}
-                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-semibold text-red-500 hover:bg-red-50 transition-colors text-left"
-                                        role="menuitem"
-                                    >
-                                        <LogOut size={16} />
-                                        Sign Out
-                                    </button>
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
+                <ProfileWorkspaceMenu
+                    profileTo={`${routePrefix}/profile`}
+                    className="pl-2.5 sm:pl-3 ml-0.5 border-l border-(--color-border)"
+                />
             </div>
-
-            <ActionModal
-                isOpen={isLogoutModalOpen}
-                onClose={() => setIsLogoutModalOpen(false)}
-                onConfirm={handleLogout}
-                loading={isLoggingOut}
-                title="Sign Out"
-                description="Are you sure you want to sign out of your account? You will need to login again to access your dashboard."
-                confirmText="Sign Out"
-                icon="logout"
-            />
         </div>
         <ChatMessagePopup />
         </>

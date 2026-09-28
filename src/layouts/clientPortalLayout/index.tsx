@@ -12,6 +12,7 @@ import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { RoutePageSkeleton } from '@/components/skeletons';
 import { getSocket } from '@/lib/socket';
 import PortalSearch from './PortalSearch';
+import ProfileWorkspaceMenu from '@/layouts/features/ProfileWorkspaceMenu';
 
 const NAV_ITEMS = [
   { to: '/portal', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -342,15 +343,24 @@ const ClientPortalLayout: React.FC = memo(() => {
             <PortalSearch />
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            <span className="text-sm font-semibold text-(--color-text-primary)">
-              {user?.first_name} {user?.last_name}
-            </span>
-            {user?.avatar ? (
-              <img src={user.avatar} alt="" className="h-9 w-9 rounded-full object-cover" />
+            {/* Same workspace switcher as admin/employee topbars — INTERNAL
+                employees only. CLIENT accounts keep a static name/avatar chip
+                (they have nowhere else to switch into). */}
+            {user?.user_type === 'INTERNAL' ? (
+              <ProfileWorkspaceMenu />
             ) : (
-              <div className="h-9 w-9 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-sm font-bold">
-                {user?.first_name?.[0]?.toUpperCase() ?? 'C'}
-              </div>
+              <>
+                <span className="text-sm font-semibold text-(--color-text-primary)">
+                  {user?.first_name} {user?.last_name}
+                </span>
+                {user?.avatar ? (
+                  <img src={user.avatar} alt="" className="h-9 w-9 rounded-full object-cover" />
+                ) : (
+                  <div className="h-9 w-9 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-sm font-bold">
+                    {user?.first_name?.[0]?.toUpperCase() ?? 'C'}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </header>
