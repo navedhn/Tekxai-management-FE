@@ -26,6 +26,7 @@ const ApprovalsTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   const qc = useQueryClient();
   const toast = useToastContext();
   const [changesModal, setChangesModal] = useState<PortalApproval | null>(null);
+  const [approveConfirm, setApproveConfirm] = useState<PortalApproval | null>(null);
   const [comment, setComment] = useState('');
 
   const { data, isLoading } = useQuery<PortalApproval[]>({
@@ -43,13 +44,12 @@ const ApprovalsTab: React.FC<{ projectId: string }> = ({ projectId }) => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['portal', 'approvals', projectId] });
       setChangesModal(null);
+      setApproveConfirm(null);
       setComment('');
       toast?.success?.('Response submitted');
     },
     onError: () => toast?.error?.('Failed to submit response'),
   });
-
-  const handleApprove = (a: PortalApproval) => respond.mutate({ approvalId: a.id, decision: 'APPROVED' });
 
   const handleRequestChanges = () => {
     if (!changesModal) return;
@@ -63,7 +63,15 @@ const ApprovalsTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   if (isLoading) return <TableSkeleton columns={3} rows={4} />;
 
   if (!data || data.length === 0) {
-    return <p className="text-sm text-(--color-text-secondary) py-10 text-center">No approvals yet.</p>;
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-2 text-center px-4">
+        <CheckCircle2 size={36} className="text-(--color-text-secondary) opacity-50" strokeWidth={1.5} />
+        <p className="font-bold text-sm text-(--color-text-primary)">No approvals yet</p>
+        <p className="text-sm text-(--color-text-secondary) max-w-sm">
+          When TekXAI submits a milestone for your review, it will appear here so you can approve or request changes.
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -71,18 +79,25 @@ const ApprovalsTab: React.FC<{ projectId: string }> = ({ projectId }) => {
       {data.map((a) => (
         <Card key={a.id} className="p-5">
           <div className="flex items-start justify-between gap-4">
-            <div>
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusStyles[a.status]}`}>{a.status}</span>
-              <p className="text-xs text-(--color-text-secondary) mt-2">
-                Submitted: {a.submitted_at ? new Date(a.submitted_at).toLocaleDateString() : '—'}
-                {a.responded_at && <> · Responded: {new Date(a.responded_at).toLocaleDateString()}</>}
-              </p>
+            <div className="min-w-0">
+              <h3 className="text-[15px] font-black text-(--color-text-primary) tracking-tight break-words">
+                {a.milestone_title || 'Milestone approval'}
+              </h3>
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusStyles[a.status]}`}>
+                  {a.status.replace(/_/g, ' ')}
+                </span>
+                <span className="text-xs text-(--color-text-secondary)">
+                  Submitted: {a.submitted_at ? new Date(a.submitted_at).toLocaleDateString() : '—'}
+                  {a.responded_at && <> · Responded: {new Date(a.responded_at).toLocaleDateString()}</>}
+                </span>
+              </div>
               {a.comment && <p className="text-sm text-(--color-text-primary) mt-2">{a.comment}</p>}
             </div>
 
             {a.status === 'PENDING' && canRespond && (
-              <div className="flex items-center gap-2 shrink-0">
-                <PageActionButton leftIcon={CheckCircle2} onClick={() => handleApprove(a)} disabled={respond.isPending}>
+              <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                <PageActionButton leftIcon={CheckCircle2} onClick={() => setApproveConfirm(a)} disabled={respond.isPending}>
                   Approve
                 </PageActionButton>
                 <button
@@ -98,6 +113,32 @@ const ApprovalsTab: React.FC<{ projectId: string }> = ({ projectId }) => {
           </div>
         </Card>
       ))}
+
+      <Modal
+        isOpen={!!approveConfirm}
+        onClose={() => setApproveConfirm(null)}
+        title="Confirm approval"
+        footer={
+          <div className="flex justify-end gap-2 w-full">
+            <button
+              onClick={() => setApproveConfirm(null)}
+              className="px-4 h-10 rounded-xl border border-(--color-border) text-sm font-semibold"
+            >
+              Cancel
+            </button>
+            <PageActionButton
+              onClick={() => approveConfirm && respond.mutate({ approvalId: approveConfirm.id, decision: 'APPROVED' })}
+              disabled={respond.isPending}
+            >
+              Confirm approve
+            </PageActionButton>
+          </div>
+        }
+      >
+        <p className="text-sm text-(--color-text-secondary)">
+          Approve <strong className="text-(--color-text-primary)">{approveConfirm?.milestone_title || 'this milestone'}</strong>? This tells the team you are satisfied with the deliverable.
+        </p>
+      </Modal>
 
       <Modal
         isOpen={!!changesModal}
@@ -118,9 +159,9 @@ const ApprovalsTab: React.FC<{ projectId: string }> = ({ projectId }) => {
         }
       >
         <label className="text-xs font-semibold text-(--color-text-secondary) block mb-1.5">
-          Comment (required)
+          What needs to change?
         </label>
-        <textarea className={inputCls} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Describe the changes you'd like..." />
+        <textarea className={inputCls} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Describe the changes you need…" />
       </Modal>
     </div>
   );

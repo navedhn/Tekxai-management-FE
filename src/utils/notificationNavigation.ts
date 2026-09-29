@@ -48,6 +48,11 @@ function normalizeNotificationLink(link: string): string {
     if (portalProject && url.searchParams.has('message')) {
       return `/portal/projects/${portalProject[1]}/communication${url.search}`;
     }
+    // Ensure /communication paths keep message= query when present
+    const portalComm = url.pathname.match(/^\/portal\/projects\/([^/]+)\/communication\/?$/);
+    if (portalComm && url.searchParams.has('message')) {
+      return `/portal/projects/${portalComm[1]}/communication${url.search}`;
+    }
     return `${url.pathname}${url.search}${url.hash}`;
   } catch {
     return link;

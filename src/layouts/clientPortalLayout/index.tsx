@@ -9,7 +9,6 @@ import {
   ChevronDown,
   ChevronRight,
   Plus,
-  Boxes,
   MessagesSquare,
   FileText,
   ArrowLeft,
@@ -20,7 +19,6 @@ import {
   Bell,
   User,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/authStore';
@@ -33,13 +31,14 @@ import PortalSearch from './PortalSearch';
 import ProfileWorkspaceMenu from '@/layouts/features/ProfileWorkspaceMenu';
 import NotificationDropdown from '@/layouts/features/NotificationDropdown';
 import { useNotifications } from '@/services/notificationService';
+import ActionModal from '@/components/ui/ActionModal';
 
 const CHATS_PAGE_SIZE = 10;
 const CHATS_PAGE_INCREMENT = 5;
 
 type SpaceProject = { id: string; title: string; status: string; client: { id: string; name: string } | null };
 type Milestone = { id: string; title: string; status: string; progress_percent: number | null };
-type MobileSheet = 'chats' | 'spaces' | 'more' | null;
+type MobileSheet = 'chats' | 'projects' | 'more' | null;
 
 const PROJECT_STATUS_DOT: Record<string, string> = {
   IN_PROGRESS: 'bg-blue-500',
@@ -56,7 +55,8 @@ const MILESTONE_STATUS_STYLES: Record<string, string> = {
   BLOCKED: 'bg-red-50 text-red-600',
 };
 
-const MilestonesList: React.FC<{ projectId: string }> = ({ projectId }) => {
+const MilestonesList: React.FC<{ projectId: string; onNavigate?: () => void }> = ({ projectId, onNavigate }) => {
+  const navigate = useNavigate();
   const { data: milestones = [], isLoading } = useQuery<Milestone[]>({
     queryKey: ['portal', 'projects', projectId, 'milestones', 'sidebar'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.MILESTONES(projectId)),
@@ -69,12 +69,20 @@ const MilestonesList: React.FC<{ projectId: string }> = ({ projectId }) => {
   return (
     <div className="flex flex-col gap-0.5 pl-6 pr-1 pb-1">
       {milestones.map((m) => (
-        <div key={m.id} className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[12px] text-(--color-text-secondary)">
+        <button
+          key={m.id}
+          type="button"
+          onClick={() => {
+            navigate(`/portal/projects/${projectId}/milestones`);
+            onNavigate?.();
+          }}
+          className="flex items-center gap-1.5 px-2 min-h-11 rounded-md text-[12px] text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary) text-left w-full"
+        >
           <span className="truncate flex-1">{m.title}</span>
           <span className={cn('shrink-0 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded', MILESTONE_STATUS_STYLES[m.status] || 'bg-gray-100 text-gray-500')}>
             {(m.status || '').replace(/_/g, ' ')}
           </span>
-        </div>
+        </button>
       ))}
     </div>
   );
@@ -82,7 +90,7 @@ const MilestonesList: React.FC<{ projectId: string }> = ({ projectId }) => {
 
 const ProjectsPanel: React.FC<{
   isSuperAdmin: boolean;
-  mode: 'spaces' | 'chats';
+  mode: 'projects' | 'chats';
   onNavigate?: () => void;
 }> = ({ isSuperAdmin, mode, onNavigate }) => {
   const navigate = useNavigate();
@@ -104,7 +112,7 @@ const ProjectsPanel: React.FC<{
     refetchInterval: mode === 'chats' ? 15000 : false,
   });
 
-  const label = mode === 'chats' ? 'Chats' : 'Spaces';
+  const label = mode === 'chats' ? 'Chats' : 'Projects';
 
   useEffect(() => {
     if (mode !== 'chats') return;
@@ -146,11 +154,12 @@ const ProjectsPanel: React.FC<{
           {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
           {label}
         </button>
-        {isSuperAdmin && mode === 'spaces' && (
+        {isSuperAdmin && mode === 'projects' && (
           <button
             onClick={() => navigate('/admin/projects')}
             title="Create a new project"
-            className="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary)"
+            aria-label="Create a new project"
+            className="h-11 w-11 flex items-center justify-center rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary)"
           >
             <Plus size={16} />
           </button>
@@ -216,7 +225,7 @@ const ProjectsPanel: React.FC<{
                     <span className="truncate">{displayName}</span>
                   </NavLink>
                 </div>
-                {isOpen && <MilestonesList projectId={p.id} />}
+                {isOpen && <MilestonesList projectId={p.id} onNavigate={onNavigate} />}
               </div>
             );
           })}
@@ -246,13 +255,19 @@ const MobileSheetShell: React.FC<{
       className="absolute inset-0 bg-black/40"
       onClick={onClose}
     />
-    <div className="relative mt-auto flex flex-col max-h-[88dvh] rounded-t-2xl bg-(--color-surface) shadow-2xl pb-[env(safe-area-inset-bottom)]">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      className="relative mt-auto flex flex-col max-h-[88dvh] rounded-t-2xl bg-(--color-surface) shadow-2xl pb-[env(safe-area-inset-bottom)]"
+    >
       <div className="flex items-center justify-between px-4 h-14 border-b border-(--color-border) shrink-0">
         <span className="text-base font-black text-(--color-text-primary) tracking-tight">{title}</span>
         <button
           type="button"
           onClick={onClose}
-          className="h-9 w-9 flex items-center justify-center rounded-full text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+          aria-label="Close"
+          className="h-11 w-11 flex items-center justify-center rounded-full text-(--color-text-secondary) hover:bg-(--color-state-hover)"
         >
           <X size={18} />
         </button>
@@ -271,9 +286,11 @@ const ClientPortalLayout: React.FC = memo(() => {
   const navigate = useNavigate();
   const location = useLocation();
   const isSuperAdmin = role === 'SUPER_ADMIN';
-  const [desktopPanel, setDesktopPanel] = useState<'spaces' | 'chats' | null>(null);
+  const [desktopPanel, setDesktopPanel] = useState<'projects' | 'chats' | null>(null);
   const [mobileSheet, setMobileSheet] = useState<MobileSheet>(null);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const notifBtnRef = useRef<HTMLButtonElement>(null);
   const { data: notifData } = useNotifications(10);
   const unreadNotifs = notifData?.unread_count ?? 0;
@@ -292,15 +309,36 @@ const ClientPortalLayout: React.FC = memo(() => {
     || /^\/portal\/projects\/[^/]+\/communication\/?$/.test(location.pathname);
   const hideMobileTabBar = isCommunicationFullBleed;
 
-  const handleLogout = () => {
-    userLogout();
-    navigate('/login');
+  const routeTitle = (() => {
+    const path = location.pathname;
+    if (path === '/portal' || path === '/portal/') return 'Home';
+    if (path.startsWith('/portal/notifications')) return 'Notifications';
+    if (path.startsWith('/portal/profile')) return 'My Profile';
+    if (path.startsWith('/portal/docs')) return 'Shared files';
+    if (path.startsWith('/portal/wiki')) return 'Wiki';
+    if (path.startsWith('/portal/invites')) return 'People';
+    if (path === '/portal/projects' || path === '/portal/projects/') return 'Projects';
+    return null;
+  })();
+  const headerTitle = topbarTitle || routeTitle || 'Client Portal';
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await userLogout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setIsLoggingOut(false);
+      setIsLogoutModalOpen(false);
+    }
   };
 
   const moreItems = [
     { to: '/portal/profile', label: 'My Profile', icon: User },
     { to: '/portal/notifications', label: 'Notifications', icon: Bell },
-    { to: '/portal/docs', label: 'Docs', icon: FileText },
+    { to: '/portal/docs', label: 'Shared files', icon: FileText },
     { to: '/portal/wiki', label: 'Wiki', icon: BookOpen },
     ...(isSuperAdmin ? [{ to: '/portal/invites', label: 'People', icon: Users }] : []),
   ];
@@ -309,18 +347,18 @@ const ClientPortalLayout: React.FC = memo(() => {
     ? [
         { to: '/portal', label: 'Home', icon: LayoutDashboard, end: true },
         { to: '/portal/projects', label: 'Projects', icon: FolderKanban, end: false },
-        { to: '/portal/docs', label: 'Docs', icon: FileText, end: false },
+        { to: '/portal/docs', label: 'Files', icon: FileText, end: false },
         { to: '/portal/wiki', label: 'Wiki', icon: BookOpen, end: false },
         { to: '/portal/invites', label: 'People', icon: Users, end: false },
       ]
     : [
         { to: '/portal', label: 'Home', icon: LayoutDashboard, end: true },
         { to: '/portal/projects', label: 'Projects', icon: FolderKanban, end: false },
-        { to: '/portal/docs', label: 'Docs', icon: FileText, end: false },
+        { to: '/portal/docs', label: 'Files', icon: FileText, end: false },
         { to: '/portal/wiki', label: 'Wiki', icon: BookOpen, end: false },
       ];
 
-  const toggleDesktopPanel = (mode: 'spaces' | 'chats') =>
+  const toggleDesktopPanel = (mode: 'projects' | 'chats') =>
     setDesktopPanel((p) => (p === mode ? null : mode));
 
   const closeMobileSheet = () => setMobileSheet(null);
@@ -330,83 +368,110 @@ const ClientPortalLayout: React.FC = memo(() => {
     setIsNotifOpen(false);
   }, [location.pathname]);
 
-  const RailButton: React.FC<{ icon: LucideIcon; label: string; active: boolean; onClick?: () => void; title?: string; badge?: number }> = ({ icon: Icon, label, active, onClick, title, badge }) => (
-    <button
-      onClick={onClick}
-      title={title}
-      className="flex flex-col items-center gap-1 w-full py-1 group"
-    >
-      <span
-        className={cn(
-          'relative flex items-center justify-center h-9 w-9 rounded-xl transition-colors',
-          active ? 'bg-emerald-500 text-white' : 'text-emerald-300/80 group-hover:bg-white/10 group-hover:text-white'
-        )}
-      >
-        <Icon size={18} strokeWidth={2} />
-        {!!badge && badge > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-black leading-none">
-            {badge > 9 ? '9+' : badge}
-          </span>
-        )}
-      </span>
-      <span className={cn('text-[10px] font-semibold transition-colors', active ? 'text-white' : 'text-emerald-300/70 group-hover:text-emerald-100')}>
-        {label}
-      </span>
-    </button>
-  );
+  const railItemClass = (active: boolean) =>
+    cn(
+      'relative flex items-center justify-center h-11 w-11 rounded-xl transition-colors',
+      active ? 'bg-emerald-500 text-white' : 'text-emerald-300/80 hover:bg-white/10 hover:text-white'
+    );
 
   const isHome = location.pathname === '/portal' || location.pathname === '/portal/';
-  const isProjects = location.pathname.startsWith('/portal/projects') && !isCommunicationFullBleed;
+  const isProjectsRoute = location.pathname.startsWith('/portal/projects') && !isCommunicationFullBleed;
 
   return (
     <div className="min-h-dvh flex bg-(--color-app-bg)">
-      {/* Desktop icon rail — ClickUp-style */}
+      {/* Desktop icon rail */}
       <aside className="hidden lg:flex flex-col items-center w-[72px] shrink-0 bg-emerald-950 pt-5 pb-4">
-        <div className="h-9 w-9 rounded-xl bg-white text-emerald-700 flex items-center justify-center font-black text-base">
-          T
+        <div className="flex flex-col items-center gap-0.5 px-1 mb-1">
+          <div className="h-10 w-10 rounded-xl bg-white text-emerald-800 flex items-center justify-center font-black text-sm tracking-tight shadow-sm">
+            TX
+          </div>
+          <span className="text-[9px] font-black tracking-[0.12em] text-white uppercase">TekXAI</span>
         </div>
 
         <div className="w-full h-px bg-white/10 my-4" />
 
         <nav className="flex flex-col items-center gap-2.5 w-full px-2">
           {desktopNavItems.map(({ to, label, icon: Icon, end }) => (
-            <NavLink key={to} to={to} end={end} className="w-full" onClick={() => setDesktopPanel(null)}>
-              {({ isActive }) => <RailButton icon={Icon} label={label} active={isActive} />}
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              onClick={() => setDesktopPanel(null)}
+              className="flex flex-col items-center gap-1 w-full py-1"
+              title={label}
+            >
+              {({ isActive }) => (
+                <>
+                  <span className={railItemClass(isActive)}>
+                    <Icon size={18} strokeWidth={2} />
+                  </span>
+                  <span className={cn('text-[10px] font-semibold', isActive ? 'text-white' : 'text-emerald-300/70')}>
+                    {label}
+                  </span>
+                </>
+              )}
             </NavLink>
           ))}
-          <RailButton
-            icon={MessagesSquare}
-            label="Chats"
-            active={desktopPanel === 'chats'}
+          <button
+            type="button"
             onClick={() => toggleDesktopPanel('chats')}
-            title="Client communication threads, by project"
-            badge={totalChatUnread}
-          />
-          <RailButton
-            icon={Boxes}
-            label="Spaces"
-            active={desktopPanel === 'spaces'}
-            onClick={() => toggleDesktopPanel('spaces')}
-            title="Every project"
-          />
+            title="Project messaging"
+            className="flex flex-col items-center gap-1 w-full py-1"
+          >
+            <span className={railItemClass(desktopPanel === 'chats')}>
+              <MessagesSquare size={18} strokeWidth={2} />
+              {totalChatUnread > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-black leading-none">
+                  {totalChatUnread > 9 ? '9+' : totalChatUnread}
+                </span>
+              )}
+            </span>
+            <span className={cn('text-[10px] font-semibold', desktopPanel === 'chats' ? 'text-white' : 'text-emerald-300/70')}>
+              Chats
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => toggleDesktopPanel('projects')}
+            title="Browse projects"
+            className="flex flex-col items-center gap-1 w-full py-1"
+          >
+            <span className={railItemClass(desktopPanel === 'projects')}>
+              <FolderKanban size={18} strokeWidth={2} />
+            </span>
+            <span className={cn('text-[10px] font-semibold', desktopPanel === 'projects' ? 'text-white' : 'text-emerald-300/70')}>
+              Projects
+            </span>
+          </button>
         </nav>
 
         <div className="mt-auto w-full px-2">
-          <RailButton icon={LogOut} label="Log out" active={false} onClick={handleLogout} />
+          <button
+            type="button"
+            onClick={() => setIsLogoutModalOpen(true)}
+            title="Sign out"
+            className="flex flex-col items-center gap-1 w-full py-1"
+          >
+            <span className={railItemClass(false)}>
+              <LogOut size={18} strokeWidth={2} />
+            </span>
+            <span className="text-[10px] font-semibold text-emerald-300/70">Log out</span>
+          </button>
         </div>
       </aside>
 
       {desktopPanel && (
         <aside className="hidden lg:flex flex-col w-52 shrink-0 border-r border-(--color-border) bg-(--color-surface) py-4 px-3 min-h-0">
           <div className="px-1 mb-4">
-            <span className="text-base font-black text-(--color-text-primary) tracking-tight">Client Portal</span>
+            <span className="text-base font-black text-(--color-text-primary) tracking-tight">
+              {desktopPanel === 'chats' ? 'Chats' : 'Projects'}
+            </span>
           </div>
           <ProjectsPanel isSuperAdmin={isSuperAdmin} mode={desktopPanel} />
         </aside>
       )}
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        {/* Compact ClickUp-style mobile header; taller desktop header unchanged */}
         <header
           className={cn(
             'shrink-0 border-b border-(--color-border) bg-(--color-surface) flex items-center justify-between gap-2 min-w-0',
@@ -414,28 +479,28 @@ const ClientPortalLayout: React.FC = memo(() => {
             'pt-[env(safe-area-inset-top)]'
           )}
         >
-          {topbarTitle ? (
-            <div className="flex items-center gap-2 min-w-0 flex-1 lg:max-w-[30%] lg:flex-none lg:gap-3">
+          <div className="flex items-center gap-2 min-w-0 flex-1 lg:max-w-[40%] lg:flex-none lg:gap-3">
+            {(topbarTitle || (!isHome && routeTitle)) && (
               <button
+                type="button"
                 onClick={() => navigate(-1)}
-                className="shrink-0 h-9 w-9 lg:h-auto lg:w-auto flex items-center justify-center rounded-full text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-primary-600"
+                className="shrink-0 h-11 w-11 lg:h-9 lg:w-9 flex items-center justify-center rounded-full text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-primary-600"
                 title="Back"
+                aria-label="Back"
               >
                 <ArrowLeft size={18} />
               </button>
-              <span className="text-[15px] lg:text-base font-black text-(--color-text-primary) truncate">{topbarTitle}</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 min-w-0 lg:hidden">
-              <div className="h-8 w-8 rounded-lg bg-emerald-950 text-white flex items-center justify-center font-black text-sm shrink-0">
-                T
+            )}
+            {!topbarTitle && isHome && (
+              <div className="flex items-center gap-2 shrink-0 lg:hidden">
+                <div className="h-8 w-8 rounded-lg bg-emerald-950 text-white flex items-center justify-center font-black text-[11px] tracking-tight">
+                  TX
+                </div>
+                <span className="text-sm font-black text-emerald-900 tracking-tight">TekXAI</span>
               </div>
-              <span className="text-[15px] font-black text-(--color-text-primary) truncate">Home</span>
-            </div>
-          )}
-          {!topbarTitle && (
-            <span className="hidden lg:inline text-base font-black text-(--color-text-primary)">Client Portal</span>
-          )}
+            )}
+            <span className="text-[15px] lg:text-base font-black text-(--color-text-primary) truncate">{headerTitle}</span>
+          </div>
           <div className="flex-1 min-w-0 flex justify-end lg:justify-center">
             <PortalSearch />
           </div>
@@ -447,7 +512,7 @@ const ClientPortalLayout: React.FC = memo(() => {
                 onClick={() => setIsNotifOpen((v) => !v)}
                 aria-label="Notifications"
                 aria-expanded={isNotifOpen}
-                className="relative h-9 w-9 flex items-center justify-center rounded-xl text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-primary-600 transition-colors"
+                className="relative h-11 w-11 flex items-center justify-center rounded-xl text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-primary-600 transition-colors"
               >
                 <Bell size={18} />
                 {unreadNotifs > 0 && (
@@ -481,7 +546,6 @@ const ClientPortalLayout: React.FC = memo(() => {
           </div>
         </main>
 
-        {/* ClickUp-style mobile bottom tabs: Home · Chats · Spaces · More */}
         {!hideMobileTabBar && (
           <nav
             className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex items-stretch justify-around border-t border-(--color-border) bg-(--color-surface)/95 backdrop-blur-md shrink-0"
@@ -506,11 +570,11 @@ const ClientPortalLayout: React.FC = memo(() => {
               onClick={() => setMobileSheet((s) => (s === 'chats' ? null : 'chats'))}
               className={cn(
                 'relative flex-1 flex flex-col items-center justify-center gap-0.5 h-14 text-[10px] font-bold',
-                mobileSheet === 'chats' ? 'text-emerald-600' : 'text-(--color-text-secondary)'
+                mobileSheet === 'chats' || isCommunicationFullBleed ? 'text-emerald-600' : 'text-(--color-text-secondary)'
               )}
             >
               <span className="relative inline-flex">
-                <MessagesSquare size={20} strokeWidth={mobileSheet === 'chats' ? 2.4 : 2} />
+                <MessagesSquare size={20} strokeWidth={mobileSheet === 'chats' || isCommunicationFullBleed ? 2.4 : 2} />
                 {totalChatUnread > 0 && (
                   <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-black">
                     {totalChatUnread > 9 ? '9+' : totalChatUnread}
@@ -521,14 +585,14 @@ const ClientPortalLayout: React.FC = memo(() => {
             </button>
             <button
               type="button"
-              onClick={() => setMobileSheet((s) => (s === 'spaces' ? null : 'spaces'))}
+              onClick={() => setMobileSheet((s) => (s === 'projects' ? null : 'projects'))}
               className={cn(
                 'flex-1 flex flex-col items-center justify-center gap-0.5 h-14 text-[10px] font-bold',
-                mobileSheet === 'spaces' || isProjects ? 'text-emerald-600' : 'text-(--color-text-secondary)'
+                mobileSheet === 'projects' || isProjectsRoute ? 'text-emerald-600' : 'text-(--color-text-secondary)'
               )}
             >
-              <Boxes size={20} strokeWidth={mobileSheet === 'spaces' || isProjects ? 2.4 : 2} />
-              Spaces
+              <FolderKanban size={20} strokeWidth={mobileSheet === 'projects' || isProjectsRoute ? 2.4 : 2} />
+              Projects
             </button>
             <button
               type="button"
@@ -550,9 +614,9 @@ const ClientPortalLayout: React.FC = memo(() => {
           <ProjectsPanel isSuperAdmin={isSuperAdmin} mode="chats" onNavigate={closeMobileSheet} />
         </MobileSheetShell>
       )}
-      {mobileSheet === 'spaces' && (
-        <MobileSheetShell title="Spaces" onClose={closeMobileSheet}>
-          <ProjectsPanel isSuperAdmin={isSuperAdmin} mode="spaces" onNavigate={closeMobileSheet} />
+      {mobileSheet === 'projects' && (
+        <MobileSheetShell title="Projects" onClose={closeMobileSheet}>
+          <ProjectsPanel isSuperAdmin={isSuperAdmin} mode="projects" onNavigate={closeMobileSheet} />
         </MobileSheetShell>
       )}
       {mobileSheet === 'more' && (
@@ -576,7 +640,7 @@ const ClientPortalLayout: React.FC = memo(() => {
             ))}
             <button
               type="button"
-              onClick={handleLogout}
+              onClick={() => { closeMobileSheet(); setIsLogoutModalOpen(true); }}
               className="flex items-center gap-3 px-3 min-h-12 rounded-xl text-[15px] font-semibold text-red-600 hover:bg-red-50"
             >
               <LogOut size={18} />
@@ -585,6 +649,17 @@ const ClientPortalLayout: React.FC = memo(() => {
           </div>
         </MobileSheetShell>
       )}
+
+      <ActionModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={handleLogout}
+        loading={isLoggingOut}
+        title="Sign Out"
+        description="Are you sure you want to sign out? You will need to log in again to access the portal."
+        confirmText="Sign Out"
+        icon="logout"
+      />
     </div>
   );
 });

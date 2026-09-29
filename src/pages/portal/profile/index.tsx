@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { KeyRound, Mail, User } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Eye, EyeOff, KeyRound, Mail, User } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,9 +9,67 @@ import { useUpdateMyProfileMutation } from '@/services/userService';
 import { useChangePasswordMutation } from '@/services/settingsService';
 import { useNavigate } from 'react-router-dom';
 import { usePortalTopbarStore } from '@/stores/portalTopbarStore';
+import { cn } from '@/utils/cn';
 
 const inputCls =
   'w-full h-11 px-3 rounded-xl border border-(--color-border) bg-(--color-surface) text-sm font-medium text-(--color-text-primary) focus:outline-none focus:border-primary-400';
+
+function passwordStrength(pw: string): { label: string; score: number; className: string } {
+  if (!pw) return { label: '', score: 0, className: '' };
+  let score = 0;
+  if (pw.length >= 8) score += 1;
+  if (pw.length >= 12) score += 1;
+  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score += 1;
+  if (/\d/.test(pw)) score += 1;
+  if (/[^A-Za-z0-9]/.test(pw)) score += 1;
+  if (score <= 2) return { label: 'Weak', score, className: 'bg-red-500' };
+  if (score <= 3) return { label: 'Okay', score, className: 'bg-amber-500' };
+  return { label: 'Strong', score, className: 'bg-emerald-500' };
+}
+
+const PasswordField: React.FC<{
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  autoComplete: string;
+  showStrength?: boolean;
+}> = ({ label, value, onChange, autoComplete, showStrength }) => {
+  const [visible, setVisible] = useState(false);
+  const strength = useMemo(() => passwordStrength(value), [value]);
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-xs font-bold text-(--color-text-secondary) uppercase tracking-wide">{label}</span>
+      <div className="relative">
+        <input
+          type={visible ? 'text' : 'password'}
+          className={cn(inputCls, 'pr-11')}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          autoComplete={autoComplete}
+        />
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 flex items-center justify-center rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+          aria-label={visible ? 'Hide password' : 'Show password'}
+        >
+          {visible ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
+      </div>
+      {showStrength && value && (
+        <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex-1 h-1.5 rounded-full bg-(--color-elevated) overflow-hidden">
+            <div
+              className={cn('h-full transition-all', strength.className)}
+              style={{ width: `${Math.min(100, (strength.score / 5) * 100)}%` }}
+            />
+          </div>
+          <span className="text-[11px] font-bold text-(--color-text-secondary)">{strength.label}</span>
+        </div>
+      )}
+    </label>
+  );
+};
 
 const PortalProfilePage: React.FC = () => {
   const { user, userLogout } = useAuth();
@@ -109,6 +167,9 @@ const PortalProfilePage: React.FC = () => {
             <Mail size={14} className="shrink-0" />
             {user?.email}
           </p>
+          <p className="text-[11px] text-(--color-text-secondary) mt-1">
+            Avatar uses your initials for now — upload support is coming soon.
+          </p>
         </div>
       </div>
 
@@ -135,7 +196,7 @@ const PortalProfilePage: React.FC = () => {
           <Button
             onClick={handleSaveProfile}
             disabled={updateProfile.isPending}
-            className="h-10 px-5 rounded-xl font-bold"
+            className="h-11 px-5 rounded-xl font-bold"
           >
             {updateProfile.isPending ? 'Saving…' : 'Save profile'}
           </Button>
@@ -150,41 +211,14 @@ const PortalProfilePage: React.FC = () => {
         <p className="text-sm text-(--color-text-secondary) font-medium -mt-1">
           After updating your password you will be signed out and need to log in again.
         </p>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-bold text-(--color-text-secondary) uppercase tracking-wide">Current password</span>
-          <input
-            type="password"
-            className={inputCls}
-            value={oldPassword}
-            onChange={(e) => setOldPassword(e.target.value)}
-            autoComplete="current-password"
-          />
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-bold text-(--color-text-secondary) uppercase tracking-wide">New password</span>
-          <input
-            type="password"
-            className={inputCls}
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            autoComplete="new-password"
-          />
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-bold text-(--color-text-secondary) uppercase tracking-wide">Confirm new password</span>
-          <input
-            type="password"
-            className={inputCls}
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            autoComplete="new-password"
-          />
-        </label>
+        <PasswordField label="Current password" value={oldPassword} onChange={setOldPassword} autoComplete="current-password" />
+        <PasswordField label="New password" value={newPassword} onChange={setNewPassword} autoComplete="new-password" showStrength />
+        <PasswordField label="Confirm new password" value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" />
         <div className="flex justify-end">
           <Button
             onClick={handleChangePassword}
             disabled={changePassword.isPending}
-            className="h-10 px-5 rounded-xl font-bold"
+            className="h-11 px-5 rounded-xl font-bold"
           >
             {changePassword.isPending ? 'Updating…' : 'Update password'}
           </Button>

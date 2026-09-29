@@ -69,11 +69,11 @@ const PortalDocsPage: React.FC = () => {
   return (
     <div className="flex flex-col gap-6 pb-10">
       <div>
-        <h1 className="text-2xl font-black text-gray-900 tracking-tight">Docs</h1>
+        <h1 className="text-2xl font-black text-gray-900 tracking-tight">Shared files</h1>
         <p className="text-sm text-gray-500 font-medium mt-1">
           {isSuperAdmin
-            ? "Every file uploaded across your projects — from a project's Files tab or shared in Communication."
-            : 'Every file shared with you in your projects’ Communication threads.'}
+            ? "Cross-project file library — includes uploads from each project's Files tab and attachments shared in Communication. Per-project Files stays under the project."
+            : 'Files shared with you across projects (Communication attachments and project Files). Open a project’s Files tab for that project only.'}
         </p>
       </div>
 

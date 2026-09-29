@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Formik, Form } from 'formik';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ShieldCheck } from 'lucide-react';
 import { useLoginMutation } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
@@ -15,6 +15,7 @@ const Login: React.FC = () => {
   const loginMutation = useLoginMutation();
   const { loggedIn } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToastContext();
 
   const [requires2FA, setRequires2FA] = useState(false);
@@ -22,7 +23,11 @@ const Login: React.FC = () => {
   const [tfaCode, setTfaCode] = useState('');
   const [tfaLoading, setTfaLoading] = useState(false);
 
-  const redirectUser = async () => {
+  const redirectUser = async (overridePath?: string) => {
+    if (overridePath?.startsWith('/')) {
+      navigate(overridePath, { replace: true });
+      return;
+    }
     const perms = await fetchMyPermissions().catch(() => null);
     const home = resolveHomePath(perms);
     if (home) {
@@ -46,7 +51,8 @@ const Login: React.FC = () => {
       if (accessToken) setAuthTokens(accessToken, refreshToken);
       loggedIn({ user: user as User });
       toast.success('Login successful!');
-      redirectUser();
+      const redirectTo = (location.state as { redirectTo?: string } | null)?.redirectTo;
+      redirectUser(redirectTo);
     } catch (error: any) {
       const errorMessage =
         error?.data?.message || error?.message || 'Login failed. Please check your credentials.';
@@ -68,7 +74,8 @@ const Login: React.FC = () => {
         setAuthTokens(data.payload.access_token, data.payload.refresh_token);
         loggedIn({ user: data.payload.user as User });
         toast.success('Login successful!');
-        redirectUser();
+        const redirectTo = (location.state as { redirectTo?: string } | null)?.redirectTo;
+        redirectUser(redirectTo);
       } else {
         toast.error(data?.message || 'Invalid OTP code');
       }
@@ -146,7 +153,14 @@ const Login: React.FC = () => {
         </p>
       </div>
 
-      <Formik initialValues={{ email: '', password: '' }} validate={validateLoginForm} onSubmit={handleSubmit}>
+      <Formik
+        initialValues={{
+          email: (location.state as { email?: string } | null)?.email || '',
+          password: '',
+        }}
+        validate={validateLoginForm}
+        onSubmit={handleSubmit}
+      >
         {({ values, handleChange, handleBlur, errors, touched }) => (
           <Form className="flex flex-col gap-5">
             <FormInput

@@ -121,6 +121,7 @@ export type PortalFile = {
 export type PortalApproval = {
   id: string;
   milestone_id: string;
+  milestone_title?: string | null;
   status: 'PENDING' | 'APPROVED' | 'CHANGES_REQUESTED';
   submitted_at: string | null;
   responded_at: string | null;

@@ -2,39 +2,42 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { usePortalTopbarStore } from '@/stores/portalTopbarStore';
-import { MessageSquare, FileText as FileIcon, CheckSquare, List, KanbanSquare, GanttChartSquare, Table2, UsersRound, Gauge } from 'lucide-react';
+import {
+  MessageSquare,
+  FileText as FileIcon,
+  CheckSquare,
+  List,
+  KanbanSquare,
+  GanttChartSquare,
+  Table2,
+  UsersRound,
+  Gauge,
+  LayoutDashboard,
+} from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { cn } from '@/utils/cn';
 import Card from '@/components/ui/Card';
 import { PageSkeleton } from '@/components/skeletons';
 import { useAuth } from '@/hooks/useAuth';
-import { PortalProjectDetail, MilestonesView } from './types';
+import { PortalProjectDetail, MilestonesView, PortalApproval } from './types';
 import MilestonesTab from './tabs/MilestonesTab';
 import CommunicationTab from './tabs/CommunicationTab';
 import FilesTab from './tabs/FilesTab';
 import ApprovalsTab from './tabs/ApprovalsTab';
 import ProjectPeopleWidget from './ProjectPeopleWidget';
 
-// Communication/Files/Approvals are their own pages (URL-routed, as
-// before); Dashboard/List/Board/Timeline/Table/Workload/Team are all
-// views of the same milestones data, switched via local state rather
-// than the URL. The two kinds are interleaved into one ordered tab row
-// below — Dashboard sits second, right after Communication.
-const PAGE_TABS = [
+/** Primary project jobs — Talk / Progress / Approve / Files. */
+const PRIMARY_TABS = [
   { id: 'communication', label: 'Communication', icon: MessageSquare },
-  { id: 'files', label: 'Files', icon: FileIcon },
+  { id: 'progress', label: 'Progress', icon: LayoutDashboard },
   { id: 'approvals', label: 'Approvals', icon: CheckSquare },
+  { id: 'files', label: 'Files', icon: FileIcon },
 ] as const;
-type PageTab = typeof PAGE_TABS[number]['id'];
-
-const pageSlug: Record<PageTab, string> = {
-  communication: '',
-  files: 'files',
-  approvals: 'approvals',
-};
+type PrimaryTab = typeof PRIMARY_TABS[number]['id'];
 
 const MILESTONE_VIEW_OPTIONS: { id: MilestonesView; label: string; icon: React.ElementType }[] = [
+  { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
   { id: 'list', label: 'List', icon: List },
   { id: 'board', label: 'Board', icon: KanbanSquare },
   { id: 'timeline', label: 'Timeline', icon: GanttChartSquare },
@@ -52,14 +55,23 @@ const PortalProjectDetailPage: React.FC = () => {
   const [milestoneView, setMilestoneView] = useState<MilestonesView>('dashboard');
 
   const activeSlug = location.pathname.split(`/portal/projects/${id}`)[1]?.replace(/^\//, '') ?? '';
-  // Any milestone-view tab shares the same "milestones" URL slug — the
-  // specific view is local state (milestoneView), not part of the route.
-  const onMilestonesRoute = activeSlug === 'milestones';
-  const page: PageTab = onMilestonesRoute
-    ? 'communication' // unused while showingMilestones is true, needs a valid fallback
-    : (Object.keys(pageSlug) as PageTab[]).find((t) => pageSlug[t] === activeSlug) ?? 'communication';
+  const onMilestonesRoute = activeSlug === 'milestones' || activeSlug === 'overview';
+  const page: PrimaryTab = onMilestonesRoute
+    ? 'progress'
+    : activeSlug === 'files'
+      ? 'files'
+      : activeSlug === 'approvals'
+        ? 'approvals'
+        : 'communication';
 
-  const goToPage = (t: PageTab) => navigate(`/portal/projects/${id}${pageSlug[t] ? `/${pageSlug[t]}` : ''}`);
+  const goToPrimary = (t: PrimaryTab) => {
+    if (t === 'communication') navigate(`/portal/projects/${id}`);
+    else if (t === 'progress') {
+      setMilestoneView('dashboard');
+      navigate(`/portal/projects/${id}/milestones`);
+    } else navigate(`/portal/projects/${id}/${t}`);
+  };
+
   const goToMilestoneView = (v: MilestonesView) => {
     setMilestoneView(v);
     navigate(`/portal/projects/${id}/milestones`);
@@ -73,6 +85,14 @@ const PortalProjectDetailPage: React.FC = () => {
     retry: false,
   });
 
+  const { data: approvals = [] } = useQuery<PortalApproval[]>({
+    queryKey: ['portal', 'approvals', id],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.APPROVALS(id!)),
+    select: (r: any) => r?.payload?.records || [],
+    enabled: !!id,
+  });
+  const pendingApprovalCount = approvals.filter((a) => a.status === 'PENDING').length;
+
   const setTopbarTitle = usePortalTopbarStore((s) => s.setTitle);
   useEffect(() => {
     setTopbarTitle(project?.title ?? null);
@@ -85,6 +105,7 @@ const PortalProjectDetailPage: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-3 text-(--color-text-secondary)">
         <p className="font-semibold text-sm">Project not found</p>
+        <p className="text-xs max-w-sm text-center">This project may have been removed, or you no longer have access.</p>
         <button onClick={() => navigate('/portal/projects')} className="text-sm font-bold text-primary-600 hover:underline">
           Back to Projects
         </button>
@@ -92,12 +113,15 @@ const PortalProjectDetailPage: React.FC = () => {
     );
   }
 
-  const showingMilestones = onMilestonesRoute;
+  const showingProgress = onMilestonesRoute;
   const activeMilestoneView = milestoneView;
-  // Communication is a chat: full bleed under the header. On mobile the
-  // layout hides the bottom tab bar for this view (ClickUp-style), so height
-  // is header-only (~3rem); desktop still uses the 4rem header.
-  const isCommunication = !showingMilestones && page === 'communication';
+  const isCommunication = !showingProgress && page === 'communication';
+
+  const tabBtn = (active: boolean) =>
+    cn(
+      'px-3 lg:px-5 h-11 lg:h-12 text-[13px] lg:text-[15px] font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors inline-flex items-center gap-1.5',
+      active ? 'border-primary-600 text-primary-600' : 'border-transparent text-(--color-text-secondary) hover:text-(--color-text-primary)'
+    );
 
   return (
     <div
@@ -109,50 +133,21 @@ const PortalProjectDetailPage: React.FC = () => {
       )}
     >
       <div className={cn('flex items-center gap-2 border-b border-(--color-border) shrink-0', isCommunication && 'px-3 lg:px-6')}>
-      <div className="flex items-center gap-0.5 overflow-x-auto flex-1 min-w-0 scrollbar-none">
-        <button
-          onClick={() => goToPage('communication')}
-          className={cn(
-            'px-3 lg:px-5 h-11 lg:h-12 text-[13px] lg:text-[15px] font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
-            !showingMilestones && page === 'communication' ? 'border-primary-600 text-primary-600' : 'border-transparent text-(--color-text-secondary) hover:text-(--color-text-primary)'
-          )}
-        >
-          Communication
-        </button>
-        <button
-          onClick={() => goToMilestoneView('dashboard')}
-          className={cn(
-            'px-3 lg:px-5 h-11 lg:h-12 text-[13px] lg:text-[15px] font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
-            showingMilestones && activeMilestoneView === 'dashboard' ? 'border-primary-600 text-primary-600' : 'border-transparent text-(--color-text-secondary) hover:text-(--color-text-primary)'
-          )}
-        >
-          Dashboard
-        </button>
-        {PAGE_TABS.filter((t) => t.id !== 'communication').map((t) => (
-          <button
-            key={t.id}
-            onClick={() => goToPage(t.id)}
-            className={cn(
-              'px-3 lg:px-5 h-11 lg:h-12 text-[13px] lg:text-[15px] font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
-              !showingMilestones && page === t.id ? 'border-primary-600 text-primary-600' : 'border-transparent text-(--color-text-secondary) hover:text-(--color-text-primary)'
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-        {MILESTONE_VIEW_OPTIONS.map((v) => (
-          <button
-            key={v.id}
-            onClick={() => goToMilestoneView(v.id)}
-            className={cn(
-              'px-3 lg:px-5 h-11 lg:h-12 text-[13px] lg:text-[15px] font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
-              showingMilestones && activeMilestoneView === v.id ? 'border-primary-600 text-primary-600' : 'border-transparent text-(--color-text-secondary) hover:text-(--color-text-primary)'
-            )}
-          >
-            {v.label}
-          </button>
-        ))}
-      </div>
+        <div className="flex items-center gap-0.5 overflow-x-auto flex-1 min-w-0 scrollbar-none">
+          {PRIMARY_TABS.map((t) => {
+            const active = t.id === 'progress' ? showingProgress : !showingProgress && page === t.id;
+            return (
+              <button key={t.id} type="button" onClick={() => goToPrimary(t.id)} className={tabBtn(active)}>
+                {t.label}
+                {t.id === 'approvals' && pendingApprovalCount > 0 && (
+                  <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-black flex items-center justify-center">
+                    {pendingApprovalCount > 9 ? '9+' : pendingApprovalCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
         {isSuperAdmin && (
           <div className="pb-2 shrink-0 hidden sm:block">
             <ProjectPeopleWidget projectId={project.id} clientId={project.client_id} />
@@ -160,8 +155,29 @@ const PortalProjectDetailPage: React.FC = () => {
         )}
       </div>
 
+      {showingProgress && (
+        <div className={cn('flex items-center gap-1 overflow-x-auto scrollbar-none px-1', isCommunication && 'px-3')}>
+          {MILESTONE_VIEW_OPTIONS.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              onClick={() => goToMilestoneView(v.id)}
+              className={cn(
+                'px-3 h-9 rounded-lg text-[12px] font-bold whitespace-nowrap transition-colors inline-flex items-center gap-1.5',
+                activeMilestoneView === v.id
+                  ? 'bg-primary-50 text-primary-700'
+                  : 'text-(--color-text-secondary) hover:bg-(--color-state-hover)'
+              )}
+            >
+              <v.icon size={14} />
+              {v.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className={cn('flex-1 min-h-0 flex flex-col', isCommunication && 'px-3 lg:px-6')}>
-        {showingMilestones ? (
+        {showingProgress ? (
           <div className="flex flex-col gap-4">
             {activeMilestoneView === 'dashboard' && (
               <Card>

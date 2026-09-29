@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { usePreviewClientPortalInvite, useAcceptClientPortalInvite } from '@/services/clientPortalInviteService';
+import { useLoginMutation } from '@/services/authService';
+import { useAuthStore } from '@/stores/authStore';
+import { setAuthTokens, extractTokensFromAuthResponse } from '@/utils/tokenMemory';
+import { User } from '@/types';
 import { Button } from '@/components';
 import { useToastContext } from '@/components/toast/ToastProvider';
 
@@ -27,11 +31,14 @@ const AcceptPortalInvite: React.FC = () => {
   const toast = useToastContext();
   const { data, isLoading, isError } = usePreviewClientPortalInvite(token || '');
   const accept = useAcceptClientPortalInvite(token || '');
+  const loginMutation = useLoginMutation();
+  const { loggedIn } = useAuthStore();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const invite = (data as any)?.payload;
   const isValid = invite?.valid;
@@ -69,12 +76,37 @@ const AcceptPortalInvite: React.FC = () => {
     e.preventDefault();
     if (password.length < 8) { toast.error('Password must be at least 8 characters'); return; }
     if (password !== confirmPassword) { toast.error('Passwords do not match'); return; }
+    setSubmitting(true);
     try {
-      await accept.mutateAsync({ password, first_name: firstName, last_name: lastName });
-      toast.success('Account created — you can now sign in');
-      navigate('/login');
+      const accepted = await accept.mutateAsync({ password, first_name: firstName, last_name: lastName });
+      const projectId = accepted?.payload?.project_id || invite.project_id || null;
+
+      try {
+        const res = await loginMutation.mutateAsync({ email: invite.email, password });
+        if (!(res as any)?.requires_2fa) {
+          const { accessToken, refreshToken, user } = extractTokensFromAuthResponse(res);
+          if (accessToken) setAuthTokens(accessToken, refreshToken);
+          if (user) loggedIn({ user: user as User });
+          toast.success('Welcome — you are signed in');
+          navigate(projectId ? `/portal/projects/${projectId}/communication` : '/portal', { replace: true });
+          return;
+        }
+      } catch {
+        /* fall through to login handoff */
+      }
+
+      toast.success('Account created — sign in to continue');
+      navigate('/login', {
+        replace: true,
+        state: {
+          email: invite.email,
+          redirectTo: projectId ? `/portal/projects/${projectId}/communication` : '/portal',
+        },
+      });
     } catch (err: any) {
       toast.error(err?.message || 'Failed to accept invitation');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -144,9 +176,9 @@ const AcceptPortalInvite: React.FC = () => {
           size="lg"
           fullWidth
           className="h-14 rounded-xl shadow-xl shadow-primary-100 font-bold text-lg mt-2"
-          loading={accept.isPending}
+          loading={submitting || accept.isPending || loginMutation.isPending}
         >
-          Accept Invitation &amp; Create Account
+          Accept Invitation &amp; Continue
         </Button>
       </form>
     </div>

@@ -152,10 +152,6 @@ const SearchDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     } else if (e.key === 'Enter' && items[active]) {
       e.preventDefault();
       open(items[active]);
-    } else if (e.key === 'Tab') {
-      e.preventDefault();
-      const idx = FILTERS.findIndex((f) => f.id === filter);
-      setFilter(FILTERS[(idx + (e.shiftKey ? FILTERS.length - 1 : 1)) % FILTERS.length].id);
     }
   };
 

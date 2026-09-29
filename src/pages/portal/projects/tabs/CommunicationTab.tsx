@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Paperclip, FileText, X, Smile, Reply, Bold, Italic, Code, Link2, Loader2, ChevronDown, ChevronRight, Pencil, Trash2, Check, Copy, Pin, Link as LinkIcon, Bookmark, BarChart3, XCircle } from 'lucide-react';
+import { Send, Paperclip, FileText, X, Smile, Reply, Bold, Italic, Code, Link2, Loader2, ChevronDown, ChevronRight, Pencil, Trash2, Check, Copy, Pin, Link as LinkIcon, Bookmark, BarChart3, XCircle, MoreHorizontal, Type, MessageSquare } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useMyPermissions } from '@/services/permissionsService';
@@ -153,10 +153,8 @@ function wrapSelection(el: HTMLTextAreaElement, before: string, after: string, v
 
 // ── Reusable composer — the main box and each thread's inline reply box ────
 
-// Inserts markdown [label](url) — RichText renders both this and bare URLs.
-function insertLink(el: HTMLTextAreaElement, value: string, setValue: (v: string) => void) {
-  const url = window.prompt('Link URL', 'https://')?.trim();
-  if (!url || url === 'https://') return;
+// Inserts markdown [label](url) via an inline URL field (no window.prompt — broken on mobile).
+function insertLinkMarkdown(el: HTMLTextAreaElement, value: string, setValue: (v: string) => void, url: string) {
   const href = /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url}`;
   const start = el.selectionStart ?? value.length;
   const end = el.selectionEnd ?? value.length;
@@ -188,7 +186,7 @@ const ToolbarButton: React.FC<{ title: string; onClick: () => void; disabled?: b
     aria-label={title}
     onClick={onClick}
     disabled={disabled}
-    className="flex items-center justify-center h-8 w-8 rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary) disabled:opacity-40 disabled:hover:bg-transparent"
+    className="flex items-center justify-center h-9 w-9 sm:h-8 sm:w-8 rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary) disabled:opacity-40 disabled:hover:bg-transparent"
   >
     {children}
   </button>
@@ -208,6 +206,9 @@ const Composer: React.FC<{
   const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showFormatTools, setShowFormatTools] = useState(false);
+  const [linkDraft, setLinkDraft] = useState<string | null>(null);
+  const [coarsePointer, setCoarsePointer] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingStopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -216,6 +217,14 @@ const Composer: React.FC<{
   const toast = useToastContext();
 
   const mentionable = useMentionableUsers(projectId);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(pointer: coarse)');
+    const sync = () => setCoarsePointer(mq.matches);
+    sync();
+    mq.addEventListener?.('change', sync);
+    return () => mq.removeEventListener?.('change', sync);
+  }, []);
 
   // Persist draft per user+project (+ thread parent) — restore on mount above.
   useEffect(() => {
@@ -357,9 +366,16 @@ const Composer: React.FC<{
   const handleBold = () => wrapWith('**', '**');
   const handleItalic = () => wrapWith('*', '*');
   const handleCode = () => wrapWith('`', '`');
-  const handleLink = () => {
+  const handleLink = () => setLinkDraft('https://');
+  const applyLink = () => {
     const el = textareaRef.current;
-    if (el) insertLink(el, content, setContent);
+    const url = linkDraft?.trim();
+    if (!el || !url || url === 'https://') {
+      setLinkDraft(null);
+      return;
+    }
+    insertLinkMarkdown(el, content, setContent, url);
+    setLinkDraft(null);
   };
   const handleAttachClick = () => fileInputRef.current?.click();
 
@@ -433,10 +449,19 @@ const Composer: React.FC<{
       <div className="flex items-stretch rounded-2xl border border-(--color-border) bg-(--color-surface) focus-within:border-primary-400 transition-colors overflow-hidden">
         <div className="flex-1 min-w-0 flex flex-col px-2 sm:px-3 pt-2 pb-2">
           <div className="flex items-center gap-0.5 sm:gap-1 overflow-x-auto no-scrollbar">
-            <ToolbarButton title="Bold" onClick={handleBold}><Bold size={16} /></ToolbarButton>
-            <ToolbarButton title="Italic" onClick={handleItalic}><Italic size={16} /></ToolbarButton>
-            <ToolbarButton title="Code" onClick={handleCode}><Code size={16} /></ToolbarButton>
-            <ToolbarButton title="Insert link" onClick={handleLink}><Link2 size={16} /></ToolbarButton>
+            {/* Mobile: collapse markdown tools behind Aa; always show attach + emoji + send. */}
+            <ToolbarButton
+              title={showFormatTools ? 'Hide formatting' : 'Formatting'}
+              onClick={() => setShowFormatTools((v) => !v)}
+            >
+              <Type size={16} />
+            </ToolbarButton>
+            <div className={cn('items-center gap-0.5 sm:gap-1', showFormatTools ? 'flex' : 'hidden sm:flex')}>
+              <ToolbarButton title="Bold" onClick={handleBold}><Bold size={16} /></ToolbarButton>
+              <ToolbarButton title="Italic" onClick={handleItalic}><Italic size={16} /></ToolbarButton>
+              <ToolbarButton title="Code" onClick={handleCode}><Code size={16} /></ToolbarButton>
+              <ToolbarButton title="Insert link" onClick={handleLink}><Link2 size={16} /></ToolbarButton>
+            </div>
             <ToolbarButton
               title={uploading ? 'Uploading…' : pendingAttachments.length >= MAX_ATTACHMENTS ? `Up to ${MAX_ATTACHMENTS} files per message` : 'Attach files'}
               onClick={handleAttachClick}
@@ -449,7 +474,7 @@ const Composer: React.FC<{
                 type="button"
                 onClick={() => setShowEmojiPicker((v) => !v)}
                 title="Insert emoji"
-                className="flex items-center justify-center h-8 w-8 rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary)"
+                className="flex items-center justify-center h-9 w-9 sm:h-8 sm:w-8 rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary)"
               >
                 <Smile size={16} />
               </button>
@@ -458,6 +483,29 @@ const Composer: React.FC<{
               )}
             </div>
           </div>
+
+          {linkDraft !== null && (
+            <div className="flex items-center gap-2 mt-1.5 mb-1">
+              <input
+                type="url"
+                value={linkDraft}
+                onChange={(e) => setLinkDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { e.preventDefault(); applyLink(); }
+                  if (e.key === 'Escape') setLinkDraft(null);
+                }}
+                placeholder="https://…"
+                autoFocus
+                className="flex-1 min-w-0 h-10 px-3 rounded-lg border border-(--color-border) text-sm bg-(--color-surface) focus:outline-none focus:border-primary-400"
+              />
+              <button type="button" onClick={applyLink} className="h-10 px-3 rounded-lg bg-primary-600 text-white text-xs font-bold shrink-0">
+                Add
+              </button>
+              <button type="button" onClick={() => setLinkDraft(null)} className="h-10 w-10 flex items-center justify-center rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) shrink-0" aria-label="Cancel link">
+                <X size={16} />
+              </button>
+            </div>
+          )}
 
           <MentionTextarea
             ref={textareaRef}
@@ -472,6 +520,7 @@ const Composer: React.FC<{
             }}
             onPaste={handlePaste}
             onSubmit={() => { if (!sending && !uploading) void handleSend(); }}
+            submitOnEnter={!coarsePointer}
             autoFocus={autoFocus}
             style={{ maxHeight: MAX_TEXTAREA_HEIGHT }}
           />
@@ -481,7 +530,7 @@ const Composer: React.FC<{
           <button
             onClick={handleSend}
             disabled={(!content.trim() && !pendingAttachments.length) || sending || uploading}
-            title="Send (Enter)"
+            title={coarsePointer ? 'Send' : 'Send (Enter)'}
             aria-label="Send"
             className="flex items-center justify-center h-11 w-11 rounded-xl bg-primary-600 text-white shadow-sm hover:bg-primary-700 disabled:opacity-50 disabled:hover:bg-primary-600 transition-colors"
           >
@@ -796,6 +845,7 @@ const MessageBubble: React.FC<{
   const [copied, setCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [showEditHistory, setShowEditHistory] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const qc = useQueryClient();
   const toast = useToastContext();
   const isOwn = m.user?.id === myUserId;
@@ -1076,89 +1126,103 @@ const MessageBubble: React.FC<{
       </div>
 
       {showActions && !editing && (
-        <div className="absolute top-1 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity z-10">
-          <div className="flex items-center gap-0.5 p-0.5 rounded-lg border border-(--color-border) bg-(--color-surface) shadow-sm relative">
-            {canCopy && (
-              <button
-                onClick={handleCopy}
-                className="flex items-center justify-center h-7 w-7 rounded-md text-(--color-text-secondary) hover:bg-(--color-state-hover)"
-                title={copied ? 'Copied' : 'Copy message'}
-              >
-                {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-              </button>
-            )}
+        <div className="absolute top-1 right-2 z-10">
+          <div className="relative">
             <button
-              onClick={handleCopyLink}
-              className="flex items-center justify-center h-7 w-7 rounded-md text-(--color-text-secondary) hover:bg-(--color-state-hover)"
-              title={linkCopied ? 'Link copied' : 'Copy message link'}
+              type="button"
+              onClick={() => { setActionsOpen((v) => !v); setReactionPickerOpen(false); setShowFullEmojiPicker(false); }}
+              aria-label="Message actions"
+              aria-expanded={actionsOpen}
+              className="flex items-center justify-center h-9 w-9 rounded-lg border border-(--color-border) bg-(--color-surface) text-(--color-text-secondary) shadow-sm hover:bg-(--color-state-hover)"
             >
-              {linkCopied ? <Check size={14} className="text-emerald-600" /> : <LinkIcon size={14} />}
+              <MoreHorizontal size={16} />
             </button>
-            {canCompose && (
+            {actionsOpen && (
               <>
-                <button
-                  onClick={() => { setReactionPickerOpen((v) => !v); setShowFullEmojiPicker(false); }}
-                  className="flex items-center justify-center h-7 w-7 rounded-md text-(--color-text-secondary) hover:bg-(--color-state-hover)"
-                  title="Add reaction"
-                >
-                  <Smile size={14} />
-                </button>
-                <button
-                  onClick={onReply}
-                  className="flex items-center justify-center h-7 w-7 rounded-md text-(--color-text-secondary) hover:bg-(--color-state-hover)"
-                  title="Reply"
-                >
-                  <Reply size={14} />
-                </button>
-                {isRoot && (
+                <button type="button" className="fixed inset-0 z-10 cursor-default" aria-label="Close actions" onClick={() => setActionsOpen(false)} />
+                <div className="absolute top-full right-0 mt-1 z-20 flex flex-col min-w-[160px] p-1 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg">
+                  {canCopy && (
+                    <button
+                      type="button"
+                      onClick={() => { handleCopy(); setActionsOpen(false); }}
+                      className="flex items-center gap-2 px-3 h-10 rounded-lg text-sm font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover)"
+                    >
+                      {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                      {copied ? 'Copied' : 'Copy'}
+                    </button>
+                  )}
                   <button
-                    onClick={() => pinMessage.mutate()}
-                    disabled={pinMessage.isPending}
-                    className={cn(
-                      'flex items-center justify-center h-7 w-7 rounded-md hover:bg-(--color-state-hover) disabled:opacity-50',
-                      m.is_pinned ? 'text-amber-600' : 'text-(--color-text-secondary)'
-                    )}
-                    title={m.is_pinned ? 'Unpin message' : 'Pin message'}
+                    type="button"
+                    onClick={() => { handleCopyLink(); setActionsOpen(false); }}
+                    className="flex items-center gap-2 px-3 h-10 rounded-lg text-sm font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover)"
                   >
-                    <Pin size={14} fill={m.is_pinned ? 'currentColor' : 'none'} />
+                    {linkCopied ? <Check size={14} className="text-emerald-600" /> : <LinkIcon size={14} />}
+                    {linkCopied ? 'Link copied' : 'Copy link'}
                   </button>
-                )}
+                  {canCompose && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => { setReactionPickerOpen(true); setShowFullEmojiPicker(false); setActionsOpen(false); }}
+                        className="flex items-center gap-2 px-3 h-10 rounded-lg text-sm font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover)"
+                      >
+                        <Smile size={14} /> React
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { onReply(); setActionsOpen(false); }}
+                        className="flex items-center gap-2 px-3 h-10 rounded-lg text-sm font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover)"
+                      >
+                        <Reply size={14} /> Reply
+                      </button>
+                      {isRoot && (
+                        <button
+                          type="button"
+                          onClick={() => { pinMessage.mutate(); setActionsOpen(false); }}
+                          disabled={pinMessage.isPending}
+                          className="flex items-center gap-2 px-3 h-10 rounded-lg text-sm font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover) disabled:opacity-50"
+                        >
+                          <Pin size={14} fill={m.is_pinned ? 'currentColor' : 'none'} />
+                          {m.is_pinned ? 'Unpin' : 'Pin'}
+                        </button>
+                      )}
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => { saveMessage.mutate(); setActionsOpen(false); }}
+                    disabled={saveMessage.isPending}
+                    className="flex items-center gap-2 px-3 h-10 rounded-lg text-sm font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover) disabled:opacity-50"
+                  >
+                    <Bookmark size={14} fill={isSaved ? 'currentColor' : 'none'} />
+                    {isSaved ? 'Unsave' : 'Save'}
+                  </button>
+                  {isOwn && !m.poll && (
+                    <button
+                      type="button"
+                      onClick={() => { setEditing(true); setActionsOpen(false); }}
+                      className="flex items-center gap-2 px-3 h-10 rounded-lg text-sm font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover)"
+                    >
+                      <Pencil size={14} /> Edit
+                    </button>
+                  )}
+                  {(isOwn || canDeleteAny) && (
+                    <button
+                      type="button"
+                      onClick={() => { handleDelete(); setActionsOpen(false); }}
+                      disabled={deleteMessage.isPending}
+                      className="flex items-center gap-2 px-3 h-10 rounded-lg text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      <Trash2 size={14} /> Delete
+                    </button>
+                  )}
+                </div>
               </>
-            )}
-            <button
-              onClick={() => saveMessage.mutate()}
-              disabled={saveMessage.isPending}
-              className={cn(
-                'flex items-center justify-center h-7 w-7 rounded-md hover:bg-(--color-state-hover) disabled:opacity-50',
-                isSaved ? 'text-blue-600' : 'text-(--color-text-secondary)'
-              )}
-              title={isSaved ? 'Remove from Saved' : 'Save message'}
-            >
-              <Bookmark size={14} fill={isSaved ? 'currentColor' : 'none'} />
-            </button>
-            {isOwn && !m.poll && (
-              <button
-                onClick={() => setEditing(true)}
-                className="flex items-center justify-center h-7 w-7 rounded-md text-(--color-text-secondary) hover:bg-(--color-state-hover)"
-                title="Edit"
-              >
-                <Pencil size={14} />
-              </button>
-            )}
-            {(isOwn || canDeleteAny) && (
-              <button
-                onClick={handleDelete}
-                disabled={deleteMessage.isPending}
-                className="flex items-center justify-center h-7 w-7 rounded-md text-red-500 hover:bg-red-50 disabled:opacity-50"
-                title="Delete"
-              >
-                <Trash2 size={14} />
-              </button>
             )}
             {reactionPickerOpen && (
               <div className="absolute top-full right-0 mt-1 z-20 flex items-center gap-1 p-1.5 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg">
                 {QUICK_REACTIONS.map((e) => (
-                  <button key={e} onClick={() => handleToggleReaction(e)} className="text-lg h-8 w-8 flex items-center justify-center rounded-lg hover:bg-(--color-state-hover)">
+                  <button key={e} type="button" onClick={() => handleToggleReaction(e)} className="text-lg h-9 w-9 flex items-center justify-center rounded-lg hover:bg-(--color-state-hover)">
                     {e}
                   </button>
                 ))}
@@ -1166,7 +1230,7 @@ const MessageBubble: React.FC<{
                   <button
                     type="button"
                     onClick={() => setShowFullEmojiPicker((v) => !v)}
-                    className="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-amber-500"
+                    className="h-9 w-9 flex items-center justify-center rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-amber-500"
                     title="More reactions"
                   >
                     <Smile size={14} />
@@ -1174,7 +1238,7 @@ const MessageBubble: React.FC<{
                   {showFullEmojiPicker && (
                     <EmojiPicker
                       align="right"
-                      onSelect={(emoji) => handleToggleReaction(emoji)}
+                      onSelect={(emoji) => { handleToggleReaction(emoji); setShowFullEmojiPicker(false); setReactionPickerOpen(false); }}
                       onClose={() => setShowFullEmojiPicker(false)}
                     />
                   )}
@@ -1609,7 +1673,13 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
       )}
       <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-4 px-1 pr-1 bg-white">
         {roots.length === 0 && (
-          <p className="text-sm text-(--color-text-secondary) py-10 text-center">No messages yet.</p>
+          <div className="flex flex-col items-center justify-center py-16 gap-2 text-center px-6">
+            <MessageSquare size={36} className="text-(--color-text-secondary) opacity-50" strokeWidth={1.5} />
+            <p className="font-bold text-sm text-(--color-text-primary)">Start the conversation</p>
+            <p className="text-sm text-(--color-text-secondary) max-w-sm">
+              Ask questions, share feedback, and keep project decisions in one place. Messages here are visible to you and the TekXAI team.
+            </p>
+          </div>
         )}
         {roots.map((root, i) => {
           const replies = repliesByRoot.get(root.id) || [];

@@ -4,7 +4,9 @@ import { FileText, Plus } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useToastContext } from '@/components/toast/ToastProvider';
+import { useAuth } from '@/hooks/useAuth';
 import { PageSkeleton } from '@/components/skeletons';
+import { RichText } from '../projects/richText';
 
 type WikiDoc = {
   id: string;
@@ -16,6 +18,9 @@ type WikiDoc = {
 
 const PortalWikiPage: React.FC = () => {
   const toast = useToastContext();
+  const { user } = useAuth();
+  const isClient = user?.user_type === 'CLIENT';
+  const canEdit = !isClient;
   const qc = useQueryClient();
   const [projectId, setProjectId] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -87,7 +92,7 @@ const PortalWikiPage: React.FC = () => {
       <aside className="border border-(--color-border) rounded-xl p-3 bg-(--color-surface)">
         <label className="text-xs text-(--color-text-secondary)">Project</label>
         <select
-          className="w-full mt-1 mb-3 border border-(--color-border) rounded-lg px-2 py-1.5 text-sm"
+          className="w-full mt-1 mb-3 border border-(--color-border) rounded-lg px-2 py-1.5 text-sm min-h-11"
           value={activeProject}
           onChange={(e) => { setProjectId(e.target.value); setSelectedId(null); }}
         >
@@ -95,18 +100,22 @@ const PortalWikiPage: React.FC = () => {
             <option key={p.id} value={p.id}>{p.title}</option>
           ))}
         </select>
-        <button
-          className="w-full mb-3 inline-flex items-center justify-center gap-1 text-sm px-2 py-1.5 rounded-lg bg-(--color-primary) text-white"
-          onClick={() => { setSelectedId(null); setTitle('New page'); setContent(''); }}
-        >
-          <Plus size={14} /> New page
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            className="w-full mb-3 inline-flex items-center justify-center gap-1 text-sm px-2 min-h-11 rounded-lg bg-(--color-primary) text-white"
+            onClick={() => { setSelectedId(null); setTitle('New page'); setContent(''); }}
+          >
+            <Plus size={14} /> New page
+          </button>
+        )}
         <div className="flex flex-col gap-0.5 max-h-[60vh] overflow-auto">
           {flatLinks.map((d) => (
             <button
               key={d.id}
-              className={`text-left text-sm px-2 py-1.5 rounded-md ${selectedId === d.id ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50'}`}
-              onClick={() => { setSelectedId(d.id); setContent(''); }}
+              type="button"
+              className={`text-left text-sm px-2 min-h-11 rounded-md ${selectedId === d.id ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50'}`}
+              onClick={() => { setSelectedId(d.id); setContent(''); setTitle(''); }}
             >
               <FileText size={12} className="inline mr-1" />
               {d.title}
@@ -118,28 +127,41 @@ const PortalWikiPage: React.FC = () => {
 
       <section className="border border-(--color-border) rounded-xl p-4 bg-(--color-surface)">
         {selectedId && selected ? (
-          <>
-            <input
-              className="w-full text-xl font-semibold bg-transparent border-b border-(--color-border) pb-2 mb-3 outline-none"
-              value={content !== '' || !selected ? (title || selected.title) : selected.title}
-              onChange={(e) => setTitle(e.target.value)}
-              onFocus={() => { if (!title) setTitle(selected.title); if (content === '') setContent(selected.content || ''); }}
-            />
-            <textarea
-              className="w-full min-h-[360px] text-sm font-mono border border-(--color-border) rounded-lg p-3"
-              value={content !== '' ? content : (selected.content || '')}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Markdown content…"
-            />
-            <button className="mt-3 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm" onClick={() => save.mutate()}>
-              Save
-            </button>
-          </>
-        ) : (
+          canEdit ? (
+            <>
+              <input
+                className="w-full text-xl font-semibold bg-transparent border-b border-(--color-border) pb-2 mb-3 outline-none"
+                value={content !== '' || !selected ? (title || selected.title) : selected.title}
+                onChange={(e) => setTitle(e.target.value)}
+                onFocus={() => { if (!title) setTitle(selected.title); if (content === '') setContent(selected.content || ''); }}
+              />
+              <textarea
+                className="w-full min-h-[360px] text-sm font-mono border border-(--color-border) rounded-lg p-3"
+                value={content !== '' ? content : (selected.content || '')}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Markdown content…"
+              />
+              <button type="button" className="mt-3 px-4 min-h-11 rounded-lg bg-emerald-600 text-white text-sm" onClick={() => save.mutate()}>
+                Save
+              </button>
+            </>
+          ) : (
+            <>
+              <h2 className="text-xl font-semibold text-(--color-text-primary) border-b border-(--color-border) pb-2 mb-3">
+                {selected.title}
+              </h2>
+              <div className="prose prose-sm max-w-none text-(--color-text-primary)">
+                {selected.content
+                  ? <RichText content={selected.content} />
+                  : <p className="text-sm text-(--color-text-secondary)">This page has no content yet.</p>}
+              </div>
+            </>
+          )
+        ) : canEdit ? (
           <>
             <h2 className="text-lg font-semibold mb-2">Create wiki page</h2>
             <input
-              className="w-full border border-(--color-border) rounded-lg px-3 py-2 mb-3 text-sm"
+              className="w-full border border-(--color-border) rounded-lg px-3 py-2 mb-3 text-sm min-h-11"
               placeholder="Title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -150,10 +172,18 @@ const PortalWikiPage: React.FC = () => {
               value={content}
               onChange={(e) => setContent(e.target.value)}
             />
-            <button className="mt-3 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm" onClick={() => save.mutate()} disabled={!title.trim()}>
+            <button type="button" className="mt-3 px-4 min-h-11 rounded-lg bg-emerald-600 text-white text-sm" onClick={() => save.mutate()} disabled={!title.trim()}>
               Create
             </button>
           </>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-16 gap-2 text-center px-4">
+            <FileText size={32} className="text-(--color-text-secondary) opacity-50" strokeWidth={1.5} />
+            <p className="font-bold text-sm text-(--color-text-primary)">Select a wiki page</p>
+            <p className="text-sm text-(--color-text-secondary) max-w-sm">
+              Project notes shared by TekXAI appear here as read-only pages.
+            </p>
+          </div>
         )}
       </section>
     </div>

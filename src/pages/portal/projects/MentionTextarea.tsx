@@ -68,8 +68,10 @@ type Props = {
   autoFocus?: boolean;
   style?: React.CSSProperties;
   onPaste?: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
-  /** When set: Enter sends, Ctrl/Cmd+Enter inserts a newline. */
+  /** When set: Enter sends (desktop). On touch, prefer false so Enter inserts a newline. */
   onSubmit?: () => void;
+  /** Default true. When false, Enter inserts a newline instead of submitting. */
+  submitOnEnter?: boolean;
 };
 
 // A textarea with the @mention picker and in-box highlighting of mentioned
@@ -79,7 +81,7 @@ type Props = {
 // selection and placeholder come from it. Both must keep the same font,
 // padding, border width and wrapping, or the highlight drifts.
 const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
-  ({ projectId, value, onChange, className, placeholder, autoFocus, style, onPaste, onSubmit }, ref) => {
+  ({ projectId, value, onChange, className, placeholder, autoFocus, style, onPaste, onSubmit, submitOnEnter = true }, ref) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const mirrorRef = useRef<HTMLDivElement>(null);
     useImperativeHandle(ref, () => textareaRef.current as HTMLTextAreaElement);
@@ -160,6 +162,10 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
       }
 
       if (e.key !== 'Enter' || !onSubmit) return;
+      // Touch / soft keyboards: Enter = newline; use the Send button instead.
+      if (!submitOnEnter) {
+        return;
+      }
       // Enter sends; Ctrl/Cmd+Enter (and Shift+Enter) insert a newline.
       if (e.ctrlKey || e.metaKey || e.shiftKey) {
         e.preventDefault();
