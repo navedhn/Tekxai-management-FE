@@ -94,25 +94,26 @@ const PortalProjectDetailPage: React.FC = () => {
 
   const showingMilestones = onMilestonesRoute;
   const activeMilestoneView = milestoneView;
-  // Communication is a chat: it takes exactly the space under the header
-  // (message list scrolls, composer pinned to the bottom). The negative
-  // margins cancel the layout's page padding so the tabs sit right under the
-  // header; 4rem = header, 3.5rem = the mobile bottom nav.
+  // Communication is a chat: full bleed under the header. On mobile the
+  // layout hides the bottom tab bar for this view (ClickUp-style), so height
+  // is header-only (~3rem); desktop still uses the 4rem header.
   const isCommunication = !showingMilestones && page === 'communication';
 
   return (
     <div
       className={cn(
-        'flex flex-col gap-5 -mt-6 lg:-mt-8 pt-2 lg:pt-3',
-        isCommunication ? '-mb-6 lg:-mb-8 pb-4 h-[calc(100dvh-7.5rem)] lg:h-[calc(100dvh-4rem)] bg-white' : 'pb-10'
+        'flex flex-col gap-4 lg:gap-5',
+        isCommunication
+          ? 'h-[calc(100dvh-3rem-env(safe-area-inset-top))] lg:h-[calc(100dvh-4rem)] bg-white'
+          : 'pb-4 lg:pb-10'
       )}
     >
-      <div className={cn('flex items-center gap-2 border-b border-(--color-border) shrink-0', isCommunication && 'px-4 lg:px-6')}>
-      <div className="flex items-center gap-1 overflow-x-auto flex-1 min-w-0">
+      <div className={cn('flex items-center gap-2 border-b border-(--color-border) shrink-0', isCommunication && 'px-3 lg:px-6')}>
+      <div className="flex items-center gap-0.5 overflow-x-auto flex-1 min-w-0 scrollbar-none">
         <button
           onClick={() => goToPage('communication')}
           className={cn(
-            'px-4 lg:px-5 h-12 text-[15px] font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
+            'px-3 lg:px-5 h-11 lg:h-12 text-[13px] lg:text-[15px] font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
             !showingMilestones && page === 'communication' ? 'border-primary-600 text-primary-600' : 'border-transparent text-(--color-text-secondary) hover:text-(--color-text-primary)'
           )}
         >
@@ -121,7 +122,7 @@ const PortalProjectDetailPage: React.FC = () => {
         <button
           onClick={() => goToMilestoneView('dashboard')}
           className={cn(
-            'px-4 lg:px-5 h-12 text-[15px] font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
+            'px-3 lg:px-5 h-11 lg:h-12 text-[13px] lg:text-[15px] font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
             showingMilestones && activeMilestoneView === 'dashboard' ? 'border-primary-600 text-primary-600' : 'border-transparent text-(--color-text-secondary) hover:text-(--color-text-primary)'
           )}
         >
@@ -132,7 +133,7 @@ const PortalProjectDetailPage: React.FC = () => {
             key={t.id}
             onClick={() => goToPage(t.id)}
             className={cn(
-              'px-4 lg:px-5 h-12 text-[15px] font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
+              'px-3 lg:px-5 h-11 lg:h-12 text-[13px] lg:text-[15px] font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
               !showingMilestones && page === t.id ? 'border-primary-600 text-primary-600' : 'border-transparent text-(--color-text-secondary) hover:text-(--color-text-primary)'
             )}
           >
@@ -144,7 +145,7 @@ const PortalProjectDetailPage: React.FC = () => {
             key={v.id}
             onClick={() => goToMilestoneView(v.id)}
             className={cn(
-              'px-4 lg:px-5 h-12 text-[15px] font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
+              'px-3 lg:px-5 h-11 lg:h-12 text-[13px] lg:text-[15px] font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
               showingMilestones && activeMilestoneView === v.id ? 'border-primary-600 text-primary-600' : 'border-transparent text-(--color-text-secondary) hover:text-(--color-text-primary)'
             )}
           >
@@ -153,13 +154,13 @@ const PortalProjectDetailPage: React.FC = () => {
         ))}
       </div>
         {isSuperAdmin && (
-          <div className="pb-2 shrink-0">
+          <div className="pb-2 shrink-0 hidden sm:block">
             <ProjectPeopleWidget projectId={project.id} clientId={project.client_id} />
           </div>
         )}
       </div>
 
-      <div className={cn('flex-1 min-h-0 flex flex-col', isCommunication && 'px-4 lg:px-6')}>
+      <div className={cn('flex-1 min-h-0 flex flex-col', isCommunication && 'px-3 lg:px-6')}>
         {showingMilestones ? (
           <div className="flex flex-col gap-4">
             {activeMilestoneView === 'dashboard' && (

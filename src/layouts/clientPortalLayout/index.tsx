@@ -1,7 +1,23 @@
 import React, { memo, Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { LayoutDashboard, FolderKanban, LogOut, Users, ChevronDown, ChevronRight, Plus, Boxes, MessageCircle, FileText, ArrowLeft, BookOpen } from 'lucide-react';
+import {
+  LayoutDashboard,
+  FolderKanban,
+  LogOut,
+  Users,
+  ChevronDown,
+  ChevronRight,
+  Plus,
+  Boxes,
+  MessageCircle,
+  FileText,
+  ArrowLeft,
+  BookOpen,
+  MoreHorizontal,
+  X,
+  Home,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/hooks/useAuth';
@@ -14,18 +30,12 @@ import { getSocket } from '@/lib/socket';
 import PortalSearch from './PortalSearch';
 import ProfileWorkspaceMenu from '@/layouts/features/ProfileWorkspaceMenu';
 
-const NAV_ITEMS = [
-  { to: '/portal', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/portal/projects', label: 'Projects', icon: FolderKanban, end: false },
-  { to: '/portal/docs', label: 'Docs', icon: FileText, end: false },
-  { to: '/portal/wiki', label: 'Wiki', icon: BookOpen, end: false },
-];
-
 const CHATS_PAGE_SIZE = 10;
 const CHATS_PAGE_INCREMENT = 5;
 
 type SpaceProject = { id: string; title: string; status: string; client: { id: string; name: string } | null };
 type Milestone = { id: string; title: string; status: string; progress_percent: number | null };
+type MobileSheet = 'chats' | 'spaces' | 'more' | null;
 
 const PROJECT_STATUS_DOT: Record<string, string> = {
   IN_PROGRESS: 'bg-blue-500',
@@ -42,9 +52,6 @@ const MILESTONE_STATUS_STYLES: Record<string, string> = {
   BLOCKED: 'bg-red-50 text-red-600',
 };
 
-// Milestones only ever fetched once a Space is actually expanded — this
-// is a per-project list nested inside a sidebar panel, not a page, so it
-// should never fire dozens of requests just for the project list to render.
 const MilestonesList: React.FC<{ projectId: string }> = ({ projectId }) => {
   const { data: milestones = [], isLoading } = useQuery<Milestone[]>({
     queryKey: ['portal', 'projects', projectId, 'milestones', 'sidebar'],
@@ -69,13 +76,11 @@ const MilestonesList: React.FC<{ projectId: string }> = ({ projectId }) => {
   );
 };
 
-// The second sidebar panel is shared by the "Spaces" and "Chats" rail
-// buttons — same project list either way, just linking into a different
-// tab of that project (its overview vs. its client Communication tab),
-// since "Chats" here means the portal's own client-communication threads,
-// never the separate internal /chat module. In "spaces" mode each row
-// also expands to show that project's milestones (its task groups).
-const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' }> = ({ isSuperAdmin, mode }) => {
+const ProjectsPanel: React.FC<{
+  isSuperAdmin: boolean;
+  mode: 'spaces' | 'chats';
+  onNavigate?: () => void;
+}> = ({ isSuperAdmin, mode, onNavigate }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(true);
@@ -87,9 +92,6 @@ const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' 
     select: (r: any) => r?.payload?.records || [],
   });
 
-  // Only the Chats rail needs this — polled lightly so a message that
-  // arrives while the sidebar is open still shows up as unread without
-  // requiring a manual refresh.
   const { data: unreadCounts = {} } = useQuery<Record<string, { count: number; last_message_at: string | null }>>({
     queryKey: ['portal', 'unread-counts'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.UNREAD_COUNTS),
@@ -100,8 +102,6 @@ const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' 
 
   const label = mode === 'chats' ? 'Chats' : 'Spaces';
 
-  // The poll remains a safety net for a reconnect, while this listener makes
-  // a newly received message light up its conversation immediately.
   useEffect(() => {
     if (mode !== 'chats') return;
     const socket = getSocket();
@@ -111,11 +111,6 @@ const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' 
     return () => socket.off('project:message:new', refreshUnread);
   }, [mode, queryClient]);
 
-  // Put conversations needing attention first, as ClickUp does, then within
-  // each group (unread / read) sort by most recent activity, latest first,
-  // same as any normal chat app — a project with no messages yet sinks to
-  // the bottom of its group rather than sitting wherever the project list
-  // itself happens to order it.
   const sortedProjects = mode === 'chats'
     ? [...projects].sort((a, b) => {
         const unreadDiff = Number((unreadCounts[b.id]?.count || 0) > 0) - Number((unreadCounts[a.id]?.count || 0) > 0);
@@ -149,14 +144,14 @@ const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' 
           <button
             onClick={() => navigate('/admin/projects')}
             title="Create a new project"
-            className="h-5 w-5 flex items-center justify-center rounded-md text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary)"
+            className="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary)"
           >
-            <Plus size={14} />
+            <Plus size={16} />
           </button>
         )}
       </div>
       {expanded && (
-        <nav className="flex flex-col gap-0.5 overflow-y-auto px-1">
+        <nav className="flex flex-col gap-0.5 overflow-y-auto px-1 flex-1 min-h-0">
           {visibleProjects.length === 0 && (
             <span className="px-3 py-1.5 text-xs text-(--color-text-secondary)">No projects yet.</span>
           )}
@@ -169,16 +164,17 @@ const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' 
                 <NavLink
                   key={p.id}
                   to={`/portal/projects/${p.id}/communication`}
+                  onClick={onNavigate}
                   className={({ isActive }) =>
                     cn(
-                      'relative flex items-center gap-2 px-3 h-9 rounded-lg text-[13px] truncate transition-colors',
+                      'relative flex items-center gap-2.5 px-3 min-h-11 rounded-xl text-[14px] truncate transition-colors',
                       hasUnread ? 'bg-primary-50 font-black text-primary-800 ring-1 ring-inset ring-primary-100' : 'font-semibold text-(--color-text-secondary)',
                       isActive ? 'bg-emerald-50 text-emerald-700 ring-0' : 'hover:bg-(--color-state-hover)'
                     )
                   }
                   title={displayName}
                 >
-                  <MessageCircle size={13} className={cn('shrink-0', hasUnread ? 'text-primary-600 opacity-100' : 'opacity-60')} />
+                  <MessageCircle size={15} className={cn('shrink-0', hasUnread ? 'text-primary-600 opacity-100' : 'opacity-60')} />
                   <span className="truncate flex-1">{displayName}</span>
                   {hasUnread && (
                     <span className="shrink-0 h-5 min-w-[20px] px-1.5 flex items-center justify-center rounded-full bg-primary-600 text-white text-[10px] font-black leading-none shadow-sm">
@@ -194,22 +190,23 @@ const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' 
                 <div className="flex items-center gap-0.5">
                   <button
                     onClick={() => toggleProject(p.id)}
-                    className="h-8 w-5 shrink-0 flex items-center justify-center text-(--color-text-secondary) hover:text-(--color-text-primary)"
+                    className="h-11 w-8 shrink-0 flex items-center justify-center text-(--color-text-secondary) hover:text-(--color-text-primary)"
                     title={isOpen ? 'Hide milestones' : 'Show milestones'}
                   >
-                    {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                    {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                   </button>
                   <NavLink
                     to={`/portal/projects/${p.id}`}
+                    onClick={onNavigate}
                     className={({ isActive }) =>
                       cn(
-                        'flex-1 min-w-0 flex items-center gap-2 pl-1 pr-2 h-8 rounded-lg text-[13px] font-semibold truncate transition-colors',
+                        'flex-1 min-w-0 flex items-center gap-2.5 pl-1 pr-3 min-h-11 rounded-xl text-[14px] font-semibold truncate transition-colors',
                         isActive ? 'bg-emerald-50 text-emerald-700' : 'text-(--color-text-secondary) hover:bg-(--color-state-hover)'
                       )
                     }
                     title={displayName}
                   >
-                    <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', PROJECT_STATUS_DOT[p.status] || 'bg-gray-400')} />
+                    <span className={cn('h-2 w-2 rounded-full shrink-0', PROJECT_STATUS_DOT[p.status] || 'bg-gray-400')} />
                     <span className="truncate">{displayName}</span>
                   </NavLink>
                 </div>
@@ -222,7 +219,7 @@ const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' 
       {expanded && hasMoreChats && (
         <button
           onClick={() => setVisibleCount((v) => v + CHATS_PAGE_INCREMENT)}
-          className="mx-1 mt-0.5 px-3 h-8 rounded-lg text-[12px] font-bold text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary) text-left shrink-0"
+          className="mx-1 mt-0.5 px-3 h-10 rounded-xl text-[13px] font-bold text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary) text-left shrink-0"
         >
           View more ({sortedProjects.length - visibleProjects.length} more)
         </button>
@@ -231,6 +228,36 @@ const ProjectsPanel: React.FC<{ isSuperAdmin: boolean; mode: 'spaces' | 'chats' 
   );
 };
 
+const MobileSheetShell: React.FC<{
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}> = ({ title, onClose, children }) => (
+  <div className="lg:hidden fixed inset-0 z-50 flex flex-col">
+    <button
+      type="button"
+      aria-label="Close"
+      className="absolute inset-0 bg-black/40"
+      onClick={onClose}
+    />
+    <div className="relative mt-auto flex flex-col max-h-[88dvh] rounded-t-2xl bg-(--color-surface) shadow-2xl pb-[env(safe-area-inset-bottom)]">
+      <div className="flex items-center justify-between px-4 h-14 border-b border-(--color-border) shrink-0">
+        <span className="text-base font-black text-(--color-text-primary) tracking-tight">{title}</span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="h-9 w-9 flex items-center justify-center rounded-full text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+        >
+          <X size={18} />
+        </button>
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto py-3 px-2">
+        {children}
+      </div>
+    </div>
+  </div>
+);
+
 const ClientPortalLayout: React.FC = memo(() => {
   const { user, role } = useAuth();
   const topbarTitle = usePortalTopbarStore((s) => s.title);
@@ -238,25 +265,50 @@ const ClientPortalLayout: React.FC = memo(() => {
   const navigate = useNavigate();
   const location = useLocation();
   const isSuperAdmin = role === 'SUPER_ADMIN';
-  const [panel, setPanel] = useState<'spaces' | 'chats' | null>(null);
-  // Communication chat is full-bleed (no side gutters / max-width) so the
-  // thread can use the full main column like ClickUp Chat.
-  const isCommunicationFullBleed = /^\/portal\/projects\/[^/]+\/?$/.test(location.pathname);
+  const [desktopPanel, setDesktopPanel] = useState<'spaces' | 'chats' | null>(null);
+  const [mobileSheet, setMobileSheet] = useState<MobileSheet>(null);
+
+  // Project communication is full-bleed; on mobile ClickUp hides the tab bar
+  // while you're deep in a chat thread so the composer can sit at the bottom.
+  const isCommunicationFullBleed = /^\/portal\/projects\/[^/]+\/?$/.test(location.pathname)
+    || /^\/portal\/projects\/[^/]+\/communication\/?$/.test(location.pathname);
+  const hideMobileTabBar = isCommunicationFullBleed;
 
   const handleLogout = () => {
     userLogout();
     navigate('/login');
   };
 
-  const navItems = isSuperAdmin
-    ? [...NAV_ITEMS, { to: '/portal/invites', label: 'People', icon: Users, end: false }]
-    : NAV_ITEMS;
+  const moreItems = [
+    { to: '/portal/docs', label: 'Docs', icon: FileText },
+    { to: '/portal/wiki', label: 'Wiki', icon: BookOpen },
+    ...(isSuperAdmin ? [{ to: '/portal/invites', label: 'People', icon: Users }] : []),
+  ];
 
-  const togglePanel = (mode: 'spaces' | 'chats') => setPanel((p) => (p === mode ? null : mode));
+  const desktopNavItems = isSuperAdmin
+    ? [
+        { to: '/portal', label: 'Home', icon: LayoutDashboard, end: true },
+        { to: '/portal/projects', label: 'Projects', icon: FolderKanban, end: false },
+        { to: '/portal/docs', label: 'Docs', icon: FileText, end: false },
+        { to: '/portal/wiki', label: 'Wiki', icon: BookOpen, end: false },
+        { to: '/portal/invites', label: 'People', icon: Users, end: false },
+      ]
+    : [
+        { to: '/portal', label: 'Home', icon: LayoutDashboard, end: true },
+        { to: '/portal/projects', label: 'Projects', icon: FolderKanban, end: false },
+        { to: '/portal/docs', label: 'Docs', icon: FileText, end: false },
+        { to: '/portal/wiki', label: 'Wiki', icon: BookOpen, end: false },
+      ];
 
-  // Icon sits in its own small chip that lights up on active/hover; the
-  // label underneath stays plain text and only changes color — mirrors
-  // ClickUp's rail, where the highlight never stretches the full row.
+  const toggleDesktopPanel = (mode: 'spaces' | 'chats') =>
+    setDesktopPanel((p) => (p === mode ? null : mode));
+
+  const closeMobileSheet = () => setMobileSheet(null);
+
+  useEffect(() => {
+    closeMobileSheet();
+  }, [location.pathname]);
+
   const RailButton: React.FC<{ icon: LucideIcon; label: string; active: boolean; onClick?: () => void; title?: string }> = ({ icon: Icon, label, active, onClick, title }) => (
     <button
       onClick={onClick}
@@ -277,9 +329,12 @@ const ClientPortalLayout: React.FC = memo(() => {
     </button>
   );
 
+  const isHome = location.pathname === '/portal' || location.pathname === '/portal/';
+  const isProjects = location.pathname.startsWith('/portal/projects') && !isCommunicationFullBleed;
+
   return (
-    <div className="min-h-screen flex bg-(--color-app-bg)">
-      {/* Icon rail — ClickUp-style: icon stacked over a short label, narrow, dark */}
+    <div className="min-h-dvh flex bg-(--color-app-bg)">
+      {/* Desktop icon rail — ClickUp-style */}
       <aside className="hidden lg:flex flex-col items-center w-[72px] shrink-0 bg-emerald-950 pt-5 pb-4">
         <div className="h-9 w-9 rounded-xl bg-white text-emerald-700 flex items-center justify-center font-black text-base">
           T
@@ -288,23 +343,23 @@ const ClientPortalLayout: React.FC = memo(() => {
         <div className="w-full h-px bg-white/10 my-4" />
 
         <nav className="flex flex-col items-center gap-2.5 w-full px-2">
-          {navItems.map(({ to, label, icon: Icon, end }) => (
-            <NavLink key={to} to={to} end={end} className="w-full" onClick={() => setPanel(null)}>
+          {desktopNavItems.map(({ to, label, icon: Icon, end }) => (
+            <NavLink key={to} to={to} end={end} className="w-full" onClick={() => setDesktopPanel(null)}>
               {({ isActive }) => <RailButton icon={Icon} label={label} active={isActive} />}
             </NavLink>
           ))}
           <RailButton
             icon={MessageCircle}
             label="Chats"
-            active={panel === 'chats'}
-            onClick={() => togglePanel('chats')}
+            active={desktopPanel === 'chats'}
+            onClick={() => toggleDesktopPanel('chats')}
             title="Client communication threads, by project"
           />
           <RailButton
             icon={Boxes}
             label="Spaces"
-            active={panel === 'spaces'}
-            onClick={() => togglePanel('spaces')}
+            active={desktopPanel === 'spaces'}
+            onClick={() => toggleDesktopPanel('spaces')}
             title="Every project"
           />
         </nav>
@@ -314,50 +369,61 @@ const ClientPortalLayout: React.FC = memo(() => {
         </div>
       </aside>
 
-      {/* Spaces/Chats panel — the project list, ClickUp's second sidebar column */}
-      {panel && (
+      {desktopPanel && (
         <aside className="hidden lg:flex flex-col w-52 shrink-0 border-r border-(--color-border) bg-(--color-surface) py-4 px-3 min-h-0">
           <div className="px-1 mb-4">
             <span className="text-base font-black text-(--color-text-primary) tracking-tight">Client Portal</span>
           </div>
-          <ProjectsPanel isSuperAdmin={isSuperAdmin} mode={panel} />
+          <ProjectsPanel isSuperAdmin={isSuperAdmin} mode={desktopPanel} />
         </aside>
       )}
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 shrink-0 border-b border-(--color-border) bg-(--color-surface) flex items-center justify-between px-4 lg:px-8 gap-4 min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
+        {/* Compact ClickUp-style mobile header; taller desktop header unchanged */}
+        <header
+          className={cn(
+            'shrink-0 border-b border-(--color-border) bg-(--color-surface) flex items-center justify-between gap-2 min-w-0',
+            'h-12 px-3 lg:h-16 lg:px-8 lg:gap-4',
+            'pt-[env(safe-area-inset-top)]'
+          )}
+        >
           {topbarTitle ? (
-            <div className="flex items-center gap-3 min-w-0 md:max-w-[30%]">
+            <div className="flex items-center gap-2 min-w-0 flex-1 lg:max-w-[30%] lg:flex-none lg:gap-3">
               <button
-                onClick={() => navigate('/portal/projects')}
-                className="shrink-0 text-(--color-text-secondary) hover:text-primary-600"
-                title="Back to Projects"
+                onClick={() => navigate(-1)}
+                className="shrink-0 h-9 w-9 lg:h-auto lg:w-auto flex items-center justify-center rounded-full text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-primary-600"
+                title="Back"
               >
                 <ArrowLeft size={18} />
               </button>
-              <span className="text-base font-black text-(--color-text-primary) truncate">{topbarTitle}</span>
+              <span className="text-[15px] lg:text-base font-black text-(--color-text-primary) truncate">{topbarTitle}</span>
             </div>
           ) : (
-            <span className="lg:hidden text-base font-black text-(--color-text-primary)">Client Portal</span>
+            <div className="flex items-center gap-2 min-w-0 lg:hidden">
+              <div className="h-8 w-8 rounded-lg bg-emerald-950 text-white flex items-center justify-center font-black text-sm shrink-0">
+                T
+              </div>
+              <span className="text-[15px] font-black text-(--color-text-primary) truncate">Home</span>
+            </div>
           )}
-          <div className="flex-1 min-w-0 flex justify-end md:justify-center">
+          {!topbarTitle && (
+            <span className="hidden lg:inline text-base font-black text-(--color-text-primary)">Client Portal</span>
+          )}
+          <div className="flex-1 min-w-0 flex justify-end lg:justify-center">
             <PortalSearch />
           </div>
-          <div className="flex items-center gap-3 shrink-0">
-            {/* Same workspace switcher as admin/employee topbars — INTERNAL
-                employees only. CLIENT accounts keep a static name/avatar chip
-                (they have nowhere else to switch into). */}
+          <div className="flex items-center gap-2 lg:gap-3 shrink-0">
             {user?.user_type === 'INTERNAL' ? (
               <ProfileWorkspaceMenu />
             ) : (
               <>
-                <span className="text-sm font-semibold text-(--color-text-primary)">
+                <span className="hidden sm:inline text-sm font-semibold text-(--color-text-primary)">
                   {user?.first_name} {user?.last_name}
                 </span>
                 {user?.avatar ? (
-                  <img src={user.avatar} alt="" className="h-9 w-9 rounded-full object-cover" />
+                  <img src={user.avatar} alt="" className="h-8 w-8 lg:h-9 lg:w-9 rounded-full object-cover" />
                 ) : (
-                  <div className="h-9 w-9 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-sm font-bold">
+                  <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-sm font-bold">
                     {user?.first_name?.[0]?.toUpperCase() ?? 'C'}
                   </div>
                 )}
@@ -366,12 +432,12 @@ const ClientPortalLayout: React.FC = memo(() => {
           </div>
         </header>
 
-        <main className="flex-1 min-w-0">
+        <main className="flex-1 min-w-0 min-h-0 overflow-y-auto">
           <div
             className={cn(
               isCommunicationFullBleed
-                ? 'py-6 lg:py-8 px-0 max-w-none w-full h-full'
-                : 'p-6 lg:p-8 max-w-[1400px] mx-auto'
+                ? 'py-0 lg:py-0 px-0 max-w-none w-full h-full'
+                : 'p-4 pb-24 lg:p-8 lg:pb-8 max-w-[1400px] mx-auto'
             )}
           >
             <Suspense fallback={<RoutePageSkeleton />}>
@@ -380,25 +446,103 @@ const ClientPortalLayout: React.FC = memo(() => {
           </div>
         </main>
 
-        <nav className="lg:hidden flex items-center justify-around border-t border-(--color-border) bg-(--color-surface) h-14 shrink-0">
-          {navItems.map(({ to, label, icon: Icon, end }) => (
+        {/* ClickUp-style mobile bottom tabs: Home · Chats · Spaces · More */}
+        {!hideMobileTabBar && (
+          <nav
+            className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex items-stretch justify-around border-t border-(--color-border) bg-(--color-surface)/95 backdrop-blur-md shrink-0"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+          >
             <NavLink
-              key={to}
-              to={to}
-              end={end}
+              to="/portal"
+              end
+              onClick={closeMobileSheet}
               className={({ isActive }) =>
                 cn(
-                  'flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold',
-                  isActive ? 'text-emerald-600' : 'text-(--color-text-secondary)'
+                  'flex-1 flex flex-col items-center justify-center gap-0.5 h-14 text-[10px] font-bold',
+                  isActive && !mobileSheet ? 'text-emerald-600' : 'text-(--color-text-secondary)'
                 )
               }
             >
-              <Icon size={18} />
-              {label}
+              <Home size={20} strokeWidth={isHome && !mobileSheet ? 2.4 : 2} />
+              Home
             </NavLink>
-          ))}
-        </nav>
+            <button
+              type="button"
+              onClick={() => setMobileSheet((s) => (s === 'chats' ? null : 'chats'))}
+              className={cn(
+                'flex-1 flex flex-col items-center justify-center gap-0.5 h-14 text-[10px] font-bold',
+                mobileSheet === 'chats' ? 'text-emerald-600' : 'text-(--color-text-secondary)'
+              )}
+            >
+              <MessageCircle size={20} strokeWidth={mobileSheet === 'chats' ? 2.4 : 2} />
+              Chats
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileSheet((s) => (s === 'spaces' ? null : 'spaces'))}
+              className={cn(
+                'flex-1 flex flex-col items-center justify-center gap-0.5 h-14 text-[10px] font-bold',
+                mobileSheet === 'spaces' || isProjects ? 'text-emerald-600' : 'text-(--color-text-secondary)'
+              )}
+            >
+              <Boxes size={20} strokeWidth={mobileSheet === 'spaces' || isProjects ? 2.4 : 2} />
+              Spaces
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileSheet((s) => (s === 'more' ? null : 'more'))}
+              className={cn(
+                'flex-1 flex flex-col items-center justify-center gap-0.5 h-14 text-[10px] font-bold',
+                mobileSheet === 'more' ? 'text-emerald-600' : 'text-(--color-text-secondary)'
+              )}
+            >
+              <MoreHorizontal size={20} strokeWidth={mobileSheet === 'more' ? 2.4 : 2} />
+              More
+            </button>
+          </nav>
+        )}
       </div>
+
+      {mobileSheet === 'chats' && (
+        <MobileSheetShell title="Chats" onClose={closeMobileSheet}>
+          <ProjectsPanel isSuperAdmin={isSuperAdmin} mode="chats" onNavigate={closeMobileSheet} />
+        </MobileSheetShell>
+      )}
+      {mobileSheet === 'spaces' && (
+        <MobileSheetShell title="Spaces" onClose={closeMobileSheet}>
+          <ProjectsPanel isSuperAdmin={isSuperAdmin} mode="spaces" onNavigate={closeMobileSheet} />
+        </MobileSheetShell>
+      )}
+      {mobileSheet === 'more' && (
+        <MobileSheetShell title="More" onClose={closeMobileSheet}>
+          <div className="flex flex-col gap-1 px-1">
+            {moreItems.map(({ to, label, icon: Icon }) => (
+              <NavLink
+                key={to}
+                to={to}
+                onClick={closeMobileSheet}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 px-3 min-h-12 rounded-xl text-[15px] font-semibold transition-colors',
+                    isActive ? 'bg-emerald-50 text-emerald-700' : 'text-(--color-text-primary) hover:bg-(--color-state-hover)'
+                  )
+                }
+              >
+                <Icon size={18} className="text-(--color-text-secondary)" />
+                {label}
+              </NavLink>
+            ))}
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex items-center gap-3 px-3 min-h-12 rounded-xl text-[15px] font-semibold text-red-600 hover:bg-red-50"
+            >
+              <LogOut size={18} />
+              Log out
+            </button>
+          </div>
+        </MobileSheetShell>
+      )}
     </div>
   );
 });

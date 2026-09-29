@@ -45,13 +45,14 @@ const StatCard: React.FC<{ label: string; value: number | string; icon: React.El
   icon: Icon,
   accent,
 }) => (
-  <Card className="flex items-center gap-4">
-    <div className={cn('h-11 w-11 rounded-xl flex items-center justify-center shrink-0', accent)}>
-      <Icon size={20} />
+  <Card className="flex items-center gap-3 lg:gap-4 !p-3 lg:!p-4">
+    <div className={cn('h-9 w-9 lg:h-11 lg:w-11 rounded-xl flex items-center justify-center shrink-0', accent)}>
+      <Icon size={18} className="lg:hidden" />
+      <Icon size={20} className="hidden lg:block" />
     </div>
-    <div>
-      <p className="text-2xl font-black text-(--color-text-primary) leading-none">{value}</p>
-      <p className="text-xs font-semibold text-(--color-text-secondary) mt-1">{label}</p>
+    <div className="min-w-0">
+      <p className="text-xl lg:text-2xl font-black text-(--color-text-primary) leading-none truncate">{value}</p>
+      <p className="text-[11px] lg:text-xs font-semibold text-(--color-text-secondary) mt-1 leading-tight">{label}</p>
     </div>
   </Card>
 );
@@ -105,22 +106,30 @@ const PortalDashboard: React.FC = () => {
   const pendingApprovals = approvalQueries.flatMap((q) => q.data || []).filter((a) => a.status === 'PENDING');
 
   return (
-    <div className="flex flex-col gap-6 pb-10">
-      <div>
+    <div className="flex flex-col gap-5 lg:gap-6 pb-4 lg:pb-10">
+      <div className="hidden lg:block">
         <h1 className="text-2xl font-black text-(--color-text-primary) tracking-tight">Dashboard</h1>
         <p className="text-sm text-(--color-text-secondary) mt-1">Overview of your projects with TekXAI.</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      {/* ClickUp Home-style tiles: 2×2 on phone, row on desktop */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 lg:gap-4">
         <StatCard label="Active Projects" value={activeProjects.length} icon={FolderKanban} accent="bg-primary-100 text-primary-600" />
         <StatCard label="Pending Approvals" value={pendingApprovals.length} icon={ClipboardCheck} accent="bg-amber-100 text-amber-600" />
         <StatCard label="Unread Messages" value={messagesUnread ?? 0} icon={MessageSquare} accent="bg-blue-100 text-blue-600" />
         <StatCard label="Upcoming Milestones" value={upcomingMilestones.length} icon={CalendarClock} accent="bg-green-100 text-green-600" />
       </div>
 
-      <Card>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-bold text-(--color-text-primary)">Your Projects</h2>
+      <Card className="!p-3 lg:!p-5">
+        <div className="flex items-center justify-between mb-2 lg:mb-4 px-1">
+          <h2 className="text-sm lg:text-base font-bold text-(--color-text-primary)">Spaces</h2>
+          <button
+            type="button"
+            onClick={() => navigate('/portal/projects')}
+            className="text-xs font-bold text-primary-600 hover:underline"
+          >
+            View all
+          </button>
         </div>
         {projectList.length === 0 ? (
           <p className="text-sm text-(--color-text-secondary) py-6 text-center">No projects yet.</p>
@@ -130,17 +139,17 @@ const PortalDashboard: React.FC = () => {
               <button
                 key={p.id}
                 onClick={() => navigate(`/portal/projects/${p.id}`)}
-                className="flex items-center justify-between py-4 text-left hover:bg-(--color-state-hover) rounded-lg px-2 -mx-2 transition-colors"
+                className="flex items-center justify-between py-3.5 lg:py-4 text-left hover:bg-(--color-state-hover) rounded-xl px-2 -mx-0.5 transition-colors active:bg-(--color-state-hover)"
               >
-                <div>
-                  <p className="text-sm font-bold text-(--color-text-primary)">{p.title}</p>
+                <div className="min-w-0 pr-3">
+                  <p className="text-sm font-bold text-(--color-text-primary) truncate">{p.title}</p>
                   <p className="text-xs text-(--color-text-secondary) mt-0.5">{p.project_type}</p>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-(--color-elevated) text-(--color-text-secondary)">
+                <div className="flex items-center gap-2 lg:gap-4 shrink-0">
+                  <span className="text-[10px] lg:text-xs font-semibold px-2 py-1 rounded-full bg-(--color-elevated) text-(--color-text-secondary)">
                     {p.status}
                   </span>
-                  <span className="text-xs font-bold text-(--color-text-secondary) w-10 text-right">{p.progress}%</span>
+                  <span className="text-xs font-bold text-(--color-text-secondary) w-9 text-right">{p.progress}%</span>
                 </div>
               </button>
             ))}
