@@ -1802,7 +1802,11 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
       {canCompose && (
         <div
           className="shrink-0 flex flex-col gap-1.5 sticky bottom-0 z-10 bg-white pt-1 border-t border-(--color-border)/60 px-1"
-          style={{ paddingBottom: `max(0.5rem, calc(env(safe-area-inset-bottom) + ${keyboardInset}px))` }}
+          style={{
+            paddingBottom: keyboardInset > 0
+              ? `max(0.5rem, ${keyboardInset}px)`
+              : 'max(0.5rem, env(safe-area-inset-bottom))',
+          }}
         >
           {(viewingList.length > 0 || typingLabel) && (
             <div className="flex items-center justify-between gap-3 px-1 min-h-[18px] text-[12px] text-(--color-text-secondary)">

@@ -12,47 +12,91 @@ import {
 } from 'lucide-react';
 import type { Notification } from '@/services/notificationService';
 
-/** Map API notification row → destination path, or null if nowhere useful. */
+function isChatLikeNotification(notif: Notification): boolean {
+  const type = (notif.type || '').toLowerCase();
+  return type.includes('message') || type === 'mention' || type.includes('reply') || type.includes('chat');
+}
+
+/**
+ * Chat / message / mention / reply notifications always open the Client Portal
+ * Communication tab for that project (with ?message= when available) — never
+ * the Admin Projects slide-over. Approvals and other types keep their own links.
+ */
 export function resolveNotificationDestination(
   notif: Notification,
   pathname: string = typeof window !== 'undefined' ? window.location.pathname : '',
 ): string | null {
   const link = (notif.link || '').trim();
   if (link.startsWith('/') && !link.startsWith('//')) {
-    return normalizeNotificationLink(link);
+    const normalized = normalizeNotificationLink(link, notif);
+    if (normalized) return normalized;
   }
 
   const type = (notif.type || '').toLowerCase();
   const entityId = notif.entity_id;
 
-  if ((type.includes('message') || type === 'mention' || type.includes('reply')) && entityId) {
-    if (notif.entity_type === 'project') {
-      if (pathname.startsWith('/portal')) {
-        return `/portal/projects/${entityId}/communication`;
-      }
-      return `/admin/projects?project=${entityId}&tab=communication`;
+  if (isChatLikeNotification(notif) && entityId && (notif.entity_type === 'project' || !notif.entity_type)) {
+    return `/portal/projects/${entityId}/communication`;
+  }
+
+  if (type.includes('approval') && entityId) {
+    // Prefer stored portal approvals link when present; otherwise try project-scoped path from entity.
+    if (pathname.startsWith('/portal') || notif.entity_type === 'milestone_approval') {
+      // entity_id is often the approval id — without project id we cannot build a path; use link only.
+      return null;
     }
   }
+
   if (type.includes('ticket')) {
     return pathname.startsWith('/employee') ? '/employee/tickets' : '/admin/tickets';
   }
   return null;
 }
 
-/** Prefer communication deep-links that include /communication for portal. */
-function normalizeNotificationLink(link: string): string {
+/** Rewrite admin communication deep-links → portal Communication (+ message id). */
+function normalizeNotificationLink(link: string, notif?: Notification): string {
   try {
     const url = new URL(link, 'https://tekxai.services');
+    const messageFromQuery = url.searchParams.get('message');
+
+    // /admin/projects?project=:id&tab=communication&message=:mid
+    if (url.pathname.startsWith('/admin/projects')) {
+      const projectId = url.searchParams.get('project');
+      const tab = url.searchParams.get('tab');
+      if (projectId && (tab === 'communication' || isChatLikeNotification(notif || ({} as Notification)) || messageFromQuery)) {
+        const q = messageFromQuery ? `?message=${encodeURIComponent(messageFromQuery)}` : '';
+        return `/portal/projects/${projectId}/communication${q}`;
+      }
+      // Non-chat admin project links stay as-is for internal tooling
+      if (!isChatLikeNotification(notif || ({} as Notification))) {
+        return `${url.pathname}${url.search}${url.hash}`;
+      }
+      if (projectId) {
+        return `/portal/projects/${projectId}/communication`;
+      }
+    }
+
     // /portal/projects/:id?message= → /portal/projects/:id/communication?message=
     const portalProject = url.pathname.match(/^\/portal\/projects\/([^/]+)\/?$/);
-    if (portalProject && url.searchParams.has('message')) {
-      return `/portal/projects/${portalProject[1]}/communication${url.search}`;
+    if (portalProject) {
+      const q = url.search || '';
+      if (url.searchParams.has('message') || isChatLikeNotification(notif || ({} as Notification))) {
+        return `/portal/projects/${portalProject[1]}/communication${q.includes('message') ? q : ''}`;
+      }
     }
+
     // Ensure /communication paths keep message= query when present
     const portalComm = url.pathname.match(/^\/portal\/projects\/([^/]+)\/communication\/?$/);
-    if (portalComm && url.searchParams.has('message')) {
-      return `/portal/projects/${portalComm[1]}/communication${url.search}`;
+    if (portalComm) {
+      return `/portal/projects/${portalComm[1]}/communication${url.search}${url.hash}`;
     }
+
+    // Chat-like notifications whose link still points at admin root → portal if we have entity_id
+    if (notif && isChatLikeNotification(notif) && notif.entity_id && url.pathname.startsWith('/admin')) {
+      const mid = messageFromQuery;
+      return `/portal/projects/${notif.entity_id}/communication${mid ? `?message=${encodeURIComponent(mid)}` : ''}`;
+    }
+
     return `${url.pathname}${url.search}${url.hash}`;
   } catch {
     return link;

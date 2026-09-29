@@ -40,7 +40,7 @@ const CHATS_PAGE_INCREMENT = 5;
 
 type SpaceProject = { id: string; title: string; status: string; client: { id: string; name: string } | null };
 type Milestone = { id: string; title: string; status: string; progress_percent: number | null };
-type MobileSheet = 'chats' | 'projects' | 'more' | null;
+type MobileSheet = 'projects' | 'more' | null;
 
 const PROJECT_STATUS_DOT: Record<string, string> = {
   IN_PROGRESS: 'bg-blue-500',
@@ -302,7 +302,7 @@ const ClientPortalLayout: React.FC = memo(() => {
   const isSuperAdmin = role === 'SUPER_ADMIN' || !!myPerms?.is_super_admin;
   // Match ProtectedRoute + BE can('crm.clients.view'): super admin or granted role.
   const canViewCrm = isSuperAdmin || !!myPerms?.permissions?.includes('crm.clients.view');
-  const [desktopPanel, setDesktopPanel] = useState<'projects' | 'chats' | null>(null);
+  const [desktopPanel, setDesktopPanel] = useState<'projects' | null>(null);
   const [mobileSheet, setMobileSheet] = useState<MobileSheet>(null);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
@@ -319,15 +319,15 @@ const ClientPortalLayout: React.FC = memo(() => {
   });
   const totalChatUnread = Object.values(chatUnreadCounts).reduce((sum, row) => sum + (row?.count || 0), 0);
 
-  // Project communication is full-bleed; on mobile ClickUp hides the tab bar
-  // while you're deep in a chat thread so the composer can sit at the bottom.
+  // Project communication is full-bleed in the main pane; bottom tabs stay visible
+  // so clients can jump Home / Chats / Projects without leaving the thread chrome.
   const isCommunicationFullBleed = /^\/portal\/projects\/[^/]+\/?$/.test(location.pathname)
     || /^\/portal\/projects\/[^/]+\/communication\/?$/.test(location.pathname);
-  const hideMobileTabBar = isCommunicationFullBleed;
 
   const routeTitle = (() => {
     const path = location.pathname;
     if (path === '/portal' || path === '/portal/') return 'Home';
+    if (path.startsWith('/portal/chats')) return 'Chats';
     if (path.startsWith('/portal/notifications')) return 'Notifications';
     if (path.startsWith('/portal/profile')) return 'My Profile';
     if (path.startsWith('/portal/docs')) return 'Shared files';
@@ -371,7 +371,7 @@ const ClientPortalLayout: React.FC = memo(() => {
     ...(isSuperAdmin ? [{ to: '/portal/invites', label: 'People', icon: Users, end: false }] : []),
   ];
 
-  const toggleDesktopPanel = (mode: 'projects' | 'chats') =>
+  const toggleDesktopPanel = (mode: 'projects') =>
     setDesktopPanel((p) => (p === mode ? null : mode));
 
   const closeMobileSheet = () => setMobileSheet(null);
@@ -388,7 +388,8 @@ const ClientPortalLayout: React.FC = memo(() => {
     );
 
   const isHome = location.pathname === '/portal' || location.pathname === '/portal/';
-  const isProjectsRoute = location.pathname.startsWith('/portal/projects') && !isCommunicationFullBleed;
+  const isProjectsRoute = location.pathname.startsWith('/portal/projects');
+  const isChatsRoute = location.pathname === '/portal/chats' || location.pathname.startsWith('/portal/chats/');
 
   return (
     <div className="min-h-dvh flex bg-(--color-app-bg)">
@@ -425,24 +426,28 @@ const ClientPortalLayout: React.FC = memo(() => {
               )}
             </NavLink>
           ))}
-          <button
-            type="button"
-            onClick={() => toggleDesktopPanel('chats')}
+          <NavLink
+            to="/portal/chats"
+            onClick={() => setDesktopPanel(null)}
             title="Project messaging"
             className="flex flex-col items-center gap-1 w-full py-1"
           >
-            <span className={railItemClass(desktopPanel === 'chats')}>
-              <MessagesSquare size={18} strokeWidth={2} />
-              {totalChatUnread > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-black leading-none">
-                  {totalChatUnread > 9 ? '9+' : totalChatUnread}
+            {({ isActive }) => (
+              <>
+                <span className={railItemClass(isActive || isChatsRoute)}>
+                  <MessagesSquare size={18} strokeWidth={2} />
+                  {totalChatUnread > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-black leading-none">
+                      {totalChatUnread > 9 ? '9+' : totalChatUnread}
+                    </span>
+                  )}
                 </span>
-              )}
-            </span>
-            <span className={cn('text-[10px] font-semibold', desktopPanel === 'chats' ? 'text-white' : 'text-emerald-300/70')}>
-              Chats
-            </span>
-          </button>
+                <span className={cn('text-[10px] font-semibold', isActive || isChatsRoute ? 'text-white' : 'text-emerald-300/70')}>
+                  Chats
+                </span>
+              </>
+            )}
+          </NavLink>
           <button
             type="button"
             onClick={() => toggleDesktopPanel('projects')}
@@ -477,10 +482,10 @@ const ClientPortalLayout: React.FC = memo(() => {
         <aside className="hidden lg:flex flex-col w-52 shrink-0 border-r border-(--color-border) bg-(--color-surface) py-4 px-3 min-h-0">
           <div className="px-1 mb-4">
             <span className="text-base font-black text-(--color-text-primary) tracking-tight">
-              {desktopPanel === 'chats' ? 'Chats' : 'Projects'}
+              Projects
             </span>
           </div>
-          <ProjectsPanel isSuperAdmin={isSuperAdmin} mode={desktopPanel} />
+          <ProjectsPanel isSuperAdmin={isSuperAdmin} mode="projects" />
         </aside>
       )}
 
@@ -496,10 +501,10 @@ const ClientPortalLayout: React.FC = memo(() => {
             {(topbarTitle || (!isHome && routeTitle)) && (
               <button
                 type="button"
-                onClick={() => navigate(-1)}
+                onClick={() => navigate('/portal')}
                 className="shrink-0 h-11 w-11 lg:h-9 lg:w-9 flex items-center justify-center rounded-full text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-primary-600"
-                title="Back"
-                aria-label="Back"
+                title="Back to Home"
+                aria-label="Back to Home"
               >
                 <ArrowLeft size={18} />
               </button>
@@ -559,11 +564,10 @@ const ClientPortalLayout: React.FC = memo(() => {
           </div>
         </main>
 
-        {!hideMobileTabBar && (
-          <nav
-            className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex items-stretch justify-around border-t border-(--color-border) bg-(--color-surface)/95 backdrop-blur-md shrink-0"
-            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-          >
+        <nav
+          className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex items-stretch justify-around border-t border-(--color-border) bg-(--color-surface)/95 backdrop-blur-md shrink-0"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
             <NavLink
               to="/portal"
               end
@@ -578,16 +582,18 @@ const ClientPortalLayout: React.FC = memo(() => {
               <Home size={20} strokeWidth={isHome && !mobileSheet ? 2.4 : 2} />
               Home
             </NavLink>
-            <button
-              type="button"
-              onClick={() => setMobileSheet((s) => (s === 'chats' ? null : 'chats'))}
-              className={cn(
-                'relative flex-1 flex flex-col items-center justify-center gap-0.5 h-14 text-[10px] font-bold',
-                mobileSheet === 'chats' || isCommunicationFullBleed ? 'text-emerald-600' : 'text-(--color-text-secondary)'
-              )}
+            <NavLink
+              to="/portal/chats"
+              onClick={closeMobileSheet}
+              className={({ isActive }) =>
+                cn(
+                  'relative flex-1 flex flex-col items-center justify-center gap-0.5 h-14 text-[10px] font-bold',
+                  isActive ? 'text-emerald-600' : 'text-(--color-text-secondary)'
+                )
+              }
             >
               <span className="relative inline-flex">
-                <MessagesSquare size={20} strokeWidth={mobileSheet === 'chats' || isCommunicationFullBleed ? 2.4 : 2} />
+                <MessagesSquare size={20} strokeWidth={isChatsRoute ? 2.4 : 2} />
                 {totalChatUnread > 0 && (
                   <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-black">
                     {totalChatUnread > 9 ? '9+' : totalChatUnread}
@@ -595,7 +601,7 @@ const ClientPortalLayout: React.FC = memo(() => {
                 )}
               </span>
               Chats
-            </button>
+            </NavLink>
             <button
               type="button"
               onClick={() => setMobileSheet((s) => (s === 'projects' ? null : 'projects'))}
@@ -619,14 +625,8 @@ const ClientPortalLayout: React.FC = memo(() => {
               More
             </button>
           </nav>
-        )}
       </div>
 
-      {mobileSheet === 'chats' && (
-        <MobileSheetShell title="Chats" onClose={closeMobileSheet}>
-          <ProjectsPanel isSuperAdmin={isSuperAdmin} mode="chats" onNavigate={closeMobileSheet} />
-        </MobileSheetShell>
-      )}
       {mobileSheet === 'projects' && (
         <MobileSheetShell title="Projects" onClose={closeMobileSheet}>
           <ProjectsPanel isSuperAdmin={isSuperAdmin} mode="projects" onNavigate={closeMobileSheet} />

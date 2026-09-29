@@ -138,7 +138,6 @@ const PortalDashboard: React.FC = () => {
     .flatMap((q) => q.data || [])
     .filter((a) => a.status === 'PENDING') as (PortalApproval & { project_id: string })[];
 
-  const firstUnreadProjectId = Object.entries(unreadCounts || {}).find(([, v]) => (v?.count || 0) > 0)?.[0];
   const firstPendingApproval = pendingApprovals[0];
   const nextMilestone = upcomingMilestones[0];
 
@@ -153,11 +152,7 @@ const PortalDashboard: React.FC = () => {
   };
 
   const goUnread = () => {
-    if (firstUnreadProjectId) {
-      navigate(`/portal/projects/${firstUnreadProjectId}/communication`);
-    } else {
-      navigate('/portal/projects');
-    }
+    navigate('/portal/chats');
   };
 
   const goNextMilestone = () => {

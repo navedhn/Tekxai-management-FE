@@ -128,7 +128,7 @@ const PortalProjectDetailPage: React.FC = () => {
       className={cn(
         'flex flex-col gap-4 lg:gap-5',
         isCommunication
-          ? 'h-[calc(100dvh-3rem-env(safe-area-inset-top))] lg:h-[calc(100dvh-4rem)] bg-white'
+          ? 'h-[calc(100dvh-3rem-3.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] lg:h-[calc(100dvh-4rem)] bg-white'
           : 'pb-4 lg:pb-10'
       )}
     >
