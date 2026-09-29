@@ -6,7 +6,7 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
 import SearchableSelect from '@/components/ui/SearchableSelect';
-import { Plus, Link2, Mail, X, Search, Pencil } from 'lucide-react';
+import { Plus, Link2, Mail, X, Search, Pencil, RefreshCw } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -57,6 +57,29 @@ function useUpdateClient() {
       apiRequest(`${v1}/crm/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-clients'] }),
   });
+}
+
+function useBackfillClientEmails() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dry_run: boolean) =>
+      apiRequest<any>(`${v1}/crm/backfill-emails`, {
+        method: 'POST',
+        body: JSON.stringify({ dry_run }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-clients'] }),
+  });
+}
+
+function displayClientEmail(c: any): string {
+  return (c.email || c.suggested_email || c.primary_portal_email || '').trim();
+}
+
+function formatShortDate(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 // Portal users belonging to this client only (user_type: CLIENT AND
@@ -202,6 +225,7 @@ const CRMPage: React.FC = () => {
 
   const createClient = useCreateClient();
   const updateClient = useUpdateClient();
+  const backfillEmails = useBackfillClientEmails();
   const { data: clients = [], isLoading } = useGetClients();
   const { data: projects = [] } = useGetProjects({ limit: 1000 });
 
@@ -214,7 +238,7 @@ const CRMPage: React.FC = () => {
     setEditingClient(c);
     setEditForm({
       name: c.name || '',
-      email: c.email || '',
+      email: c.email || c.suggested_email || c.primary_portal_email || '',
       phone: c.phone || '',
       company: c.company || '',
     });
@@ -247,8 +271,24 @@ const CRMPage: React.FC = () => {
   const filteredClients = (clients as any[]).filter((c) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
-    return [c.name, c.email, c.company].some((v) => (v || '').toLowerCase().includes(q));
+    return [c.name, c.email, c.suggested_email, c.company, ...(c.portal_emails || [])].some((v) => (v || '').toLowerCase().includes(q));
   });
+
+  const handleBackfillEmails = async () => {
+    try {
+      const r = await backfillEmails.mutateAsync(false);
+      const payload = r?.payload || r;
+      const updated = payload?.updated?.length ?? 0;
+      const missing = payload?.still_missing?.length ?? 0;
+      toast.success(`Updated ${updated} client email(s)${missing ? ` · ${missing} still missing` : ''}`);
+      if (missing && payload?.still_missing?.length) {
+        const names = payload.still_missing.map((x: any) => x.name).slice(0, 8).join(', ');
+        toast.info(`No email found for: ${names}${missing > 8 ? '…' : ''}`);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to sync emails');
+    }
+  };
 
   const existingUsersForSelectedProject: any[] =
     clientProjectAccess.find((p: any) => p.id === grantForm.project_id)?.users || [];
@@ -323,26 +363,61 @@ const CRMPage: React.FC = () => {
           </div>
           <div>
             <p className="font-black text-gray-900">{c.name}</p>
-            <p className="text-xs text-gray-400">{c.company || c.email || '—'}</p>
+            <p className="text-xs text-gray-400">{c.company || displayClientEmail(c) || '—'}</p>
           </div>
         </div>
       ),
     },
-    { header: 'Email', key: 'email', render: (c) => (
-      <button
-        type="button"
-        onClick={() => openEdit(c)}
-        className={cn(
-          'text-left group inline-flex items-center gap-1.5 max-w-full rounded-lg px-1.5 py-0.5 -mx-1.5 hover:bg-gray-50',
-          c.email ? 'text-gray-600' : 'text-primary-600 font-semibold'
-        )}
-        title={c.email ? 'Edit client contact' : 'Add email'}
-      >
-        <span className="truncate">{c.email || 'Add email'}</span>
-        <Pencil size={12} className="shrink-0 opacity-0 group-hover:opacity-60 text-gray-400" />
-      </button>
-    ) },
+    { header: 'Email', key: 'email', render: (c) => {
+      const shown = displayClientEmail(c);
+      const fromPortal = !c.email && !!c.suggested_email;
+      return (
+        <button
+          type="button"
+          onClick={() => openEdit(c)}
+          className={cn(
+            'text-left group inline-flex flex-col items-start gap-0.5 max-w-full rounded-lg px-1.5 py-0.5 -mx-1.5 hover:bg-gray-50',
+            c.email ? 'text-gray-600' : shown ? 'text-gray-700' : 'text-primary-600 font-semibold'
+          )}
+          title={c.email ? 'Edit client contact' : shown ? 'From portal — click to save on client record' : 'Add email'}
+        >
+          <span className="inline-flex items-center gap-1.5 max-w-full">
+            <span className="truncate">{shown || 'Add email'}</span>
+            <Pencil size={12} className="shrink-0 opacity-0 group-hover:opacity-60 text-gray-400" />
+          </span>
+          {fromPortal && (
+            <span className="text-[10px] font-semibold text-amber-600">From portal — sync or save</span>
+          )}
+        </button>
+      );
+    } },
+    { header: 'Company', key: 'company', render: (c) => <span className="text-gray-600">{c.company || '—'}</span> },
     { header: 'Phone', key: 'phone', render: (c) => <span className="text-gray-600">{c.phone || '—'}</span> },
+    {
+      header: 'Portal users',
+      key: 'portal_user_count',
+      render: (c) => (
+        <span className="text-gray-600 tabular-nums" title={(c.portal_emails || []).join(', ') || undefined}>
+          {c.portal_user_count ?? 0}
+          {(c.portal_emails?.length ?? 0) > 1 ? ` · ${c.portal_emails.length} emails` : ''}
+        </span>
+      ),
+    },
+    {
+      header: 'Last active',
+      key: 'last_active_at',
+      render: (c) => <span className="text-gray-500">{formatShortDate(c.last_active_at)}</span>,
+    },
+    {
+      header: 'Invited',
+      key: 'latest_invite_at',
+      render: (c) => (
+        <div className="text-gray-500 text-xs leading-snug">
+          <div>{formatShortDate(c.latest_invite_at)}</div>
+          {c.latest_invite_by && <div className="text-[10px] text-gray-400">{c.latest_invite_by}</div>}
+        </div>
+      ),
+    },
     {
       header: 'Projects',
       key: 'project_access',
@@ -404,13 +479,26 @@ const CRMPage: React.FC = () => {
           </p>
         </div>
         {activeTab === 'clients' && (
-          <Button
-            variant="primary"
-            className="rounded-xl gap-2 h-10 px-5 font-black"
-            onClick={() => setShowNewClient(true)}
-          >
-            <Plus size={16} /> New Client
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {isSuperAdmin && (
+              <Button
+                variant="outline"
+                className="rounded-xl gap-2 h-10 px-4 font-bold"
+                loading={backfillEmails.isPending}
+                onClick={handleBackfillEmails}
+                title="Copy missing emails from portal users and invites onto each client record"
+              >
+                <RefreshCw size={16} /> Sync missing emails
+              </Button>
+            )}
+            <Button
+              variant="primary"
+              className="rounded-xl gap-2 h-10 px-5 font-black"
+              onClick={() => setShowNewClient(true)}
+            >
+              <Plus size={16} /> New Client
+            </Button>
+          </div>
         )}
       </div>
 
