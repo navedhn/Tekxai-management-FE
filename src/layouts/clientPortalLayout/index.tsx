@@ -156,16 +156,27 @@ const ProjectsPanel: React.FC<{
           {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
           {label}
         </button>
-        {isSuperAdmin && mode === 'projects' && (
-          <button
-            onClick={() => navigate('/admin/projects')}
-            title="Create a new project"
-            aria-label="Create a new project"
-            className="h-11 w-11 flex items-center justify-center rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary)"
-          >
-            <Plus size={16} />
-          </button>
-        )}
+        <div className="flex items-center gap-0.5">
+          {mode === 'projects' && (
+            <button
+              type="button"
+              onClick={() => { navigate('/portal/projects'); onNavigate?.(); }}
+              className="text-[10px] font-bold text-primary-600 hover:underline px-1"
+            >
+              View all
+            </button>
+          )}
+          {isSuperAdmin && mode === 'projects' && (
+            <button
+              onClick={() => navigate('/admin/projects')}
+              title="Create a new project"
+              aria-label="Create a new project"
+              className="h-11 w-11 flex items-center justify-center rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary)"
+            >
+              <Plus size={16} />
+            </button>
+          )}
+        </div>
       </div>
       {expanded && (
         <nav className="flex flex-col gap-0.5 overflow-y-auto px-1 flex-1 min-h-0">
@@ -350,9 +361,10 @@ const ClientPortalLayout: React.FC = memo(() => {
     ...(isSuperAdmin ? [{ to: '/portal/invites', label: 'People', icon: Users }] : []),
   ];
 
+  // Primary rail: Home, Files, Wiki, CRM, People — Projects browse is the
+  // Chats/Projects panel toggles below (not a second "Projects" NavLink).
   const desktopNavItems = [
     { to: '/portal', label: 'Home', icon: LayoutDashboard, end: true },
-    { to: '/portal/projects', label: 'Projects', icon: FolderKanban, end: false },
     { to: '/portal/docs', label: 'Files', icon: FileText, end: false },
     { to: '/portal/wiki', label: 'Wiki', icon: BookOpen, end: false },
     ...(canViewCrm ? [{ to: '/portal/crm', label: 'CRM', icon: Landmark, end: false }] : []),
@@ -437,10 +449,10 @@ const ClientPortalLayout: React.FC = memo(() => {
             title="Browse projects"
             className="flex flex-col items-center gap-1 w-full py-1"
           >
-            <span className={railItemClass(desktopPanel === 'projects')}>
+            <span className={railItemClass(desktopPanel === 'projects' || isProjectsRoute)}>
               <FolderKanban size={18} strokeWidth={2} />
             </span>
-            <span className={cn('text-[10px] font-semibold', desktopPanel === 'projects' ? 'text-white' : 'text-emerald-300/70')}>
+            <span className={cn('text-[10px] font-semibold', desktopPanel === 'projects' || isProjectsRoute ? 'text-white' : 'text-emerald-300/70')}>
               Projects
             </span>
           </button>

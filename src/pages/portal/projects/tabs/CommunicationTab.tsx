@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Send, Paperclip, FileText, X, Smile, Reply, Bold, Italic, Code, Link2, Loader2, ChevronDown, ChevronRight, Pencil, Trash2, Check, Copy, Pin, Link as LinkIcon, Bookmark, BarChart3, XCircle, MoreHorizontal, Type, MessageSquare } from 'lucide-react';
@@ -822,6 +823,22 @@ const SavedMessagesPanel: React.FC<{
   );
 };
 
+/** On narrow viewports, message actions use a bottom sheet instead of an in-thread dropdown. */
+function useMobileMessageActionsSheet() {
+  const [mobile, setMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    const sync = () => setMobile(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+  return mobile;
+}
+
+const messageActionRowCls =
+  'flex items-center gap-3 px-3 h-11 w-full rounded-xl text-sm font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover) text-left';
+
 // ── One message bubble (used for both root messages and thread replies) ────
 
 const MessageBubble: React.FC<{
@@ -846,10 +863,24 @@ const MessageBubble: React.FC<{
   const [linkCopied, setLinkCopied] = useState(false);
   const [showEditHistory, setShowEditHistory] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const mobileActionsSheet = useMobileMessageActionsSheet();
   const qc = useQueryClient();
   const toast = useToastContext();
   const isOwn = m.user?.id === myUserId;
   const isRoot = !m.parent_id;
+
+  const closeActions = () => {
+    setActionsOpen(false);
+    setReactionPickerOpen(false);
+    setShowFullEmojiPicker(false);
+  };
+
+  useEffect(() => {
+    if (!actionsOpen || !mobileActionsSheet) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeActions(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [actionsOpen, mobileActionsSheet]);
 
   const toggleReaction = useMutation({
     mutationFn: ({ emoji, remove }: { emoji: string; remove: boolean }) =>
@@ -965,6 +996,116 @@ const MessageBubble: React.FC<{
       toast?.error?.('Failed to copy link');
     }
   };
+
+  const renderMessageActionItems = (onDone: () => void) => (
+    <>
+      {canCopy && (
+        <button
+          type="button"
+          onClick={() => { void handleCopy(); onDone(); }}
+          className={messageActionRowCls}
+        >
+          {copied ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => { void handleCopyLink(); onDone(); }}
+        className={messageActionRowCls}
+      >
+        {linkCopied ? <Check size={16} className="text-emerald-600" /> : <LinkIcon size={16} />}
+        {linkCopied ? 'Link copied' : 'Copy link'}
+      </button>
+      {canCompose && (
+        <>
+          <button
+            type="button"
+            onClick={() => {
+              setReactionPickerOpen(true);
+              setShowFullEmojiPicker(false);
+            }}
+            className={messageActionRowCls}
+          >
+            <Smile size={16} /> React
+          </button>
+          <button
+            type="button"
+            onClick={() => { onReply(); onDone(); }}
+            className={messageActionRowCls}
+          >
+            <Reply size={16} /> Reply
+          </button>
+          {isRoot && (
+            <button
+              type="button"
+              onClick={() => { pinMessage.mutate(); onDone(); }}
+              disabled={pinMessage.isPending}
+              className={cn(messageActionRowCls, 'disabled:opacity-50')}
+            >
+              <Pin size={16} fill={m.is_pinned ? 'currentColor' : 'none'} />
+              {m.is_pinned ? 'Unpin' : 'Pin'}
+            </button>
+          )}
+        </>
+      )}
+      <button
+        type="button"
+        onClick={() => { saveMessage.mutate(); onDone(); }}
+        disabled={saveMessage.isPending}
+        className={cn(messageActionRowCls, 'disabled:opacity-50')}
+      >
+        <Bookmark size={16} fill={isSaved ? 'currentColor' : 'none'} />
+        {isSaved ? 'Unsave' : 'Save'}
+      </button>
+      {isOwn && !m.poll && (
+        <button
+          type="button"
+          onClick={() => { setEditing(true); onDone(); }}
+          className={messageActionRowCls}
+        >
+          <Pencil size={16} /> Edit
+        </button>
+      )}
+      {(isOwn || canDeleteAny) && (
+        <button
+          type="button"
+          onClick={() => { handleDelete(); onDone(); }}
+          disabled={deleteMessage.isPending}
+          className={cn(messageActionRowCls, 'text-red-600 hover:bg-red-50 disabled:opacity-50')}
+        >
+          <Trash2 size={16} /> Delete
+        </button>
+      )}
+    </>
+  );
+
+  const reactionPickerRow = (
+    <div className="flex items-center gap-1 p-2 rounded-xl border border-(--color-border) bg-(--color-elevated) mb-2">
+      {QUICK_REACTIONS.map((e) => (
+        <button key={e} type="button" onClick={() => { handleToggleReaction(e); closeActions(); }} className="text-lg h-10 w-10 flex items-center justify-center rounded-lg hover:bg-(--color-state-hover)">
+          {e}
+        </button>
+      ))}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setShowFullEmojiPicker((v) => !v)}
+          className="h-10 w-10 flex items-center justify-center rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-amber-500"
+          title="More reactions"
+        >
+          <Smile size={16} />
+        </button>
+        {showFullEmojiPicker && (
+          <EmojiPicker
+            align="right"
+            onSelect={(emoji) => { handleToggleReaction(emoji); closeActions(); }}
+            onClose={() => setShowFullEmojiPicker(false)}
+          />
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div
@@ -1130,123 +1271,62 @@ const MessageBubble: React.FC<{
           <div className="relative">
             <button
               type="button"
-              onClick={() => { setActionsOpen((v) => !v); setReactionPickerOpen(false); setShowFullEmojiPicker(false); }}
+              onClick={() => {
+                setActionsOpen((v) => !v);
+                setReactionPickerOpen(false);
+                setShowFullEmojiPicker(false);
+              }}
               aria-label="Message actions"
               aria-expanded={actionsOpen}
               className="flex items-center justify-center h-9 w-9 rounded-lg border border-(--color-border) bg-(--color-surface) text-(--color-text-secondary) shadow-sm hover:bg-(--color-state-hover)"
             >
               <MoreHorizontal size={16} />
             </button>
-            {actionsOpen && (
+            {actionsOpen && !mobileActionsSheet && (
               <>
-                <button type="button" className="fixed inset-0 z-10 cursor-default" aria-label="Close actions" onClick={() => setActionsOpen(false)} />
-                <div className="absolute top-full right-0 mt-1 z-20 flex flex-col min-w-[160px] p-1 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg">
-                  {canCopy && (
-                    <button
-                      type="button"
-                      onClick={() => { handleCopy(); setActionsOpen(false); }}
-                      className="flex items-center gap-2 px-3 h-10 rounded-lg text-sm font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover)"
-                    >
-                      {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-                      {copied ? 'Copied' : 'Copy'}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => { handleCopyLink(); setActionsOpen(false); }}
-                    className="flex items-center gap-2 px-3 h-10 rounded-lg text-sm font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover)"
-                  >
-                    {linkCopied ? <Check size={14} className="text-emerald-600" /> : <LinkIcon size={14} />}
-                    {linkCopied ? 'Link copied' : 'Copy link'}
-                  </button>
-                  {canCompose && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => { setReactionPickerOpen(true); setShowFullEmojiPicker(false); setActionsOpen(false); }}
-                        className="flex items-center gap-2 px-3 h-10 rounded-lg text-sm font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover)"
-                      >
-                        <Smile size={14} /> React
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { onReply(); setActionsOpen(false); }}
-                        className="flex items-center gap-2 px-3 h-10 rounded-lg text-sm font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover)"
-                      >
-                        <Reply size={14} /> Reply
-                      </button>
-                      {isRoot && (
-                        <button
-                          type="button"
-                          onClick={() => { pinMessage.mutate(); setActionsOpen(false); }}
-                          disabled={pinMessage.isPending}
-                          className="flex items-center gap-2 px-3 h-10 rounded-lg text-sm font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover) disabled:opacity-50"
-                        >
-                          <Pin size={14} fill={m.is_pinned ? 'currentColor' : 'none'} />
-                          {m.is_pinned ? 'Unpin' : 'Pin'}
-                        </button>
-                      )}
-                    </>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => { saveMessage.mutate(); setActionsOpen(false); }}
-                    disabled={saveMessage.isPending}
-                    className="flex items-center gap-2 px-3 h-10 rounded-lg text-sm font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover) disabled:opacity-50"
-                  >
-                    <Bookmark size={14} fill={isSaved ? 'currentColor' : 'none'} />
-                    {isSaved ? 'Unsave' : 'Save'}
-                  </button>
-                  {isOwn && !m.poll && (
-                    <button
-                      type="button"
-                      onClick={() => { setEditing(true); setActionsOpen(false); }}
-                      className="flex items-center gap-2 px-3 h-10 rounded-lg text-sm font-semibold text-(--color-text-primary) hover:bg-(--color-state-hover)"
-                    >
-                      <Pencil size={14} /> Edit
-                    </button>
-                  )}
-                  {(isOwn || canDeleteAny) && (
-                    <button
-                      type="button"
-                      onClick={() => { handleDelete(); setActionsOpen(false); }}
-                      disabled={deleteMessage.isPending}
-                      className="flex items-center gap-2 px-3 h-10 rounded-lg text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
-                    >
-                      <Trash2 size={14} /> Delete
-                    </button>
-                  )}
+                <button type="button" className="fixed inset-0 z-[55] cursor-default" aria-label="Close actions" onClick={closeActions} />
+                <div className="absolute bottom-full right-0 mb-1 z-[56] flex flex-col min-w-[168px] max-h-[min(60vh,320px)] overflow-y-auto p-1 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg">
+                  {reactionPickerOpen && reactionPickerRow}
+                  {renderMessageActionItems(closeActions)}
                 </div>
               </>
             )}
-            {reactionPickerOpen && (
-              <div className="absolute top-full right-0 mt-1 z-20 flex items-center gap-1 p-1.5 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg">
-                {QUICK_REACTIONS.map((e) => (
-                  <button key={e} type="button" onClick={() => handleToggleReaction(e)} className="text-lg h-9 w-9 flex items-center justify-center rounded-lg hover:bg-(--color-state-hover)">
-                    {e}
-                  </button>
-                ))}
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowFullEmojiPicker((v) => !v)}
-                    className="h-9 w-9 flex items-center justify-center rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-amber-500"
-                    title="More reactions"
-                  >
-                    <Smile size={14} />
-                  </button>
-                  {showFullEmojiPicker && (
-                    <EmojiPicker
-                      align="right"
-                      onSelect={(emoji) => { handleToggleReaction(emoji); setShowFullEmojiPicker(false); setReactionPickerOpen(false); }}
-                      onClose={() => setShowFullEmojiPicker(false)}
-                    />
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         </div>
+      )}
+
+      {showActions && actionsOpen && mobileActionsSheet && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[70] flex flex-col justify-end lg:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40"
+            aria-label="Close actions"
+            onClick={closeActions}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Message actions"
+            className="relative flex flex-col max-h-[min(70dvh,420px)] rounded-t-2xl border border-(--color-border) bg-(--color-surface) shadow-2xl pb-[env(safe-area-inset-bottom)]"
+          >
+            <div className="flex items-center justify-between px-4 h-12 border-b border-(--color-border) shrink-0">
+              <span className="text-sm font-black text-(--color-text-primary)">Message actions</span>
+              <button
+                type="button"
+                onClick={closeActions}
+                aria-label="Close"
+                className="h-10 w-10 flex items-center justify-center rounded-full text-(--color-text-secondary) hover:bg-(--color-state-hover)"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex flex-col gap-0.5 p-2 overflow-y-auto">
+              {reactionPickerOpen && reactionPickerRow}
+              {renderMessageActionItems(closeActions)}
+            </div>
+          </div>
+        </div>,
+        document.body,
       )}
 
       {lightboxUrl && (
