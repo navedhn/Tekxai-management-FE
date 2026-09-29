@@ -863,7 +863,10 @@ const MessageBubble: React.FC<{
   const [linkCopied, setLinkCopied] = useState(false);
   const [showEditHistory, setShowEditHistory] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [morePos, setMorePos] = useState<{ top: number; right: number } | null>(null);
   const mobileActionsSheet = useMobileMessageActionsSheet();
+  const moreBtnRef = useRef<HTMLButtonElement>(null);
   const qc = useQueryClient();
   const toast = useToastContext();
   const isOwn = m.user?.id === myUserId;
@@ -871,16 +874,35 @@ const MessageBubble: React.FC<{
 
   const closeActions = () => {
     setActionsOpen(false);
+    setMoreOpen(false);
     setReactionPickerOpen(false);
     setShowFullEmojiPicker(false);
   };
 
   useEffect(() => {
-    if (!actionsOpen || !mobileActionsSheet) return;
+    if ((!actionsOpen && !moreOpen) || (!mobileActionsSheet && !moreOpen)) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeActions(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [actionsOpen, mobileActionsSheet]);
+  }, [actionsOpen, moreOpen, mobileActionsSheet]);
+
+  useEffect(() => {
+    if (!moreOpen || !moreBtnRef.current) {
+      setMorePos(null);
+      return;
+    }
+    const place = () => {
+      const r = moreBtnRef.current!.getBoundingClientRect();
+      setMorePos({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) });
+    };
+    place();
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [moreOpen]);
 
   const toggleReaction = useMutation({
     mutationFn: ({ emoji, remove }: { emoji: string; remove: boolean }) =>
@@ -997,8 +1019,51 @@ const MessageBubble: React.FC<{
     }
   };
 
-  const renderMessageActionItems = (onDone: () => void) => (
+  const renderMessageActionItems = (onDone: () => void, opts?: { includeQuick?: boolean }) => (
     <>
+      {opts?.includeQuick && canCompose && (
+        <button
+          type="button"
+          onClick={() => {
+            setReactionPickerOpen(true);
+            setShowFullEmojiPicker(false);
+          }}
+          className={messageActionRowCls}
+        >
+          <Smile size={16} /> React
+        </button>
+      )}
+      {opts?.includeQuick && canCompose && (
+        <button
+          type="button"
+          onClick={() => { onReply(); onDone(); }}
+          className={messageActionRowCls}
+        >
+          <Reply size={16} /> Reply
+        </button>
+      )}
+      {opts?.includeQuick && canCompose && isRoot && (
+        <button
+          type="button"
+          onClick={() => { pinMessage.mutate(); onDone(); }}
+          disabled={pinMessage.isPending}
+          className={cn(messageActionRowCls, 'disabled:opacity-50')}
+        >
+          <Pin size={16} fill={m.is_pinned ? 'currentColor' : 'none'} />
+          {m.is_pinned ? 'Unpin' : 'Pin'}
+        </button>
+      )}
+      {opts?.includeQuick && (
+        <button
+          type="button"
+          onClick={() => { saveMessage.mutate(); onDone(); }}
+          disabled={saveMessage.isPending}
+          className={cn(messageActionRowCls, 'disabled:opacity-50')}
+        >
+          <Bookmark size={16} fill={isSaved ? 'currentColor' : 'none'} />
+          {isSaved ? 'Unsave' : 'Save'}
+        </button>
+      )}
       {canCopy && (
         <button
           type="button"
@@ -1006,7 +1071,7 @@ const MessageBubble: React.FC<{
           className={messageActionRowCls}
         >
           {copied ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
-          {copied ? 'Copied' : 'Copy'}
+          {copied ? 'Copied' : 'Copy text'}
         </button>
       )}
       <button
@@ -1016,47 +1081,6 @@ const MessageBubble: React.FC<{
       >
         {linkCopied ? <Check size={16} className="text-emerald-600" /> : <LinkIcon size={16} />}
         {linkCopied ? 'Link copied' : 'Copy link'}
-      </button>
-      {canCompose && (
-        <>
-          <button
-            type="button"
-            onClick={() => {
-              setReactionPickerOpen(true);
-              setShowFullEmojiPicker(false);
-            }}
-            className={messageActionRowCls}
-          >
-            <Smile size={16} /> React
-          </button>
-          <button
-            type="button"
-            onClick={() => { onReply(); onDone(); }}
-            className={messageActionRowCls}
-          >
-            <Reply size={16} /> Reply
-          </button>
-          {isRoot && (
-            <button
-              type="button"
-              onClick={() => { pinMessage.mutate(); onDone(); }}
-              disabled={pinMessage.isPending}
-              className={cn(messageActionRowCls, 'disabled:opacity-50')}
-            >
-              <Pin size={16} fill={m.is_pinned ? 'currentColor' : 'none'} />
-              {m.is_pinned ? 'Unpin' : 'Pin'}
-            </button>
-          )}
-        </>
-      )}
-      <button
-        type="button"
-        onClick={() => { saveMessage.mutate(); onDone(); }}
-        disabled={saveMessage.isPending}
-        className={cn(messageActionRowCls, 'disabled:opacity-50')}
-      >
-        <Bookmark size={16} fill={isSaved ? 'currentColor' : 'none'} />
-        {isSaved ? 'Unsave' : 'Save'}
       </button>
       {isOwn && !m.poll && (
         <button
@@ -1079,6 +1103,9 @@ const MessageBubble: React.FC<{
       )}
     </>
   );
+
+  const toolbarIconCls =
+    'h-8 w-8 flex items-center justify-center rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary) transition-colors disabled:opacity-50';
 
   const reactionPickerRow = (
     <div className="flex items-center gap-1 p-2 rounded-xl border border-(--color-border) bg-(--color-elevated) mb-2">
@@ -1267,36 +1294,131 @@ const MessageBubble: React.FC<{
       </div>
 
       {showActions && !editing && (
-        <div className="absolute top-1 right-2 z-10">
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => {
-                setActionsOpen((v) => !v);
-                setReactionPickerOpen(false);
-                setShowFullEmojiPicker(false);
-              }}
-              aria-label="Message actions"
-              aria-expanded={actionsOpen}
-              className="flex items-center justify-center h-9 w-9 rounded-lg border border-(--color-border) bg-(--color-surface) text-(--color-text-secondary) shadow-sm hover:bg-(--color-state-hover)"
+        <>
+          {/* Mobile: tap ⋯ → bottom sheet */}
+          {mobileActionsSheet && (
+            <div className="absolute top-1 right-2 z-10">
+              <button
+                type="button"
+                onClick={() => {
+                  setActionsOpen(true);
+                  setReactionPickerOpen(false);
+                  setShowFullEmojiPicker(false);
+                }}
+                aria-label="Message actions"
+                aria-expanded={actionsOpen}
+                className="flex items-center justify-center h-9 w-9 rounded-lg border border-(--color-border) bg-(--color-surface) text-(--color-text-secondary) shadow-sm hover:bg-(--color-state-hover)"
+              >
+                <MoreHorizontal size={16} />
+              </button>
+            </div>
+          )}
+
+          {/* Desktop: ClickUp-style hover toolbar */}
+          {!mobileActionsSheet && (
+            <div
+              className={cn(
+                'absolute -top-2 right-1 z-20 flex items-center gap-0.5 px-1 py-0.5 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-md',
+                'opacity-0 pointer-events-none transition-opacity',
+                'group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto',
+                (moreOpen || showFullEmojiPicker) && 'opacity-100 pointer-events-auto'
+              )}
             >
-              <MoreHorizontal size={16} />
-            </button>
-            {actionsOpen && !mobileActionsSheet && (
-              <>
-                <button type="button" className="fixed inset-0 z-[55] cursor-default" aria-label="Close actions" onClick={closeActions} />
-                <div className="absolute bottom-full right-0 mb-1 z-[56] flex flex-col min-w-[168px] max-h-[min(60vh,320px)] overflow-y-auto p-1 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg">
-                  {reactionPickerOpen && reactionPickerRow}
-                  {renderMessageActionItems(closeActions)}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+              {canCompose && (
+                <>
+                  {QUICK_REACTIONS.slice(0, 3).map((e) => (
+                    <button
+                      key={e}
+                      type="button"
+                      title={`React ${e}`}
+                      onClick={() => handleToggleReaction(e)}
+                      className="h-8 w-8 flex items-center justify-center rounded-lg text-base hover:bg-(--color-state-hover)"
+                    >
+                      {e}
+                    </button>
+                  ))}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      title="More reactions"
+                      onClick={() => setShowFullEmojiPicker((v) => !v)}
+                      className={toolbarIconCls}
+                    >
+                      <Smile size={16} />
+                    </button>
+                    {showFullEmojiPicker && (
+                      <EmojiPicker
+                        align="right"
+                        onSelect={(emoji) => { handleToggleReaction(emoji); setShowFullEmojiPicker(false); }}
+                        onClose={() => setShowFullEmojiPicker(false)}
+                      />
+                    )}
+                  </div>
+                  <span className="mx-0.5 h-5 w-px bg-(--color-border) shrink-0" aria-hidden />
+                  <button type="button" title="Reply" onClick={() => onReply()} className={toolbarIconCls}>
+                    <Reply size={16} />
+                  </button>
+                  {isRoot && (
+                    <button
+                      type="button"
+                      title={m.is_pinned ? 'Unpin' : 'Pin'}
+                      onClick={() => pinMessage.mutate()}
+                      disabled={pinMessage.isPending}
+                      className={toolbarIconCls}
+                    >
+                      <Pin size={16} fill={m.is_pinned ? 'currentColor' : 'none'} />
+                    </button>
+                  )}
+                </>
+              )}
+              <button
+                type="button"
+                title={isSaved ? 'Unsave' : 'Save'}
+                onClick={() => saveMessage.mutate()}
+                disabled={saveMessage.isPending}
+                className={cn(toolbarIconCls, isSaved && 'text-blue-600')}
+              >
+                <Bookmark size={16} fill={isSaved ? 'currentColor' : 'none'} />
+              </button>
+              <button
+                type="button"
+                title={linkCopied ? 'Link copied' : 'Copy link'}
+                onClick={() => { void handleCopyLink(); }}
+                className={toolbarIconCls}
+              >
+                {linkCopied ? <Check size={16} className="text-emerald-600" /> : <LinkIcon size={16} />}
+              </button>
+              <button
+                ref={moreBtnRef}
+                type="button"
+                title="More actions"
+                aria-expanded={moreOpen}
+                onClick={() => setMoreOpen((v) => !v)}
+                className={cn(toolbarIconCls, moreOpen && 'bg-(--color-state-hover) text-(--color-text-primary)')}
+              >
+                <MoreHorizontal size={16} />
+              </button>
+            </div>
+          )}
+
+          {moreOpen && morePos && typeof document !== 'undefined' && createPortal(
+            <>
+              <button type="button" className="fixed inset-0 z-[55] cursor-default" aria-label="Close actions" onClick={closeActions} />
+              <div
+                role="menu"
+                className="fixed z-[56] flex flex-col min-w-[180px] max-h-[min(60vh,320px)] overflow-y-auto p-1 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg"
+                style={{ top: morePos.top, right: morePos.right }}
+              >
+                {renderMessageActionItems(closeActions)}
+              </div>
+            </>,
+            document.body,
+          )}
+        </>
       )}
 
       {showActions && actionsOpen && mobileActionsSheet && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[70] flex flex-col justify-end lg:hidden">
+        <div className="fixed inset-0 z-[70] flex flex-col justify-end sm:hidden">
           <button
             type="button"
             className="absolute inset-0 bg-black/40"
@@ -1322,7 +1444,7 @@ const MessageBubble: React.FC<{
             </div>
             <div className="flex flex-col gap-0.5 p-2 overflow-y-auto">
               {reactionPickerOpen && reactionPickerRow}
-              {renderMessageActionItems(closeActions)}
+              {renderMessageActionItems(closeActions, { includeQuick: true })}
             </div>
           </div>
         </div>,
