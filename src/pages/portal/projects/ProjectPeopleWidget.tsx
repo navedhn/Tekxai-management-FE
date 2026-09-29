@@ -24,10 +24,9 @@ type EmployeeInvite = { id: string; status: 'PENDING' | 'ACCEPTED' | 'REVOKED' |
 // therefore NOT shown as "on this project" here, and correctly still
 // shows up as invitable in search — inviting them is exactly the point.
 // Adding someone here calls the same SUPER_ADMIN-only employee-portal-
-// invite flow already built into the People page (POST
-// /employee-portal-invites) — this is just a second, project-scoped
-// entry point for it. SUPER_ADMIN only: granting portal access is a
-// privileged action, same gate the People page itself uses.
+// invite flow from Client CRM → People (POST /employee-portal-invites) —
+// this is just a second, project-scoped entry point for it. SUPER_ADMIN
+// only: granting portal access is a privileged action.
 const ProjectPeopleWidget: React.FC<{ projectId: string; clientId: string | null }> = ({ projectId, clientId }) => {
   const toast = useToastContext();
   const qc = useQueryClient();

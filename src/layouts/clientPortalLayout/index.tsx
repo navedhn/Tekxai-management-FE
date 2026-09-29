@@ -5,7 +5,6 @@ import {
   LayoutDashboard,
   FolderKanban,
   LogOut,
-  Users,
   ChevronDown,
   ChevronRight,
   Plus,
@@ -333,7 +332,7 @@ const ClientPortalLayout: React.FC = memo(() => {
     if (path.startsWith('/portal/docs')) return 'Shared files';
     if (path.startsWith('/portal/wiki')) return 'Wiki';
     if (path.startsWith('/portal/crm')) return 'Client CRM';
-    if (path.startsWith('/portal/invites')) return 'People';
+    if (path.startsWith('/portal/invites')) return 'Client CRM';
     if (path === '/portal/projects' || path === '/portal/projects/') return 'Projects';
     return null;
   })();
@@ -358,17 +357,15 @@ const ClientPortalLayout: React.FC = memo(() => {
     { to: '/portal/docs', label: 'Shared files', icon: FileText },
     { to: '/portal/wiki', label: 'Wiki', icon: BookOpen },
     ...(canViewCrm ? [{ to: '/portal/crm', label: 'Client CRM', icon: Landmark }] : []),
-    ...(isSuperAdmin ? [{ to: '/portal/invites', label: 'People', icon: Users }] : []),
   ];
 
-  // Primary rail: Home, Files, Wiki, CRM, People — Projects browse is the
+  // Primary rail: Home, Files, Wiki, CRM — Projects browse is the
   // Chats/Projects panel toggles below (not a second "Projects" NavLink).
   const desktopNavItems = [
     { to: '/portal', label: 'Home', icon: LayoutDashboard, end: true },
     { to: '/portal/docs', label: 'Files', icon: FileText, end: false },
     { to: '/portal/wiki', label: 'Wiki', icon: BookOpen, end: false },
     ...(canViewCrm ? [{ to: '/portal/crm', label: 'CRM', icon: Landmark, end: false }] : []),
-    ...(isSuperAdmin ? [{ to: '/portal/invites', label: 'People', icon: Users, end: false }] : []),
   ];
 
   const toggleDesktopPanel = (mode: 'projects') =>

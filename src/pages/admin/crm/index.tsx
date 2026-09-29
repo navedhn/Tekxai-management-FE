@@ -1,16 +1,19 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Card from '@/components/ui/Card';
 import Table, { Column } from '@/components/ui/Table';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
 import SearchableSelect from '@/components/ui/SearchableSelect';
-import { Building2, Plus, Link2, FolderOpen, Mail, X, Search } from 'lucide-react';
+import { Plus, Link2, Mail, X, Search, Pencil } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useGetProjects } from '@/services/projectService';
+import { useAuth } from '@/hooks/useAuth';
+import PeopleTab from './PeopleTab';
 
 const v1 = 'api/v1';
 
@@ -43,6 +46,15 @@ function useCreateClient() {
   return useMutation({
     mutationFn: (data: any) =>
       apiRequest(`${v1}/crm`, { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-clients'] }),
+  });
+}
+
+function useUpdateClient() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; email?: string; phone?: string; company?: string }) =>
+      apiRequest(`${v1}/crm/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-clients'] }),
   });
 }
@@ -114,7 +126,10 @@ function useCreateInvite(clientId: string) {
   return useMutation({
     mutationFn: (data: { email: string; first_name: string; last_name: string; role_id: string; project_id?: string }) =>
       apiRequest(`${v1}/crm/${clientId}/portal-invites`, { method: 'POST', body: JSON.stringify(data) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-client-portal-invites', clientId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm-client-portal-invites', clientId] });
+      qc.invalidateQueries({ queryKey: ['portal', 'invites', 'client'] });
+    },
   });
 }
 
@@ -123,7 +138,10 @@ function useRevokeInvite(clientId: string) {
   return useMutation({
     mutationFn: (inviteId: string) =>
       apiRequest(`${v1}/crm/${clientId}/portal-invites/${inviteId}`, { method: 'DELETE' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-client-portal-invites', clientId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm-client-portal-invites', clientId] });
+      qc.invalidateQueries({ queryKey: ['portal', 'invites', 'client'] });
+    },
   });
 }
 
@@ -132,7 +150,10 @@ function useResendInvite(clientId: string) {
   return useMutation({
     mutationFn: (inviteId: string) =>
       apiRequest(`${v1}/crm/${clientId}/portal-invites/${inviteId}/resend`, { method: 'POST' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-client-portal-invites', clientId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm-client-portal-invites', clientId] });
+      qc.invalidateQueries({ queryKey: ['portal', 'invites', 'client'] });
+    },
   });
 }
 
@@ -152,22 +173,65 @@ const STATUS_COLORS: Record<string, string> = {
 
 const CRMPage: React.FC = () => {
   const toast = useToastContext();
+  const { role } = useAuth();
+  const isSuperAdmin = role === 'SUPER_ADMIN';
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab') === 'people' ? 'people' : 'clients';
+  const activeTab: 'clients' | 'people' = requestedTab === 'people' && isSuperAdmin ? 'people' : 'clients';
+
+  useEffect(() => {
+    if (requestedTab === 'people' && !isSuperAdmin) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [requestedTab, isSuperAdmin, setSearchParams]);
+
+  const setTab = (tab: 'clients' | 'people') => {
+    if (tab === 'people') setSearchParams({ tab: 'people' });
+    else setSearchParams({});
+  };
+
+  const [search, setSearch] = useState('');
+  const [showNewClient, setShowNewClient] = useState(false);
+  const [editingClient, setEditingClient] = useState<any | null>(null);
+  const [showGrant, setShowGrant] = useState<string | null>(null);
+  const [showInvite, setShowInvite] = useState<string | null>(null);
+  const [clientForm, setClientForm] = useState({ name: '', email: '', phone: '', company: '' });
+  const [editForm, setEditForm] = useState({ name: '', email: '', phone: '', company: '' });
+  const [grantForm, setGrantForm] = useState({ project_id: '', user_id: '' });
+  const [inviteForm, setInviteForm] = useState({ email: '', first_name: '', last_name: '', role_id: '', project_id: '' });
+
+  const createClient = useCreateClient();
+  const updateClient = useUpdateClient();
   const { data: clients = [], isLoading } = useGetClients();
   const { data: projects = [] } = useGetProjects({ limit: 1000 });
-  const createClient = useCreateClient();
 
   const projectOptions = useMemo(
     () => (projects as any[]).map((p: any) => ({ label: p.title, value: p.id })),
     [projects]
   );
 
-  const [search, setSearch] = useState('');
-  const [showNewClient, setShowNewClient] = useState(false);
-  const [showGrant, setShowGrant] = useState<string | null>(null);
-  const [showInvite, setShowInvite] = useState<string | null>(null);
-  const [clientForm, setClientForm] = useState({ name: '', email: '', phone: '', company: '' });
-  const [grantForm, setGrantForm] = useState({ project_id: '', user_id: '' });
-  const [inviteForm, setInviteForm] = useState({ email: '', first_name: '', last_name: '', role_id: '', project_id: '' });
+  const openEdit = (c: any) => {
+    setEditingClient(c);
+    setEditForm({
+      name: c.name || '',
+      email: c.email || '',
+      phone: c.phone || '',
+      company: c.company || '',
+    });
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingClient) return;
+    if (!editForm.name.trim()) { toast.error('Client name is required'); return; }
+    try {
+      await updateClient.mutateAsync({ id: editingClient.id, ...editForm });
+      toast.success('Client updated');
+      setEditingClient(null);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to update client');
+    }
+  };
 
   const { data: portalUsers = [], isLoading: portalUsersLoading } = usePortalUsers(showGrant || '');
   const { data: clientProjectAccess = [] } = useClientProjectAccess(showGrant || '');
@@ -264,7 +328,20 @@ const CRMPage: React.FC = () => {
         </div>
       ),
     },
-    { header: 'Email', key: 'email', render: (c) => <span className="text-gray-600">{c.email || '—'}</span> },
+    { header: 'Email', key: 'email', render: (c) => (
+      <button
+        type="button"
+        onClick={() => openEdit(c)}
+        className={cn(
+          'text-left group inline-flex items-center gap-1.5 max-w-full rounded-lg px-1.5 py-0.5 -mx-1.5 hover:bg-gray-50',
+          c.email ? 'text-gray-600' : 'text-primary-600 font-semibold'
+        )}
+        title={c.email ? 'Edit client contact' : 'Add email'}
+      >
+        <span className="truncate">{c.email || 'Add email'}</span>
+        <Pencil size={12} className="shrink-0 opacity-0 group-hover:opacity-60 text-gray-400" />
+      </button>
+    ) },
     { header: 'Phone', key: 'phone', render: (c) => <span className="text-gray-600">{c.phone || '—'}</span> },
     {
       header: 'Projects',
@@ -292,6 +369,14 @@ const CRMPage: React.FC = () => {
             size="sm"
             variant="outline"
             className="rounded-xl gap-1.5 h-8 text-xs"
+            onClick={() => openEdit(c)}
+          >
+            <Pencil size={12} /> Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-xl gap-1.5 h-8 text-xs"
             onClick={() => { setShowInvite(c.id); setInviteForm({ email: '', first_name: '', last_name: '', role_id: '', project_id: '' }); }}
           >
             <Mail size={12} /> Invite User
@@ -310,36 +395,67 @@ const CRMPage: React.FC = () => {
   ];
 
   return (
-    <div className="flex flex-col gap-8 pb-10">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-6 pb-10">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-black text-gray-900 tracking-tight">Client CRM</h1>
           <p className="text-sm text-gray-500 font-medium mt-1">
-            Manage client accounts and grant project portal access.
+            Client accounts, invites, and portal access — in one place.
           </p>
         </div>
-        <Button
-          variant="primary"
-          className="rounded-xl gap-2 h-10 px-5 font-black"
-          onClick={() => setShowNewClient(true)}
-        >
-          <Plus size={16} /> New Client
-        </Button>
+        {activeTab === 'clients' && (
+          <Button
+            variant="primary"
+            className="rounded-xl gap-2 h-10 px-5 font-black"
+            onClick={() => setShowNewClient(true)}
+          >
+            <Plus size={16} /> New Client
+          </Button>
+        )}
       </div>
 
-      <div className="relative max-w-sm">
-        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search clients by name, email, or company…"
-          className="w-full h-10 pl-10 pr-4 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
-        />
-      </div>
+      {isSuperAdmin && (
+        <div className="flex items-center gap-1 border-b border-gray-200">
+          {([
+            { id: 'clients' as const, label: 'Clients' },
+            { id: 'people' as const, label: 'People' },
+          ]).map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={cn(
+                'px-4 h-11 text-sm font-semibold border-b-2 -mb-px transition-colors',
+                activeTab === t.id
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-800'
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
 
-      <Card className="border-none shadow-sm">
-        <Table columns={columns} data={filteredClients} isLoading={isLoading} emptyMessage={search ? 'No clients match your search.' : 'No clients yet.'} />
-      </Card>
+      {activeTab === 'people' ? (
+        <PeopleTab onGoToClients={() => setTab('clients')} />
+      ) : (
+        <>
+          <div className="relative max-w-sm">
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search clients by name, email, or company…"
+              className="w-full h-10 pl-10 pr-4 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
+            />
+          </div>
+
+          <Card className="border-none shadow-sm">
+            <Table columns={columns} data={filteredClients} isLoading={isLoading} emptyMessage={search ? 'No clients match your search.' : 'No clients yet.'} />
+          </Card>
+        </>
+      )}
 
       <Modal isOpen={showNewClient} onClose={() => setShowNewClient(false)} title="Add Client Account">
         <form onSubmit={handleCreate} className="flex flex-col gap-4 mt-4">
@@ -362,6 +478,33 @@ const CRMPage: React.FC = () => {
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" fullWidth onClick={() => setShowNewClient(false)}>Cancel</Button>
             <Button type="submit" variant="primary" fullWidth loading={createClient.isPending}>Create Client</Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal isOpen={!!editingClient} onClose={() => setEditingClient(null)} title="Edit Client Contact">
+        <form onSubmit={handleUpdate} className="flex flex-col gap-4 mt-4">
+          {[
+            { label: 'Client Name *', key: 'name', ph: 'e.g. Acme Corp' },
+            { label: 'Email', key: 'email', ph: 'client@company.com', type: 'email' },
+            { label: 'Phone', key: 'phone', ph: '+1 555 0000' },
+            { label: 'Company', key: 'company', ph: 'Company name' },
+          ].map(({ label, key, ph, type }) => (
+            <div key={key} className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-gray-400 tracking-widest uppercase">{label}</label>
+              <input
+                type={type || 'text'}
+                autoFocus={key === 'email' && !editForm.email}
+                value={(editForm as any)[key]}
+                onChange={(e) => setEditForm((p) => ({ ...p, [key]: e.target.value }))}
+                placeholder={ph}
+                className="h-11 px-4 rounded-xl border border-gray-200 text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none"
+              />
+            </div>
+          ))}
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="outline" fullWidth onClick={() => setEditingClient(null)}>Cancel</Button>
+            <Button type="submit" variant="primary" fullWidth loading={updateClient.isPending}>Save</Button>
           </div>
         </form>
       </Modal>

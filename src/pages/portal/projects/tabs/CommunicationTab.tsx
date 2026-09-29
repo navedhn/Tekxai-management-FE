@@ -1433,7 +1433,12 @@ const Thread: React.FC<{
 
 // ── Tab root ─────────────────────────────────────────────────────────────
 
-const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
+const CommunicationTab: React.FC<{
+  projectId: string;
+  /** When provided, Saved panel is controlled by the parent (e.g. tabs bar button). */
+  savedPanelOpen?: boolean;
+  onSavedPanelOpenChange?: (open: boolean) => void;
+}> = ({ projectId, savedPanelOpen: savedPanelOpenProp, onSavedPanelOpenChange }) => {
   const { data: myPerms } = useMyPermissions();
   const { user } = useAuth();
   // An INTERNAL viewer only ever reaches this tab because the backend's
@@ -1463,7 +1468,12 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   const toast = useToastContext();
   const missingMessageToastRef = useRef<string | null>(null);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
-  const [showSavedPanel, setShowSavedPanel] = useState(false);
+  const [internalSavedPanelOpen, setInternalSavedPanelOpen] = useState(false);
+  const showSavedPanel = savedPanelOpenProp ?? internalSavedPanelOpen;
+  const setShowSavedPanel = (open: boolean) => {
+    onSavedPanelOpenChange?.(open);
+    if (savedPanelOpenProp === undefined) setInternalSavedPanelOpen(open);
+  };
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [keyboardInset, setKeyboardInset] = useState(0);
 
@@ -1712,16 +1722,6 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
 
   return (
     <div className="h-full flex flex-col gap-3 sm:gap-4 bg-white min-h-0 overflow-hidden">
-      <div className="shrink-0 flex items-center justify-end gap-2 px-1">
-        <button
-          type="button"
-          onClick={() => setShowSavedPanel(true)}
-          className="flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-xs font-semibold text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-blue-600"
-          title="Saved messages"
-        >
-          <Bookmark size={14} /> Saved{savedEntries.length > 0 ? ` (${savedEntries.length})` : ''}
-        </button>
-      </div>
       {pinned.length > 0 && (
         <div className="shrink-0 rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2 mx-1">
           <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-amber-800 mb-1.5">

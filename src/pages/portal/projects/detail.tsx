@@ -13,6 +13,7 @@ import {
   UsersRound,
   Gauge,
   LayoutDashboard,
+  Bookmark,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
@@ -53,6 +54,7 @@ const PortalProjectDetailPage: React.FC = () => {
   const { role } = useAuth();
   const isSuperAdmin = role === 'SUPER_ADMIN';
   const [milestoneView, setMilestoneView] = useState<MilestonesView>('dashboard');
+  const [savedPanelOpen, setSavedPanelOpen] = useState(false);
 
   const activeSlug = location.pathname.split(`/portal/projects/${id}`)[1]?.replace(/^\//, '') ?? '';
   const onMilestonesRoute = activeSlug === 'milestones' || activeSlug === 'overview';
@@ -65,6 +67,7 @@ const PortalProjectDetailPage: React.FC = () => {
         : 'communication';
 
   const goToPrimary = (t: PrimaryTab) => {
+    if (t !== 'communication') setSavedPanelOpen(false);
     if (t === 'communication') navigate(`/portal/projects/${id}`);
     else if (t === 'progress') {
       setMilestoneView('dashboard');
@@ -92,6 +95,16 @@ const PortalProjectDetailPage: React.FC = () => {
     enabled: !!id,
   });
   const pendingApprovalCount = approvals.filter((a) => a.status === 'PENDING').length;
+
+  const { data: savedEntries = [] } = useQuery<{ saved_at: string }[]>({
+    queryKey: ['portal', 'messages-saved', id],
+    queryFn: async () => {
+      const r = await apiRequest<any>(API_ENDPOINTS.PORTAL.MESSAGES_SAVED(id!));
+      return r?.payload?.records || [];
+    },
+    enabled: !!id && page === 'communication',
+  });
+  const savedCount = savedEntries.length;
 
   const setTopbarTitle = usePortalTopbarStore((s) => s.setTitle);
   useEffect(() => {
@@ -148,11 +161,29 @@ const PortalProjectDetailPage: React.FC = () => {
             );
           })}
         </div>
-        {isSuperAdmin && (
-          <div className="pb-2 shrink-0 hidden sm:block">
-            <ProjectPeopleWidget projectId={project.id} clientId={project.client_id} />
-          </div>
-        )}
+        <div className="flex items-center gap-1.5 shrink-0 self-stretch">
+          {isCommunication && (
+            <button
+              type="button"
+              onClick={() => setSavedPanelOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 h-9 rounded-lg text-xs font-semibold text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-blue-600"
+              title="Saved messages"
+            >
+              <Bookmark size={14} />
+              <span className="hidden sm:inline">Saved{savedCount > 0 ? ` (${savedCount})` : ''}</span>
+              {savedCount > 0 && (
+                <span className="sm:hidden min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-white text-[10px] font-black flex items-center justify-center">
+                  {savedCount > 9 ? '9+' : savedCount}
+                </span>
+              )}
+            </button>
+          )}
+          {isSuperAdmin && (
+            <div className="pb-2 hidden sm:block">
+              <ProjectPeopleWidget projectId={project.id} clientId={project.client_id} />
+            </div>
+          )}
+        </div>
       </div>
 
       {showingProgress && (
@@ -225,7 +256,13 @@ const PortalProjectDetailPage: React.FC = () => {
           </div>
         ) : (
           <>
-            {page === 'communication' && <CommunicationTab projectId={project.id} />}
+            {page === 'communication' && (
+              <CommunicationTab
+                projectId={project.id}
+                savedPanelOpen={savedPanelOpen}
+                onSavedPanelOpenChange={setSavedPanelOpen}
+              />
+            )}
             {page === 'files' && <FilesTab projectId={project.id} />}
             {page === 'approvals' && <ApprovalsTab projectId={project.id} />}
           </>
