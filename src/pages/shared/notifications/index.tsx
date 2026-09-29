@@ -1,17 +1,20 @@
 import React from 'react';
 import Card from '@/components/ui/Card';
-import { Bell, Megaphone, Briefcase, Trash2 } from 'lucide-react';
+import { Bell, Trash2, ChevronRight } from 'lucide-react';
 import { cn } from '@/utils/cn';
-import { useNotifications, useMarkAllRead, useMarkRead, useDeleteNotification, timeAgo } from '@/services/notificationService';
-
-function iconFor(type: string | null) {
-  if (!type) return Briefcase;
-  const t = type.toLowerCase();
-  if (t.includes('alert') || t.includes('reminder') || t.includes('warning')) return Megaphone;
-  return Briefcase;
-}
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useNotifications, useMarkAllRead, useMarkRead, useDeleteNotification, timeAgo, type Notification } from '@/services/notificationService';
+import {
+  notificationBody,
+  notificationIconFor,
+  resolveNotificationDestination,
+} from '@/utils/notificationNavigation';
+import { useToastContext } from '@/components/toast/ToastProvider';
 
 const NotificationsPage: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const toast = useToastContext();
   const { data, isLoading } = useNotifications(50);
   const markAll  = useMarkAllRead();
   const markOne  = useMarkRead();
@@ -20,22 +23,33 @@ const NotificationsPage: React.FC = () => {
   const notifications = data?.records ?? [];
   const unread = data?.unread_count ?? 0;
 
+  const openNotification = (notif: Notification) => {
+    if (!notif.is_read) markOne.mutate(notif.id);
+    const dest = resolveNotificationDestination(notif, location.pathname);
+    if (!dest) {
+      toast.info('This notification has no linked page, or the destination is no longer available.');
+      return;
+    }
+    navigate(dest);
+  };
+
   return (
     <div className="flex flex-col gap-6 pb-10">
-      <div className="flex items-center justify-between pb-2">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-black text-(--color-text-primary) tracking-tight">Notifications</h1>
+      <div className="flex items-center justify-between pb-2 gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <h1 className="text-2xl font-black text-(--color-text-primary) tracking-tight truncate">Notifications</h1>
           {unread > 0 && (
-            <span className="text-xs font-bold bg-primary-500 text-white rounded-full px-2 py-0.5">
+            <span className="text-xs font-bold bg-primary-500 text-white rounded-full px-2 py-0.5 shrink-0">
               {unread} new
             </span>
           )}
         </div>
         {unread > 0 && (
           <button
+            type="button"
             onClick={() => markAll.mutate()}
             disabled={markAll.isPending}
-            className="text-sm font-bold text-primary-600 hover:text-primary-700 hover:underline transition-colors focus:outline-none disabled:opacity-50"
+            className="text-sm font-bold text-primary-600 hover:text-primary-700 hover:underline transition-colors focus:outline-none disabled:opacity-50 shrink-0"
           >
             Mark all as read
           </button>
@@ -63,30 +77,43 @@ const NotificationsPage: React.FC = () => {
         ) : (
           <div className="flex flex-col">
             {notifications.map((notif, index) => {
-              const Icon = iconFor(notif.type);
+              const Icon = notificationIconFor(notif.type);
+              const dest = resolveNotificationDestination(notif, location.pathname);
               return (
                 <div
                   key={notif.id}
+                  role="button"
+                  tabIndex={0}
                   className={cn(
-                    'group flex justify-between items-start p-6 hover:bg-(--color-state-hover) transition-colors',
+                    'group flex justify-between items-start p-4 sm:p-6 hover:bg-(--color-state-hover) transition-colors cursor-pointer',
                     !notif.is_read && 'bg-(--color-state-selected)',
                     index !== notifications.length - 1 && 'border-b border-(--color-card-border)'
                   )}
-                  onClick={() => { if (!notif.is_read) markOne.mutate(notif.id); }}
-                  style={{ cursor: notif.is_read ? 'default' : 'pointer' }}
+                  onClick={() => openNotification(notif)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      openNotification(notif);
+                    }
+                  }}
                 >
-                  <div className="flex items-start gap-4 flex-1">
+                  <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
                     <div className="shrink-0 h-11 w-11 rounded-full bg-(--color-info-bg) text-primary-500 flex items-center justify-center mt-1">
                       <Icon size={20} strokeWidth={2.5} />
                     </div>
-                    <div className="flex flex-col gap-1.5 flex-1 pr-4">
-                      <div className="flex items-center gap-3">
-                        <h4 className="text-[15px] font-black text-(--color-text-primary) tracking-tight">{notif.title}</h4>
+                    <div className="flex flex-col gap-1.5 flex-1 min-w-0 pr-2">
+                      <div className="flex items-start gap-3 flex-wrap">
+                        <h4 className="text-[15px] font-black text-(--color-text-primary) tracking-tight break-words">{notif.title}</h4>
                         <span className="text-[13px] text-(--color-text-secondary) font-medium shrink-0">{timeAgo(notif.created_at)}</span>
                       </div>
-                      <p className="text-[14px] leading-relaxed text-(--color-text-secondary) font-medium tracking-tight">
-                        {notif.body}
+                      <p className="text-[14px] leading-relaxed text-(--color-text-secondary) font-medium tracking-tight break-words">
+                        {notificationBody(notif)}
                       </p>
+                      {dest && (
+                        <span className="inline-flex items-center gap-0.5 text-[12px] font-bold text-primary-600">
+                          Open related item <ChevronRight size={14} />
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -95,9 +122,11 @@ const NotificationsPage: React.FC = () => {
                       <span className="w-2.5 h-2.5 rounded-full bg-primary-500 shadow-[0_0_8px_rgba(0,92,218,0.4)] block" />
                     )}
                     <button
+                      type="button"
                       onClick={(e) => { e.stopPropagation(); del.mutate(notif.id); }}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-(--color-text-secondary) hover:text-red-500"
+                      className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-(--color-text-secondary) hover:text-red-500 p-2 -m-1"
                       title="Delete"
+                      aria-label="Delete notification"
                     >
                       <Trash2 size={14} />
                     </button>

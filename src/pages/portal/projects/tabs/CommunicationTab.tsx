@@ -430,9 +430,9 @@ const Composer: React.FC<{
         className="hidden"
         onChange={(e) => { const files = Array.from(e.target.files || []); if (files.length) handleFilesChosen(files); }}
       />
-      <div className="flex items-stretch rounded-2xl border border-(--color-border) bg-(--color-surface) focus-within:border-primary-400 transition-colors">
-        <div className="flex-1 min-w-0 flex flex-col px-3 pt-2 pb-2">
-          <div className="flex items-center gap-1">
+      <div className="flex items-stretch rounded-2xl border border-(--color-border) bg-(--color-surface) focus-within:border-primary-400 transition-colors overflow-hidden">
+        <div className="flex-1 min-w-0 flex flex-col px-2 sm:px-3 pt-2 pb-2">
+          <div className="flex items-center gap-0.5 sm:gap-1 overflow-x-auto no-scrollbar">
             <ToolbarButton title="Bold" onClick={handleBold}><Bold size={16} /></ToolbarButton>
             <ToolbarButton title="Italic" onClick={handleItalic}><Italic size={16} /></ToolbarButton>
             <ToolbarButton title="Code" onClick={handleCode}><Code size={16} /></ToolbarButton>
@@ -477,7 +477,7 @@ const Composer: React.FC<{
           />
         </div>
 
-        <div className="flex items-center pl-3 pr-3 my-3 border-l border-(--color-border)">
+        <div className="flex items-center pl-2 pr-2 sm:pl-3 sm:pr-3 my-3 border-l border-(--color-border) shrink-0">
           <button
             onClick={handleSend}
             disabled={(!content.trim() && !pendingAttachments.length) || sending || uploading}
@@ -1316,9 +1316,29 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   // Communication tab in the first place.
   const location = useLocation();
   const highlightMessageId = useMemo(() => new URLSearchParams(location.search).get('message'), [location.search]);
+  const toast = useToastContext();
+  const missingMessageToastRef = useRef<string | null>(null);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [showSavedPanel, setShowSavedPanel] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [keyboardInset, setKeyboardInset] = useState(0);
+
+  // Keep the composer visible above the mobile soft keyboard.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const sync = () => {
+      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      setKeyboardInset(inset > 40 ? inset : 0);
+    };
+    sync();
+    vv.addEventListener('resize', sync);
+    vv.addEventListener('scroll', sync);
+    return () => {
+      vv.removeEventListener('resize', sync);
+      vv.removeEventListener('scroll', sync);
+    };
+  }, []);
 
   const [typingUsers, setTypingUsers] = useState<Map<string, { first_name: string | null; last_name: string | null }>>(new Map());
   const [viewingUsers, setViewingUsers] = useState<Map<string, { first_name: string | null; last_name: string | null }>>(new Map());
@@ -1516,13 +1536,22 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
 
   // Scroll to and briefly highlight the deep-linked message once the
   // thread has rendered (after any auto-expand above has already run).
+  // If the message was deleted or is out of the loaded window, surface a
+  // clear toast instead of silently dumping the user at the bottom.
   useEffect(() => {
     if (!highlightMessageId || isLoading) return;
     const el = document.getElementById(`portal-message-${highlightMessageId}`);
-    if (!el) return;
+    if (!el) {
+      if (data && missingMessageToastRef.current !== highlightMessageId) {
+        missingMessageToastRef.current = highlightMessageId;
+        toast.info('That message is no longer available in this conversation.');
+      }
+      return;
+    }
+    missingMessageToastRef.current = null;
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    el.classList.add('ring-2', 'ring-primary-400');
-    const timer = setTimeout(() => el.classList.remove('ring-2', 'ring-primary-400'), 3000);
+    el.classList.add('ring-2', 'ring-primary-400', 'rounded-xl');
+    const timer = setTimeout(() => el.classList.remove('ring-2', 'ring-primary-400', 'rounded-xl'), 3000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlightMessageId, isLoading, data?.length]);
@@ -1538,8 +1567,8 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   });
 
   return (
-    <div className="h-full flex flex-col gap-4 bg-white">
-      <div className="shrink-0 flex items-center justify-end gap-2">
+    <div className="h-full flex flex-col gap-3 sm:gap-4 bg-white min-h-0 overflow-hidden">
+      <div className="shrink-0 flex items-center justify-end gap-2 px-1">
         <button
           type="button"
           onClick={() => setShowSavedPanel(true)}
@@ -1550,7 +1579,7 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
         </button>
       </div>
       {pinned.length > 0 && (
-        <div className="shrink-0 rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2">
+        <div className="shrink-0 rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2 mx-1">
           <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-amber-800 mb-1.5">
             <Pin size={12} fill="currentColor" /> Pinned
           </div>
@@ -1578,7 +1607,7 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
           </div>
         </div>
       )}
-      <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-4 pr-1 bg-white">
+      <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-4 px-1 pr-1 bg-white">
         {roots.length === 0 && (
           <p className="text-sm text-(--color-text-secondary) py-10 text-center">No messages yet.</p>
         )}
@@ -1621,7 +1650,10 @@ const CommunicationTab: React.FC<{ projectId: string }> = ({ projectId }) => {
       </div>
 
       {canCompose && (
-        <div className="shrink-0 flex flex-col gap-1.5">
+        <div
+          className="shrink-0 flex flex-col gap-1.5 sticky bottom-0 z-10 bg-white pt-1 border-t border-(--color-border)/60 px-1"
+          style={{ paddingBottom: `max(0.5rem, calc(env(safe-area-inset-bottom) + ${keyboardInset}px))` }}
+        >
           {(viewingList.length > 0 || typingLabel) && (
             <div className="flex items-center justify-between gap-3 px-1 min-h-[18px] text-[12px] text-(--color-text-secondary)">
               <span className="truncate">

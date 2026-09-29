@@ -42,10 +42,12 @@ export function usePortalMessageNotifications(): void {
       // the message they just sent, and suppress a toast for the conversation
       // they are already actively reading.
       if (!message?.id || !message.project_id || message.user_id === user.id) return;
-      const activePath = `/portal/projects/${message.project_id}`;
-      const isViewingConversation = window.location.pathname === activePath
-        && document.visibilityState === 'visible'
-        && document.hasFocus();
+      const conversationPath = `/portal/projects/${message.project_id}/communication`;
+      const isViewingConversation = (
+        window.location.pathname === conversationPath
+        || window.location.pathname === `/portal/projects/${message.project_id}`
+        || window.location.pathname === `/portal/projects/${message.project_id}/`
+      ) && document.visibilityState === 'visible' && document.hasFocus();
       if (isViewingConversation || Notification.permission !== 'granted') return;
 
       try {
@@ -53,11 +55,12 @@ export function usePortalMessageNotifications(): void {
           body: messagePreview(message),
           icon: message.user?.avatar || '/favicon.ico',
           tag: `portal-message-${message.project_id}`,
-          renotify: true,
+          // Supported by Chromium; not yet in TS DOM lib NotificationOptions.
+          ...({ renotify: true } as NotificationOptions),
         });
         notification.onclick = () => {
           window.focus();
-          window.location.assign(`${activePath}?message=${encodeURIComponent(message.id)}`);
+          window.location.assign(`${conversationPath}?message=${encodeURIComponent(message.id)}`);
           notification.close();
         };
       } catch {
@@ -67,6 +70,8 @@ export function usePortalMessageNotifications(): void {
     };
 
     socket.on('project:message:new', onNewMessage);
-    return () => socket.off('project:message:new', onNewMessage);
+    return () => {
+      socket.off('project:message:new', onNewMessage);
+    };
   }, [hasHydrated, isLoggedIn, user?.id]);
 }

@@ -1,4 +1,4 @@
-import React, { memo, Suspense, useEffect, useState } from 'react';
+import React, { memo, Suspense, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -10,13 +10,15 @@ import {
   ChevronRight,
   Plus,
   Boxes,
-  MessageCircle,
+  MessagesSquare,
   FileText,
   ArrowLeft,
   BookOpen,
   MoreHorizontal,
   X,
   Home,
+  Bell,
+  User,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -29,6 +31,8 @@ import { RoutePageSkeleton } from '@/components/skeletons';
 import { getSocket } from '@/lib/socket';
 import PortalSearch from './PortalSearch';
 import ProfileWorkspaceMenu from '@/layouts/features/ProfileWorkspaceMenu';
+import NotificationDropdown from '@/layouts/features/NotificationDropdown';
+import { useNotifications } from '@/services/notificationService';
 
 const CHATS_PAGE_SIZE = 10;
 const CHATS_PAGE_INCREMENT = 5;
@@ -108,7 +112,9 @@ const ProjectsPanel: React.FC<{
     if (!socket) return;
     const refreshUnread = () => queryClient.invalidateQueries({ queryKey: ['portal', 'unread-counts'] });
     socket.on('project:message:new', refreshUnread);
-    return () => socket.off('project:message:new', refreshUnread);
+    return () => {
+      socket.off('project:message:new', refreshUnread);
+    };
   }, [mode, queryClient]);
 
   const sortedProjects = mode === 'chats'
@@ -174,7 +180,7 @@ const ProjectsPanel: React.FC<{
                   }
                   title={displayName}
                 >
-                  <MessageCircle size={15} className={cn('shrink-0', hasUnread ? 'text-primary-600 opacity-100' : 'opacity-60')} />
+                  <MessagesSquare size={15} className={cn('shrink-0', hasUnread ? 'text-primary-600 opacity-100' : 'opacity-60')} />
                   <span className="truncate flex-1">{displayName}</span>
                   {hasUnread && (
                     <span className="shrink-0 h-5 min-w-[20px] px-1.5 flex items-center justify-center rounded-full bg-primary-600 text-white text-[10px] font-black leading-none shadow-sm">
@@ -267,6 +273,18 @@ const ClientPortalLayout: React.FC = memo(() => {
   const isSuperAdmin = role === 'SUPER_ADMIN';
   const [desktopPanel, setDesktopPanel] = useState<'spaces' | 'chats' | null>(null);
   const [mobileSheet, setMobileSheet] = useState<MobileSheet>(null);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const notifBtnRef = useRef<HTMLButtonElement>(null);
+  const { data: notifData } = useNotifications(10);
+  const unreadNotifs = notifData?.unread_count ?? 0;
+
+  const { data: chatUnreadCounts = {} } = useQuery<Record<string, { count: number }>>({
+    queryKey: ['portal', 'unread-counts'],
+    queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.UNREAD_COUNTS),
+    select: (r: any) => r?.payload || {},
+    refetchInterval: 15000,
+  });
+  const totalChatUnread = Object.values(chatUnreadCounts).reduce((sum, row) => sum + (row?.count || 0), 0);
 
   // Project communication is full-bleed; on mobile ClickUp hides the tab bar
   // while you're deep in a chat thread so the composer can sit at the bottom.
@@ -280,6 +298,8 @@ const ClientPortalLayout: React.FC = memo(() => {
   };
 
   const moreItems = [
+    { to: '/portal/profile', label: 'My Profile', icon: User },
+    { to: '/portal/notifications', label: 'Notifications', icon: Bell },
     { to: '/portal/docs', label: 'Docs', icon: FileText },
     { to: '/portal/wiki', label: 'Wiki', icon: BookOpen },
     ...(isSuperAdmin ? [{ to: '/portal/invites', label: 'People', icon: Users }] : []),
@@ -307,9 +327,10 @@ const ClientPortalLayout: React.FC = memo(() => {
 
   useEffect(() => {
     closeMobileSheet();
+    setIsNotifOpen(false);
   }, [location.pathname]);
 
-  const RailButton: React.FC<{ icon: LucideIcon; label: string; active: boolean; onClick?: () => void; title?: string }> = ({ icon: Icon, label, active, onClick, title }) => (
+  const RailButton: React.FC<{ icon: LucideIcon; label: string; active: boolean; onClick?: () => void; title?: string; badge?: number }> = ({ icon: Icon, label, active, onClick, title, badge }) => (
     <button
       onClick={onClick}
       title={title}
@@ -317,11 +338,16 @@ const ClientPortalLayout: React.FC = memo(() => {
     >
       <span
         className={cn(
-          'flex items-center justify-center h-9 w-9 rounded-xl transition-colors',
+          'relative flex items-center justify-center h-9 w-9 rounded-xl transition-colors',
           active ? 'bg-emerald-500 text-white' : 'text-emerald-300/80 group-hover:bg-white/10 group-hover:text-white'
         )}
       >
-        <Icon size={18} />
+        <Icon size={18} strokeWidth={2} />
+        {!!badge && badge > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-black leading-none">
+            {badge > 9 ? '9+' : badge}
+          </span>
+        )}
       </span>
       <span className={cn('text-[10px] font-semibold transition-colors', active ? 'text-white' : 'text-emerald-300/70 group-hover:text-emerald-100')}>
         {label}
@@ -349,11 +375,12 @@ const ClientPortalLayout: React.FC = memo(() => {
             </NavLink>
           ))}
           <RailButton
-            icon={MessageCircle}
+            icon={MessagesSquare}
             label="Chats"
             active={desktopPanel === 'chats'}
             onClick={() => toggleDesktopPanel('chats')}
             title="Client communication threads, by project"
+            badge={totalChatUnread}
           />
           <RailButton
             icon={Boxes}
@@ -412,23 +439,31 @@ const ClientPortalLayout: React.FC = memo(() => {
           <div className="flex-1 min-w-0 flex justify-end lg:justify-center">
             <PortalSearch />
           </div>
-          <div className="flex items-center gap-2 lg:gap-3 shrink-0">
-            {user?.user_type === 'INTERNAL' ? (
-              <ProfileWorkspaceMenu />
-            ) : (
-              <>
-                <span className="hidden sm:inline text-sm font-semibold text-(--color-text-primary)">
-                  {user?.first_name} {user?.last_name}
-                </span>
-                {user?.avatar ? (
-                  <img src={user.avatar} alt="" className="h-8 w-8 lg:h-9 lg:w-9 rounded-full object-cover" />
-                ) : (
-                  <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-sm font-bold">
-                    {user?.first_name?.[0]?.toUpperCase() ?? 'C'}
-                  </div>
+          <div className="flex items-center gap-1.5 lg:gap-3 shrink-0">
+            <div className="relative">
+              <button
+                ref={notifBtnRef}
+                type="button"
+                onClick={() => setIsNotifOpen((v) => !v)}
+                aria-label="Notifications"
+                aria-expanded={isNotifOpen}
+                className="relative h-9 w-9 flex items-center justify-center rounded-xl text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-primary-600 transition-colors"
+              >
+                <Bell size={18} />
+                {unreadNotifs > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-black border-2 border-(--color-surface)">
+                    {unreadNotifs > 9 ? '9+' : unreadNotifs}
+                  </span>
                 )}
-              </>
-            )}
+              </button>
+              <NotificationDropdown
+                isOpen={isNotifOpen}
+                onClose={() => setIsNotifOpen(false)}
+                triggerRef={notifBtnRef}
+                sheetTopClassName="top-[calc(3rem+env(safe-area-inset-top))]"
+              />
+            </div>
+            <ProfileWorkspaceMenu profileTo="/portal/profile" />
           </div>
         </header>
 
@@ -470,11 +505,18 @@ const ClientPortalLayout: React.FC = memo(() => {
               type="button"
               onClick={() => setMobileSheet((s) => (s === 'chats' ? null : 'chats'))}
               className={cn(
-                'flex-1 flex flex-col items-center justify-center gap-0.5 h-14 text-[10px] font-bold',
+                'relative flex-1 flex flex-col items-center justify-center gap-0.5 h-14 text-[10px] font-bold',
                 mobileSheet === 'chats' ? 'text-emerald-600' : 'text-(--color-text-secondary)'
               )}
             >
-              <MessageCircle size={20} strokeWidth={mobileSheet === 'chats' ? 2.4 : 2} />
+              <span className="relative inline-flex">
+                <MessagesSquare size={20} strokeWidth={mobileSheet === 'chats' ? 2.4 : 2} />
+                {totalChatUnread > 0 && (
+                  <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-black">
+                    {totalChatUnread > 9 ? '9+' : totalChatUnread}
+                  </span>
+                )}
+              </span>
               Chats
             </button>
             <button

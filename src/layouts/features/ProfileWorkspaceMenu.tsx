@@ -26,8 +26,8 @@ export type ProfileWorkspaceMenuProps = {
 
 /**
  * Shared profile trigger + dropdown used by admin/employee topbars and the
- * portal header (INTERNAL employees only — CLIENT callers keep a static chip).
- * Workspace links are permission-gated and hide the workspace you're already in.
+ * portal header (INTERNAL and CLIENT). Workspace links are permission-gated
+ * and hide the workspace you're already in.
  */
 const ProfileWorkspaceMenu: React.FC<ProfileWorkspaceMenuProps> = memo(({ profileTo, className }) => {
   const { user, userLogout } = useAuth();
@@ -39,12 +39,13 @@ const ProfileWorkspaceMenu: React.FC<ProfileWorkspaceMenuProps> = memo(({ profil
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  const canAccessCrm = !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('crm.workspace.access');
+  const isClient = user?.user_type === 'CLIENT';
+  const canAccessCrm = !isClient && (!!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('crm.workspace.access'));
   const crmAppUrl = import.meta.env.VITE_CRM_APP_URL as string | undefined;
   const canAccessAdmin =
-    !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.workspace.access');
+    !isClient && (!!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.workspace.access'));
   const canAccessEmployee =
-    !!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.employee_workspace.access');
+    !isClient && (!!myPerms?.is_super_admin || !!myPerms?.permissions?.includes('erp.employee_workspace.access'));
 
   // Portal is invite-gated for ordinary INTERNAL users. SUPER_ADMIN and
   // CLIENT (or anyone with client.*) always qualify; otherwise probe once.
@@ -80,15 +81,25 @@ const ProfileWorkspaceMenu: React.FC<ProfileWorkspaceMenuProps> = memo(({ profil
 
   const resolvedProfileTo =
     profileTo ||
-    (canAccessAdmin ? '/admin/profile' : canAccessEmployee ? '/employee/profile' : '/employee/profile');
+    (isClient
+      ? '/portal/profile'
+      : canAccessAdmin
+        ? '/admin/profile'
+        : canAccessEmployee
+          ? '/employee/profile'
+          : '/employee/profile');
 
   const displayName = user?.first_name
     ? `${user.first_name} ${user.last_name || ''}`.trim()
     : 'User';
-  const roleLabel = user?.role_name ? user.role_name.replace(/_/g, ' ') : 'Employee';
+  const roleLabel = isClient
+    ? 'Client'
+    : user?.role_name
+      ? user.role_name.replace(/_/g, ' ')
+      : 'Employee';
   const avatarSrc =
     user?.avatar ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent((user?.first_name || 'U') + '+' + (user?.last_name || ''))}&background=005CDA&color=fff&size=128`;
+    `https://ui-avatars.com/api/?name=${encodeURIComponent((user?.first_name || 'U') + '+' + (user?.last_name || ''))}&background=${isClient ? '059669' : '005CDA'}&color=fff&size=128`;
 
   useEffect(() => {
     setIsOpen(false);
