@@ -23,13 +23,13 @@ const Login: React.FC = () => {
   const [tfaCode, setTfaCode] = useState('');
   const [tfaLoading, setTfaLoading] = useState(false);
 
-  const redirectUser = async (overridePath?: string) => {
+  const redirectUser = async (overridePath?: string, userType?: string | null) => {
     if (overridePath?.startsWith('/')) {
       navigate(overridePath, { replace: true });
       return;
     }
     const perms = await fetchMyPermissions().catch(() => null);
-    const home = resolveHomePath(perms);
+    const home = resolveHomePath(perms, userType);
     if (home) {
       navigate(home);
     } else {
@@ -52,7 +52,7 @@ const Login: React.FC = () => {
       loggedIn({ user: user as User });
       toast.success('Login successful!');
       const redirectTo = (location.state as { redirectTo?: string } | null)?.redirectTo;
-      redirectUser(redirectTo);
+      redirectUser(redirectTo, (user as User)?.user_type);
     } catch (error: any) {
       const errorMessage =
         error?.data?.message || error?.message || 'Login failed. Please check your credentials.';
@@ -75,7 +75,7 @@ const Login: React.FC = () => {
         loggedIn({ user: data.payload.user as User });
         toast.success('Login successful!');
         const redirectTo = (location.state as { redirectTo?: string } | null)?.redirectTo;
-        redirectUser(redirectTo);
+        redirectUser(redirectTo, (data.payload.user as User)?.user_type);
       } else {
         toast.error(data?.message || 'Invalid OTP code');
       }

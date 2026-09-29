@@ -66,8 +66,12 @@ export const fetchMyPermissions = async (): Promise<MyPermissions> => {
   return res?.payload || { roles: [], permissions: [], is_super_admin: false };
 };
 
-export function resolveHomePath(perms: MyPermissions | undefined | null): string | null {
-  if (!perms) return null;
+export function resolveHomePath(perms: MyPermissions | undefined | null, userType?: string | null): string | null {
+  if (!perms) {
+    // Login already knows CLIENT even if /permission/me fails or is empty.
+    if (userType === 'CLIENT') return '/portal';
+    return null;
+  }
   if (perms.is_super_admin) return '/admin';
   if (perms.permissions?.includes('erp.workspace.access')) return '/admin';
   if (perms.permissions?.includes('erp.employee_workspace.access')) return '/employee';
@@ -75,6 +79,9 @@ export function resolveHomePath(perms: MyPermissions | undefined | null): string
   // workspace permissions above (they're not applicable), only client.*
   // ones. Any granted client.* permission is enough to route them home.
   if (perms.permissions?.some((p) => p.startsWith('client.'))) return '/portal';
+  // Fallback: login payload already knows user_type=CLIENT even if the
+  // role_permissions matrix is briefly empty / not yet seeded.
+  if (userType === 'CLIENT') return '/portal';
   return null;
 }
 
