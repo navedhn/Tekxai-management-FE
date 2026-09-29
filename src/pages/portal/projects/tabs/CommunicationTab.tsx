@@ -463,7 +463,7 @@ const Composer: React.FC<{
             ref={textareaRef}
             projectId={projectId}
             className={composerInputCls}
-            placeholder="Write a message... (@ to mention, /poll Q | A | B, Enter to send)"
+            placeholder="Write a message"
             value={content}
             onChange={(v) => {
               setContent(v);
