@@ -16,11 +16,17 @@ type PortalProject = {
 
 type UnreadRow = {
   count: number;
+  total_messages?: number;
   last_message_at: string | null;
   last_message_id?: string | null;
   last_message_preview?: string | null;
   last_message_author?: string | null;
 };
+
+function formatMessageCount(n: number | undefined): string | null {
+  if (!n || n <= 0) return null;
+  return n === 1 ? '1 message' : `${n.toLocaleString()} messages`;
+}
 
 function formatChatTime(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -63,6 +69,7 @@ const PortalChatsPage: React.FC = () => {
         project: p,
         displayName,
         unreadCount: unread?.count || 0,
+        totalMessages: unread?.total_messages ?? 0,
         lastAt: unread?.last_message_at || null,
         preview: unread?.last_message_preview || null,
         author: unread?.last_message_author || null,
@@ -129,6 +136,7 @@ const PortalChatsPage: React.FC = () => {
         <ul className="flex flex-col divide-y divide-(--color-border) rounded-2xl border border-(--color-border) bg-(--color-surface) overflow-hidden">
           {conversations.map((c) => {
             const hasUnread = c.unreadCount > 0;
+            const messageCountLabel = formatMessageCount(c.totalMessages);
             return (
               <li key={c.project.id}>
                 <button
@@ -158,8 +166,11 @@ const PortalChatsPage: React.FC = () => {
                       >
                         {c.displayName}
                       </span>
-                      <span className="text-[11px] font-semibold text-(--color-text-secondary) shrink-0 tabular-nums">
+                      <span className="text-[11px] font-semibold text-(--color-text-secondary) shrink-0 tabular-nums text-right leading-tight">
                         {formatChatTime(c.lastAt)}
+                        {messageCountLabel && (
+                          <span className="block font-medium opacity-80">{messageCountLabel}</span>
+                        )}
                       </span>
                     </span>
                     <span className="flex items-center justify-between gap-2">
@@ -171,7 +182,9 @@ const PortalChatsPage: React.FC = () => {
                       >
                         {c.preview
                           ? (c.author ? `${c.author}: ${c.preview}` : c.preview)
-                          : 'No messages yet — say hello'}
+                          : c.totalMessages > 0
+                            ? 'Open conversation to read messages'
+                            : 'No messages yet — say hello'}
                       </span>
                       {hasUnread && (
                         <span className="shrink-0 min-w-[22px] h-[22px] px-1.5 rounded-full bg-primary-600 text-white text-[11px] font-black flex items-center justify-center">
