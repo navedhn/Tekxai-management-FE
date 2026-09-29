@@ -56,7 +56,7 @@ const AdminPermissions       = lazy(() => import('@/pages/admin/permissions'));
 const AdminDesktopManagement = lazy(() => import('@/pages/admin/desktop-management'));
 const AdminApprovals         = lazy(() => import('@/pages/admin/approvals'));
 
-const AdminCRM               = lazy(() => import('@/pages/admin/crm'));
+const PortalCRM              = lazy(() => import('@/pages/portal/crm'));
 const AdminContracts         = lazy(() => import('@/pages/admin/contracts'));
 const AdminHrDocuments       = lazy(() => import('@/pages/admin/hr-documents'));
 const PerformanceReviews       = lazy(() => import('@/pages/admin/performance-reviews'));
@@ -203,7 +203,7 @@ const routes: RouteObject[] = [
           { path: '/admin/notifications',        element: <SharedNotifications /> },
           { path: '/admin/profile/:memberId?',   element: <ProfilePage /> },
           { path: '/admin/download-app',          element: <DownloadApp /> },
-          { path: '/admin/crm',                 element: <AdminCRM /> },
+          { path: '/admin/crm',                 element: <Navigate to="/portal/crm" replace /> },
           { path: '/admin/my-salaries',           element: <MarketingMySalaries /> },
           // Project visibility is membership-based, not a single broad
           // permission (see be-work find_projects's member_only fallback:
@@ -212,7 +212,7 @@ const routes: RouteObject[] = [
           // these pages from non-elevated project owners/leaders/members
           // entirely, which is what caused a real bug — so these are
           // intentionally left ungated beyond the parent erp.workspace.access
-          // wrapper, same as /admin/crm above.
+          // wrapper. Client CRM lives at /portal/crm (crm.clients.view).
           { path: '/admin/projects',         element: <AdminProjects /> },
           { path: '/admin/project-tracking', element: <AdminProjectTracking /> },
           { path: '/admin/project-timeline', element: <AdminProjectTimeline /> },
@@ -308,7 +308,7 @@ const routes: RouteObject[] = [
       { path: '/admin/*', element: <NotFound /> },
     ],
   },
-  { path: '/crm/*',                        element: <Navigate to="/admin" replace /> },
+  { path: '/crm/*',                        element: <Navigate to="/portal/crm" replace /> },
   { path: '/hr',                           element: <Navigate to="/admin" replace /> },
   { path: '/hr/employees',                 element: <Navigate to="/admin/employee-directory" replace /> },
   { path: '/hr/business-units',            element: <Navigate to="/admin/business-units" replace /> },
@@ -436,6 +436,14 @@ const routes: RouteObject[] = [
           { path: '/portal/projects/:id/approvals',           element: <PortalProjectDetail /> },
           { path: '/portal/docs',                             element: <PortalDocs /> },
           { path: '/portal/wiki',                             element: <PortalWiki /> },
+          {
+            // Same effective access as CRM APIs: SUPER_ADMIN bypasses can();
+            // otherwise requires crm.clients.view (list clients).
+            element: <ProtectedRoute permission="crm.clients.view" />,
+            children: [
+              { path: '/portal/crm', element: <PortalCRM /> },
+            ],
+          },
           {
             element: <ProtectedRoute superAdminOnly />,
             children: [

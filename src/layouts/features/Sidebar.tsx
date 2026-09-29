@@ -85,6 +85,7 @@ const ERP_OPS_ROUTE_PERMISSIONS: Record<string, string> = {
   '/admin/report-builder': 'erp.reports.view',
   '/admin/meetings': 'erp.meetings.view',
   '/admin/projects-report': 'erp.reports.view',
+  '/portal/crm': 'crm.clients.view',
 };
 interface ModuleLink extends Omit<SidebarLink, 'section'> {
   module: ModuleName;
@@ -341,19 +342,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Administration', tier: 'superadmin', to: '/admin/email-logs', label: 'Email Logs', icon: <Mail size={18} strokeWidth={SW} /> },
       { module: 'Administration', tier: 'superadmin', to: '/admin/system-settings', label: 'System Settings', icon: <Settings size={18} strokeWidth={SW} /> },
 
-      // NOTE: deliberately tier:'admin' (broad workspace access), not
-      // 'erpOps'/ERP_OPS_ROUTE_PERMISSIONS — unlike the other items fixed
-      // alongside this one, project visibility is membership-based (a
-      // non-elevated owner/leader/member should still see their own
-      // projects), not gated by a single broad permission. Gating the
-      // sidebar item on erp.projects.view would hide it from exactly the
-      // project managers who need it. See router.tsx's /admin/projects
-      // routes, which were relaxed to match for the same reason.
-      // CRM route itself has no permission gate beyond erp.workspace.access
-      // (see router.tsx `/admin/crm`), so tier:'admin' matches it exactly —
-      // this item was simply missing from the sidebar config entirely
-      // (the page was only reachable by typing the URL directly).
-      { module: 'Projects', tier: 'admin', to: '/admin/crm', label: 'Client CRM', icon: <Landmark size={18} strokeWidth={SW} /> },
+      // Client CRM moved to /portal/crm — link stays in admin Projects for
+      // discoverability, gated on crm.clients.view (SUPER_ADMIN bypasses).
+      { module: 'Projects', tier: 'erpOps', to: '/portal/crm', label: 'Client CRM', icon: <Landmark size={18} strokeWidth={SW} /> },
+      // Project list is membership-based — deliberately tier:'admin' (broad
+      // workspace access), not erp.projects.view, so non-elevated owners /
+      // leaders / members still see the nav entry for their own projects.
       { module: 'Projects', tier: 'admin', to: '/admin/projects', label: 'Projects', icon: <FolderCheck size={18} strokeWidth={SW} /> },
       { module: 'Projects', tier: 'admin', to: '/admin/project-tracking', label: 'Project Tracking', icon: <Table2 size={18} strokeWidth={SW} /> },
       { module: 'Projects', tier: 'admin', to: '/admin/project-timeline', label: 'Timeline', icon: <CalendarDays size={18} strokeWidth={SW} /> },

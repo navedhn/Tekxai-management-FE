@@ -13,6 +13,7 @@ import {
   FileText,
   ArrowLeft,
   BookOpen,
+  Landmark,
   MoreHorizontal,
   X,
   Home,
@@ -23,6 +24,7 @@ import { cn } from '@/utils/cn';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/authStore';
 import { usePortalTopbarStore } from '@/stores/portalTopbarStore';
+import { useMyPermissions } from '@/services/permissionsService';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { RoutePageSkeleton } from '@/components/skeletons';
@@ -280,12 +282,15 @@ const MobileSheetShell: React.FC<{
 );
 
 const ClientPortalLayout: React.FC = memo(() => {
-  const { user, role } = useAuth();
+  const { role } = useAuth();
+  const { data: myPerms } = useMyPermissions();
   const topbarTitle = usePortalTopbarStore((s) => s.title);
   const { userLogout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
-  const isSuperAdmin = role === 'SUPER_ADMIN';
+  const isSuperAdmin = role === 'SUPER_ADMIN' || !!myPerms?.is_super_admin;
+  // Match ProtectedRoute + BE can('crm.clients.view'): super admin or granted role.
+  const canViewCrm = isSuperAdmin || !!myPerms?.permissions?.includes('crm.clients.view');
   const [desktopPanel, setDesktopPanel] = useState<'projects' | 'chats' | null>(null);
   const [mobileSheet, setMobileSheet] = useState<MobileSheet>(null);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -316,6 +321,7 @@ const ClientPortalLayout: React.FC = memo(() => {
     if (path.startsWith('/portal/profile')) return 'My Profile';
     if (path.startsWith('/portal/docs')) return 'Shared files';
     if (path.startsWith('/portal/wiki')) return 'Wiki';
+    if (path.startsWith('/portal/crm')) return 'Client CRM';
     if (path.startsWith('/portal/invites')) return 'People';
     if (path === '/portal/projects' || path === '/portal/projects/') return 'Projects';
     return null;
@@ -340,23 +346,18 @@ const ClientPortalLayout: React.FC = memo(() => {
     { to: '/portal/notifications', label: 'Notifications', icon: Bell },
     { to: '/portal/docs', label: 'Shared files', icon: FileText },
     { to: '/portal/wiki', label: 'Wiki', icon: BookOpen },
+    ...(canViewCrm ? [{ to: '/portal/crm', label: 'Client CRM', icon: Landmark }] : []),
     ...(isSuperAdmin ? [{ to: '/portal/invites', label: 'People', icon: Users }] : []),
   ];
 
-  const desktopNavItems = isSuperAdmin
-    ? [
-        { to: '/portal', label: 'Home', icon: LayoutDashboard, end: true },
-        { to: '/portal/projects', label: 'Projects', icon: FolderKanban, end: false },
-        { to: '/portal/docs', label: 'Files', icon: FileText, end: false },
-        { to: '/portal/wiki', label: 'Wiki', icon: BookOpen, end: false },
-        { to: '/portal/invites', label: 'People', icon: Users, end: false },
-      ]
-    : [
-        { to: '/portal', label: 'Home', icon: LayoutDashboard, end: true },
-        { to: '/portal/projects', label: 'Projects', icon: FolderKanban, end: false },
-        { to: '/portal/docs', label: 'Files', icon: FileText, end: false },
-        { to: '/portal/wiki', label: 'Wiki', icon: BookOpen, end: false },
-      ];
+  const desktopNavItems = [
+    { to: '/portal', label: 'Home', icon: LayoutDashboard, end: true },
+    { to: '/portal/projects', label: 'Projects', icon: FolderKanban, end: false },
+    { to: '/portal/docs', label: 'Files', icon: FileText, end: false },
+    { to: '/portal/wiki', label: 'Wiki', icon: BookOpen, end: false },
+    ...(canViewCrm ? [{ to: '/portal/crm', label: 'CRM', icon: Landmark, end: false }] : []),
+    ...(isSuperAdmin ? [{ to: '/portal/invites', label: 'People', icon: Users, end: false }] : []),
+  ];
 
   const toggleDesktopPanel = (mode: 'projects' | 'chats') =>
     setDesktopPanel((p) => (p === mode ? null : mode));

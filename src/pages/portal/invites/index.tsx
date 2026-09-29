@@ -436,7 +436,9 @@ const PortalInvitesPage: React.FC = () => {
             </>
           ) : (
             <p className="text-sm text-gray-500 py-6 text-center">
-              Client invites are sent from that client's row in Client CRM — this is where you can review or revoke them afterward.
+              Client invites are sent from that client&rsquo;s row in{' '}
+              <a href="/portal/crm" className="font-bold text-primary-600 hover:underline">Client CRM</a>
+              {' '}— this is where you can review or revoke them afterward.
             </p>
           )}
         </div>
