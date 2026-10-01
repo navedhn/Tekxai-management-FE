@@ -16,6 +16,8 @@ import { RichText, MessageLinkPreviews } from '../richText';
 import { PortalMessage, PortalMessageEdit, PortalMessageRead, PortalPoll, messageAttachments } from '../types';
 import ProfileSidePanel from '../ProfileSidePanel';
 import MentionTextarea, { extractMentionIds, mentionDisplayName, useMentionableUsers } from '../MentionTextarea';
+import PortalChatChannelList from '@/pages/portal/chats/PortalChatChannelList';
+import { useResponsive } from '@/hooks/useResponsive';
 
 // Small curated set for the one-click "quick react" row — the full picker
 // (search + categories) is still reachable via the Smile "+" button for anything
@@ -447,67 +449,31 @@ const Composer: React.FC<{
         className="hidden"
         onChange={(e) => { const files = Array.from(e.target.files || []); if (files.length) handleFilesChosen(files); }}
       />
-      <div className="flex items-stretch rounded-2xl border border-(--color-border) bg-(--color-surface) focus-within:border-primary-400 transition-colors overflow-hidden">
-        <div className="flex-1 min-w-0 flex flex-col px-2 sm:px-3 pt-2 pb-2">
-          <div className="flex items-center gap-0.5 sm:gap-1 overflow-x-auto no-scrollbar">
-            {/* Mobile: collapse markdown tools behind Aa; always show attach + emoji + send. */}
-            <ToolbarButton
-              title={showFormatTools ? 'Hide formatting' : 'Formatting'}
-              onClick={() => setShowFormatTools((v) => !v)}
-            >
-              <Type size={16} />
-            </ToolbarButton>
-            <div className={cn('items-center gap-0.5 sm:gap-1', showFormatTools ? 'flex' : 'hidden sm:flex')}>
-              <ToolbarButton title="Bold" onClick={handleBold}><Bold size={16} /></ToolbarButton>
-              <ToolbarButton title="Italic" onClick={handleItalic}><Italic size={16} /></ToolbarButton>
-              <ToolbarButton title="Code" onClick={handleCode}><Code size={16} /></ToolbarButton>
-              <ToolbarButton title="Insert link" onClick={handleLink}><Link2 size={16} /></ToolbarButton>
-            </div>
-            <ToolbarButton
-              title={uploading ? 'Uploading…' : pendingAttachments.length >= MAX_ATTACHMENTS ? `Up to ${MAX_ATTACHMENTS} files per message` : 'Attach files'}
-              onClick={handleAttachClick}
-              disabled={uploading || sending || pendingAttachments.length >= MAX_ATTACHMENTS}
-            >
-              {uploading ? <Loader2 size={16} className="animate-spin" /> : <Paperclip size={16} />}
-            </ToolbarButton>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowEmojiPicker((v) => !v)}
-                title="Insert emoji"
-                className="flex items-center justify-center h-9 w-9 sm:h-8 sm:w-8 rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary)"
-              >
-                <Smile size={16} />
-              </button>
-              {showEmojiPicker && (
-                <EmojiPicker onSelect={(emoji) => setContent((c) => c + emoji)} onClose={() => setShowEmojiPicker(false)} />
-              )}
-            </div>
+      <div className="flex flex-col rounded-xl border border-(--color-border) bg-(--color-surface) focus-within:border-primary-400 transition-colors">
+        {linkDraft !== null && (
+          <div className="flex items-center gap-2 px-2 sm:px-3 pt-2">
+            <input
+              type="url"
+              value={linkDraft}
+              onChange={(e) => setLinkDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); applyLink(); }
+                if (e.key === 'Escape') setLinkDraft(null);
+              }}
+              placeholder="https://…"
+              autoFocus
+              className="flex-1 min-w-0 h-9 px-2.5 rounded-lg border border-(--color-border) text-sm bg-(--color-surface) focus:outline-none focus:border-primary-400"
+            />
+            <button type="button" onClick={applyLink} className="h-9 px-3 rounded-lg bg-primary-600 text-white text-xs font-bold shrink-0">
+              Add
+            </button>
+            <button type="button" onClick={() => setLinkDraft(null)} className="h-9 w-9 flex items-center justify-center rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) shrink-0" aria-label="Cancel link">
+              <X size={16} />
+            </button>
           </div>
+        )}
 
-          {linkDraft !== null && (
-            <div className="flex items-center gap-2 mt-1.5 mb-1">
-              <input
-                type="url"
-                value={linkDraft}
-                onChange={(e) => setLinkDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') { e.preventDefault(); applyLink(); }
-                  if (e.key === 'Escape') setLinkDraft(null);
-                }}
-                placeholder="https://…"
-                autoFocus
-                className="flex-1 min-w-0 h-10 px-3 rounded-lg border border-(--color-border) text-sm bg-(--color-surface) focus:outline-none focus:border-primary-400"
-              />
-              <button type="button" onClick={applyLink} className="h-10 px-3 rounded-lg bg-primary-600 text-white text-xs font-bold shrink-0">
-                Add
-              </button>
-              <button type="button" onClick={() => setLinkDraft(null)} className="h-10 w-10 flex items-center justify-center rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) shrink-0" aria-label="Cancel link">
-                <X size={16} />
-              </button>
-            </div>
-          )}
-
+        <div className="px-2 sm:px-3 pt-2 pb-1">
           <MentionTextarea
             ref={textareaRef}
             projectId={projectId}
@@ -527,15 +493,48 @@ const Composer: React.FC<{
           />
         </div>
 
-        <div className="flex items-center pl-2 pr-2 sm:pl-3 sm:pr-3 my-3 border-l border-(--color-border) shrink-0">
+        <div className="flex items-center gap-0.5 px-1.5 sm:px-2 pb-1.5 pt-0.5">
+          <ToolbarButton
+            title={showFormatTools ? 'Hide formatting' : 'Formatting'}
+            onClick={() => setShowFormatTools((v) => !v)}
+          >
+            <Type size={16} />
+          </ToolbarButton>
+          <div className={cn('items-center gap-0.5', showFormatTools ? 'flex' : 'hidden sm:flex')}>
+            <ToolbarButton title="Bold" onClick={handleBold}><Bold size={16} /></ToolbarButton>
+            <ToolbarButton title="Italic" onClick={handleItalic}><Italic size={16} /></ToolbarButton>
+            <ToolbarButton title="Code" onClick={handleCode}><Code size={16} /></ToolbarButton>
+            <ToolbarButton title="Insert link" onClick={handleLink}><Link2 size={16} /></ToolbarButton>
+          </div>
+          <ToolbarButton
+            title={uploading ? 'Uploading…' : pendingAttachments.length >= MAX_ATTACHMENTS ? `Up to ${MAX_ATTACHMENTS} files per message` : 'Attach files'}
+            onClick={handleAttachClick}
+            disabled={uploading || sending || pendingAttachments.length >= MAX_ATTACHMENTS}
+          >
+            {uploading ? <Loader2 size={16} className="animate-spin" /> : <Paperclip size={16} />}
+          </ToolbarButton>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowEmojiPicker((v) => !v)}
+              title="Insert emoji"
+              className="flex items-center justify-center h-9 w-9 sm:h-8 sm:w-8 rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary)"
+            >
+              <Smile size={16} />
+            </button>
+            {showEmojiPicker && (
+              <EmojiPicker onSelect={(emoji) => setContent((c) => c + emoji)} onClose={() => setShowEmojiPicker(false)} />
+            )}
+          </div>
+          <div className="flex-1" />
           <button
             onClick={handleSend}
             disabled={(!content.trim() && !pendingAttachments.length) || sending || uploading}
             title={coarsePointer ? 'Send' : 'Send (Enter)'}
             aria-label="Send"
-            className="flex items-center justify-center h-11 w-11 rounded-xl bg-primary-600 text-white shadow-sm hover:bg-primary-700 disabled:opacity-50 disabled:hover:bg-primary-600 transition-colors"
+            className="flex items-center justify-center h-9 w-9 rounded-lg bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 disabled:hover:bg-primary-600 transition-colors shrink-0"
           >
-            {sending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+            {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>
         </div>
       </div>
@@ -849,7 +848,7 @@ const MessageBubble: React.FC<{
   myUserId?: string;
   isSaved?: boolean;
   seenBy?: PortalMessageRead['user'][];
-  onReply: () => void;
+  onReply?: () => void;
   onOpenProfile: (userId: string) => void;
   mentionMap: Map<string, string>;
 }> = ({ message: m, projectId, canCompose, canDeleteAny, myUserId, isSaved, seenBy, onReply, onOpenProfile, mentionMap }) => {
@@ -1033,7 +1032,7 @@ const MessageBubble: React.FC<{
           <Smile size={16} /> React
         </button>
       )}
-      {opts?.includeQuick && canCompose && (
+      {opts?.includeQuick && canCompose && onReply && (
         <button
           type="button"
           onClick={() => { onReply(); onDone(); }}
@@ -1355,9 +1354,11 @@ const MessageBubble: React.FC<{
                     )}
                   </div>
                   <span className="mx-0.5 h-5 w-px bg-(--color-border) shrink-0" aria-hidden />
-                  <button type="button" title="Reply" onClick={() => onReply()} className={toolbarIconCls}>
-                    <Reply size={16} />
-                  </button>
+                  {onReply && (
+                    <button type="button" title="Reply" onClick={() => onReply()} className={toolbarIconCls}>
+                      <Reply size={16} />
+                    </button>
+                  )}
                   {isRoot && (
                     <button
                       type="button"
@@ -1492,35 +1493,81 @@ const Thread: React.FC<{
   seenByForMessageId?: string | null;
   seenByUsers?: PortalMessageRead['user'][];
   initiallyExpanded?: boolean;
+  /** Desktop: open replies in the right-hand panel instead of inline. */
+  sideThreadMode?: boolean;
+  sideThreadOpen?: boolean;
+  onOpenSideThread?: (rootId: string) => void;
   onOpenProfile: (userId: string) => void;
   mentionMap: Map<string, string>;
-}> = ({ root, replies, projectId, canCompose, canDeleteAny, myUserId, savedIds, seenByForMessageId, seenByUsers, initiallyExpanded, onOpenProfile, mentionMap }) => {
-  const [expanded, setExpanded] = useState(!!initiallyExpanded);
+}> = ({
+  root,
+  replies,
+  projectId,
+  canCompose,
+  canDeleteAny,
+  myUserId,
+  savedIds,
+  seenByForMessageId,
+  seenByUsers,
+  initiallyExpanded,
+  sideThreadMode,
+  sideThreadOpen,
+  onOpenSideThread,
+  onOpenProfile,
+  mentionMap,
+}) => {
+  const [expanded, setExpanded] = useState(!!initiallyExpanded && !sideThreadMode);
   const [replying, setReplying] = useState(false);
+
+  useEffect(() => {
+    if (sideThreadMode) {
+      setExpanded(false);
+      setReplying(false);
+    } else if (initiallyExpanded) {
+      setExpanded(true);
+    }
+  }, [sideThreadMode, initiallyExpanded, root.id]);
 
   const bubbleProps = { projectId, canCompose, canDeleteAny, myUserId, onOpenProfile, mentionMap };
 
+  const openThread = () => {
+    if (sideThreadMode && onOpenSideThread) {
+      onOpenSideThread(root.id);
+      return;
+    }
+    setExpanded(true);
+    setReplying(true);
+  };
+
   return (
-    <div className="flex flex-col gap-2">
+    <div className={cn('flex flex-col gap-2', sideThreadOpen && 'rounded-xl bg-primary-50/40 ring-1 ring-primary-200/60')}>
       <MessageBubble
         message={root}
         {...bubbleProps}
         isSaved={savedIds?.has(root.id)}
         seenBy={seenByForMessageId === root.id ? seenByUsers : undefined}
-        onReply={() => { setExpanded(true); setReplying(true); }}
+        onReply={openThread}
       />
 
       {replies.length > 0 && (
         <button
-          onClick={() => setExpanded((v) => !v)}
+          type="button"
+          onClick={() => {
+            if (sideThreadMode && onOpenSideThread) {
+              onOpenSideThread(root.id);
+              return;
+            }
+            setExpanded((v) => !v);
+          }}
           className="self-start ml-5 flex items-center gap-1.5 text-[13px] font-semibold text-(--color-text-secondary) hover:text-primary-600"
         >
-          {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+          {!sideThreadMode && (expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />)}
+          {sideThreadMode && <MessageSquare size={13} />}
           {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
         </button>
       )}
 
-      {expanded && (
+      {!sideThreadMode && expanded && (
         <div className="flex flex-col gap-2 ml-5 pl-4 border-l-2 border-(--color-border)">
           {replies.map((r) => (
             <MessageBubble
@@ -1543,13 +1590,95 @@ const Thread: React.FC<{
             />
           )}
           {canCompose && !replying && (
-            <button onClick={() => setReplying(true)} className="self-start text-[13px] font-semibold text-primary-600 hover:text-primary-700">
+            <button type="button" onClick={() => setReplying(true)} className="self-start text-[13px] font-semibold text-primary-600 hover:text-primary-700">
               Reply in thread
             </button>
           )}
         </div>
       )}
     </div>
+  );
+};
+
+/** ClickUp-style right-hand thread panel (desktop). */
+const ThreadSidePanel: React.FC<{
+  root: PortalMessage;
+  replies: PortalMessage[];
+  projectId: string;
+  canCompose: boolean;
+  canDeleteAny?: boolean;
+  myUserId?: string;
+  savedIds?: Set<string>;
+  seenByForMessageId?: string | null;
+  seenByUsers?: PortalMessageRead['user'][];
+  onClose: () => void;
+  onOpenProfile: (userId: string) => void;
+  mentionMap: Map<string, string>;
+}> = ({
+  root,
+  replies,
+  projectId,
+  canCompose,
+  canDeleteAny,
+  myUserId,
+  savedIds,
+  seenByForMessageId,
+  seenByUsers,
+  onClose,
+  onOpenProfile,
+  mentionMap,
+}) => {
+  const bubbleProps = { projectId, canCompose, canDeleteAny, myUserId, onOpenProfile, mentionMap };
+
+  return (
+    <aside className="hidden lg:flex w-[340px] xl:w-[380px] shrink-0 flex-col border-l border-(--color-border) bg-(--color-surface) min-h-0">
+      <div className="shrink-0 px-4 py-3 border-b border-(--color-border) flex items-center justify-between gap-2">
+        <p className="font-black text-sm text-(--color-text-primary)">Thread</p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-1.5 rounded-lg text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary)"
+          aria-label="Close thread"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 flex flex-col gap-3">
+        <MessageBubble
+          message={root}
+          {...bubbleProps}
+          isSaved={savedIds?.has(root.id)}
+          seenBy={seenByForMessageId === root.id ? seenByUsers : undefined}
+        />
+        {replies.length > 0 && (
+          <p className="text-[11px] font-bold uppercase tracking-wider text-(--color-text-secondary) px-1">
+            {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
+          </p>
+        )}
+        {replies.map((r) => (
+          <MessageBubble
+            key={r.id}
+            message={r}
+            {...bubbleProps}
+            isSaved={savedIds?.has(r.id)}
+            seenBy={seenByForMessageId === r.id ? seenByUsers : undefined}
+          />
+        ))}
+      </div>
+
+      {canCompose && (
+        <div className="shrink-0 border-t border-(--color-border) p-3">
+          <Composer
+            projectId={projectId}
+            parentId={root.id}
+            autoFocus
+            onSent={() => {}}
+            replyingToPreview={{ name: senderName(root), text: root.content || '(attachment)' }}
+          />
+        </div>
+      )}
+    </aside>
   );
 };
 
@@ -1598,6 +1727,13 @@ const CommunicationTab: React.FC<{
   };
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [keyboardInset, setKeyboardInset] = useState(0);
+  const [sideThreadRootId, setSideThreadRootId] = useState<string | null>(null);
+  const { width } = useResponsive();
+  const sideThreadMode = width >= 1024;
+
+  useEffect(() => {
+    setSideThreadRootId(null);
+  }, [projectId]);
 
   // Keep the composer visible above the mobile soft keyboard.
   useEffect(() => {
@@ -1838,138 +1974,184 @@ const CommunicationTab: React.FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlightMessageId, isLoading, data?.length]);
 
+  const roots = useMemo(() => (data || []).filter((m) => !m.parent_id), [data]);
+  const repliesByRoot = useMemo(() => {
+    const map = new Map<string, PortalMessage[]>();
+    (data || []).filter((m) => m.parent_id).forEach((m) => {
+      const list = map.get(m.parent_id!) || [];
+      list.push(m);
+      map.set(m.parent_id!, list);
+    });
+    return map;
+  }, [data]);
+
+  // Deep-link into a reply: open the side thread on desktop.
+  const highlightRootId = useMemo(() => {
+    if (!highlightMessageId || !data) return null;
+    const hit = data.find((m) => m.id === highlightMessageId);
+    if (!hit) return null;
+    return hit.parent_id || hit.id;
+  }, [highlightMessageId, data]);
+
+  useEffect(() => {
+    if (sideThreadMode && highlightRootId) setSideThreadRootId(highlightRootId);
+  }, [sideThreadMode, highlightRootId]);
+
   if (isLoading) return <TableSkeleton columns={1} rows={5} />;
 
-  const roots = (data || []).filter((m) => !m.parent_id);
-  const repliesByRoot = new Map<string, PortalMessage[]>();
-  (data || []).filter((m) => m.parent_id).forEach((m) => {
-    const list = repliesByRoot.get(m.parent_id!) || [];
-    list.push(m);
-    repliesByRoot.set(m.parent_id!, list);
-  });
+  const activeSideRoot = sideThreadRootId
+    ? roots.find((r) => r.id === sideThreadRootId) || null
+    : null;
+  const activeSideReplies = activeSideRoot ? (repliesByRoot.get(activeSideRoot.id) || []) : [];
 
   return (
-    <div className="h-full flex flex-col gap-3 sm:gap-4 bg-white min-h-0 overflow-hidden">
-      {pinned.length > 0 && (
-        <div className="shrink-0 rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2 mx-1">
-          <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-amber-800 mb-1.5">
-            <Pin size={12} fill="currentColor" /> Pinned
-          </div>
-          <div className="flex flex-col gap-1.5">
-            {pinned.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => {
-                  const el = document.getElementById(`portal-message-${p.id}`);
-                  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  el?.classList.add('ring-2', 'ring-amber-400');
-                  window.setTimeout(() => el?.classList.remove('ring-2', 'ring-amber-400'), 2000);
-                }}
-                className="text-left px-2 py-1.5 rounded-lg hover:bg-amber-100/80 transition-colors"
-              >
-                <span className="text-xs font-semibold text-(--color-text-primary)">
-                  {senderName(p)}
-                </span>
-                <span className="block text-[13px] text-(--color-text-secondary) truncate">
-                  {p.content?.replace(/\s+/g, ' ').trim() || '(attachment)'}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-4 px-1 pr-1 bg-white">
-        {roots.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 gap-2 text-center px-6">
-            <MessageSquare size={36} className="text-(--color-text-secondary) opacity-50" strokeWidth={1.5} />
-            <p className="font-bold text-sm text-(--color-text-primary)">Start the conversation</p>
-            <p className="text-sm text-(--color-text-secondary) max-w-sm">
-              Ask questions, share feedback, and keep project decisions in one place. Messages here are visible to you and the TekXAI team.
-            </p>
+    <div className="h-full flex min-h-0 overflow-hidden bg-white">
+      <aside className="hidden lg:flex w-[280px] xl:w-[300px] shrink-0 flex-col border-r border-(--color-border) min-h-0">
+        <PortalChatChannelList activeProjectId={projectId} compact className="h-full" />
+      </aside>
+
+      <div className="flex-1 min-w-0 h-full flex flex-col gap-3 sm:gap-4 bg-white min-h-0 overflow-hidden px-2 sm:px-3 lg:px-4">
+        {pinned.length > 0 && (
+          <div className="shrink-0 rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2">
+            <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-amber-800 mb-1.5">
+              <Pin size={12} fill="currentColor" /> Pinned
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {pinned.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    const el = document.getElementById(`portal-message-${p.id}`);
+                    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    el?.classList.add('ring-2', 'ring-amber-400');
+                    window.setTimeout(() => el?.classList.remove('ring-2', 'ring-amber-400'), 2000);
+                  }}
+                  className="text-left px-2 py-1.5 rounded-lg hover:bg-amber-100/80 transition-colors"
+                >
+                  <span className="text-xs font-semibold text-(--color-text-primary)">
+                    {senderName(p)}
+                  </span>
+                  <span className="block text-[13px] text-(--color-text-secondary) truncate">
+                    {p.content?.replace(/\s+/g, ' ').trim() || '(attachment)'}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
-        {roots.map((root, i) => {
-          const replies = repliesByRoot.get(root.id) || [];
-          const targetIsInThisThread = !!highlightMessageId && (root.id === highlightMessageId || replies.some((r) => r.id === highlightMessageId));
-          const prev = i > 0 ? roots[i - 1] : null;
-          const showDateDivider = !prev || dayKey(prev.created_at) !== dayKey(root.created_at);
-          const watermarkMs = effectiveUnreadSince ? new Date(effectiveUnreadSince).getTime() : 0;
-          const rootIsUnread = !!user?.id && root.user?.id !== user.id && new Date(root.created_at).getTime() > watermarkMs;
-          const prevWasRead = !prev || !user?.id || prev.user?.id === user.id || new Date(prev.created_at).getTime() <= watermarkMs;
-          const showUnreadDivider = rootIsUnread && prevWasRead && watermarkMs > 0;
-          return (
-            <React.Fragment key={root.id}>
-              {showDateDivider && <DateDivider iso={root.created_at} />}
-              {showUnreadDivider && (
-                <div className="flex items-center gap-3 py-1" role="separator" aria-label="New messages">
-                  <div className="flex-1 h-px bg-primary-300" />
-                  <span className="text-[11px] font-black uppercase tracking-wider text-primary-600 shrink-0">New messages</span>
-                  <div className="flex-1 h-px bg-primary-300" />
-                </div>
-              )}
-              <Thread
-                root={root}
-                replies={replies}
-                projectId={projectId}
-                canCompose={canCompose}
-                canDeleteAny={canDeleteAny}
-                myUserId={user?.id}
-                savedIds={savedIds}
-                seenByForMessageId={lastOwnMsg?.id || null}
-                seenByUsers={seenByUsers}
-                initiallyExpanded={targetIsInThisThread}
-                onOpenProfile={setProfileUserId}
-                mentionMap={mentionMap}
-              />
-            </React.Fragment>
-          );
-        })}
-      </div>
-
-      {canCompose && (
-        <div
-          className="shrink-0 flex flex-col gap-1.5 sticky bottom-0 z-10 bg-white pt-1 border-t border-(--color-border)/60 px-1"
-          style={{
-            paddingBottom: keyboardInset > 0
-              ? `max(0.5rem, ${keyboardInset}px)`
-              : 'max(0.5rem, env(safe-area-inset-bottom))',
-          }}
-        >
-          {(viewingList.length > 0 || typingLabel) && (
-            <div className="flex items-center justify-between gap-3 px-1 min-h-[18px] text-[12px] text-(--color-text-secondary)">
-              <span className="truncate">
-                {viewingList.length > 0
-                  ? viewingList.length === 1
-                    ? `${viewingList[0]} is here`
-                    : viewingList.length <= 3
-                      ? `${viewingList.join(', ')} are here`
-                      : `${viewingList.slice(0, 2).join(', ')} +${viewingList.length - 2} are here`
-                  : null}
-              </span>
-              <span className="truncate italic shrink-0">{typingLabel}</span>
+        <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-4 px-0.5 pr-1 bg-white">
+          {roots.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 gap-2 text-center px-6">
+              <MessageSquare size={36} className="text-(--color-text-secondary) opacity-50" strokeWidth={1.5} />
+              <p className="font-bold text-sm text-(--color-text-primary)">Start the conversation</p>
+              <p className="text-sm text-(--color-text-secondary) max-w-sm">
+                Ask questions, share feedback, and keep project decisions in one place. Messages here are visible to you and the TekXAI team.
+              </p>
             </div>
           )}
-          <Composer projectId={projectId} onSent={() => {}} />
+          {roots.map((root, i) => {
+            const replies = repliesByRoot.get(root.id) || [];
+            const targetIsInThisThread = !!highlightMessageId && (root.id === highlightMessageId || replies.some((r) => r.id === highlightMessageId));
+            const prev = i > 0 ? roots[i - 1] : null;
+            const showDateDivider = !prev || dayKey(prev.created_at) !== dayKey(root.created_at);
+            const watermarkMs = effectiveUnreadSince ? new Date(effectiveUnreadSince).getTime() : 0;
+            const rootIsUnread = !!user?.id && root.user?.id !== user.id && new Date(root.created_at).getTime() > watermarkMs;
+            const prevWasRead = !prev || !user?.id || prev.user?.id === user.id || new Date(prev.created_at).getTime() <= watermarkMs;
+            const showUnreadDivider = rootIsUnread && prevWasRead && watermarkMs > 0;
+            return (
+              <React.Fragment key={root.id}>
+                {showDateDivider && <DateDivider iso={root.created_at} />}
+                {showUnreadDivider && (
+                  <div className="flex items-center gap-3 py-1" role="separator" aria-label="New messages">
+                    <div className="flex-1 h-px bg-primary-300" />
+                    <span className="text-[11px] font-black uppercase tracking-wider text-primary-600 shrink-0">New messages</span>
+                    <div className="flex-1 h-px bg-primary-300" />
+                  </div>
+                )}
+                <Thread
+                  root={root}
+                  replies={replies}
+                  projectId={projectId}
+                  canCompose={canCompose}
+                  canDeleteAny={canDeleteAny}
+                  myUserId={user?.id}
+                  savedIds={savedIds}
+                  seenByForMessageId={lastOwnMsg?.id || null}
+                  seenByUsers={seenByUsers}
+                  initiallyExpanded={targetIsInThisThread}
+                  sideThreadMode={sideThreadMode}
+                  sideThreadOpen={sideThreadRootId === root.id}
+                  onOpenSideThread={setSideThreadRootId}
+                  onOpenProfile={setProfileUserId}
+                  mentionMap={mentionMap}
+                />
+              </React.Fragment>
+            );
+          })}
         </div>
-      )}
-      {!canCompose && typingLabel && (
-        <p className="shrink-0 text-[12px] italic text-(--color-text-secondary) px-1">{typingLabel}</p>
-      )}
 
-      {profileUserId && (
-        <ProfileSidePanel projectId={projectId} userId={profileUserId} onClose={() => setProfileUserId(null)} />
-      )}
-      {showSavedPanel && (
-        <SavedMessagesPanel
+        {canCompose && (
+          <div
+            className="shrink-0 flex flex-col gap-1.5 sticky bottom-0 z-10 bg-white pt-1 border-t border-(--color-border)/60"
+            style={{
+              paddingBottom: keyboardInset > 0
+                ? `max(0.5rem, ${keyboardInset}px)`
+                : 'max(0.5rem, env(safe-area-inset-bottom))',
+            }}
+          >
+            {(viewingList.length > 0 || typingLabel) && (
+              <div className="flex items-center justify-between gap-3 px-1 min-h-[18px] text-[12px] text-(--color-text-secondary)">
+                <span className="truncate">
+                  {viewingList.length > 0
+                    ? viewingList.length === 1
+                      ? `${viewingList[0]} is here`
+                      : viewingList.length <= 3
+                        ? `${viewingList.join(', ')} are here`
+                        : `${viewingList.slice(0, 2).join(', ')} +${viewingList.length - 2} are here`
+                    : null}
+                </span>
+                <span className="truncate italic shrink-0">{typingLabel}</span>
+              </div>
+            )}
+            <Composer projectId={projectId} onSent={() => {}} />
+          </div>
+        )}
+        {!canCompose && typingLabel && (
+          <p className="shrink-0 text-[12px] italic text-(--color-text-secondary) px-1">{typingLabel}</p>
+        )}
+
+        {profileUserId && (
+          <ProfileSidePanel projectId={projectId} userId={profileUserId} onClose={() => setProfileUserId(null)} />
+        )}
+        {showSavedPanel && (
+          <SavedMessagesPanel
+            projectId={projectId}
+            onClose={() => setShowSavedPanel(false)}
+            onJump={(messageId) => {
+              const el = document.getElementById(`portal-message-${messageId}`);
+              el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              el?.classList.add('ring-2', 'ring-primary-400');
+              window.setTimeout(() => el?.classList.remove('ring-2', 'ring-primary-400'), 2000);
+            }}
+          />
+        )}
+      </div>
+
+      {sideThreadMode && activeSideRoot && (
+        <ThreadSidePanel
+          root={activeSideRoot}
+          replies={activeSideReplies}
           projectId={projectId}
-          onClose={() => setShowSavedPanel(false)}
-          onJump={(messageId) => {
-            const el = document.getElementById(`portal-message-${messageId}`);
-            el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            el?.classList.add('ring-2', 'ring-primary-400');
-            window.setTimeout(() => el?.classList.remove('ring-2', 'ring-primary-400'), 2000);
-          }}
+          canCompose={canCompose}
+          canDeleteAny={canDeleteAny}
+          myUserId={user?.id}
+          savedIds={savedIds}
+          seenByForMessageId={lastOwnMsg?.id || null}
+          seenByUsers={seenByUsers}
+          onClose={() => setSideThreadRootId(null)}
+          onOpenProfile={setProfileUserId}
+          mentionMap={mentionMap}
         />
       )}
     </div>

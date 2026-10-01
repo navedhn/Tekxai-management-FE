@@ -207,7 +207,7 @@ const PortalProjectDetailPage: React.FC = () => {
         </div>
       )}
 
-      <div className={cn('flex-1 min-h-0 flex flex-col', isCommunication && 'px-3 lg:px-6')}>
+      <div className={cn('flex-1 min-h-0 flex flex-col', !isCommunication && 'px-0')}>
         {showingProgress ? (
           <div className="flex flex-col gap-4">
             {activeMilestoneView === 'dashboard' && (

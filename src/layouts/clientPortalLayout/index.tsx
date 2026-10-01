@@ -435,13 +435,11 @@ const ClientPortalLayout: React.FC = memo(() => {
     ...(canViewCrm ? [{ to: '/portal/crm', label: 'Client CRM', icon: Landmark }] : []),
   ];
 
-  // Primary rail: Home, Files, Wiki, CRM — Projects browse is the
-  // Chats/Projects panel toggles below (not a second "Projects" NavLink).
+  // Primary rail: Home + Files. Wiki / CRM live under the Projects panel
+  // (PORTAL_OPS_NAV). Chats/Projects are the rail toggles below.
   const desktopNavItems = [
     { to: '/portal', label: 'Home', icon: LayoutDashboard, end: true },
     { to: '/portal/docs', label: 'Files', icon: FileText, end: false },
-    { to: '/portal/wiki', label: 'Wiki', icon: BookOpen, end: false },
-    ...(canViewCrm ? [{ to: '/portal/crm', label: 'CRM', icon: Landmark, end: false }] : []),
   ];
 
   const toggleDesktopPanel = (mode: 'projects') =>
