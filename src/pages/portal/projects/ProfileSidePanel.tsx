@@ -70,24 +70,34 @@ const ProfileSidePanel: React.FC<ProfileSidePanelProps> = ({ projectId, userId, 
   });
 
   const isInternal = data?.user_type === 'INTERNAL';
-  // The internal chat/DM system (and Zoom-backed calling) only exists for
-  // INTERNAL accounts — a CLIENT has no login into it at all, and the
-  // viewer themselves must also be internal to reach it. Neither icon is
-  // meaningful (or reachable) for a client-to-client or viewer-is-client
-  // pairing, so both are hidden rather than shown-then-broken.
+  const iAmSuperAdmin = role === 'SUPER_ADMIN';
+  const targetIsSuperAdmin = !!data?.roles?.includes('SUPER_ADMIN');
+  // Internal chat (employee↔employee) OR client↔Super Admin portal DMs only.
   const canReachViaInternalChat = me?.user_type === 'INTERNAL' && isInternal && me.id !== data?.id;
+  const canDmClientAsSuperAdmin = me?.user_type === 'INTERNAL' && iAmSuperAdmin && data?.user_type === 'CLIENT' && me.id !== data?.id;
+  const canDmSuperAdminAsClient = me?.user_type === 'CLIENT' && isInternal && targetIsSuperAdmin && me.id !== data?.id;
+  const canMessage = canReachViaInternalChat || canDmClientAsSuperAdmin || canDmSuperAdminAsClient;
 
   const openDm = useMutation({
     mutationFn: async () => {
+      if (canDmClientAsSuperAdmin || canDmSuperAdminAsClient) {
+        const res = await apiRequest<any>(API_ENDPOINTS.PORTAL.DMS, {
+          method: 'POST',
+          body: JSON.stringify({ target_user_id: userId }),
+        });
+        return { kind: 'portal' as const, channelId: res?.payload?.id as string };
+      }
       const res = await apiRequest<any>(API_ENDPOINTS.CHAT.DM, {
         method: 'POST',
         body: JSON.stringify({ target_user_id: userId }),
       });
-      return res?.payload?.id as string;
+      return { kind: 'internal' as const, channelId: res?.payload?.id as string };
     },
-    onSuccess: (channelId) => {
+    onSuccess: ({ kind, channelId }) => {
       onClose();
-      navigate(`/chat?channel=${channelId}`);
+      if (!channelId) return;
+      if (kind === 'portal') navigate(`/portal/dms/${channelId}`);
+      else navigate(`/chat?channel=${channelId}`);
     },
     onError: () => toast.error('Could not open a direct message with this person'),
   });
@@ -172,7 +182,7 @@ const ProfileSidePanel: React.FC<ProfileSidePanelProps> = ({ projectId, userId, 
                   {presence.label}
                 </p>
               </div>
-              {canReachViaInternalChat && (
+              {canMessage && (
                 <div className="flex items-center gap-3 mt-1">
                   <button
                     onClick={() => openDm.mutate()}
@@ -182,6 +192,7 @@ const ProfileSidePanel: React.FC<ProfileSidePanelProps> = ({ projectId, userId, 
                   >
                     <MessageCircle size={17} />
                   </button>
+                  {canReachViaInternalChat && (
                   <button
                     onClick={handleCall}
                     disabled={calling}
@@ -190,6 +201,7 @@ const ProfileSidePanel: React.FC<ProfileSidePanelProps> = ({ projectId, userId, 
                   >
                     {calling ? <Loader size={16} /> : <Phone size={17} />}
                   </button>
+                  )}
                 </div>
               )}
             </div>

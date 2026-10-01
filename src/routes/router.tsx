@@ -143,6 +143,7 @@ const PortalDocs             = lazy(() => import('@/pages/portal/docs'));
 const PortalWiki             = lazy(() => import('@/pages/portal/wiki'));
 const PortalProfile          = lazy(() => import('@/pages/portal/profile'));
 const PortalChats            = lazy(() => import('@/pages/portal/chats'));
+const PortalDmPage           = lazy(() => import('@/pages/portal/chats/PortalDmPage'));
 const PublicIntakeFormPage   = lazy(() => import('@/pages/public/intakeForm'));
 const AdminLiveActivity      = lazy(() => import('@/pages/admin/live-activity'));
 const AdminGoals             = lazy(() => import('@/pages/admin/goals'));
@@ -421,6 +422,7 @@ const routes: RouteObject[] = [
         children: [
           { path: '/portal',                                element: <PortalDashboard /> },
           { path: '/portal/chats',                           element: <PortalChats /> },
+          { path: '/portal/dms/:channelId',                  element: <PortalDmPage /> },
           { path: '/portal/notifications',                   element: <SharedNotifications /> },
           { path: '/portal/profile',                         element: <PortalProfile /> },
           { path: '/portal/projects',                        element: <PortalProjects /> },
