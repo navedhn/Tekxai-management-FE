@@ -6,27 +6,27 @@ import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useFetchUsersQuery } from '@/services/userService';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { cn } from '@/utils/cn';
+import { teamMemberRoleLabel } from './teamMemberRoleLabel';
 
-type ProjectAccessPerson = { id: string; type: 'INTERNAL' | 'CLIENT'; first_name: string; last_name: string; email: string; role: string | null };
+type ProjectAccessPerson = {
+  id: string;
+  type: 'INTERNAL' | 'CLIENT';
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: string | null;
+  designation?: string | null;
+  roles?: string[];
+};
 type EmployeeInvite = { id: string; status: 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED'; user: { id: string; first_name: string; last_name: string; avatar: string | null } | null };
 
-// ClickUp-style "Followers" widget — a small stack of current roster
-// avatars plus a + button that opens a search-and-add popover.
+// ClickUp-style "Followers" widget — roster of people on this project plus
+// a + button that opens a search-and-add popover.
 //
-// Deliberately NOT built on GET /portal/projects/:id/mentionable-users —
-// that endpoint's roster is "who's assignable/mentionable" (every
-// project_member, whether or not they've actually accepted a portal
-// invite yet, by design — see internal_project_recipients' own comment).
-// This widget's whole point is showing who ACTUALLY has portal access
-// right now, so it instead reads real accepted employee_portal_invites
-// (internal) + client_project_access (client) directly. A project member
-// who's assigned in the main app but hasn't accepted a portal invite is
-// therefore NOT shown as "on this project" here, and correctly still
-// shows up as invitable in search — inviting them is exactly the point.
-// Adding someone here calls the same SUPER_ADMIN-only employee-portal-
-// invite flow from Client CRM → People (POST /employee-portal-invites) —
-// this is just a second, project-scoped entry point for it. SUPER_ADMIN
-// only: granting portal access is a privileged action.
+// "On this project" = internal project_members (from GET .../access) + client
+// portal users with client_project_access. Accepted employee_portal_invites
+// are merged in for anyone who has portal invite access but is not yet a
+// project_members row. Pending invites stay in a separate section.
 const ProjectPeopleWidget: React.FC<{ projectId: string; clientId: string | null }> = ({ projectId, clientId }) => {
   const toast = useToastContext();
   const qc = useQueryClient();
@@ -45,32 +45,33 @@ const ProjectPeopleWidget: React.FC<{ projectId: string; clientId: string | null
     select: (r: any) => r?.payload?.records || [],
   });
 
+  const internals = access?.internal || [];
+  const clients = access?.clients || [];
   const acceptedEmployees = invites.filter((i) => i.status === 'ACCEPTED' && i.user);
   const pendingEmployees = invites.filter((i) => i.status === 'PENDING' && i.user);
-  const clients = access?.clients || [];
 
-  // Never re-surface someone who's already on this project one way or
-  // another — a live employee invite (pending or accepted), or an existing
-  // client_project_access grant.
-  const alreadyInvitedIds = new Set(invites.filter((i) => i.status === 'PENDING' || i.status === 'ACCEPTED').map((i) => i.user?.id));
-  const alreadyClientIds = new Set(clients.map((c) => c.id));
+  // Prefer project_members roster; fold in accepted invitees who aren't members yet.
+  const internalIds = new Set(internals.map((p) => p.id));
+  const inviteOnlyAccepted = acceptedEmployees.filter((i) => i.user && !internalIds.has(i.user.id));
 
-  // Company-wide search, both INTERNAL and CLIENT — this widget adds either
-  // kind of person to the project, just through two different grants
-  // underneath (see handleAdd below). A CLIENT result is only ever
-  // real to add here if they already have a portal account (a users row) on
-  // THIS project's own client account; someone who's never accepted any
-  // portal invite yet has no users row at all and so can never appear in
-  // this search — they'd need a fresh client_portal_invite from the CRM
-  // instead, which is a different, email-driven flow than "add existing
-  // person to one more project".
+  // #region agent log
+  React.useEffect(() => {
+    if (!open) return;
+    fetch('http://127.0.0.1:7689/ingest/5fe2d865-37c9-41e9-b868-d88ad2f9dbc6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d0293d'},body:JSON.stringify({sessionId:'d0293d',runId:'people-fix',hypothesisId:'people-roster',location:'ProjectPeopleWidget.tsx:open',message:'people popup roster sizes',data:{internalMembers:internals.length,clients:clients.length,acceptedInvites:acceptedEmployees.length,inviteOnly:inviteOnlyAccepted.length,pending:pendingEmployees.length,internalEmails:internals.map((p)=>p.email)},timestamp:Date.now()})}).catch(()=>{});
+  }, [open, internals, clients, acceptedEmployees, inviteOnlyAccepted, pendingEmployees]);
+  // #endregion
+
+  const alreadyOnProjectIds = new Set([
+    ...internals.map((p) => p.id),
+    ...clients.map((c) => c.id),
+    ...invites.filter((i) => i.status === 'PENDING' || i.status === 'ACCEPTED').map((i) => i.user?.id).filter(Boolean) as string[],
+  ]);
+
   const { data: employees = [], isLoading: employeesLoading } = useFetchUsersQuery(
     { search },
     open && search.trim().length > 0
   );
-  const results = (employees as any[]).filter((u) =>
-    !alreadyInvitedIds.has(u.id) && !alreadyClientIds.has(u.id)
-  );
+  const results = (employees as any[]).filter((u) => !alreadyOnProjectIds.has(u.id));
 
   const inviteEmployee = useMutation({
     mutationFn: (userId: string) => apiRequest<any>(API_ENDPOINTS.EMPLOYEE_PORTAL_INVITES.CREATE, {
@@ -80,6 +81,7 @@ const ProjectPeopleWidget: React.FC<{ projectId: string; clientId: string | null
     onSuccess: () => {
       toast.success('Invite sent');
       qc.invalidateQueries({ queryKey: ['employee-portal-invites', 'project', projectId] });
+      qc.invalidateQueries({ queryKey: ['project', 'access', projectId] });
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to send invite'),
   });
@@ -105,13 +107,14 @@ const ProjectPeopleWidget: React.FC<{ projectId: string; clientId: string | null
   };
   const addPending = inviteEmployee.isPending || grantClient.isPending;
 
-  const totalOnProject = acceptedEmployees.length + clients.length;
+  const totalOnProject = internals.length + inviteOnlyAccepted.length + clients.length;
   type Avatar = { id: string; name: string; avatar?: string | null };
   const visibleAvatars: Avatar[] = [
-    ...acceptedEmployees.map((i) => ({ id: i.user!.id, name: `${i.user!.first_name} ${i.user!.last_name}`, avatar: i.user!.avatar })),
+    ...internals.map((p) => ({ id: p.id, name: `${p.first_name} ${p.last_name}` })),
+    ...inviteOnlyAccepted.map((i) => ({ id: i.user!.id, name: `${i.user!.first_name} ${i.user!.last_name}`, avatar: i.user!.avatar })),
     ...clients.map((c) => ({ id: c.id, name: `${c.first_name} ${c.last_name}` })),
   ].slice(0, 4);
-  const overflowCount = totalOnProject - visibleAvatars.length;
+  const overflowCount = Math.max(0, totalOnProject - visibleAvatars.length);
 
   const initials = (name: string) => name.split(' ').map((p) => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?';
 
@@ -175,10 +178,6 @@ const ProjectPeopleWidget: React.FC<{ projectId: string; clientId: string | null
                   )}
                   {results.map((u: any) => {
                     const isClient = u.user_type === 'CLIENT';
-                    // A CLIENT result only ever belongs to grant_project_client_access
-                    // if they're this project's own client's contact — someone from
-                    // a different client account showing up on a broad name/email
-                    // match can't be granted here (the backend would 400 anyway).
                     const disabled = addPending || (isClient && u.client_account_id !== clientId);
                     return (
                       <button
@@ -207,7 +206,20 @@ const ProjectPeopleWidget: React.FC<{ projectId: string; clientId: string | null
                 On this project — {totalOnProject}
               </div>
               <div className="p-2 pt-0">
-                {acceptedEmployees.map((i) => (
+                {internals.map((p) => (
+                  <div key={p.id} className="flex items-center gap-2 px-2 py-2">
+                    <div className="h-8 w-8 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-xs font-black overflow-hidden shrink-0">
+                      {initials(`${p.first_name} ${p.last_name}`)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-(--color-text-primary) truncate">{p.first_name} {p.last_name}</p>
+                    </div>
+                    <span className="text-[10px] font-bold text-(--color-text-secondary) shrink-0 max-w-[7.5rem] truncate text-right">
+                      {teamMemberRoleLabel({ user_type: 'INTERNAL', designation: p.designation, roles: p.roles })}
+                    </span>
+                  </div>
+                ))}
+                {inviteOnlyAccepted.map((i) => (
                   <div key={i.user!.id} className="flex items-center gap-2 px-2 py-2">
                     <div className="h-8 w-8 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-xs font-black overflow-hidden shrink-0">
                       {i.user!.avatar ? <img src={i.user!.avatar!} alt="" className="h-full w-full object-cover" /> : initials(`${i.user!.first_name} ${i.user!.last_name}`)}
