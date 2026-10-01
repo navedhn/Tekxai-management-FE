@@ -5,13 +5,21 @@ import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/utils/cn';
 import type { PortalMilestone } from './types';
+import { teamMemberRoleLabel } from './teamMemberRoleLabel';
 
 interface PortalMilestoneTeamViewProps {
   projectId: string;
   milestones: PortalMilestone[];
 }
 
-type MentionableUser = { id: string; first_name: string; last_name: string; user_type: 'INTERNAL' | 'CLIENT'; designation: string | null };
+type MentionableUser = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  user_type: 'INTERNAL' | 'CLIENT';
+  designation: string | null;
+  roles?: string[];
+};
 
 const STATUS_ORDER = ['NOT_STARTED', 'IN_PROGRESS', 'BLOCKED', 'COMPLETED'] as const;
 
@@ -59,6 +67,7 @@ const PortalMilestoneTeamView: React.FC<PortalMilestoneTeamViewProps> = ({ proje
         last_name: user.last_name || '',
         user_type: (user.user_type as 'INTERNAL' | 'CLIENT') || 'INTERNAL',
         designation: (user as any).designation ?? null,
+        roles: (user as any).roles || (user.role_name ? [user.role_name] : []),
       });
     }
 
@@ -69,6 +78,7 @@ const PortalMilestoneTeamView: React.FC<PortalMilestoneTeamViewProps> = ({ proje
         avatar: avatarById.get(u.id) ?? null,
         userType: u.user_type,
         designation: u.designation,
+        roles: u.roles || [],
         milestones: milestonesByUser.get(u.id) || [],
       }))
       .sort((a, b) => b.milestones.length - a.milestones.length || a.name.localeCompare(b.name));
@@ -111,7 +121,7 @@ const PortalMilestoneTeamView: React.FC<PortalMilestoneTeamViewProps> = ({ proje
                 <div className="min-w-0">
                   <p className="font-black text-(--color-text-primary) text-sm truncate">{member.name}</p>
                   <p className="text-[11px] text-(--color-text-secondary) font-semibold truncate">
-                    {member.userType === 'CLIENT' ? 'Client' : (member.designation || 'TekXAI Team')}
+                    {teamMemberRoleLabel(member)}
                   </p>
                 </div>
                 {total > 0 && (

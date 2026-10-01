@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import { useCreateInstantZoomMeeting, isZoomNotConnectedError, isZoomReauthError } from '@/services/zoomChatService';
 import Loader from '@/components/ui/Loader';
+import { teamMemberRoleLabel } from './teamMemberRoleLabel';
 
 // The Client Portal's "click a name to see their profile" sidebar — a
 // slide-in panel (not a full page navigation) showing avatar, name,
@@ -27,6 +28,7 @@ type PersonProfile = {
   avatar: string | null;
   user_type: 'INTERNAL' | 'CLIENT';
   designation: string | null;
+  roles?: string[];
   last_active_at: string | null;
 };
 
@@ -164,7 +166,7 @@ const ProfileSidePanel: React.FC<ProfileSidePanelProps> = ({ projectId, userId, 
                     ? 'inline-block mt-1 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary-50 text-primary-600'
                     : 'inline-block mt-1 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600'
                 }>
-                  {isInternal ? 'TekXAI Team' : 'Client'}
+                  {teamMemberRoleLabel(data)}
                 </span>
                 <p className={`mt-1.5 text-xs font-semibold ${presence.online ? 'text-emerald-600' : 'text-(--color-text-secondary)'}`}>
                   {presence.label}
