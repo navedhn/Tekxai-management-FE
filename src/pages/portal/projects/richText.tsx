@@ -15,11 +15,11 @@ import { cn } from '@/utils/cn';
 // ChatGPT-style; a line starting with "- " or "* " groups into a bullet
 // list; "1. " numbered lists; everything else is a paragraph, blank lines
 // separate paragraphs.
-// @Mentions (one or two capitalized words after @, matching how the
-// mention picker inserts them) are highlighted regardless of block type.
-
+// @Mentions: one or more capitalized words after @ (covers "Muhammad Muneeb
+// Saleem" and "The Sitter Co HQ"). Longest known names still win via
+// mentionMap / mentionPattern on the compose side.
 const INLINE_RE =
-  /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)|(~~(.+?)~~)|(\[([^\]]+)\]\((https?:\/\/[^)\s]+)\))|(@everyone\b)|(@[A-Z][a-zA-Z'-]*(?:\s[A-Z][a-zA-Z'-]*)?)|(https?:\/\/[^\s<>()"']+)/g;
+  /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)|(~~(.+?)~~)|(\[([^\]]+)\]\((https?:\/\/[^)\s]+)\))|(@everyone\b)|(@[A-Z][a-zA-Z'-]*(?:\s[A-Z][a-zA-Z'-]*)*)|(https?:\/\/[^\s<>()"']+)/g;
 
 const IMAGE_URL_RE = /\.(png|jpe?g|gif|webp|svg)(\?[#\w&=%-]*)?$/i;
 const URL_COLLECT_RE = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|(https?:\/\/[^\s<>()"']+)/g;
@@ -83,7 +83,27 @@ function renderInline(
     } else if (match[12]) {
       nodes.push(<span key={key} className="font-semibold text-primary-600 [font-family:var(--font-communication-sans)]!">{match[12]}</span>);
     } else if (match[13]) {
-      const mentionedId = mentionMap?.get(match[13].slice(1).toLowerCase());
+      // Prefer the longest mentionMap hit when the greedy capitalized-word
+      // match over-ate into following Title Case words.
+      let mentionText = match[13];
+      let remainder = '';
+      let mentionedId = mentionMap?.get(mentionText.slice(1).toLowerCase());
+      if (!mentionedId && mentionMap?.size) {
+        const words = mentionText.slice(1).split(/\s+/);
+        for (let n = words.length - 1; n >= 1; n--) {
+          const candidate = words.slice(0, n).join(' ');
+          const id = mentionMap.get(candidate.toLowerCase());
+          if (id) {
+            mentionText = `@${candidate}`;
+            remainder = words.slice(n).join(' ');
+            mentionedId = id;
+            break;
+          }
+        }
+      }
+      // #region agent log
+      fetch('http://127.0.0.1:7689/ingest/5fe2d865-37c9-41e9-b868-d88ad2f9dbc6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d0293d'},body:JSON.stringify({sessionId:'d0293d',runId:'mention-post',hypothesisId:'H1_H4',location:'richText.tsx:renderInline',message:'richtext mention match',data:{raw:match[13],resolved:mentionText,wordCount:mentionText.slice(1).split(/\s+/).length,inMap:!!mentionedId,remainder},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       if (mentionedId && onMentionClick) {
         nodes.push(
           <button
@@ -92,12 +112,13 @@ function renderInline(
             onClick={() => onMentionClick(mentionedId)}
             className="font-semibold text-primary-600 hover:underline cursor-pointer [font-family:var(--font-communication-sans)]!"
           >
-            {match[13]}
+            {mentionText}
           </button>
         );
       } else {
-        nodes.push(<span key={key} className="font-semibold text-primary-600 [font-family:var(--font-communication-sans)]!">{match[13]}</span>);
+        nodes.push(<span key={key} className="font-semibold text-primary-600 [font-family:var(--font-communication-sans)]!">{mentionText}</span>);
       }
+      if (remainder) nodes.push(` ${remainder}`);
     } else if (match[14]) {
       const urlMatch = /^(.*?)([.,;:]+)$/.exec(match[14]);
       const url = urlMatch ? urlMatch[1] : match[14];

@@ -42,6 +42,18 @@ describe('RichText headings', () => {
   });
 });
 
+describe('RichText multi-word mentions', () => {
+  it('highlights three- and four-word @names in full', () => {
+    render(
+      <RichText content={'Hi @Muhammad Muneeb Saleem and @The Sitter Co HQ thanks'} />
+    );
+    expect(screen.getByText('@Muhammad Muneeb Saleem')).toBeInTheDocument();
+    expect(screen.getByText('@The Sitter Co HQ')).toBeInTheDocument();
+    expect(screen.queryByText(/^Saleem$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Co HQ$/)).not.toBeInTheDocument();
+  });
+});
+
 describe('extractMessageUrls / MessageLinkPreviews', () => {
   it('dedupes markdown and bare urls', () => {
     expect(extractMessageUrls('a https://a.com/x and [b](https://a.com/x) plus https://b.com')).toEqual([
