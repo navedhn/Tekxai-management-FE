@@ -75,8 +75,9 @@ function UnavailableState() {
     <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center px-8">
       <Video size={32} className="text-gray-300" />
       <p className="text-sm font-medium text-gray-700">Zoom Team Chat isn't set up yet</p>
-      <p className="text-xs text-gray-400 max-w-xs">
-        This TekXAI environment doesn't have Zoom connected. Ask an administrator to finish the Zoom Marketplace setup.
+      <p className="text-xs text-gray-400 max-w-sm">
+        This TekXAI environment doesn't have Zoom connected. Ask an administrator to finish the Zoom Marketplace
+        setup (Team Chat read/write + instant meetings) so everyone can connect and share Zoom from chat.
       </p>
     </div>
   );
@@ -89,8 +90,8 @@ function ConnectState({ onConnect, isPending }: { onConnect: () => void; isPendi
         <Video size={22} className="text-[#0B5CFF]" />
       </span>
       <p className="text-sm font-semibold text-gray-900">Connect your Zoom account</p>
-      <p className="text-xs text-gray-400 max-w-xs">
-        Connect your Zoom account to view your Zoom Team Chats inside TekXAI OS.
+      <p className="text-xs text-gray-400 max-w-sm">
+        Connect Zoom to send Team Chat messages here and to start Zoom meetings from any TekXAI channel or DM (toolbar Video button or <code className="text-[11px]">/zoom</code>).
       </p>
       <button
         onClick={onConnect}

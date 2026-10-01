@@ -28,7 +28,7 @@ const TermsOfUsePage: React.FC = () => {
 
         <Section title="Third-party integrations">
           <p>
-            TekXAI OS integrates with third-party services, including Zoom Team Chat, to let employees use those
+            TekXAI OS integrates with third-party services, including Zoom Team Chat and Zoom Meetings, to let employees use those
             services without leaving TekXAI OS. Connecting a third-party account is optional and requires your
             explicit authorization through that provider&apos;s own consent flow. Your use of Zoom remains subject
             to Zoom&apos;s own Terms of Service.

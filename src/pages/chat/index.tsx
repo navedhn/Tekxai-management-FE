@@ -34,6 +34,11 @@ import { getSocket } from '@/lib/socket';
 import ZoomChatPanel from './ZoomChatPanel';
 import MemberSidebar from './components/MemberSidebar';
 import { useIsMobile } from '@/hooks/use-is-mobile';
+import {
+  useCreateInstantZoomMeeting,
+  isZoomNotConnectedError,
+  isZoomReauthError,
+} from '@/services/zoomChatService';
 
 interface ChatUser {
   id: string;
@@ -196,6 +201,7 @@ const SLASH_COMMANDS: Array<{ command: string; icon: React.ReactNode; usage: str
   { command: '/poll',   icon: <BarChart3 size={13} />,   usage: '/poll Question? | Option 1 | Option 2',       description: 'Start a quick vote' },
   { command: '/task',   icon: <CheckSquare size={13} />, usage: '/task Title of the task',                     description: 'Create a task in this project' },
   { command: '/remind', icon: <AlarmClock size={13} />,  usage: '/remind Message in 2 hours',                  description: 'Get pinged later' },
+  { command: '/zoom',   icon: <Video size={13} />,       usage: '/zoom [optional topic]',                      description: 'Start a Zoom meeting and share the link here' },
 ];
 
 const Avatar: React.FC<{ user?: ChatUser; size?: 'xs' | 'sm' | 'md'; active?: boolean; showStatus?: boolean }> = ({
@@ -2126,6 +2132,7 @@ export default function ChatPage() {
   const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string | null } | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [startingZoom, setStartingZoom] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [recordingError, setRecordingError] = useState<string | null>(null);
   const [liveTranscript, setLiveTranscript] = useState('');
@@ -2412,6 +2419,35 @@ export default function ChatPage() {
     },
   });
 
+  const createZoomMeeting = useCreateInstantZoomMeeting();
+
+  const startZoomInCurrentChannel = async (topic?: string) => {
+    if (!selectedChannelId || startingZoom) return;
+    setStartingZoom(true);
+    try {
+      const meeting = await createZoomMeeting.mutateAsync(topic || 'TekXAI Chat Meeting');
+      await apiRequest<any>(API_ENDPOINTS.CHAT.MESSAGES(selectedChannelId), {
+        method: 'POST',
+        body: JSON.stringify({ content: `📞 Zoom call started — join here: ${meeting.join_url}` }),
+      });
+      setDraft('');
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
+      qc.invalidateQueries({ queryKey: ['chat-messages', selectedChannelId] });
+      qc.invalidateQueries({ queryKey: ['chat-channels'] });
+      window.open(meeting.join_url, '_blank', 'noopener,noreferrer');
+      toast.success('Meeting started — link shared in this chat');
+    } catch (e: any) {
+      if (isZoomNotConnectedError(e) || isZoomReauthError(e)) {
+        toast.error('Connect your Zoom account first (Chat → Zoom) to start a meeting from chat');
+        setActiveServerId(ZOOM_SECTION_ID);
+      } else {
+        toast.error(e?.message || 'Could not start the Zoom meeting');
+      }
+    } finally {
+      setStartingZoom(false);
+    }
+  };
+
   const editMutation = useMutation({
     mutationFn: ({ msgId, content }: { msgId: string; content: string }) =>
       apiRequest<any>(API_ENDPOINTS.CHAT.MESSAGE(selectedChannelId!, msgId), {
@@ -2500,7 +2536,11 @@ export default function ChatPage() {
       createReminderMutation.mutate(rest);
       return true;
     }
-    toast.error(`Unknown command "${command}". Try /poll, /task, or /remind.`);
+    if (command === '/zoom') {
+      void startZoomInCurrentChannel(rest || undefined);
+      return true;
+    }
+    toast.error(`Unknown command "${command}". Try /poll, /task, /remind, or /zoom.`);
     return true;
   };
 
@@ -3350,6 +3390,15 @@ export default function ChatPage() {
                       title="Record a voice message"
                     >
                       <Mic size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void startZoomInCurrentChannel()}
+                      disabled={startingZoom}
+                      className="p-2 text-gray-400 hover:text-[#0B5CFF] hover:bg-blue-50 rounded-xl shrink-0 disabled:opacity-50"
+                      title="Start a Zoom meeting and share the link here"
+                    >
+                      {startingZoom ? <Loader2 size={16} className="animate-spin" /> : <Video size={16} />}
                     </button>
                     <div className="relative shrink-0">
                       <button
