@@ -233,7 +233,9 @@ const ProjectPeopleWidget: React.FC<{ projectId: string; clientId: string | null
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-(--color-text-primary) truncate">{c.first_name} {c.last_name}</p>
                     </div>
-                    <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase shrink-0">Client</span>
+                    <span className="text-[10px] font-bold text-(--color-text-secondary) shrink-0 max-w-[7.5rem] truncate text-right">
+                      {teamMemberRoleLabel({ user_type: 'CLIENT', designation: c.designation, roles: c.roles })}
+                    </span>
                   </div>
                 ))}
                 {totalOnProject === 0 && (

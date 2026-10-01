@@ -1,12 +1,4 @@
-/** Subtitle under a portal team member name: Client, designation, or ERP role. */
-
-function formatRoleName(role: string): string {
-  return role
-    .split('_')
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(' ');
-}
+/** Subtitle under a portal team member name: designation (not ERP role). */
 
 export function teamMemberRoleLabel(member: {
   userType?: string;
@@ -14,10 +6,9 @@ export function teamMemberRoleLabel(member: {
   designation?: string | null;
   roles?: string[];
 }): string {
+  const designation = member.designation?.trim();
+  if (designation) return designation;
   const userType = member.userType || member.user_type;
   if (userType === 'CLIENT') return 'Client';
-  if (member.designation?.trim()) return member.designation.trim();
-  const role = (member.roles || []).find(Boolean);
-  if (role) return formatRoleName(role);
-  return 'Team';
+  return '—';
 }
