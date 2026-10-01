@@ -34,54 +34,126 @@ function money(n: number | null | undefined, currency: string = 'PKR') {
   if (n == null) return 'N/A';
   return `${currency} ${Number(n).toLocaleString()}`;
 }
+
 // Backend financial aggregates are grouped by currency ({ PKR: 1234, CAD:
 // 500 }) rather than a single mixed-currency scalar — a project's own
 // budget_currency is a real, meaningful distinction (e.g. Lend It CA is
 // CAD), and summing across currencies into one PKR-labelled number would
 // silently misstate every multi-currency report. Render one line per
 // currency present rather than picking/hiding one.
-function moneyByCurrency(byCurrency: Record<string, number> | null | undefined) {
-  const entries = Object.entries(byCurrency || {});
-  if (entries.length === 0) return money(0);
-  return entries.map(([currency, amount]) => money(amount, currency)).join(' · ');
+function MoneyLines({ byCurrency }: { byCurrency: Record<string, number> | null | undefined }) {
+  const entries = Object.entries(byCurrency || {}).sort(([a], [b]) => a.localeCompare(b));
+  if (entries.length === 0) {
+    return <span className="text-xl font-bold tabular-nums text-gray-900">0</span>;
+  }
+  return (
+    <span className="flex flex-col gap-0.5 min-w-0">
+      {entries.map(([currency, amount]) => (
+        <span key={currency} className="flex items-baseline gap-1.5 min-w-0 leading-tight">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-gray-500 shrink-0">{currency}</span>
+          <span className="text-[15px] font-bold tabular-nums text-gray-900 truncate">
+            {Number(amount).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+          </span>
+        </span>
+      ))}
+    </span>
+  );
 }
+
 function fmtDate(d: string | null | undefined) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString();
 }
-function NA() {
-  return <span className="text-gray-300 italic">NOT AVAILABLE</span>;
-}
 
-// One compact KPI tile — reused across every metrics row on this page so
-// the visual language stays consistent with a single component instead of
-// six near-duplicate blocks.
-function Tile({ label, value, onClick, tone = 'default' }: { label: string; value: React.ReactNode; onClick?: () => void; tone?: 'default' | 'danger' | 'warn' | 'success' }) {
-  const toneClass = {
-    default: 'bg-white border-gray-100',
-    danger: 'bg-[#FEF3F2] border-[#FECDCA]',
-    warn: 'bg-[#FFFAEB] border-[#FEDF89]',
-    success: 'bg-[#ECFDF3] border-[#ABEFC6]',
-  }[tone];
-  const Comp: any = onClick ? 'button' : 'div';
+type MetricTone = 'default' | 'danger' | 'warn' | 'success' | 'info';
+
+const TONE_ACCENT: Record<MetricTone, string> = {
+  default: 'bg-gray-300',
+  danger: 'bg-rose-500',
+  warn: 'bg-amber-500',
+  success: 'bg-emerald-500',
+  info: 'bg-sky-500',
+};
+
+const TONE_SURFACE: Record<MetricTone, string> = {
+  default: 'bg-white',
+  danger: 'bg-rose-50/70',
+  warn: 'bg-amber-50/70',
+  success: 'bg-emerald-50/70',
+  info: 'bg-sky-50/70',
+};
+
+/** Dense KPI cell — accent bar + tight type; quieter empty / multi-currency states. */
+function Metric({
+  label,
+  value,
+  onClick,
+  tone = 'default',
+  unavailable,
+  hint,
+}: {
+  label: string;
+  value?: React.ReactNode;
+  onClick?: () => void;
+  tone?: MetricTone;
+  unavailable?: boolean;
+  hint?: string;
+}) {
+  const Comp: 'button' | 'div' = onClick ? 'button' : 'div';
   return (
     <Comp
+      type={onClick ? 'button' : undefined}
       onClick={onClick}
-      className={`flex flex-col gap-1 rounded-2xl border p-4 text-left shadow-sm ${toneClass} ${onClick ? 'hover:shadow-md transition-shadow cursor-pointer' : ''}`}
+      className={[
+        'relative flex flex-col justify-between gap-2 min-h-[4.75rem] px-3.5 py-3 text-left',
+        TONE_SURFACE[tone],
+        onClick ? 'hover:bg-gray-50/90 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-400' : '',
+      ].join(' ')}
     >
-      <span className="text-[11px] font-black uppercase tracking-wider text-gray-400">{label}</span>
-      <span className="text-2xl font-black text-gray-900">{value}</span>
+      <span className={`absolute left-0 top-2 bottom-2 w-[3px] rounded-full ${TONE_ACCENT[tone]}`} aria-hidden />
+      <span className="pl-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500 leading-snug">
+        {label}
+      </span>
+      <span className="pl-2 min-w-0">
+        {unavailable ? (
+          <span className="flex flex-col gap-0.5">
+            <span className="text-lg font-semibold text-gray-300 tabular-nums">—</span>
+            <span className="text-[10px] font-medium text-gray-400">{hint || 'Not tracked'}</span>
+          </span>
+        ) : typeof value === 'string' || typeof value === 'number' ? (
+          <span className="block text-[1.35rem] font-bold tabular-nums text-gray-900 leading-none tracking-tight">
+            {value}
+          </span>
+        ) : (
+          <span className="block min-w-0">{value}</span>
+        )}
+      </span>
     </Comp>
+  );
+}
+
+/** Equal cells inside one bordered panel — avoids orphan card rows and sparse gaps. */
+function MetricStrip({
+  children,
+  colsClass = 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4',
+}: {
+  children: React.ReactNode;
+  colsClass?: string;
+}) {
+  return (
+    <div className={`grid ${colsClass} gap-px overflow-hidden rounded-xl border border-gray-200 bg-gray-200`}>
+      {children}
+    </div>
   );
 }
 
 function SectionCard({ title, subtitle, children, action }: { title: string; subtitle?: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 flex flex-col gap-4">
+    <div className="bg-white border border-gray-200 rounded-2xl p-5 flex flex-col gap-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="text-sm font-black uppercase tracking-wider text-gray-800">{title}</h2>
-          {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
+          <h2 className="text-sm font-bold uppercase tracking-wider text-gray-800">{title}</h2>
+          {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
         </div>
         {action}
       </div>
@@ -209,40 +281,40 @@ const AdminProjectsReport: React.FC = () => {
         <>
           {/* 1. Overall Delivery */}
           <SectionCard title="Overall Delivery">
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-              <Tile label="Active Projects" value={report.overview.active_projects} />
-              <Tile label="On Track" value={report.overview.on_track} tone="success" />
-              <Tile label="At Risk" value={report.overview.at_risk} tone="warn" />
-              <Tile label="Delayed" value={report.overview.delayed} tone="danger" />
-              <Tile label="Deliveries Due" value={report.overview.deliveries_due} />
-              <Tile label="Delivered" value={report.overview.delivered} tone="success" />
-              <Tile label="Missed" value={report.overview.missed} tone="danger"
+            <MetricStrip colsClass="grid-cols-2 sm:grid-cols-4 xl:grid-cols-7">
+              <Metric label="Active Projects" value={report.overview.active_projects} />
+              <Metric label="On Track" value={report.overview.on_track} tone="success" />
+              <Metric label="At Risk" value={report.overview.at_risk} tone="warn" />
+              <Metric label="Delayed" value={report.overview.delayed} tone="danger" />
+              <Metric label="Deliveries Due" value={report.overview.deliveries_due} tone="info" />
+              <Metric label="Delivered" value={report.overview.delivered} tone="success" />
+              <Metric label="Missed" value={report.overview.missed} tone="danger"
                 onClick={() => openDrill('Missed Milestones', [
                   { key: 'title', label: 'Milestone' }, { key: 'project', label: 'Project' }, { key: 'due_date', label: 'Due Date' },
                 ], report.project_execution.filter((r: any) => r.status === 'MISSED').map((r: any) => ({ title: r.committed_deliverable, project: r.project.title, due_date: fmtDate(r.committed_date) })))} />
-            </div>
+            </MetricStrip>
           </SectionCard>
 
           {/* 2. Milestones & Collections */}
           <SectionCard title="Milestones &amp; Collections">
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              <Tile label="Milestones Due" value={report.milestones.milestones_due}
+            <MetricStrip colsClass="grid-cols-2 md:grid-cols-4">
+              <Metric label="Milestones Due" value={report.milestones.milestones_due}
                 onClick={() => openDrill('Milestones Due', [{ key: 'title', label: 'Milestone' }, { key: 'project', label: 'Project' }, { key: 'due_date', label: 'Due Date' }, { key: 'price', label: 'Value', align: 'right' }],
                   report.milestones.records.due.map((m: any) => ({ title: m.title, project: m.project.title, due_date: fmtDate(m.due_date), price: money(m.price, m.currency) })))} />
-              <Tile label="Value Due" value={moneyByCurrency(report.milestones.value_due)} />
-              <Tile label="Delivered" value={report.milestones.delivered}
+              <Metric label="Value Due" value={<MoneyLines byCurrency={report.milestones.value_due} />} />
+              <Metric label="Delivered" value={report.milestones.delivered}
                 onClick={() => openDrill('Delivered Milestones', [{ key: 'title', label: 'Milestone' }, { key: 'project', label: 'Project' }, { key: 'completed_date', label: 'Completed' }],
                   report.milestones.records.delivered.map((m: any) => ({ title: m.title, project: m.project.title, completed_date: fmtDate(m.completed_date) })))} />
-              <Tile label="Client Accepted" value={<NA />} />
-              <Tile label="Released" value={<NA />} />
-              <Tile label="Collected" value={moneyByCurrency(report.milestones.collected)}
+              <Metric label="Client Accepted" unavailable hint="Not tracked yet" />
+              <Metric label="Released" unavailable hint="Not tracked yet" />
+              <Metric label="Collected" value={<MoneyLines byCurrency={report.milestones.collected} />}
                 onClick={() => openDrill('Collected', [{ key: 'title', label: 'Milestone' }, { key: 'project', label: 'Project' }, { key: 'price', label: 'Value', align: 'right' }],
                   report.milestones.records.collected.map((m: any) => ({ title: m.title, project: m.project.title, price: money(m.price, m.currency) })))} />
-              <Tile label="Pending Value" value={moneyByCurrency(report.milestones.pending_value)}
+              <Metric label="Pending Value" value={<MoneyLines byCurrency={report.milestones.pending_value} />}
                 onClick={() => openDrill('Pending Value', [{ key: 'title', label: 'Milestone' }, { key: 'project', label: 'Project' }, { key: 'due_date', label: 'Due Date' }, { key: 'price', label: 'Value', align: 'right' }],
                   report.milestones.records.pending_value.map((m: any) => ({ title: m.title, project: m.project.title, due_date: fmtDate(m.due_date), price: money(m.price, m.currency) })))} />
-              <Tile label="Next Expected" value={report.milestones.next_expected ? `${fmtDate(report.milestones.next_expected.date)}` : '—'} />
-            </div>
+              <Metric label="Next Expected" value={report.milestones.next_expected ? fmtDate(report.milestones.next_expected.date) : '—'} />
+            </MetricStrip>
           </SectionCard>
 
           {/* 3. Project Execution */}
@@ -264,16 +336,16 @@ const AdminProjectsReport: React.FC = () => {
 
           {/* 4. Client Health */}
           <SectionCard title="Client Health">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Tile label="Awaiting Feedback/Acceptance" value={report.client_health.awaiting_feedback}
+            <MetricStrip colsClass="grid-cols-2 md:grid-cols-4">
+              <Metric label="Awaiting Feedback/Acceptance" value={report.client_health.awaiting_feedback}
                 onClick={() => openDrill('Awaiting Feedback', [{ key: 'title', label: 'Project' }], report.client_health.records.awaiting_feedback.map((p: any) => ({ title: p.title })))} />
-              <Tile label="Positive / Normal" value={report.client_health.positive} tone="success" />
-              <Tile label="At Risk" value={report.client_health.at_risk} tone="warn" />
-              <Tile label="Escalated" value={report.client_health.escalated} tone="danger"
+              <Metric label="Positive / Normal" value={report.client_health.positive} tone="success" />
+              <Metric label="At Risk" value={report.client_health.at_risk} tone="warn" />
+              <Metric label="Escalated" value={report.client_health.escalated} tone="danger"
                 onClick={() => openDrill('Escalated Clients', [{ key: 'name', label: 'Client' }], report.client_health.records.escalated)} />
-            </div>
+            </MetricStrip>
             {report.client_health.not_classified > 0 && (
-              <p className="text-xs text-gray-400">{report.client_health.not_classified} linked client(s) have no health classification set yet.</p>
+              <p className="text-xs text-gray-500">{report.client_health.not_classified} linked client(s) have no health classification set yet.</p>
             )}
           </SectionCard>
 
@@ -295,20 +367,20 @@ const AdminProjectsReport: React.FC = () => {
 
           {/* 6. Financial & Scope Exceptions */}
           <SectionCard title="Financial &amp; Scope Exceptions">
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-2">
-              <Tile label="Expected Value" value={moneyByCurrency(report.financial_exceptions.expected_value)} />
-              <Tile label="Collected" value={moneyByCurrency(report.financial_exceptions.collected)} tone="success" />
-              <Tile label="Pending" value={moneyByCurrency(report.financial_exceptions.pending)} />
-              <Tile label="Overdue" value={moneyByCurrency(report.financial_exceptions.overdue)} tone="danger"
+            <MetricStrip colsClass="grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+              <Metric label="Expected Value" value={<MoneyLines byCurrency={report.financial_exceptions.expected_value} />} />
+              <Metric label="Collected" value={<MoneyLines byCurrency={report.financial_exceptions.collected} />} tone="success" />
+              <Metric label="Pending" value={<MoneyLines byCurrency={report.financial_exceptions.pending} />} />
+              <Metric label="Overdue" value={<MoneyLines byCurrency={report.financial_exceptions.overdue} />} tone="danger"
                 onClick={() => openDrill('Overdue Collections', [{ key: 'title', label: 'Milestone' }, { key: 'project', label: 'Project' }, { key: 'due_date', label: 'Due Date' }, { key: 'price', label: 'Value', align: 'right' }],
                   report.financial_exceptions.records.overdue.map((m: any) => ({ title: m.title, project: m.project.title, due_date: fmtDate(m.due_date), price: money(m.price, m.currency) })))} />
-              <Tile label="Scope Exceptions" value={report.financial_exceptions.scope_exceptions_count}
+              <Metric label="Scope Exceptions" value={report.financial_exceptions.scope_exceptions_count}
                 onClick={() => openDrill('Scope Exceptions', [{ key: 'title', label: 'Milestone' }, { key: 'project', label: 'Project' }, { key: 'detail', label: 'Detail' }],
                   report.financial_exceptions.records.scope_exceptions.map((m: any) => ({ title: m.title, project: m.project.title, detail: m.missed_reason_detail || '—' })))} />
-              <Tile label="Cost Exceptions" value={report.financial_exceptions.cost_exceptions_count}
+              <Metric label="Cost Exceptions" value={report.financial_exceptions.cost_exceptions_count}
                 onClick={() => openDrill('Cost Exceptions (Budget)', [{ key: 'title', label: 'Project' }, { key: 'budget', label: 'Budget', align: 'right' }, { key: 'spent', label: 'Spent', align: 'right' }],
                   report.financial_exceptions.records.cost_exceptions.map((p: any) => ({ title: p.title, budget: money(p.budget), spent: money(p.budget_spent) })))} />
-            </div>
+            </MetricStrip>
           </SectionCard>
 
           {/* 7. Open / Carry-Forward Exceptions */}
