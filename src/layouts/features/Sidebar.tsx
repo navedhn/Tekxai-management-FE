@@ -3,11 +3,11 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, Users2, Settings, FolderCheck, Clock, Star, Monitor, X,
   BarChart3, Shield, ClipboardCheck, Ticket, Receipt, Banknote, Webhook, Mail,
-  MessageSquare, FileText, Package, CalendarDays, Table2, Layers, Video, Gauge,
+  MessageSquare, FileText, Package, Layers, Gauge,
   Building2, TrendingUp, UserPlus, ShieldCheck, Briefcase, Heart, AlarmClock,
   UserSearch, PlusCircle, Tag, Network, Landmark, ChevronDown, ChevronRight,
-  Bell as BellIcon, UserMinus, ListChecks, PanelLeftClose, PanelLeftOpen, FileBarChart,
-  Activity, Target, BookOpen, Zap,
+  Bell as BellIcon, UserMinus, ListChecks, PanelLeftClose, PanelLeftOpen,
+  Activity, Zap,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
@@ -32,7 +32,7 @@ interface SidebarLink {
 const MODULE_ORDER = [
   'Dashboard', 'Workforce', 'Recruitment', 'Attendance', 'Performance',
   'Payroll', 'Finance', 'Assets', 'Procurement', 'Contracts', 'Policies',
-  'Ticketing', 'Monitoring', 'My Workspace', 'Administration', 'Projects',
+  'Ticketing', 'Monitoring', 'My Workspace', 'Administration',
 ] as const;
 type ModuleName = typeof MODULE_ORDER[number];
 type Tier = 'all' | 'erpOps' | 'admin' | 'executive' | 'superadmin';
@@ -86,6 +86,10 @@ const ERP_OPS_ROUTE_PERMISSIONS: Record<string, string> = {
   '/admin/meetings': 'erp.meetings.view',
   '/admin/projects-report': 'erp.reports.view',
   '/portal/crm': 'crm.clients.view',
+  '/portal/ops/goals': 'erp.projects.view',
+  '/portal/ops/wiki': 'erp.projects.view',
+  '/portal/ops/meetings': 'erp.meetings.view',
+  '/portal/ops/projects-report': 'erp.reports.view',
 };
 interface ModuleLink extends Omit<SidebarLink, 'section'> {
   module: ModuleName;
@@ -113,7 +117,6 @@ const MODULE_ICONS: Record<ModuleName, React.ReactNode> = {
   'Monitoring':     <Monitor size={18} strokeWidth={SW} />,
   'My Workspace':   <Heart size={18} strokeWidth={SW} />,
   'Administration': <Shield size={18} strokeWidth={SW} />,
-  'Projects':       <FolderCheck size={18} strokeWidth={SW} />,
 };
 
 function isItemActive(item: SidebarLink, pathname: string): boolean {
@@ -321,9 +324,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Monitoring', tier: 'erpOps', to: '/admin/productivity-digests', label: 'Productivity Digests', icon: <BarChart3 size={18} strokeWidth={SW} /> },
       { module: 'Monitoring', tier: 'admin', to: '/admin/download-app', label: 'Desktop App', icon: <Monitor size={18} strokeWidth={SW} /> },
 
-      { module: 'Projects', tier: 'erpOps', to: '/admin/goals', label: 'Goals / OKRs', icon: <Target size={18} strokeWidth={SW} /> },
-      { module: 'Projects', tier: 'erpOps', to: '/admin/wiki', label: 'Wiki', icon: <BookOpen size={18} strokeWidth={SW} /> },
-
       { module: 'Contracts', tier: 'erpOps', to: '/admin/benefits', label: 'Benefits', icon: <Heart size={18} strokeWidth={SW} /> },
 
       { module: 'My Workspace', tier: 'all', to: '/admin/timesheet', label: 'Timesheet', icon: <Clock size={18} strokeWidth={SW} /> },
@@ -342,18 +342,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, isOpen }) => {
       { module: 'Administration', tier: 'superadmin', to: '/admin/email-logs', label: 'Email Logs', icon: <Mail size={18} strokeWidth={SW} /> },
       { module: 'Administration', tier: 'superadmin', to: '/admin/system-settings', label: 'System Settings', icon: <Settings size={18} strokeWidth={SW} /> },
 
-      // Client CRM moved to /portal/crm — link stays in admin Projects for
-      // discoverability, gated on crm.clients.view (SUPER_ADMIN bypasses).
-      { module: 'Projects', tier: 'erpOps', to: '/portal/crm', label: 'Client CRM', icon: <Landmark size={18} strokeWidth={SW} /> },
-      // Project list is membership-based — deliberately tier:'admin' (broad
-      // workspace access), not erp.projects.view, so non-elevated owners /
-      // leaders / members still see the nav entry for their own projects.
-      { module: 'Projects', tier: 'admin', to: '/admin/projects', label: 'Projects', icon: <FolderCheck size={18} strokeWidth={SW} /> },
-      { module: 'Projects', tier: 'admin', to: '/admin/project-tracking', label: 'Project Tracking', icon: <Table2 size={18} strokeWidth={SW} /> },
-      { module: 'Projects', tier: 'admin', to: '/admin/project-timeline', label: 'Timeline', icon: <CalendarDays size={18} strokeWidth={SW} /> },
-      { module: 'Projects', tier: 'erpOps', to: '/admin/meetings', label: 'Meetings', icon: <Video size={18} strokeWidth={SW} /> },
-      { module: 'Projects', tier: 'erpOps', to: '/admin/projects-report', label: 'Projects Report', icon: <FileBarChart size={18} strokeWidth={SW} /> },
-      { module: 'Projects', tier: 'admin', to: '/admin/starred', label: 'Starred', icon: <Star size={18} strokeWidth={SW} /> },
+      // Projects module (Goals, Wiki, CRM, Tracking, Timeline, Meetings,
+      // Report, Starred) lives in the client portal Projects panel now —
+      // see clientPortalLayout PORTAL_OPS_NAV + /portal/ops/* routes.
     ];
 
     const hasErpOpsAccess = (route: string) => {

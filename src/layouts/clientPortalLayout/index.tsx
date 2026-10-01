@@ -18,6 +18,14 @@ import {
   Home,
   Bell,
   User,
+  Target,
+  Table2,
+  CalendarDays,
+  Video,
+  FileBarChart,
+  Star,
+  FolderCheck,
+  type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useAuth } from '@/hooks/useAuth';
@@ -33,6 +41,27 @@ import ProfileWorkspaceMenu from '@/layouts/features/ProfileWorkspaceMenu';
 import NotificationDropdown from '@/layouts/features/NotificationDropdown';
 import { useNotifications } from '@/services/notificationService';
 import ActionModal from '@/components/ui/ActionModal';
+
+/** ERP Projects-module tools moved into the client portal (internals only). */
+type PortalOpsNavItem = {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  /** null = any internal with workspace access (membership-scoped pages). */
+  permission: string | null;
+};
+
+const PORTAL_OPS_NAV: PortalOpsNavItem[] = [
+  { to: '/portal/ops/goals', label: 'Goals / OKRs', icon: Target, permission: 'erp.projects.view' },
+  { to: '/portal/ops/wiki', label: 'Wiki', icon: BookOpen, permission: 'erp.projects.view' },
+  { to: '/portal/crm', label: 'Client CRM', icon: Landmark, permission: 'crm.clients.view' },
+  { to: '/portal/ops/projects', label: 'Projects', icon: FolderCheck, permission: null },
+  { to: '/portal/ops/project-tracking', label: 'Project Tracking', icon: Table2, permission: null },
+  { to: '/portal/ops/project-timeline', label: 'Timeline', icon: CalendarDays, permission: null },
+  { to: '/portal/ops/meetings', label: 'Meetings', icon: Video, permission: 'erp.meetings.view' },
+  { to: '/portal/ops/projects-report', label: 'Projects Report', icon: FileBarChart, permission: 'erp.reports.view' },
+  { to: '/portal/ops/starred', label: 'Starred', icon: Star, permission: null },
+];
 
 const CHATS_PAGE_SIZE = 10;
 const CHATS_PAGE_INCREMENT = 5;
@@ -93,8 +122,10 @@ const ProjectsPanel: React.FC<{
   isSuperAdmin: boolean;
   mode: 'projects' | 'chats';
   onNavigate?: () => void;
-}> = ({ isSuperAdmin, mode, onNavigate }) => {
+  opsNavItems?: PortalOpsNavItem[];
+}> = ({ isSuperAdmin, mode, onNavigate, opsNavItems = [] }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(true);
   const [openProjectIds, setOpenProjectIds] = useState<Set<string>>(new Set());
@@ -114,6 +145,13 @@ const ProjectsPanel: React.FC<{
   });
 
   const label = mode === 'chats' ? 'Chats' : 'Projects';
+
+  // #region agent log
+  React.useEffect(() => {
+    if (mode !== 'projects' || !opsNavItems.length) return;
+    fetch('http://127.0.0.1:7689/ingest/5fe2d865-37c9-41e9-b868-d88ad2f9dbc6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d0293d'},body:JSON.stringify({sessionId:'d0293d',runId:'portal-ops-nav',hypothesisId:'H-nav',location:'clientPortalLayout:ProjectsPanel',message:'portal ops nav rendered',data:{opsCount:opsNavItems.length,labels:opsNavItems.map((i)=>i.label),path:location.pathname},timestamp:Date.now()})}).catch(()=>{});
+  }, [mode, opsNavItems, location.pathname]);
+  // #endregion
 
   useEffect(() => {
     if (mode !== 'chats') return;
@@ -147,13 +185,35 @@ const ProjectsPanel: React.FC<{
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
+      {mode === 'projects' && opsNavItems.length > 0 && (
+        <nav className="flex flex-col gap-0.5 px-1 mb-3 pb-3 border-b border-(--color-border)">
+          {opsNavItems.map(({ to, label: itemLabel, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              onClick={() => onNavigate?.()}
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-2.5 px-2.5 min-h-10 rounded-lg text-[13px] font-semibold transition-colors',
+                  isActive
+                    ? 'bg-primary-50 text-primary-700'
+                    : 'text-(--color-text-secondary) hover:bg-(--color-state-hover) hover:text-(--color-text-primary)'
+                )
+              }
+            >
+              <Icon size={16} strokeWidth={2} className="shrink-0" />
+              <span className="truncate">{itemLabel}</span>
+            </NavLink>
+          ))}
+        </nav>
+      )}
       <div className="flex items-center justify-between px-3 mb-1">
         <button
           onClick={() => setExpanded((v) => !v)}
           className="flex items-center gap-1 text-xs font-black uppercase tracking-wide text-(--color-text-secondary) hover:text-(--color-text-primary)"
         >
           {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-          {label}
+          {mode === 'projects' && opsNavItems.length > 0 ? 'My projects' : label}
         </button>
         <div className="flex items-center gap-0.5">
           {mode === 'projects' && (
@@ -292,15 +352,23 @@ const MobileSheetShell: React.FC<{
 );
 
 const ClientPortalLayout: React.FC = memo(() => {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const { data: myPerms } = useMyPermissions();
   const topbarTitle = usePortalTopbarStore((s) => s.title);
   const { userLogout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
   const isSuperAdmin = role === 'SUPER_ADMIN' || !!myPerms?.is_super_admin;
+  const isInternal = user?.user_type === 'INTERNAL';
   // Match ProtectedRoute + BE can('crm.clients.view'): super admin or granted role.
   const canViewCrm = isSuperAdmin || !!myPerms?.permissions?.includes('crm.clients.view');
+  const opsNavItems = React.useMemo(() => {
+    if (!isInternal) return [];
+    return PORTAL_OPS_NAV.filter((item) => {
+      if (!item.permission) return true;
+      return isSuperAdmin || !!myPerms?.permissions?.includes(item.permission);
+    });
+  }, [isInternal, isSuperAdmin, myPerms?.permissions]);
   const [desktopPanel, setDesktopPanel] = useState<'projects' | null>(null);
   const [mobileSheet, setMobileSheet] = useState<MobileSheet>(null);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -330,9 +398,17 @@ const ClientPortalLayout: React.FC = memo(() => {
     if (path.startsWith('/portal/notifications')) return 'Notifications';
     if (path.startsWith('/portal/profile')) return 'My Profile';
     if (path.startsWith('/portal/docs')) return 'Shared files';
+    if (path.startsWith('/portal/ops/wiki')) return 'Wiki';
     if (path.startsWith('/portal/wiki')) return 'Wiki';
     if (path.startsWith('/portal/crm')) return 'Client CRM';
     if (path.startsWith('/portal/invites')) return 'Client CRM';
+    if (path.startsWith('/portal/ops/goals')) return 'Goals / OKRs';
+    if (path.startsWith('/portal/ops/project-tracking')) return 'Project Tracking';
+    if (path.startsWith('/portal/ops/project-timeline')) return 'Timeline';
+    if (path.startsWith('/portal/ops/meetings')) return 'Meetings';
+    if (path.startsWith('/portal/ops/projects-report')) return 'Projects Report';
+    if (path.startsWith('/portal/ops/starred')) return 'Starred';
+    if (path.startsWith('/portal/ops/projects')) return 'Projects';
     if (path === '/portal/projects' || path === '/portal/projects/') return 'Projects';
     return null;
   })();
@@ -385,8 +461,15 @@ const ClientPortalLayout: React.FC = memo(() => {
     );
 
   const isHome = location.pathname === '/portal' || location.pathname === '/portal/';
-  const isProjectsRoute = location.pathname.startsWith('/portal/projects');
+  const isProjectsRoute = location.pathname.startsWith('/portal/projects') || location.pathname.startsWith('/portal/ops');
   const isChatsRoute = location.pathname === '/portal/chats' || location.pathname.startsWith('/portal/chats/');
+
+  // Keep the Projects tools panel open while browsing moved ops pages.
+  useEffect(() => {
+    if (location.pathname.startsWith('/portal/ops') || location.pathname.startsWith('/portal/crm')) {
+      setDesktopPanel('projects');
+    }
+  }, [location.pathname]);
 
   return (
     <div className="min-h-dvh flex bg-(--color-app-bg)">
@@ -476,13 +559,13 @@ const ClientPortalLayout: React.FC = memo(() => {
       </aside>
 
       {desktopPanel && (
-        <aside className="hidden lg:flex flex-col w-52 shrink-0 border-r border-(--color-border) bg-(--color-surface) py-4 px-3 min-h-0">
+        <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-(--color-border) bg-(--color-surface) py-4 px-3 min-h-0">
           <div className="px-1 mb-4">
             <span className="text-base font-black text-(--color-text-primary) tracking-tight">
               Projects
             </span>
           </div>
-          <ProjectsPanel isSuperAdmin={isSuperAdmin} mode="projects" />
+          <ProjectsPanel isSuperAdmin={isSuperAdmin} mode="projects" opsNavItems={opsNavItems} />
         </aside>
       )}
 
@@ -626,7 +709,7 @@ const ClientPortalLayout: React.FC = memo(() => {
 
       {mobileSheet === 'projects' && (
         <MobileSheetShell title="Projects" onClose={closeMobileSheet}>
-          <ProjectsPanel isSuperAdmin={isSuperAdmin} mode="projects" onNavigate={closeMobileSheet} />
+          <ProjectsPanel isSuperAdmin={isSuperAdmin} mode="projects" opsNavItems={opsNavItems} onNavigate={closeMobileSheet} />
         </MobileSheetShell>
       )}
       {mobileSheet === 'more' && (

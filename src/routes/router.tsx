@@ -206,33 +206,27 @@ const routes: RouteObject[] = [
           { path: '/admin/download-app',          element: <DownloadApp /> },
           { path: '/admin/crm',                 element: <Navigate to="/portal/crm" replace /> },
           { path: '/admin/my-salaries',           element: <MarketingMySalaries /> },
-          // Project visibility is membership-based, not a single broad
-          // permission (see be-work find_projects's member_only fallback:
-          // owner/leader/project_members rows scope the actual results
-          // server-side). A ProtectedRoute permission gate here would hide
-          // these pages from non-elevated project owners/leaders/members
-          // entirely, which is what caused a real bug — so these are
-          // intentionally left ungated beyond the parent erp.workspace.access
-          // wrapper. Client CRM lives at /portal/crm (crm.clients.view).
-          { path: '/admin/projects',         element: <AdminProjects /> },
-          { path: '/admin/project-tracking', element: <AdminProjectTracking /> },
-          { path: '/admin/project-timeline', element: <AdminProjectTimeline /> },
+          // ERP Projects tools moved to /portal/ops/* (client portal). Keep
+          // admin URLs as redirects so bookmarks and old sidebar links work.
+          { path: '/admin/projects',         element: <Navigate to="/portal/ops/projects" replace /> },
+          { path: '/admin/project-tracking', element: <Navigate to="/portal/ops/project-tracking" replace /> },
+          { path: '/admin/project-timeline', element: <Navigate to="/portal/ops/project-timeline" replace /> },
           { element: <ProtectedRoute permission="erp.timesheet.view" />, children: [{ path: '/admin/timesheet', element: <AdminTimesheet /> }] },
-          { path: '/admin/starred', element: <AdminSaved /> },
+          { path: '/admin/starred', element: <Navigate to="/portal/ops/starred" replace /> },
           { element: <ProtectedRoute permission="erp.teams.view" />, children: [{ path: '/admin/team', element: <AdminTeam /> }] },
           { element: <ProtectedRoute permission="erp.users.view" />, children: [{ path: '/admin/users', element: <AdminUsers /> }] },
           { element: <ProtectedRoute permission="erp.monitoring.view" />, children: [{ path: '/admin/monitoring', element: <AdminMonitoring /> }] },
           { element: <ProtectedRoute permission="erp.monitoring.view" />, children: [{ path: '/admin/productivity-digests', element: <AdminProductivityDigests /> }] },
           { element: <ProtectedRoute permission="erp.attendance.view" />, children: [{ path: '/admin/live-activity', element: <AdminLiveActivity /> }] },
-          { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/admin/goals', element: <AdminGoals /> }] },
-          { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/admin/wiki', element: <AdminWiki /> }] },
+          { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/admin/goals', element: <Navigate to="/portal/ops/goals" replace /> }] },
+          { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/admin/wiki', element: <Navigate to="/portal/ops/wiki" replace /> }] },
           { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/admin/projects/:projectId/custom-fields', element: <AdminProjectCustomFields /> }] },
           { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/admin/projects/:projectId/automations', element: <AdminProjectAutomations /> }] },
           { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/admin/projects/:projectId/intake-forms', element: <AdminProjectIntakeForms /> }] },
           { element: <ProtectedRoute permission="erp.hr_documents.view" />, children: [{ path: '/admin/benefits', element: <AdminBenefits /> }] },
           { path: '/admin/chat-channel-settings', element: <AdminChannelSettings /> },
           { path: '/admin/my-benefits', element: <EmployeeBenefits /> },
-          { element: <ProtectedRoute permission="erp.reports.view" />, children: [{ path: '/admin/projects-report', element: <AdminProjectsReport /> }] },
+          { element: <ProtectedRoute permission="erp.reports.view" />, children: [{ path: '/admin/projects-report', element: <Navigate to="/portal/ops/projects-report" replace /> }] },
           { element: <ProtectedRoute permission="erp.estimator.view" />, children: [{ path: '/admin/estimator', element: <AdminEstimator /> }] },
           { element: <ProtectedRoute permission="hr.employee_profiles.view" />, children: [{ path: '/admin/employee/:employeeId', element: <AdminEmployeeProfile /> }] },
           { element: <ProtectedRoute permission="erp.assets.view" />, children: [{ path: '/admin/assets', element: <AdminAssets /> }] },
@@ -255,7 +249,7 @@ const routes: RouteObject[] = [
           { element: <ProtectedRoute permission="erp.requisitions.view" />, children: [{ path: '/admin/requisitions', element: <AdminRequisitions /> }] },
           { element: <ProtectedRoute permission="erp.requisitions.approve" />, children: [{ path: '/admin/approvals', element: <AdminApprovals /> }] },
           { element: <ProtectedRoute permission="erp.tickets.view" />, children: [{ path: '/admin/tickets', element: <AdminTickets /> }] },
-          { element: <ProtectedRoute permission="erp.meetings.view" />, children: [{ path: '/admin/meetings', element: <AdminMeetingDashboard /> }] },
+          { element: <ProtectedRoute permission="erp.meetings.view" />, children: [{ path: '/admin/meetings', element: <Navigate to="/portal/ops/meetings" replace /> }] },
           { element: <ProtectedRoute permission="erp.meetings.view" />, children: [{ path: '/admin/meetings/rooms', element: <AdminMeetingRooms /> }] },
           { element: <ProtectedRoute permission="erp.meetings.view" />, children: [{ path: '/admin/meetings/room/:roomId', element: <AdminMeetingRoomDetail /> }] },
           { element: <ProtectedRoute permission="erp.meetings.view" />, children: [{ path: '/admin/meetings/meeting/:meetingId', element: <AdminMeetingDetail /> }] },
@@ -446,6 +440,18 @@ const routes: RouteObject[] = [
               { path: '/portal/crm', element: <PortalCRM /> },
             ],
           },
+          // ERP Projects module — moved from admin sidebar into the portal.
+          // Membership-scoped pages stay ungated beyond portal access (same
+          // rule as the old /admin/projects routes). Permission-gated pages
+          // keep their prior keys.
+          { path: '/portal/ops/projects', element: <AdminProjects /> },
+          { path: '/portal/ops/project-tracking', element: <AdminProjectTracking /> },
+          { path: '/portal/ops/project-timeline', element: <AdminProjectTimeline /> },
+          { path: '/portal/ops/starred', element: <AdminSaved /> },
+          { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/portal/ops/goals', element: <AdminGoals /> }] },
+          { element: <ProtectedRoute permission="erp.projects.view" />, children: [{ path: '/portal/ops/wiki', element: <AdminWiki /> }] },
+          { element: <ProtectedRoute permission="erp.meetings.view" />, children: [{ path: '/portal/ops/meetings', element: <AdminMeetingDashboard /> }] },
+          { element: <ProtectedRoute permission="erp.reports.view" />, children: [{ path: '/portal/ops/projects-report', element: <AdminProjectsReport /> }] },
           {
             element: <ProtectedRoute superAdminOnly />,
             children: [
