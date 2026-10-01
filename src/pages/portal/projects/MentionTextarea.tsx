@@ -21,7 +21,13 @@ export function useMentionableUsers(projectId: string) {
   const { data = [] } = useQuery<{ payload?: MentionableUser[] }, Error, MentionableUser[]>({
     queryKey: ['portal', 'mentionable-users', projectId],
     queryFn: () => apiRequest<{ payload?: MentionableUser[] }>(API_ENDPOINTS.PORTAL.MENTIONABLE_USERS(projectId)),
-    select: (r) => r?.payload || [],
+    select: (r) => (Array.isArray(r?.payload) ? r.payload : []),
+    // Prior 500s left an empty list while @everyone still rendered from a
+    // local synthetic row — always revalidate when the composer mounts so a
+    // recovered API is picked up without waiting on the global 5m staleTime.
+    staleTime: 30_000,
+    refetchOnMount: 'always',
+    retry: 2,
   });
   return data;
 }
