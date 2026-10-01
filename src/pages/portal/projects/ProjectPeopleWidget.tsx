@@ -54,13 +54,6 @@ const ProjectPeopleWidget: React.FC<{ projectId: string; clientId: string | null
   const internalIds = new Set(internals.map((p) => p.id));
   const inviteOnlyAccepted = acceptedEmployees.filter((i) => i.user && !internalIds.has(i.user.id));
 
-  // #region agent log
-  React.useEffect(() => {
-    if (!open) return;
-    fetch('http://127.0.0.1:7689/ingest/5fe2d865-37c9-41e9-b868-d88ad2f9dbc6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d0293d'},body:JSON.stringify({sessionId:'d0293d',runId:'people-fix',hypothesisId:'people-roster',location:'ProjectPeopleWidget.tsx:open',message:'people popup roster sizes',data:{internalMembers:internals.length,clients:clients.length,acceptedInvites:acceptedEmployees.length,inviteOnly:inviteOnlyAccepted.length,pending:pendingEmployees.length,internalEmails:internals.map((p)=>p.email)},timestamp:Date.now()})}).catch(()=>{});
-  }, [open, internals, clients, acceptedEmployees, inviteOnlyAccepted, pendingEmployees]);
-  // #endregion
-
   const alreadyOnProjectIds = new Set([
     ...internals.map((p) => p.id),
     ...clients.map((c) => c.id),
@@ -82,6 +75,7 @@ const ProjectPeopleWidget: React.FC<{ projectId: string; clientId: string | null
       toast.success('Invite sent');
       qc.invalidateQueries({ queryKey: ['employee-portal-invites', 'project', projectId] });
       qc.invalidateQueries({ queryKey: ['project', 'access', projectId] });
+      qc.invalidateQueries({ queryKey: ['portal', 'mentionable-users', projectId] });
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to send invite'),
   });
@@ -97,6 +91,7 @@ const ProjectPeopleWidget: React.FC<{ projectId: string; clientId: string | null
     onSuccess: () => {
       toast.success('Access granted');
       qc.invalidateQueries({ queryKey: ['project', 'access', projectId] });
+      qc.invalidateQueries({ queryKey: ['portal', 'mentionable-users', projectId] });
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to grant access'),
   });

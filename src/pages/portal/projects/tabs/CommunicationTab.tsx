@@ -15,7 +15,7 @@ import { getSocket } from '@/lib/socket';
 import { RichText, MessageLinkPreviews } from '../richText';
 import { PortalMessage, PortalMessageEdit, PortalMessageRead, PortalPoll, messageAttachments } from '../types';
 import ProfileSidePanel from '../ProfileSidePanel';
-import MentionTextarea, { extractMentionIds, useMentionableUsers } from '../MentionTextarea';
+import MentionTextarea, { extractMentionIds, mentionDisplayName, useMentionableUsers } from '../MentionTextarea';
 
 // Small curated set for the one-click "quick react" row — the full picker
 // (search + categories) is still reachable via the Smile "+" button for anything
@@ -1671,22 +1671,28 @@ const CommunicationTab: React.FC<{
       .map((r) => r.user);
   }, [messageReads, lastOwnMsg]);
 
-  // Same query/key the Composer's @mention picker already uses (React
-  // Query dedupes the request across the two mount points) — needed here
-  // too so a rendered "@Full Name" span can be resolved back to a user id
-  // to make it clickable, the same way clicking a message author's name
-  // already opens their profile.
-  const { data: mentionable = [] } = useQuery<{ id: string; first_name: string; last_name: string }[]>({
-    queryKey: ['portal', 'mentionable-users', projectId],
-    queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.MENTIONABLE_USERS(projectId)),
-    select: (r: any) => r?.payload || [],
-  });
-  const mentionMap = new Map(
-    mentionable.map((u) => [[u.first_name, u.last_name].filter(Boolean).join(' ').trim().toLowerCase(), u.id])
-  );
-  if (user?.id && !mentionMap.has([user.first_name, user.last_name].filter(Boolean).join(' ').trim().toLowerCase())) {
-    mentionMap.set([user.first_name, user.last_name].filter(Boolean).join(' ').trim().toLowerCase(), user.id);
-  }
+  const mentionable = useMentionableUsers(projectId);
+  const mentionMap = useMemo(() => {
+    const map = new Map(mentionable.map((u) => [mentionDisplayName(u).toLowerCase(), u.id]));
+    if (user?.id) {
+      const selfName = mentionDisplayName({
+        id: user.id,
+        first_name: user.first_name ?? '',
+        last_name: user.last_name ?? '',
+      }).toLowerCase();
+      if (selfName && !map.has(selfName)) map.set(selfName, user.id);
+    }
+    for (const msg of data || []) {
+      if (!msg.user?.id) continue;
+      const name = mentionDisplayName({
+        id: msg.user.id,
+        first_name: msg.user.first_name,
+        last_name: msg.user.last_name,
+      }).toLowerCase();
+      if (name && !map.has(name)) map.set(name, msg.user.id);
+    }
+    return map;
+  }, [mentionable, data, user]);
 
   // Opening a project (or a new message arriving) should land on the most
   // RECENT message, same as any normal chat — not the oldest one just

@@ -101,9 +101,6 @@ function renderInline(
           }
         }
       }
-      // #region agent log
-      fetch('http://127.0.0.1:7689/ingest/5fe2d865-37c9-41e9-b868-d88ad2f9dbc6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d0293d'},body:JSON.stringify({sessionId:'d0293d',runId:'mention-post',hypothesisId:'H1_H4',location:'richText.tsx:renderInline',message:'richtext mention match',data:{raw:match[13],resolved:mentionText,wordCount:mentionText.slice(1).split(/\s+/).length,inMap:!!mentionedId,remainder},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       if (mentionedId && onMentionClick) {
         nodes.push(
           <button

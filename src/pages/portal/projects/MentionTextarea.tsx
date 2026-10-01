@@ -149,9 +149,6 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      // #region agent log
-      fetch('http://127.0.0.1:7689/ingest/5fe2d865-37c9-41e9-b868-d88ad2f9dbc6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d0293d'},body:JSON.stringify({sessionId:'d0293d',runId:'pre-fix',hypothesisId:'A',location:'MentionTextarea.tsx:handleChange',message:'controlled onChange',data:{prevLen:value.length,nextLen:e.target.value.length,isTrusted:e.isTrusted,inputType:(e.nativeEvent as InputEvent)?.inputType||null},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       onChange(e.target.value);
       updateQuery(e.target.value, e.target.selectionStart ?? e.target.value.length);
     };
@@ -184,12 +181,6 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      // #region agent log
-      if (e.key === 'z' || e.key === 'Z' || e.key === 'y' || e.key === 'Y') {
-        const el = textareaRef.current;
-        fetch('http://127.0.0.1:7689/ingest/5fe2d865-37c9-41e9-b868-d88ad2f9dbc6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d0293d'},body:JSON.stringify({sessionId:'d0293d',runId:'pre-fix',hypothesisId:'B_D_E',location:'MentionTextarea.tsx:handleKeyDown',message:'composer keydown',data:{key:e.key,ctrl:e.ctrlKey,meta:e.metaKey,shift:e.shiftKey,defaultPrevented:e.defaultPrevented,mentionQueryOpen:mentionQuery!==null,filteredLen:filtered.length,activeTag:document.activeElement?.tagName||null,activeIsTextarea:document.activeElement===el,valueLen:value.length,selectionStart:el?.selectionStart??null},timestamp:Date.now()})}).catch(()=>{});
-      }
-      // #endregion
       if (mentionQuery !== null && filtered.length > 0) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
@@ -241,10 +232,6 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
       const parts: React.ReactNode[] = [];
       let last = 0;
       let i = 0;
-      // #region agent log
-      const mentionTokens: { token: string; words: number; isKnown: boolean }[] = [];
-      const nameWordCounts = mentionable.map((u) => ({ name: mentionDisplayName(u), words: mentionDisplayName(u).split(/\s+/).filter(Boolean).length }));
-      // #endregion
       for (const match of value.matchAll(combined)) {
         const start = match.index ?? 0;
         if (start > last) parts.push(value.slice(last, start));
@@ -287,9 +274,6 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
               mentionRe.lastIndex = 0;
             }
           }
-          // #region agent log
-          if (match[6]) mentionTokens.push({ token, words: token.slice(1).split(/\s+/).length, isKnown });
-          // #endregion
           parts.push(
             isKnown
               ? <span key={key} className="rounded bg-primary-100 text-primary-700 [font-family:var(--font-communication-sans)]!">{token}</span>
@@ -299,11 +283,6 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
         }
         last = start + match[0].length;
       }
-      // #region agent log
-      if (mentionTokens.length) {
-        fetch('http://127.0.0.1:7689/ingest/5fe2d865-37c9-41e9-b868-d88ad2f9dbc6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d0293d'},body:JSON.stringify({sessionId:'d0293d',runId:'mention-post',hypothesisId:'H1_H2_H3',location:'MentionTextarea.tsx:mirrorContent',message:'composer mention tokens vs known names',data:{mentionTokens,namesWith3PlusWords:nameWordCounts.filter((n)=>n.words>=3),patternSource:'multi-word-combined'},timestamp:Date.now()})}).catch(()=>{});
-      }
-      // #endregion
       parts.push(value.slice(last));
       return parts;
     }, [value, pattern, mentionable]);
@@ -335,14 +314,6 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          onBeforeInput={(e) => {
-            // #region agent log
-            const ne = e.nativeEvent as InputEvent;
-            if (ne.inputType === 'historyUndo' || ne.inputType === 'historyRedo') {
-              fetch('http://127.0.0.1:7689/ingest/5fe2d865-37c9-41e9-b868-d88ad2f9dbc6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d0293d'},body:JSON.stringify({sessionId:'d0293d',runId:'pre-fix',hypothesisId:'A_C',location:'MentionTextarea.tsx:onBeforeInput',message:'history beforeinput',data:{inputType:ne.inputType,defaultPrevented:e.defaultPrevented,valueLen:value.length},timestamp:Date.now()})}).catch(()=>{});
-            }
-            // #endregion
-          }}
           onPaste={onPaste}
           onScroll={syncScroll}
           onClick={(e) => updateQuery(value, e.currentTarget.selectionStart ?? value.length)}
