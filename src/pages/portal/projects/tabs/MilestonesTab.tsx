@@ -1,13 +1,16 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileText } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import Card from '@/components/ui/Card';
 import { TableSkeleton } from '@/components/skeletons';
 import { useAuth } from '@/hooks/useAuth';
+import { useMyPermissions } from '@/services/permissionsService';
+import { useUpdateMilestone } from '@/services/milestonesService';
+import { useToastContext } from '@/components/toast/ToastProvider';
 import { PortalMilestone } from '../types';
-import PortalMilestoneBoardView from '../PortalMilestoneBoardView';
+import PortalMilestoneBoardView, { type PortalMilestoneStatus } from '../PortalMilestoneBoardView';
 import PortalMilestoneTimelineView from '../PortalMilestoneTimelineView';
 import PortalMilestoneTableView from '../PortalMilestoneTableView';
 import PortalMilestoneTeamView from '../PortalMilestoneTeamView';
@@ -25,13 +28,40 @@ const PRICE_VIEW_ROLES = new Set(['SUPER_ADMIN', 'CLIENT_ADMIN']);
 
 const MilestonesTab: React.FC<{ projectId: string; view: MilestonesView }> = ({ projectId, view }) => {
   const { role } = useAuth();
+  const toast = useToastContext();
+  const qc = useQueryClient();
+  const { data: myPerms } = useMyPermissions();
   const canViewPricing = !!role && PRICE_VIEW_ROLES.has(role);
+  // Super admins, milestone managers, and access-control granters (extension.approve)
+  // can drag board cards — matches BE can_any on PUT /milestones/:id.
+  const canEditBoard =
+    !!myPerms?.is_super_admin ||
+    !!myPerms?.permissions?.includes('erp.milestones.manage') ||
+    !!myPerms?.permissions?.includes('erp.projects.extension.approve');
 
   const { data, isLoading } = useQuery<PortalMilestone[]>({
     queryKey: ['portal', 'milestones', projectId],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.MILESTONES(projectId)),
     select: (r: any) => r?.payload?.records || [],
   });
+
+  const updateMilestone = useUpdateMilestone(projectId);
+
+  const handleChangeStatus = (milestoneId: string, status: PortalMilestoneStatus) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7689/ingest/5fe2d865-37c9-41e9-b868-d88ad2f9dbc6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d0293d'},body:JSON.stringify({sessionId:'d0293d',runId:'board-dnd',hypothesisId:'H-mutate',location:'MilestonesTab.tsx:handleChangeStatus',message:'status mutation fired',data:{projectId,milestoneId,status,canEditBoard},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    updateMilestone.mutate(
+      { milestoneId, updates: { status } },
+      {
+        onSuccess: () => {
+          qc.invalidateQueries({ queryKey: ['portal', 'milestones', projectId] });
+          qc.invalidateQueries({ queryKey: ['portal', 'project', projectId] });
+        },
+        onError: (err: any) => toast.error(err?.message || 'Failed to update milestone status'),
+      }
+    );
+  };
 
   const handleViewFile = async (fileId: string) => {
     const res = await apiRequest<any>(API_ENDPOINTS.PORTAL.FILE_VIEW_URL(projectId, fileId));
@@ -50,7 +80,13 @@ const MilestonesTab: React.FC<{ projectId: string; view: MilestonesView }> = ({ 
       )}
 
       {view === 'dashboard' && <PortalMilestoneDashboardView milestones={milestones} />}
-      {view === 'board' && milestones.length > 0 && <PortalMilestoneBoardView milestones={milestones} />}
+      {view === 'board' && milestones.length > 0 && (
+        <PortalMilestoneBoardView
+          milestones={milestones}
+          canEdit={canEditBoard}
+          onChangeStatus={handleChangeStatus}
+        />
+      )}
       {view === 'timeline' && milestones.length > 0 && <PortalMilestoneTimelineView milestones={milestones} />}
       {view === 'table' && milestones.length > 0 && <PortalMilestoneTableView milestones={milestones} />}
       {view === 'workload' && milestones.length > 0 && <PortalMilestoneWorkloadView milestones={milestones} />}
