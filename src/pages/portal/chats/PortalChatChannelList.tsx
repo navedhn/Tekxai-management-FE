@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Hash, Search, UserRound } from 'lucide-react';
+import { ChevronDown, ChevronRight, Hash, Search, UserRound } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useAuth } from '@/hooks/useAuth';
@@ -36,6 +36,24 @@ type DmChannel = {
   messages?: { content?: string; created_at?: string }[];
 };
 
+type ChatListTab = 'channels' | 'dms';
+
+const COLLAPSE_KEY = 'portal-chat-sections';
+
+function readCollapse(): { channels: boolean; dms: boolean } {
+  try {
+    const raw = localStorage.getItem(COLLAPSE_KEY);
+    if (!raw) return { channels: true, dms: true };
+    const parsed = JSON.parse(raw);
+    return {
+      channels: parsed.channels !== false,
+      dms: parsed.dms !== false,
+    };
+  } catch {
+    return { channels: true, dms: true };
+  }
+}
+
 function formatChatTime(iso: string | null | undefined): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -54,6 +72,39 @@ function peerName(p?: DmPeer | null) {
   return `${p?.first_name || ''} ${p?.last_name || ''}`.trim() || 'Direct message';
 }
 
+function SectionHeader({
+  label,
+  open,
+  onToggle,
+  count,
+}: {
+  label: string;
+  open: boolean;
+  onToggle: () => void;
+  count?: number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="w-full flex items-center gap-1 px-2.5 py-1.5 text-left hover:bg-(--color-state-hover) rounded-md group"
+      aria-expanded={open}
+    >
+      {open ? (
+        <ChevronDown size={14} className="text-(--color-text-secondary) shrink-0" />
+      ) : (
+        <ChevronRight size={14} className="text-(--color-text-secondary) shrink-0" />
+      )}
+      <span className="text-[11px] font-black uppercase tracking-wider text-(--color-text-secondary) group-hover:text-(--color-text-primary)">
+        {label}
+      </span>
+      {typeof count === 'number' && count > 0 && (
+        <span className="ml-auto text-[10px] font-bold tabular-nums text-(--color-text-secondary)">{count}</span>
+      )}
+    </button>
+  );
+}
+
 /** ClickUp-style channel list for portal project chats (desktop split + /portal/chats). */
 export const PortalChatChannelList: React.FC<{
   activeProjectId?: string;
@@ -66,7 +117,21 @@ export const PortalChatChannelList: React.FC<{
   const { user, role } = useAuth();
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
+  const [tab, setTab] = useState<ChatListTab>(activeDmId ? 'dms' : 'channels');
+  const [sectionsOpen, setSectionsOpen] = useState(readCollapse);
+  const [showNewDmPicker, setShowNewDmPicker] = useState(false);
   const canUsePortalDms = user?.user_type === 'CLIENT' || role === 'SUPER_ADMIN';
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLLAPSE_KEY, JSON.stringify(sectionsOpen));
+    } catch { /* ignore */ }
+  }, [sectionsOpen]);
+
+  useEffect(() => {
+    if (activeDmId) setTab('dms');
+    else if (activeProjectId) setTab('channels');
+  }, [activeDmId, activeProjectId]);
 
   const { data: projects = [] } = useQuery<PortalProject[]>({
     queryKey: ['portal', 'projects'],
@@ -93,7 +158,7 @@ export const PortalChatChannelList: React.FC<{
     queryKey: ['portal', 'dms', 'peers'],
     queryFn: () => apiRequest<any>(API_ENDPOINTS.PORTAL.DM_PEERS),
     select: (r: any) => r?.payload || [],
-    enabled: canUsePortalDms,
+    enabled: canUsePortalDms && (showNewDmPicker || !!search.trim()),
   });
 
   const openDm = useMutation({
@@ -105,6 +170,7 @@ export const PortalChatChannelList: React.FC<{
     onSuccess: (res) => {
       const id = res?.payload?.id;
       qc.invalidateQueries({ queryKey: ['portal', 'dms'] });
+      setShowNewDmPicker(false);
       if (id) navigate(`/portal/dms/${id}`);
     },
   });
@@ -166,6 +232,143 @@ export const PortalChatChannelList: React.FC<{
       .filter((p) => !q || peerName(p).toLowerCase().includes(q));
   }, [peers, dms, search, user?.id]);
 
+  const toggleSection = (key: 'channels' | 'dms') => {
+    setSectionsOpen((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const showChannels = !canUsePortalDms || tab === 'channels';
+  const showDms = canUsePortalDms && tab === 'dms';
+
+  const channelsBody = (
+    <ul className="flex flex-col pb-2">
+      {conversations.map((c) => {
+        const active = c.project.id === activeProjectId;
+        const hasUnread = c.unreadCount > 0;
+        return (
+          <li key={c.project.id}>
+            <button
+              type="button"
+              onClick={() => navigate(`/portal/projects/${c.project.id}/communication`)}
+              className={cn(
+                'w-full flex items-start gap-2 px-3 py-2 text-left transition-colors',
+                active ? 'bg-primary-50 text-primary-800' : 'hover:bg-(--color-state-hover)',
+                hasUnread && !active && 'bg-primary-50/30'
+              )}
+            >
+              <Hash
+                size={15}
+                className={cn('mt-0.5 shrink-0', active || hasUnread ? 'text-primary-600' : 'text-(--color-text-secondary)')}
+              />
+              <span className="flex-1 min-w-0">
+                <span className="flex items-baseline justify-between gap-2">
+                  <span
+                    className={cn(
+                      'text-[13px] truncate',
+                      hasUnread || active ? 'font-bold text-(--color-text-primary)' : 'font-semibold text-(--color-text-primary)'
+                    )}
+                  >
+                    {c.displayName}
+                  </span>
+                  <span className="text-[10px] font-semibold text-(--color-text-secondary) shrink-0 tabular-nums">
+                    {formatChatTime(c.lastAt)}
+                  </span>
+                </span>
+                <span className="flex items-center justify-between gap-2 mt-0.5">
+                  <span
+                    className={cn(
+                      'text-[12px] truncate',
+                      hasUnread ? 'font-semibold text-(--color-text-primary)' : 'text-(--color-text-secondary)'
+                    )}
+                  >
+                    {c.preview
+                      ? (c.author ? `${c.author}: ${c.preview}` : c.preview)
+                      : 'No messages yet'}
+                  </span>
+                  {hasUnread && (
+                    <span className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-primary-600 text-white text-[10px] font-black flex items-center justify-center">
+                      {c.unreadCount > 99 ? '99+' : c.unreadCount}
+                    </span>
+                  )}
+                </span>
+              </span>
+            </button>
+          </li>
+        );
+      })}
+      {conversations.length === 0 && (
+        <li className="px-3 py-6 text-center text-[12px] text-(--color-text-secondary)">
+          {search.trim() ? 'No chats match' : 'No project chats yet'}
+        </li>
+      )}
+    </ul>
+  );
+
+  const dmsBody = (
+    <ul className="flex flex-col pb-2">
+      {dmRows.map((d) => {
+        const active = d.id === activeDmId;
+        return (
+          <li key={d.id}>
+            <button
+              type="button"
+              onClick={() => navigate(`/portal/dms/${d.id}`)}
+              className={cn(
+                'w-full flex items-start gap-2 px-3 py-2 text-left transition-colors',
+                active ? 'bg-primary-50 text-primary-800' : 'hover:bg-(--color-state-hover)'
+              )}
+            >
+              <UserRound size={15} className={cn('mt-0.5 shrink-0', active ? 'text-primary-600' : 'text-(--color-text-secondary)')} />
+              <span className="flex-1 min-w-0">
+                <span className="flex items-baseline justify-between gap-2">
+                  <span className={cn('text-[13px] truncate', active ? 'font-bold' : 'font-semibold')}>{d.name}</span>
+                  <span className="text-[10px] font-semibold text-(--color-text-secondary) shrink-0 tabular-nums">
+                    {formatChatTime(d.lastAt)}
+                  </span>
+                </span>
+                <span className="block text-[12px] text-(--color-text-secondary) truncate mt-0.5">{d.preview}</span>
+              </span>
+            </button>
+          </li>
+        );
+      })}
+
+      {(showNewDmPicker || !!search.trim()) && peerOptions.map((p) => (
+        <li key={`peer-${p.id}`}>
+          <button
+            type="button"
+            disabled={openDm.isPending}
+            onClick={() => openDm.mutate(p.id)}
+            className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-(--color-state-hover) disabled:opacity-50"
+          >
+            <UserRound size={15} className="mt-0.5 shrink-0 text-(--color-text-secondary)" />
+            <span className="flex-1 min-w-0">
+              <span className="text-[13px] font-semibold text-(--color-text-primary) truncate block">{peerName(p)}</span>
+              <span className="text-[12px] text-primary-600 font-semibold">Start direct message</span>
+            </span>
+          </button>
+        </li>
+      ))}
+
+      <li>
+        <button
+          type="button"
+          onClick={() => setShowNewDmPicker((v) => !v)}
+          className="w-full px-3 py-2 text-left text-[12px] font-semibold text-primary-600 hover:bg-(--color-state-hover)"
+        >
+          {showNewDmPicker ? 'Hide new message' : '+ New message'}
+        </button>
+      </li>
+
+      {dmRows.length === 0 && !showNewDmPicker && !search.trim() && (
+        <li className="px-3 py-3 text-[12px] text-(--color-text-secondary)">
+          {user?.user_type === 'CLIENT'
+            ? 'Message a TekXAI Super Admin directly here.'
+            : 'Start a direct message with a client.'}
+        </li>
+      )}
+    </ul>
+  );
+
   return (
     <div className={cn('flex flex-col min-h-0 h-full bg-(--color-surface)', className)}>
       <div className={cn('shrink-0 border-b border-(--color-border)', compact ? 'px-3 py-2.5' : 'px-3 py-3')}>
@@ -183,132 +386,62 @@ export const PortalChatChannelList: React.FC<{
             aria-label="Search chats"
           />
         </div>
+
+        {canUsePortalDms && (
+          <div className="mt-2.5 flex items-center gap-1 p-0.5 rounded-lg bg-(--color-elevated)/70 border border-(--color-border)">
+            <button
+              type="button"
+              onClick={() => setTab('channels')}
+              className={cn(
+                'flex-1 h-8 rounded-md text-[12px] font-bold transition-colors',
+                tab === 'channels'
+                  ? 'bg-(--color-surface) text-(--color-text-primary) shadow-sm'
+                  : 'text-(--color-text-secondary) hover:text-(--color-text-primary)'
+              )}
+            >
+              Channels
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('dms')}
+              className={cn(
+                'flex-1 h-8 rounded-md text-[12px] font-bold transition-colors',
+                tab === 'dms'
+                  ? 'bg-(--color-surface) text-(--color-text-primary) shadow-sm'
+                  : 'text-(--color-text-secondary) hover:text-(--color-text-primary)'
+              )}
+            >
+              Direct messages
+            </button>
+          </div>
+        )}
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        {canUsePortalDms && (
-          <>
-            <p className="px-3 pt-3 pb-1.5 text-[10px] font-black uppercase tracking-wider text-(--color-text-secondary)">
-              Direct messages
-            </p>
-            <ul className="flex flex-col pb-2">
-              {dmRows.map((d) => {
-                const active = d.id === activeDmId;
-                return (
-                  <li key={d.id}>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/portal/dms/${d.id}`)}
-                      className={cn(
-                        'w-full flex items-start gap-2 px-3 py-2 text-left transition-colors',
-                        active ? 'bg-primary-50 text-primary-800' : 'hover:bg-(--color-state-hover)'
-                      )}
-                    >
-                      <UserRound size={15} className={cn('mt-0.5 shrink-0', active ? 'text-primary-600' : 'text-(--color-text-secondary)')} />
-                      <span className="flex-1 min-w-0">
-                        <span className="flex items-baseline justify-between gap-2">
-                          <span className={cn('text-[13px] truncate', active ? 'font-bold' : 'font-semibold')}>{d.name}</span>
-                          <span className="text-[10px] font-semibold text-(--color-text-secondary) shrink-0 tabular-nums">
-                            {formatChatTime(d.lastAt)}
-                          </span>
-                        </span>
-                        <span className="block text-[12px] text-(--color-text-secondary) truncate mt-0.5">{d.preview}</span>
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-              {peerOptions.map((p) => (
-                <li key={`peer-${p.id}`}>
-                  <button
-                    type="button"
-                    disabled={openDm.isPending}
-                    onClick={() => openDm.mutate(p.id)}
-                    className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-(--color-state-hover) disabled:opacity-50"
-                  >
-                    <UserRound size={15} className="mt-0.5 shrink-0 text-(--color-text-secondary)" />
-                    <span className="flex-1 min-w-0">
-                      <span className="text-[13px] font-semibold text-(--color-text-primary) truncate block">{peerName(p)}</span>
-                      <span className="text-[12px] text-primary-600 font-semibold">Start direct message</span>
-                    </span>
-                  </button>
-                </li>
-              ))}
-              {dmRows.length === 0 && peerOptions.length === 0 && (
-                <li className="px-3 py-3 text-[12px] text-(--color-text-secondary)">
-                  {user?.user_type === 'CLIENT'
-                    ? 'Message a TekXAI Super Admin directly here.'
-                    : 'Message a client portal user directly here.'}
-                </li>
-              )}
-            </ul>
-          </>
+      <div className="flex-1 min-h-0 overflow-y-auto pt-1.5 pb-3">
+        {/* Channels first (ClickUp order): project chats above DMs */}
+        {showChannels && (
+          <div className="px-1">
+            <SectionHeader
+              label="Channels"
+              open={sectionsOpen.channels}
+              onToggle={() => toggleSection('channels')}
+              count={conversations.length}
+            />
+            {sectionsOpen.channels && channelsBody}
+          </div>
         )}
 
-        <p className="px-3 pt-3 pb-1.5 text-[10px] font-black uppercase tracking-wider text-(--color-text-secondary)">
-          Channels
-        </p>
-        <ul className="flex flex-col pb-3">
-          {conversations.map((c) => {
-            const active = c.project.id === activeProjectId;
-            const hasUnread = c.unreadCount > 0;
-            return (
-              <li key={c.project.id}>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/portal/projects/${c.project.id}/communication`)}
-                  className={cn(
-                    'w-full flex items-start gap-2 px-3 py-2 text-left transition-colors',
-                    active ? 'bg-primary-50 text-primary-800' : 'hover:bg-(--color-state-hover)',
-                    hasUnread && !active && 'bg-primary-50/30'
-                  )}
-                >
-                  <Hash
-                    size={15}
-                    className={cn('mt-0.5 shrink-0', active || hasUnread ? 'text-primary-600' : 'text-(--color-text-secondary)')}
-                  />
-                  <span className="flex-1 min-w-0">
-                    <span className="flex items-baseline justify-between gap-2">
-                      <span
-                        className={cn(
-                          'text-[13px] truncate',
-                          hasUnread || active ? 'font-bold text-(--color-text-primary)' : 'font-semibold text-(--color-text-primary)'
-                        )}
-                      >
-                        {c.displayName}
-                      </span>
-                      <span className="text-[10px] font-semibold text-(--color-text-secondary) shrink-0 tabular-nums">
-                        {formatChatTime(c.lastAt)}
-                      </span>
-                    </span>
-                    <span className="flex items-center justify-between gap-2 mt-0.5">
-                      <span
-                        className={cn(
-                          'text-[12px] truncate',
-                          hasUnread ? 'font-semibold text-(--color-text-primary)' : 'text-(--color-text-secondary)'
-                        )}
-                      >
-                        {c.preview
-                          ? (c.author ? `${c.author}: ${c.preview}` : c.preview)
-                          : 'No messages yet'}
-                      </span>
-                      {hasUnread && (
-                        <span className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-primary-600 text-white text-[10px] font-black flex items-center justify-center">
-                          {c.unreadCount > 99 ? '99+' : c.unreadCount}
-                        </span>
-                      )}
-                    </span>
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-          {conversations.length === 0 && (
-            <li className="px-3 py-6 text-center text-[12px] text-(--color-text-secondary)">
-              {search.trim() ? 'No chats match' : 'No project chats yet'}
-            </li>
-          )}
-        </ul>
+        {showDms && (
+          <div className="px-1 mt-1">
+            <SectionHeader
+              label="Direct messages"
+              open={sectionsOpen.dms}
+              onToggle={() => toggleSection('dms')}
+              count={dmRows.length}
+            />
+            {sectionsOpen.dms && dmsBody}
+          </div>
+        )}
       </div>
     </div>
   );
