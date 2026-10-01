@@ -1,4 +1,5 @@
-import React, { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import React, { forwardRef, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
@@ -95,6 +96,9 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
     const mentionable = useMentionableUsers(projectId);
     const [mentionQuery, setMentionQuery] = useState<string | null>(null);
     const [activeIndex, setActiveIndex] = useState(0);
+    // Composer card uses overflow-hidden for rounded corners — absolute
+    // bottom-full gets clipped. Portal + fixed coords escape that.
+    const [pickerPos, setPickerPos] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null);
 
     const pattern = useMemo(() => mentionPattern(mentionable), [mentionable]);
 
@@ -105,6 +109,38 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
       const showEveryone = 'everyone'.startsWith(q);
       return showEveryone ? [EVERYONE_OPTION, ...people] : people;
     }, [mentionQuery, mentionable]);
+
+    const pickerOpen = mentionQuery !== null && filtered.length > 0;
+
+    useLayoutEffect(() => {
+      if (!pickerOpen) {
+        setPickerPos(null);
+        return;
+      }
+      const update = () => {
+        const el = textareaRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const gap = 6;
+        const preferredHeight = 240;
+        const spaceAbove = Math.max(80, rect.top - gap - 8);
+        const maxHeight = Math.min(preferredHeight, spaceAbove);
+        setPickerPos({
+          top: rect.top - gap,
+          left: rect.left,
+          width: Math.max(256, Math.min(rect.width, 320)),
+          maxHeight,
+        });
+      };
+      update();
+      window.addEventListener('resize', update);
+      // Capture scroll from the messages pane / any ancestor.
+      window.addEventListener('scroll', update, true);
+      return () => {
+        window.removeEventListener('resize', update);
+        window.removeEventListener('scroll', update, true);
+      };
+    }, [pickerOpen, filtered.length, value]);
 
     const updateQuery = (text: string, cursor: number) => {
       const match = /(?:^|\s)@([a-zA-Z]*)$/.exec(text.slice(0, cursor));
@@ -313,12 +349,24 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
           autoFocus={autoFocus}
           style={style}
         />
-        {mentionQuery !== null && filtered.length > 0 && (
-          <div className="absolute bottom-full left-0 mb-1 z-20 w-64 max-h-48 overflow-y-auto rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg">
+        {pickerOpen && pickerPos && typeof document !== 'undefined' && createPortal(
+          <div
+            role="listbox"
+            className="fixed z-[80] overflow-y-auto rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg"
+            style={{
+              top: pickerPos.top,
+              left: pickerPos.left,
+              width: pickerPos.width,
+              maxHeight: pickerPos.maxHeight,
+              transform: 'translateY(-100%)',
+            }}
+          >
             {filtered.map((u, i) => (
               <button
                 key={u.id}
                 type="button"
+                role="option"
+                aria-selected={i === activeIndex}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => insertMention(u)}
                 onMouseEnter={() => setActiveIndex(i)}
@@ -340,7 +388,8 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
                 </span>
               </button>
             ))}
-          </div>
+          </div>,
+          document.body,
         )}
       </div>
     );
