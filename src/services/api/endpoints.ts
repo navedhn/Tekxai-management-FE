@@ -297,6 +297,11 @@ export const API_ENDPOINTS = {
     CUSTODY_EVENT_ATTACHMENTS: (id: string | number, eventId: string) => `${v1}/asset/${id}/custody-events/${eventId}/attachments`,
     CUSTODY_EVENT_ATTACHMENT_DELETE: (id: string | number, eventId: string, attachmentId: string) => `${v1}/asset/${id}/custody-events/${eventId}/attachments/${attachmentId}`,
     REPLACEMENTS: `${v1}/asset/replacements`,
+    EXPORT: `${v1}/asset/export`,
+    IMPORT_TEMPLATE: `${v1}/asset/import/template`,
+    IMPORT_PREVIEW: `${v1}/asset/import/preview`,
+    IMPORT_COMMIT: `${v1}/asset/import/commit`,
+    IMPORT_ERROR_REPORT: `${v1}/asset/import/error-report`,
   },
   PERFORMANCE: {
     DAILY_REPORTS: `${v1}/performance/daily-report`,

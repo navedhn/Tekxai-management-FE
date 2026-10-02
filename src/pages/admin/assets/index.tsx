@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Monitor, CheckCircle, Package, Wrench, Filter, X, Plus, Search, RotateCcw, ClipboardList, Trash2, BarChart3, TrendingDown, AlertTriangle, Clock, Boxes, UserCheck2, Layers3, Repeat, Inbox, History } from 'lucide-react';
+import { Monitor, CheckCircle, Package, Wrench, Filter, X, Plus, Search, RotateCcw, ClipboardList, Trash2, BarChart3, TrendingDown, AlertTriangle, Clock, Boxes, UserCheck2, Layers3, Repeat, Inbox, History, Download, Upload, FileSpreadsheet } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/services/api/endpoints';
 import { useGetDepartmentsQuery } from '@/services/departmentService';
@@ -8,6 +8,16 @@ import { cn } from '@/utils/cn';
 import { useToastContext } from '@/components/toast/ToastProvider';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button, { IconButton, PageActionButton } from '@/components/ui/Button';
+import { useMyPermissions } from '@/services/permissionsService';
+import {
+  downloadAssetExport,
+  downloadAssetImportTemplate,
+  previewAssetImport,
+  commitAssetImport,
+  downloadAssetImportErrorReport,
+  type AssetImportPreview,
+  type AssetImportCommitResult,
+} from '@/services/assetImportExportService';
 
 const v1 = 'api/v1';
 const BUILDER = `${v1}/report/builder`;
@@ -1227,6 +1237,252 @@ function AssetKpiRow({ warrantyCount, categoriesCount }: { warrantyCount: number
   );
 }
 
+function ExportAssetsModal({
+  categories,
+  onClose,
+}: {
+  categories: any[];
+  onClose: () => void;
+}) {
+  const { success: showSuccessToast } = useToastContext();
+  const [categoryId, setCategoryId] = useState('');
+  const [format, setFormat] = useState<'xlsx' | 'csv'>('xlsx');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  const handleExport = async () => {
+    setBusy(true);
+    setErr('');
+    try {
+      await downloadAssetExport({ format, category_id: categoryId || undefined });
+      showSuccessToast('Export downloaded');
+      onClose();
+    } catch (e: any) {
+      setErr(e?.message || 'Export failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-gray-900">Export Assets</h2>
+          <IconButton icon={X} variant="ghost" size="sm" aria-label="Close" onClick={onClose} className="!h-auto !w-auto p-1.5 text-gray-400" />
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className={labelCls}>Asset Type</label>
+            <select className={inputCls} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+              <option value="">All Asset Types</option>
+              {(categories || []).map((c: any) => (
+                <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Format</label>
+            <select className={inputCls} value={format} onChange={(e) => setFormat(e.target.value as 'xlsx' | 'csv')}>
+              <option value="xlsx">Excel (.xlsx)</option>
+              <option value="csv">CSV (.csv)</option>
+            </select>
+          </div>
+          {err && <p className="text-sm text-red-600">{err}</p>}
+        </div>
+        <div className="flex gap-3 mt-6">
+          <Button variant="outline" size="sm" animation="none" fullWidth onClick={onClose} className="!h-10 flex-1">Cancel</Button>
+          <Button variant="primary" size="sm" fullWidth onClick={handleExport} loading={busy} className="!h-10 flex-1" leftIcon={Download}>
+            Export
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ImportAssetsModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const { success: showSuccessToast } = useToastContext();
+  const [step, setStep] = useState<'select' | 'preview' | 'result'>('select');
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<AssetImportPreview | null>(null);
+  const [result, setResult] = useState<AssetImportCommitResult | null>(null);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const flatErrors = preview?.rows?.flatMap((r) => r.errors || []) || result?.error_rows || [];
+
+  const handleValidate = async () => {
+    if (!file) { setErr('Select a file first'); return; }
+    setBusy(true);
+    setErr('');
+    try {
+      const p = await previewAssetImport(file);
+      setPreview(p);
+      setStep('preview');
+    } catch (e: any) {
+      setErr(e?.message || 'Validation failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleCommit = async () => {
+    if (!file || busy) return;
+    setBusy(true);
+    setErr('');
+    try {
+      const r = await commitAssetImport(file);
+      setResult(r);
+      if (r.preview && !r.success && r.failed > 0 && !r.created && !r.updated) {
+        setPreview(r.preview as any);
+        setStep('preview');
+        setErr(r.message || 'Import has validation errors');
+      } else {
+        setStep('result');
+        qc.invalidateQueries({ queryKey: ['assets-list'] });
+        if (r.success) showSuccessToast('Import completed');
+      }
+    } catch (e: any) {
+      setErr(e?.message || 'Import failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-gray-900">
+            {step === 'select' && 'Import Assets'}
+            {step === 'preview' && 'Import Preview'}
+            {step === 'result' && 'Import Result'}
+          </h2>
+          <IconButton icon={X} variant="ghost" size="sm" aria-label="Close" onClick={onClose} className="!h-auto !w-auto p-1.5 text-gray-400" />
+        </div>
+
+        {step === 'select' && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-500">
+              Upload an Excel or CSV file using the Asset Import Template columns. Nothing is written until you confirm.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" animation="none" leftIcon={FileSpreadsheet}
+                onClick={() => downloadAssetImportTemplate('xlsx').catch((e) => setErr(e.message))}>
+                Download Template (Excel)
+              </Button>
+              <Button variant="outline" size="sm" animation="none" leftIcon={FileSpreadsheet}
+                onClick={() => downloadAssetImportTemplate('csv').catch((e) => setErr(e.message))}>
+                Download Template (CSV)
+              </Button>
+            </div>
+            <div>
+              <label className={labelCls}>Select File</label>
+              <input type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                className="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary-50 file:text-primary-700"
+                onChange={(e) => { setFile(e.target.files?.[0] || null); setErr(''); }} />
+              {file && <p className="text-xs text-gray-400 mt-1">{file.name}</p>}
+            </div>
+            {err && <p className="text-sm text-red-600">{err}</p>}
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" size="sm" animation="none" fullWidth onClick={onClose} className="!h-10 flex-1">Cancel</Button>
+              <Button variant="primary" size="sm" fullWidth onClick={handleValidate} disabled={!file} loading={busy} className="!h-10 flex-1">
+                Validate
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === 'preview' && preview && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {[
+                { label: 'Total Rows', value: preview.total_rows },
+                { label: 'New Assets', value: preview.new_assets },
+                { label: 'Existing', value: preview.existing_assets },
+                { label: 'Unchanged', value: preview.unchanged },
+                { label: 'Errors', value: preview.errors },
+              ].map((s) => (
+                <div key={s.label} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{s.label}</p>
+                  <p className={cn('text-xl font-black', s.label === 'Errors' && s.value > 0 ? 'text-red-600' : 'text-gray-900')}>{s.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {flatErrors.length > 0 && (
+              <div className="border border-red-100 rounded-xl overflow-hidden">
+                <div className="bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">Row-level errors</div>
+                <div className="max-h-48 overflow-y-auto divide-y divide-red-50">
+                  {flatErrors.slice(0, 100).map((e, i) => (
+                    <div key={`${e.row}-${i}`} className="px-3 py-2 text-xs text-gray-700">
+                      <span className="font-semibold">Row {e.row}</span>
+                      {e.field ? <> · Field: {e.field}</> : null}
+                      {e.value ? <> · Value: &quot;{e.value}&quot;</> : null}
+                      <div className="text-red-600 mt-0.5">{e.error}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {err && <p className="text-sm text-red-600">{err}</p>}
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <Button variant="outline" size="sm" animation="none" onClick={() => { setStep('select'); setPreview(null); }} className="!h-10">
+                Back
+              </Button>
+              {flatErrors.length > 0 && (
+                <Button variant="outline" size="sm" animation="none" leftIcon={Download}
+                  onClick={() => downloadAssetImportErrorReport(flatErrors).catch((e) => setErr(e.message))}
+                  className="!h-10">
+                  Download Error Report
+                </Button>
+              )}
+              <div className="flex-1" />
+              <Button variant="primary" size="sm" onClick={handleCommit}
+                disabled={busy || preview.errors > 0 || (preview.new_assets + preview.existing_assets === 0)}
+                loading={busy} className="!h-10">
+                Confirm Import
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === 'result' && result && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                { label: 'Successful', value: result.successful },
+                { label: 'Created', value: result.created },
+                { label: 'Updated', value: result.updated },
+                { label: 'Unchanged', value: result.unchanged },
+                { label: 'Failed', value: result.failed },
+                { label: 'Skipped', value: result.skipped },
+              ].map((s) => (
+                <div key={s.label} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{s.label}</p>
+                  <p className="text-xl font-black text-gray-900">{s.value}</p>
+                </div>
+              ))}
+            </div>
+            {(result.error_rows?.length || 0) > 0 && (
+              <Button variant="outline" size="sm" animation="none" leftIcon={Download}
+                onClick={() => downloadAssetImportErrorReport(result.error_rows || []).catch((e) => setErr(e.message))}>
+                Download Error Report
+              </Button>
+            )}
+            {err && <p className="text-sm text-red-600">{err}</p>}
+            <Button variant="primary" size="sm" fullWidth onClick={onClose} className="!h-10">Done</Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AssetsPage() {
   const [tab, setTab] = useState<'assets' | 'requests' | 'disposals' | 'history' | 'reports'>('assets');
   const [historyEventTypeFilter, setHistoryEventTypeFilter] = useState('');
@@ -1242,11 +1498,20 @@ export default function AssetsPage() {
   const [replaceTarget, setReplaceTarget] = useState<any>(null);
   const [historyTarget, setHistoryTarget] = useState<any>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [showExport, setShowExport] = useState(false);
+  const [showImport, setShowImport] = useState(false);
 
   const [requestStatusFilter, setRequestStatusFilter] = useState('');
   const [showCreateRequest, setShowCreateRequest] = useState(false);
   const [approveTarget, setApproveTarget] = useState<any>(null);
   const [rejectTarget, setRejectTarget] = useState<any>(null);
+
+  const { data: myPerms } = useMyPermissions();
+  const isSuperAdmin = !!myPerms?.is_super_admin;
+  const canImport = isSuperAdmin
+    || !!myPerms?.permissions?.includes('erp.assets.create')
+    || !!myPerms?.permissions?.includes('erp.assets.edit');
+  const canExport = isSuperAdmin || !!myPerms?.permissions?.includes('erp.assets.view');
 
   const { data: assetsData, isLoading } = useQuery({
     queryKey: ['assets-list', categoryFilter, statusFilter, locationFilter, search],
@@ -1347,9 +1612,21 @@ export default function AssetsPage() {
           <p className="text-sm text-gray-400 mt-0.5">Track and manage company assets</p>
         </div>
         {tab === 'assets' && (
-          <PageActionButton leftIcon={Plus} onClick={() => setShowCreate(true)}>
-            Add Asset
-          </PageActionButton>
+          <div className="flex flex-wrap items-center gap-2">
+            {canExport && (
+              <Button variant="outline" size="sm" animation="none" leftIcon={Download} onClick={() => setShowExport(true)} className="!h-10">
+                Export
+              </Button>
+            )}
+            {canImport && (
+              <Button variant="outline" size="sm" animation="none" leftIcon={Upload} onClick={() => setShowImport(true)} className="!h-10">
+                Import
+              </Button>
+            )}
+            <PageActionButton leftIcon={Plus} onClick={() => setShowCreate(true)}>
+              Add Asset
+            </PageActionButton>
+          </div>
         )}
         {tab === 'requests' && (
           <PageActionButton leftIcon={Plus} onClick={() => setShowCreateRequest(true)}>
@@ -1904,6 +2181,8 @@ export default function AssetsPage() {
       )}
 
       {showCreate && <CreateAssetModal onClose={() => setShowCreate(false)} />}
+      {showExport && <ExportAssetsModal categories={(categories as any[]) || []} onClose={() => setShowExport(false)} />}
+      {showImport && <ImportAssetsModal onClose={() => setShowImport(false)} />}
       {assignTarget && <AssignModal asset={assignTarget} onClose={() => setAssignTarget(null)} />}
       {returnTarget && <ReturnModal asset={returnTarget} onClose={() => setReturnTarget(null)} />}
       {disposeTarget && <DisposeModal asset={disposeTarget} onClose={() => setDisposeTarget(null)} />}
