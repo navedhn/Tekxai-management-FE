@@ -18,7 +18,11 @@ function deriveTracker(data: any): { trackerState: TrackerState; seconds: number
 
   if (data.clocked_in && !data.clocked_out) {
     const checkIn = new Date(data.entry?.check_in).getTime();
-    const elapsed = Math.max(0, Math.floor((Date.now() - checkIn) / 1000));
+    // Prefer server_now so a skewed OS clock (e.g. +12h) cannot inflate
+    // the live timer; fall back to Date.now() for older backends.
+    const serverNowMs = data.server_now ? new Date(data.server_now).getTime() : NaN;
+    const nowMs = Number.isFinite(serverNowMs) ? serverNowMs : Date.now();
+    const elapsed = Math.max(0, Math.floor((nowMs - checkIn) / 1000));
     const priorSeconds = data.entry?.prior_seconds || 0;
     return { trackerState: 'tracking', seconds: priorSeconds + elapsed };
   }

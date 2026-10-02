@@ -65,6 +65,28 @@ describe('useTimeTracker (read-only — no check-in/check-out capability)', () =
     expect(result.current.seconds).toBeGreaterThanOrEqual(100);
   });
 
+  it('uses server_now for elapsed so a +12h OS clock cannot inflate the timer', async () => {
+    const aheadMs = 12 * 60 * 60 * 1000;
+    const realElapsedSec = 600;
+    const localNow = Date.now();
+    const serverNow = localNow - aheadMs;
+    fakeToday = {
+      clocked_in: true,
+      clocked_out: false,
+      server_now: new Date(serverNow).toISOString(),
+      entry: {
+        check_in: new Date(serverNow - realElapsedSec * 1000).toISOString(),
+        prior_seconds: 32298,
+      },
+    };
+    const { result } = renderHook(() => useTimeTracker(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.trackerState).toBe('tracking');
+    expect(result.current.seconds).toBeGreaterThanOrEqual(32298 + realElapsedSec - 2);
+    expect(result.current.seconds).toBeLessThan(32298 + realElapsedSec + 5);
+    expect(result.current.seconds).toBeLessThan(32298 + 3600);
+  });
+
   it('shows completed total once the desktop agent has checked the user out', async () => {
     fakeToday = { clocked_in: true, clocked_out: true, entry: { duration_seconds: 28800 } };
     const { result } = renderHook(() => useTimeTracker(), { wrapper: createWrapper() });
