@@ -15,8 +15,10 @@ import {
   previewAssetImport,
   commitAssetImport,
   downloadAssetImportErrorReport,
+  downloadRelatedAssetExport,
   type AssetImportPreview,
   type AssetImportCommitResult,
+  type RelatedAssetExportKind,
 } from '@/services/assetImportExportService';
 
 const v1 = 'api/v1';
@@ -1237,6 +1239,61 @@ function AssetKpiRow({ warrantyCount, categoriesCount }: { warrantyCount: number
   );
 }
 
+function RelatedExportButton({
+  kind,
+  label,
+  eventType,
+}: {
+  kind: RelatedAssetExportKind;
+  label: string;
+  eventType?: string;
+}) {
+  const { success: showSuccessToast } = useToastContext();
+  const [format, setFormat] = useState<'xlsx' | 'csv'>('xlsx');
+  const [busy, setBusy] = useState(false);
+
+  const run = async () => {
+    setBusy(true);
+    try {
+      await downloadRelatedAssetExport({
+        kind,
+        format,
+        event_type: eventType || undefined,
+      });
+      showSuccessToast(`${label} downloaded`);
+    } catch (e: any) {
+      alert(e?.message || 'Export failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <select
+        className="h-9 px-2 border border-gray-200 rounded-xl text-xs text-gray-600 focus:outline-none focus:border-primary-400"
+        value={format}
+        onChange={(e) => setFormat(e.target.value as 'xlsx' | 'csv')}
+        aria-label={`${label} format`}
+      >
+        <option value="xlsx">Excel</option>
+        <option value="csv">CSV</option>
+      </select>
+      <Button
+        variant="outline"
+        size="sm"
+        animation="none"
+        leftIcon={Download}
+        loading={busy}
+        onClick={run}
+        className="!h-9"
+      >
+        {label}
+      </Button>
+    </div>
+  );
+}
+
 function ExportAssetsModal({
   categories,
   onClose,
@@ -1618,6 +1675,7 @@ export default function AssetsPage() {
                 Export
               </Button>
             )}
+            {canExport && <RelatedExportButton kind="maintenance" label="Export Maintenance" />}
             {canImport && (
               <Button variant="outline" size="sm" animation="none" leftIcon={Upload} onClick={() => setShowImport(true)} className="!h-10">
                 Import
@@ -1891,6 +1949,10 @@ export default function AssetsPage() {
 
       {tab === 'disposals' && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-gray-900">Disposal History</h3>
+            {canExport && <RelatedExportButton kind="disposals" label="Export Disposals" />}
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -1929,15 +1991,24 @@ export default function AssetsPage() {
       {tab === 'history' && (
         <div className="flex flex-col gap-4">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
               <h3 className="text-sm font-bold text-gray-900">Custody Events — Handovers, Returns &amp; Receipts</h3>
-              <select value={historyEventTypeFilter} onChange={e => setHistoryEventTypeFilter(e.target.value)}
-                className="h-9 px-3 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:border-primary-400">
-                <option value="">All Event Types</option>
-                <option value="HANDOVER">Handover</option>
-                <option value="RETURN">Return</option>
-                <option value="RECEIVED_BY_IT">Received by IT</option>
-              </select>
+              <div className="flex items-center gap-2 flex-wrap">
+                <select value={historyEventTypeFilter} onChange={e => setHistoryEventTypeFilter(e.target.value)}
+                  className="h-9 px-3 border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:border-primary-400">
+                  <option value="">All Event Types</option>
+                  <option value="HANDOVER">Handover</option>
+                  <option value="RETURN">Return</option>
+                  <option value="RECEIVED_BY_IT">Received by IT</option>
+                </select>
+                {canExport && (
+                  <RelatedExportButton
+                    kind="custody"
+                    label="Export Custody"
+                    eventType={historyEventTypeFilter || undefined}
+                  />
+                )}
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -1983,7 +2054,10 @@ export default function AssetsPage() {
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            <h3 className="text-sm font-bold text-gray-900 mb-3">Asset Replacements</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-gray-900">Asset Replacements</h3>
+              {canExport && <RelatedExportButton kind="replacements" label="Export Replacements" />}
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -2127,11 +2201,14 @@ export default function AssetsPage() {
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <TrendingDown size={15} className="text-gray-400" />
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                Depreciation (straight-line, {depreciationData?.useful_life_months ?? 36}-month useful life)
-              </p>
+            <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <TrendingDown size={15} className="text-gray-400" />
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Depreciation (straight-line, {depreciationData?.useful_life_months ?? 36}-month useful life)
+                </p>
+              </div>
+              {canExport && <RelatedExportButton kind="depreciation" label="Export Depreciation" />}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

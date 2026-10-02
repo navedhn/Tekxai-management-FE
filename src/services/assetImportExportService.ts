@@ -29,6 +29,51 @@ export async function downloadAssetExport(opts: {
   triggerDownload(blob, `assets-export.${opts.format === 'csv' ? 'csv' : 'xlsx'}`);
 }
 
+/** Phase 2A — related-domain read-only exports (separate from Phase 1 master I/O). */
+export type RelatedAssetExportKind =
+  | 'custody'
+  | 'disposals'
+  | 'replacements'
+  | 'depreciation'
+  | 'maintenance';
+
+const RELATED_EXPORT_PATH: Record<RelatedAssetExportKind, string> = {
+  custody: API_ENDPOINTS.ASSET.EXPORT_CUSTODY,
+  disposals: API_ENDPOINTS.ASSET.EXPORT_DISPOSALS,
+  replacements: API_ENDPOINTS.ASSET.EXPORT_REPLACEMENTS,
+  depreciation: API_ENDPOINTS.ASSET.EXPORT_DEPRECIATION,
+  maintenance: API_ENDPOINTS.ASSET.EXPORT_MAINTENANCE,
+};
+
+const RELATED_EXPORT_FILENAME: Record<RelatedAssetExportKind, string> = {
+  custody: 'custody-events-export',
+  disposals: 'disposals-export',
+  replacements: 'replacements-export',
+  depreciation: 'depreciation-report',
+  maintenance: 'maintenance-export',
+};
+
+export async function downloadRelatedAssetExport(opts: {
+  kind: RelatedAssetExportKind;
+  format: 'xlsx' | 'csv';
+  event_type?: string;
+  asset_id?: string;
+}) {
+  const params = new URLSearchParams({ format: opts.format });
+  if (opts.event_type) params.set('event_type', opts.event_type);
+  if (opts.asset_id) params.set('asset_id', opts.asset_id);
+  const res = await fetch(`${BASE_URL}${RELATED_EXPORT_PATH[opts.kind]}?${params}`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.message || `${opts.kind} export failed`);
+  }
+  const blob = await res.blob();
+  const ext = opts.format === 'csv' ? 'csv' : 'xlsx';
+  triggerDownload(blob, `${RELATED_EXPORT_FILENAME[opts.kind]}.${ext}`);
+}
+
 export async function downloadAssetImportTemplate(format: 'xlsx' | 'csv') {
   const res = await fetch(`${BASE_URL}${API_ENDPOINTS.ASSET.IMPORT_TEMPLATE}?format=${format}`, {
     headers: authHeaders(),
