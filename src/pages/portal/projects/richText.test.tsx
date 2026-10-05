@@ -52,6 +52,34 @@ describe('RichText multi-word mentions', () => {
     expect(screen.queryByText(/^Saleem$/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Co HQ$/)).not.toBeInTheDocument();
   });
+
+  it('highlights lowercase @names when they resolve via mentionMap', () => {
+    const mentionMap = new Map([
+      ['yasmina najm', 'user-yasmina'],
+      ['nicolas zgheib', 'user-nicolas'],
+    ]);
+    render(
+      <RichText
+        content={'Hi @Nicolas Zgheib @yasmina najm ,'}
+        mentionMap={mentionMap}
+      />
+    );
+    const yasmina = screen.getByText('@yasmina najm');
+    expect(yasmina.className).toContain('text-primary-600');
+    expect(screen.getByText('@Nicolas Zgheib').className).toContain('text-primary-600');
+  });
+
+  it('does not highlight lowercase @words that are not known mentions', () => {
+    const { container } = render(<RichText content={'please @todo this later'} />);
+    expect(container.querySelector('.text-primary-600')).toBeNull();
+    expect(container.textContent).toContain('@todo');
+  });
+
+  it('does not treat email addresses as mentions', () => {
+    render(<RichText content={'email me at user@gmail.com thanks'} mentionMap={new Map([['gmail', 'x']])} />);
+    expect(screen.queryByText('@gmail')).not.toBeInTheDocument();
+    expect(screen.getByText(/user@gmail.com/)).toBeInTheDocument();
+  });
 });
 
 describe('extractMessageUrls / MessageLinkPreviews', () => {

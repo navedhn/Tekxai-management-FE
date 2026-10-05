@@ -223,20 +223,43 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
     };
 
     const mirrorContent = useMemo(() => {
-      // Same marker order as RichText: **bold** before *italic*, then @mentions
-      // (including @everyone). Allow any number of Capitalized words so
-      // "@Muhammad Muneeb Saleem" / "@The Sitter Co HQ" highlight in full.
-      // Known-name pattern (longest first) decides the chip vs plain style.
-      const combined = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(@everyone\b)|(@[A-Z][a-zA-Z'-]*(?:\s[A-Z][a-zA-Z'-]*)*)/g;
-      const mentionRe = pattern;
+      // Known names (case-insensitive, longest first) chip first so a
+      // lowercase stored name like "@yasmina najm" highlights. Gaps then
+      // get Title-Case @mentions + **bold** / *italic* — same rules as
+      // RichText, without opening Title-Case to lowercase (which would
+      // greedily swallow "and" / "thanks" after a name).
+      type Hit = { start: number; end: number; kind: 'known' | 'md'; match: RegExpMatchArray };
+      const hits: Hit[] = [];
+      if (pattern) {
+        for (const match of value.matchAll(new RegExp(pattern.source, pattern.flags))) {
+          if (match.index == null) continue;
+          hits.push({ start: match.index, end: match.index + match[0].length, kind: 'known', match });
+        }
+      }
+      const mdRe = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(@everyone\b)|(@[A-Z][a-zA-Z'-]*(?:\s[A-Z][a-zA-Z'-]*)*)/g;
+      for (const match of value.matchAll(mdRe)) {
+        if (match.index == null) continue;
+        const start = match.index;
+        const end = start + match[0].length;
+        if (hits.some((h) => start < h.end && end > h.start)) continue;
+        hits.push({ start, end, kind: 'md', match });
+      }
+      hits.sort((a, b) => a.start - b.start);
+
       const parts: React.ReactNode[] = [];
       let last = 0;
       let i = 0;
-      for (const match of value.matchAll(combined)) {
-        const start = match.index ?? 0;
-        if (start > last) parts.push(value.slice(last, start));
+      for (const hit of hits) {
+        if (hit.start > last) parts.push(value.slice(last, hit.start));
         const key = `m-${i++}`;
-        if (match[1]) {
+        const match = hit.match;
+        if (hit.kind === 'known') {
+          parts.push(
+            <span key={key} className="rounded bg-primary-100 text-primary-700 [font-family:var(--font-communication-sans)]!">
+              {match[0]}
+            </span>
+          );
+        } else if (match[1]) {
           parts.push(
             <span key={key}>
               <span className="text-(--color-text-secondary)/35">**</span>
@@ -255,23 +278,21 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
         } else if (match[5] || match[6]) {
           let token = match[5] || match[6];
           const isEveryone = !!match[5];
-          let isKnown = isEveryone || !!mentionRe?.test(token);
-          if (mentionRe) mentionRe.lastIndex = 0;
-          // If greedy Title Case ate past a known name, shrink to the longest
-          // mentionPattern hit and leave the rest as plain text.
+          let isKnown = isEveryone || !!pattern?.test(token);
+          if (pattern) pattern.lastIndex = 0;
           let remainder = '';
-          if (!isEveryone && !isKnown && mentionRe && token) {
+          if (!isEveryone && !isKnown && pattern && token) {
             const words = token.slice(1).split(/\s+/);
             for (let n = words.length - 1; n >= 1; n--) {
               const candidate = `@${words.slice(0, n).join(' ')}`;
-              if (mentionRe.test(candidate)) {
-                mentionRe.lastIndex = 0;
+              if (pattern.test(candidate)) {
+                pattern.lastIndex = 0;
                 remainder = words.slice(n).join(' ');
                 token = candidate;
                 isKnown = true;
                 break;
               }
-              mentionRe.lastIndex = 0;
+              pattern.lastIndex = 0;
             }
           }
           parts.push(
@@ -281,7 +302,7 @@ const MentionTextarea = forwardRef<HTMLTextAreaElement, Props>(
           );
           if (remainder) parts.push(` ${remainder}`);
         }
-        last = start + match[0].length;
+        last = hit.end;
       }
       parts.push(value.slice(last));
       return parts;

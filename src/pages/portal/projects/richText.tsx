@@ -15,14 +15,60 @@ import { cn } from '@/utils/cn';
 // ChatGPT-style; a line starting with "- " or "* " groups into a bullet
 // list; "1. " numbered lists; everything else is a paragraph, blank lines
 // separate paragraphs.
-// @Mentions: one or more capitalized words after @ (covers "Muhammad Muneeb
-// Saleem" and "The Sitter Co HQ"). Longest known names still win via
-// mentionMap / mentionPattern on the compose side.
+// @Mentions: Title-Case words after @ always highlight (covers "Muhammad
+// Muneeb Saleem" / "The Sitter Co HQ"). Known names from mentionMap also
+// match case-insensitively so a user whose first/last name is stored
+// lowercase (e.g. "yasmina najm") still lights up — without opening the
+// Title-Case regex to lowercase (which would greedily swallow "and" /
+// "thanks" after a name).
 const INLINE_RE =
   /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)|(~~(.+?)~~)|(\[([^\]]+)\]\((https?:\/\/[^)\s]+)\))|(@everyone\b)|(@[A-Z][a-zA-Z'-]*(?:\s[A-Z][a-zA-Z'-]*)*)|(https?:\/\/[^\s<>()"']+)/g;
 
 const IMAGE_URL_RE = /\.(png|jpe?g|gif|webp|svg)(\?[#\w&=%-]*)?$/i;
 const URL_COLLECT_RE = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|(https?:\/\/[^\s<>()"']+)/g;
+
+function escapeRegExp(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Case-insensitive @known-name hits from mentionMap, longest names first. */
+function knownMentionHits(
+  text: string,
+  mentionMap?: Map<string, string>
+): Array<{ start: number; end: number; text: string; id: string }> {
+  if (!mentionMap?.size) return [];
+  const names = [...mentionMap.keys()].filter(Boolean).sort((a, b) => b.length - a.length);
+  if (!names.length) return [];
+  const re = new RegExp(`(?<![\\w])@(${names.map(escapeRegExp).join('|')})(?![\\p{L}\\p{N}])`, 'giu');
+  const hits: Array<{ start: number; end: number; text: string; id: string }> = [];
+  for (const match of text.matchAll(re)) {
+    const id = mentionMap.get(match[1].toLowerCase());
+    if (!id || match.index == null) continue;
+    hits.push({ start: match.index, end: match.index + match[0].length, text: match[0], id });
+  }
+  return hits;
+}
+
+function renderMentionNode(
+  key: string,
+  mentionText: string,
+  mentionedId: string | undefined,
+  onMentionClick?: (userId: string) => void
+): React.ReactNode {
+  if (mentionedId && onMentionClick) {
+    return (
+      <button
+        key={key}
+        type="button"
+        onClick={() => onMentionClick(mentionedId)}
+        className="font-semibold text-primary-600 hover:underline cursor-pointer [font-family:var(--font-communication-sans)]!"
+      >
+        {mentionText}
+      </button>
+    );
+  }
+  return <span key={key} className="font-semibold text-primary-600 [font-family:var(--font-communication-sans)]!">{mentionText}</span>;
+}
 
 /** Unique http(s) URLs from message body, for link / image preview cards. */
 export function extractMessageUrls(content: string, limit = 3): string[] {
@@ -50,18 +96,20 @@ function hostnameOf(url: string): string {
   }
 }
 
-function renderInline(
+/** Title-Case / markdown inline pass — known lowercase names are handled separately. */
+function renderInlineSegment(
   text: string,
   keyPrefix: string,
   mentionMap?: Map<string, string>,
-  onMentionClick?: (userId: string) => void
-): React.ReactNode[] {
+  onMentionClick?: (userId: string) => void,
+  keyStart = 0
+): { nodes: React.ReactNode[]; nextKey: number } {
   const nodes: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
-  let i = 0;
-  INLINE_RE.lastIndex = 0;
-  while ((match = INLINE_RE.exec(text))) {
+  let i = keyStart;
+  const re = new RegExp(INLINE_RE.source, 'g');
+  while ((match = re.exec(text))) {
     if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index));
     const key = `${keyPrefix}-${i++}`;
     if (match[1]) nodes.push(<strong key={key} className="font-bold! [font-family:var(--font-communication-sans)]!">{match[2]}</strong>);
@@ -83,8 +131,8 @@ function renderInline(
     } else if (match[12]) {
       nodes.push(<span key={key} className="font-semibold text-primary-600 [font-family:var(--font-communication-sans)]!">{match[12]}</span>);
     } else if (match[13]) {
-      // Prefer the longest mentionMap hit when the greedy capitalized-word
-      // match over-ate into following Title Case words.
+      // Prefer the longest mentionMap hit when the greedy Title-Case match
+      // over-ate into following Title Case words.
       let mentionText = match[13];
       let remainder = '';
       let mentionedId = mentionMap?.get(mentionText.slice(1).toLowerCase());
@@ -101,20 +149,7 @@ function renderInline(
           }
         }
       }
-      if (mentionedId && onMentionClick) {
-        nodes.push(
-          <button
-            key={key}
-            type="button"
-            onClick={() => onMentionClick(mentionedId)}
-            className="font-semibold text-primary-600 hover:underline cursor-pointer [font-family:var(--font-communication-sans)]!"
-          >
-            {mentionText}
-          </button>
-        );
-      } else {
-        nodes.push(<span key={key} className="font-semibold text-primary-600 [font-family:var(--font-communication-sans)]!">{mentionText}</span>);
-      }
+      nodes.push(renderMentionNode(key, mentionText, mentionedId, onMentionClick));
       if (remainder) nodes.push(` ${remainder}`);
     } else if (match[14]) {
       const urlMatch = /^(.*?)([.,;:]+)$/.exec(match[14]);
@@ -136,6 +171,50 @@ function renderInline(
     lastIndex = match.index + match[0].length;
   }
   if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
+  return { nodes, nextKey: i };
+}
+
+function renderInline(
+  text: string,
+  keyPrefix: string,
+  mentionMap?: Map<string, string>,
+  onMentionClick?: (userId: string) => void
+): React.ReactNode[] {
+  // Pass 1: case-insensitive known names (handles lowercase stored names).
+  // Pass 2: Title-Case heuristic + markdown on the gaps between those hits.
+  const hits = knownMentionHits(text, mentionMap);
+  if (!hits.length) {
+    return renderInlineSegment(text, keyPrefix, mentionMap, onMentionClick).nodes;
+  }
+
+  const nodes: React.ReactNode[] = [];
+  let cursor = 0;
+  let keyN = 0;
+  for (const hit of hits) {
+    if (hit.start > cursor) {
+      const segment = renderInlineSegment(
+        text.slice(cursor, hit.start),
+        keyPrefix,
+        mentionMap,
+        onMentionClick,
+        keyN
+      );
+      nodes.push(...segment.nodes);
+      keyN = segment.nextKey;
+    }
+    nodes.push(renderMentionNode(`${keyPrefix}-k-${keyN++}`, hit.text, hit.id, onMentionClick));
+    cursor = hit.end;
+  }
+  if (cursor < text.length) {
+    const segment = renderInlineSegment(
+      text.slice(cursor),
+      keyPrefix,
+      mentionMap,
+      onMentionClick,
+      keyN
+    );
+    nodes.push(...segment.nodes);
+  }
   return nodes;
 }
 
